@@ -1,0 +1,39 @@
+{
+  "name": "restaurant-pos",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build"
+  },
+  "dependencies": {
+    "@chenfengyuan/vue-barcode": "1.0.1",
+    "@lottiefiles/vue-lottie-player": "^1.1.0",
+    "@microsoft/signalr": "^8.0.17",
+    "axios": "^1.4.0",
+    "bootstrap": "^5.3.0",
+    "bootstrap-vue": "^2.23.1",
+    "jsbarcode": "3",
+    "lottie-vuejs": "^0.4.0",
+    "vue": "^2.7.14",
+    "vue-axios": "^3.5.2",
+    "vue-flag-icon": "^2.1.0",
+    "vue-html-to-paper": "^2.0.3",
+    "vue-i18n": "8",
+    "vue-multiselect": "^2.1.7",
+    "vue-router": "^3.5.1",
+    "vue-toast-notification": "^3.1.1",
+    "vue-toastification": "^1.7.14",
+    "vuex": "^4.1.0"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-router": "~5.0.0",
+    "@vue/cli-service": "~5.0.0",
+    "vue-template-compiler": "^2.6.14"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+}

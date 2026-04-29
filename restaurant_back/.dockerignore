@@ -1,0 +1,112 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/publish/
+**/dist/
+
+# Visual Studio files
+**/.vs/
+**/.vscode/
+**/*.user
+**/*.suo
+**/*.userosscache
+**/*.sln.docstates
+
+# User-specific files
+**/.user
+**/.suo
+**/.userosscache
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# NuGet Packages
+**/*.nupkg
+**/packages/
+**/nuget.exe
+
+# Test results
+**/[Tt]est[Rr]esult*/
+**/[Bb]uild[Ll]og.*
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Visual Studio cache/options
+.vs/
+.vscode/
+
+# Rider
+.idea/
+*.sln.iml
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Documentation
+*.md
+!README.md
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Print Server (separate service)
+PrintServer/
+
+# Build scripts
+*.bat
+*.sh
+!start_print_server.bat
+!start_print_server.sh
+
+# Config files that should be set via environment variables
+**/appsettings.Development.json
+**/appsettings.Production.json
+

@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: restaurant_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: restaurant_pos
+      MYSQL_USER: restaurant_user
+      MYSQL_PASSWORD: restaurant_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - restaurant_network
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  restaurant-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: restaurant_api
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./RestaurantPOS/wwwroot/Images:/app/wwwroot/Images
+      - ./RestaurantPOS/appsettings.Docker.json:/app/appsettings.Docker.json:ro
+    depends_on:
+      - mysql
+    networks:
+      - restaurant_network
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ASPNETCORE_URLS=http://+:5000
+
+volumes:
+  mysql_data:
+
+networks:
+  restaurant_network:
+    driver: bridge

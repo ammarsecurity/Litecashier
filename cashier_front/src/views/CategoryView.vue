@@ -1,0 +1,560 @@
+<template>
+    <b-overlay :show="show" spinner-variant="primary" spinner-type="grow" spinner-large rounded="sm">
+        <SidebarView />
+        <div class="main-content-wrapper">
+            <div class="users-page-container">
+                <div class="users-page-content">
+                    <!-- Header Section -->
+                    <div class="users-header-section">
+                        <div class="users-header-content">
+                            <h1 class="users-page-title">{{ $t('all_categories') }}</h1>
+                            <button class="users-add-button" v-b-modal.modal-addTags>
+                                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                                <span class="button-text">{{ $t('add_category') }}</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Search Section -->
+                    <div class="users-search-section">
+                        <div class="users-search-container">
+                            <b-icon icon="search" class="search-icon"></b-icon>
+                            <input 
+                                v-model="search.info" 
+                                type="search" 
+                                :placeholder="$t('search')"
+                                class="users-search-input"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- Categories Table -->
+                    <div class="categories-table-container">
+                        <b-table
+                            :items="Tagss"
+                            :fields="categoryFields"
+                            striped
+                            hover
+                            responsive
+                            class="categories-table"
+                        >
+                            <template #cell(name)="row">
+                                <div class="category-name-cell">
+                                    <b-icon icon="tags-fill" class="category-icon"></b-icon>
+                                    <span class="category-name-text">{{ row.item.name }}</span>
+                                </div>
+                            </template>
+
+                            <template #cell(actions)="row">
+                                <div class="category-actions-cell">
+                                    <button 
+                                        class="category-action-btn edit-btn" 
+                                        @click="getTagsInfo(row.item)"
+                                        :title="$t('edit')"
+                                    >
+                                        <b-icon icon="pencil-fill"></b-icon>
+                                    </button>
+                                    <button 
+                                        class="category-action-btn delete-btn" 
+                                        @click="deleteTagsModel(row.item.id)"
+                                        :title="$t('delete')"
+                                    >
+                                        <b-icon icon="trash-fill"></b-icon>
+                                    </button>
+                                </div>
+                            </template>
+                        </b-table>
+
+                        <!-- Pagination -->
+                        <div class="pagination-container" v-if="totalPages > 1">
+                            <b-pagination
+                                v-model="pageNumber"
+                                :total-rows="totalTagss"
+                                :per-page="pageSize"
+                                :limit="7"
+                                first-number
+                                last-number
+                                @change="onPageChange"
+                                class="categories-pagination"
+                            ></b-pagination>
+                            <div class="pagination-info">
+                                <span>{{ $t('showing') || 'عرض' }} {{ ((pageNumber - 1) * pageSize) + 1 }} - {{ Math.min(pageNumber * pageSize, totalTagss) }} {{ $t('of') || 'من' }} {{ totalTagss }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Category Modal -->
+            <b-modal id="modal-addTags" :title="$t('add_new_category')" hide-header hide-footer class="users-modal">
+                <div class="modal-content-wrapper">
+                    <h2 class="modal-title">{{ $t('add_new_category') }}</h2>
+                    <form @submit.prevent="addTags" class="users-form">
+                        <div class="users-form-group">
+                            <label class="users-form-label">
+                                <b-icon icon="tags-fill" class="form-label-icon"></b-icon>
+                                {{ $t('category_name') }}
+                            </label>
+                            <input 
+                                id="inputName" 
+                                v-model="addForm.name" 
+                                type="text"
+                                :placeholder="$t('category_name')" 
+                                required 
+                                class="users-form-input"
+                            />
+                        </div>
+                        <div class="users-form-actions">
+                            <button type="submit" class="users-form-submit-button" :disabled="show == true">
+                                <b-spinner small v-if="show == true" class="me-2"></b-spinner>
+                                <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                                {{ $t('add') }}
+                            </button>
+                            <button type="button" class="users-form-cancel-button" @click="closeModel('modal-addTags')">
+                                <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                                {{ $t('close') }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </b-modal>
+
+            <!-- Edit Category Modal -->
+            <b-modal id="modal-editTags" :title="$t('edit_account')" hide-header hide-footer class="users-modal">
+                <div class="modal-content-wrapper">
+                    <h2 class="modal-title">{{ $t('edit_account') }}</h2>
+                    <form @submit.prevent="EditTags" class="users-form">
+                        <div class="users-form-group">
+                            <label class="users-form-label">
+                                <b-icon icon="tags-fill" class="form-label-icon"></b-icon>
+                                {{ $t('category_name') }}
+                            </label>
+                            <input 
+                                id="editInputName" 
+                                v-model="editForm.name" 
+                                type="text" 
+                                :placeholder="$t('category_name')"
+                                required 
+                                class="users-form-input"
+                            />
+                        </div>
+                        <div class="users-form-actions">
+                            <button type="submit" class="users-form-submit-button" :disabled="show == true">
+                                <b-spinner small v-if="show == true" class="me-2"></b-spinner>
+                                <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                                {{ $t('edit') }}
+                            </button>
+                            <button type="button" class="users-form-cancel-button" @click="closeModel('modal-editTags')">
+                                <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                                {{ $t('close') }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </b-modal>
+
+            <!-- Delete Confirmation Modal -->
+            <b-modal id="modal-delete" :title="$t('confirm_delete')" hide-header hide-footer class="users-modal">
+                <div class="modal-content-wrapper">
+                    <div class="delete-confirmation-content">
+                        <div class="delete-icon-wrapper">
+                            <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
+                        </div>
+                        <h3 class="delete-confirmation-title">{{ $t('confirm_delete') }}</h3>
+                        <p class="delete-confirmation-text">{{ $t('areYouSureDeleteUser') || 'هل أنت متأكد من حذف هذا التصنيف؟' }}</p>
+                        <div class="delete-confirmation-actions">
+                            <button class="delete-confirm-button" @click="deleteTags('modal-delete')">
+                                <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                                {{ $t('delete') }}
+                            </button>
+                            <button class="delete-cancel-button" @click="closeModel('modal-delete')">
+                                <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                                {{ $t('cancel') }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </b-modal>
+        </div>
+    </b-overlay>
+</template>
+<script>
+import SidebarView from "@/components/Layout/SidebarView.vue";
+import ClockVue from "@/components/ClockVue.vue";
+import VueBarcode from "@chenfengyuan/vue-barcode";
+import { HTTP } from '../http/api.js';
+export default {
+    name: "TagssView",
+    components: {
+        SidebarView,
+        ClockVue,
+        "vue-barcode": VueBarcode,
+
+    },
+    data() {
+        return {
+            show: false,
+            search: "",
+            Tagss: [],
+            pageNumber: 1,
+            totalTagss: 0,
+            pageSize: 10,
+            search: {
+                info: "",
+            },
+            SearchTagss: [],
+            totalCardTagss: 0,
+            TagsInfo: {},
+            editForm: {
+                name: "",
+                phoneNumber: "",
+                Tagsname: "",
+                role: "",
+                id: "",
+            },
+            addForm: {
+                name: "",
+                isForAll: false,
+            },
+            TagsId: '',
+        };
+    },
+
+    watch: {
+
+        search: {
+            handler() {
+                this.GetAllTagss();
+            },
+            deep: true,
+        },
+
+        pageNumber() {
+            this.GetAllTagss();
+        },
+    },
+
+    mounted() {
+        this.GetAllTagss();
+    },
+
+    computed: {
+        role() {
+            return localStorage.getItem("role");
+        },
+        categoryFields() {
+            return [
+                {
+                    key: 'name',
+                    label: this.$t('category_name') || 'اسم التصنيف',
+                    sortable: true,
+                    thClass: 'category-header-cell'
+                },
+                {
+                    key: 'actions',
+                    label: this.$t('actions') || 'الإجراءات',
+                    sortable: false,
+                    thClass: 'category-header-cell'
+                }
+            ];
+        },
+        totalPages() {
+            return Math.ceil(this.totalTagss / this.pageSize);
+        }
+    },
+
+    methods: {
+        deleteTagsModel(id) {
+            this.TagsId = id;
+            this.$bvModal.show("modal-delete");
+        },
+        getTagsInfo(Tags) {
+            this.editForm = Tags;
+            this.$bvModal.show("modal-editTags");
+        },
+        addTags() {
+
+            this.show = true;
+            HTTP.post(`Admin/AddTag`, this.addForm)
+                .then((response) => {
+                    this.show = false;
+                    this.$toast.success(this.$i18n.t('TagsHasbeenAddedSuccessfully'), {
+                        position: "top-right",
+                        timeout: 4000,
+                        closeOnClick: true,
+                        pauseOnFocusLoss: true,
+                        pauseOnHover: true,
+                        draggable: true,
+                        draggablePercent: 0.6,
+                        showCloseButtonOnHover: false,
+                        hideProgressBar: true,
+                        closeButton: "button",
+                        icon: true,
+                        
+                    });
+                    this.addForm.name = '';
+                    this.addForm.password = '';
+                    this.addForm.phoneNumber = 0;
+                    this.addForm.Tagsname = 0;
+                    this.addForm.role = '';
+                    this.GetAllTagss();
+                    this.$bvModal.hide('modal-addTags');
+                })
+                .catch((error) => {
+                    this.show = false;
+                    this.$toast.error(this.$i18n.t('somethingWrong'), {
+                        position: "top-right",
+                        timeout: 4000,
+                        closeOnClick: true,
+                        pauseOnFocusLoss: true,
+                        pauseOnHover: true,
+                        draggable: true,
+                        draggablePercent: 0.6,
+                        showCloseButtonOnHover: false,
+                        hideProgressBar: true,
+                        closeButton: "button",
+                        icon: true,
+                        
+                    });
+                });
+        },
+        EditTags() {
+            this.show = true;
+            HTTP.put(`Admin/UpdateTag?id=${this.editForm.id}`, this.editForm)
+                .then((response) => {
+                    this.show = false;
+                    this.$toast.success(this.$i18n.t('TagsHadbeenEditSuccessfully'), {
+                        position: "top-right",
+                        timeout: 4000,
+                        closeOnClick: true,
+                        pauseOnFocusLoss: true,
+                        pauseOnHover: true,
+                        draggable: true,
+                        draggablePercent: 0.6,
+                        showCloseButtonOnHover: false,
+                        hideProgressBar: true,
+                        closeButton: "button",
+                        icon: true,
+                        
+                    });
+                    this.GetAllTagss();
+                    this.$bvModal.hide('modal-editTags');
+                })
+                .catch((error) => {
+                    this.show = false;
+                    this.$toast.error(this.$i18n.t('somethingWrong'), {
+                        position: "top-right",
+                        timeout: 4000,
+                        closeOnClick: true,
+                        pauseOnFocusLoss: true,
+                        pauseOnHover: true,
+                        draggable: true,
+                        draggablePercent: 0.6,
+                        showCloseButtonOnHover: false,
+                        hideProgressBar: true,
+                        closeButton: "button",
+                        icon: true,
+                        
+                    });
+                });
+        },
+
+        deleteTags(modelId) {
+            this.show = true;
+            HTTP.delete(`Admin/DeleteTag?id=${this.TagsId}`)
+                .then((response) => {
+                    this.show = false;
+                    this.$toast.success(this.$i18n.t('TagsHadbeenDeleteSuccessfully'), {
+                        position: "top-right",
+                        timeout: 4000,
+                        closeOnClick: true,
+                        pauseOnFocusLoss: true,
+                        pauseOnHover: true,
+                        draggable: true,
+                        draggablePercent: 0.6,
+                        showCloseButtonOnHover: false,
+                        hideProgressBar: true,
+                        closeButton: "button",
+                        icon: true,
+                        
+                    });
+                    this.GetAllTagss();
+                    this.$bvModal.hide(modelId);
+
+                })
+                .catch((error) => {
+                    this.show = false;
+                    this.$toast.error(this.$i18n.t('somethingWrong'), {
+                        position: "top-right",
+                        timeout: 4000,
+                        closeOnClick: true,
+                        pauseOnFocusLoss: true,
+                        pauseOnHover: true,
+                        draggable: true,
+                        draggablePercent: 0.6,
+                        showCloseButtonOnHover: false,
+                        hideProgressBar: true,
+                        closeButton: "button",
+                        icon: true,
+                        
+                    });
+                });
+        },
+
+
+        closeModel(id) {
+            this.$bvModal.hide(id);
+        },
+
+
+        GetAllTagss() {
+            this.show = true;
+            HTTP.get(`Admin/GetTags?pageNumber=${this.pageNumber - 1}&pageSize=${this.pageSize}&info=${this.search.info}`)
+                .then((response) => {
+                    this.Tagss = response.data.data.items;
+                    this.totalTagss = response.data.data.totalItems;
+                    this.show = false;
+                })
+                .catch((error) => {
+                    this.show = false;
+                });
+        },
+        onPageChange(page) {
+            this.pageNumber = page;
+            this.GetAllTagss();
+        },
+
+    },
+
+
+};
+</script>
+
+<style scoped>
+.categories-table-container {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-top: 1.5rem;
+}
+
+.categories-table {
+  margin: 0;
+}
+
+.categories-table >>> thead th {
+  background-color: #f9fafb;
+  color: #374151;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.categories-table >>> tbody td {
+  padding: 1rem;
+  vertical-align: middle;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.categories-table >>> tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+.category-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.category-icon {
+  color: var(--primary-color);
+  font-size: 1.25rem;
+}
+
+.category-name-text {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: #111827;
+}
+
+.category-actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.category-action-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.category-action-btn.edit-btn {
+  background-color: #eff6ff;
+  color: #2563eb;
+}
+
+.category-action-btn.edit-btn:hover {
+  background-color: #2563eb;
+  color: white;
+  transform: scale(1.05);
+}
+
+.category-action-btn.delete-btn {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.category-action-btn.delete-btn:hover {
+  background-color: #991b1b;
+  color: white;
+  transform: scale(1.05);
+}
+
+.category-action-btn:active {
+  transform: scale(0.95);
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
+}
+
+.pagination-info {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.categories-pagination >>> .page-link {
+  color: var(--text-primary);
+  border-color: var(--border-color);
+  background-color: var(--bg-tertiary);
+}
+
+.categories-pagination >>> .page-item.active .page-link {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #ffffff;
+}
+
+.categories-pagination >>> .page-link:hover {
+  background-color: rgba(99, 102, 241, 0.1);
+  border-color: var(--border-dark);
+  color: var(--primary-color);
+}
+</style>

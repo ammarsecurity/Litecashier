@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  restaurant-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: restaurant_api_prod
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./RestaurantPOS/wwwroot/Images:/app/wwwroot/Images
+      - ./RestaurantPOS/appsettings.json:/app/appsettings.json:ro
+    networks:
+      - restaurant_network
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+
+networks:
+  restaurant_network:
+    driver: bridge
