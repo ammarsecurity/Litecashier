@@ -7,6 +7,7 @@ using RestaurantPOS.Models;
 using RestaurantPOS.Models.Requests;
 using RestaurantPOS.Models.Response;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace RestaurantPOS.Controllers
 {
@@ -53,11 +54,17 @@ namespace RestaurantPOS.Controllers
                     var adds = g.Where(m => m.MovementType == "Add").Sum(m => m.Quantity);
                     var withdraws = g.Where(m => m.MovementType == "Withdraw").Sum(m => m.Quantity);
                     var lastAdd = g.Where(m => m.MovementType == "Add").OrderByDescending(m => m.InsertDate).FirstOrDefault();
+                    var lastMovement = g.OrderByDescending(m => m.InsertDate).FirstOrDefault();
                     return new
                     {
                         materialName = g.Key,
                         currentQuantity = adds - withdraws,
-                        unitType = lastAdd?.UnitType ?? ""
+                        totalAdded = adds,
+                        totalWithdrawn = withdraws,
+                        unitType = lastAdd?.UnitType ?? "",
+                        lastSupplierName = lastAdd?.SupplierName ?? "",
+                        lastReceiptNumber = ExtractReceiptNumber(lastAdd?.Notes),
+                        lastMovementDate = lastMovement?.InsertDate
                     };
                 })
                 .Where(x => string.IsNullOrWhiteSpace(info) || x.materialName.Contains(info!.Trim()))
@@ -82,6 +89,7 @@ namespace RestaurantPOS.Controllers
             int pageSize = 50,
             string? materialName = null,
             string? movementType = null,
+            string? receiptNumber = null,
             DateTime? startDate = null,
             DateTime? endDate = null)
         {
@@ -93,6 +101,8 @@ namespace RestaurantPOS.Controllers
                 query = query.Where(x => x.MaterialName.Contains(materialName.Trim()));
             if (!string.IsNullOrWhiteSpace(movementType) && (movementType == "Add" || movementType == "Withdraw"))
                 query = query.Where(x => x.MovementType == movementType);
+            if (!string.IsNullOrWhiteSpace(receiptNumber))
+                query = query.Where(x => x.Notes != null && x.Notes.Contains($"ReceiptNumber:{receiptNumber.Trim()}"));
             if (startDate.HasValue)
                 query = query.Where(x => x.InsertDate >= startDate.Value);
             if (endDate.HasValue)
@@ -112,7 +122,8 @@ namespace RestaurantPOS.Controllers
                     supplierName = x.SupplierName,
                     amount = x.Amount,
                     unitType = x.UnitType,
-                    notes = x.Notes,
+                    receiptNumber = ExtractReceiptNumber(x.Notes),
+                    notes = CleanNotesFromReceiptNumber(x.Notes),
                     receiptAttachmentPath = x.ReceiptAttachmentPath,
                     insertDate = x.InsertDate
                 })
@@ -197,6 +208,7 @@ namespace RestaurantPOS.Controllers
             [FromForm] string? supplierName,
             [FromForm] decimal amount,
             [FromForm] string? unitType,
+            [FromForm] string? receiptNumber,
             [FromForm] string? notes,
             [FromForm] IFormFile? receiptFile)
         {
@@ -230,7 +242,7 @@ namespace RestaurantPOS.Controllers
                 Amount = amount,
                 UnitType = unitType?.Trim(),
                 ReceiptAttachmentPath = receiptPath,
-                Notes = notes?.Trim(),
+                Notes = BuildNotesWithReceiptNumber(receiptNumber, notes),
                 InsertByUserId = commercialUserId
             };
             _dbConfig.StockMovements.Add(movement);
@@ -241,6 +253,77 @@ namespace RestaurantPOS.Controllers
                 Data = new { movementId = movement.Id },
                 ErrorStatus = false,
                 Message = "تمت إضافة الكمية إلى المخزن بنجاح"
+            });
+        }
+
+        /// <summary>إضافة دخول مخزون متعددة ضمن وصل واحد</summary>
+        [HttpPost("AddStockBatch")]
+        public async Task<ActionResult<GlobalResponse<object>>> AddStockBatch(
+            [FromForm] string? supplierName,
+            [FromForm] string? receiptNumber,
+            [FromForm] string? notes,
+            [FromForm] string itemsJson,
+            [FromForm] IFormFile? receiptFile)
+        {
+            if (string.IsNullOrWhiteSpace(itemsJson))
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "قائمة المواد مطلوبة" });
+
+            List<AddStockBatchItem>? parsedItems;
+            try
+            {
+                parsedItems = JsonSerializer.Deserialize<List<AddStockBatchItem>>(itemsJson, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = $"تنسيق قائمة المواد غير صحيح: {ex.Message}" });
+            }
+
+            var validItems = (parsedItems ?? new List<AddStockBatchItem>())
+                .Where(x => !string.IsNullOrWhiteSpace(x.MaterialName) && x.Quantity > 0)
+                .ToList();
+
+            if (!validItems.Any())
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "يجب إدخال مادة واحدة على الأقل مع كمية صحيحة" });
+
+            var commercialUserId = GetCommercialUserId();
+            string? receiptPath = null;
+            if (receiptFile != null && receiptFile.Length > 0)
+            {
+                try
+                {
+                    receiptPath = await UploadReceiptAsync(receiptFile);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Receipt upload failed");
+                    return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "فشل رفع مرفق الوصل: " + ex.Message });
+                }
+            }
+
+            var movements = validItems.Select(item => new StockMovement
+            {
+                MaterialName = item.MaterialName.Trim(),
+                MovementType = "Add",
+                Quantity = item.Quantity,
+                SupplierName = supplierName?.Trim(),
+                Amount = item.Amount ?? (item.UnitPrice * item.Quantity),
+                UnitType = item.UnitType?.Trim(),
+                ReceiptAttachmentPath = receiptPath,
+                Notes = BuildNotesWithReceiptNumber(receiptNumber, notes),
+                InsertByUserId = commercialUserId
+            }).ToList();
+
+            _dbConfig.StockMovements.AddRange(movements);
+            await _dbConfig.SaveChangesAsync();
+
+            return Ok(new GlobalResponse<object>
+            {
+                Data = new { count = movements.Count },
+                ErrorStatus = false,
+                Message = "تمت إضافة قائمة المواد إلى المخزن بنجاح"
             });
         }
 
@@ -301,6 +384,73 @@ namespace RestaurantPOS.Controllers
             using (var stream = new FileStream(filePath, FileMode.Create))
                 await file.CopyToAsync(stream);
             return uniqueName;
+        }
+
+        private static string? BuildNotesWithReceiptNumber(string? receiptNumber, string? notes)
+        {
+            var normalizedReceiptNumber = receiptNumber?.Trim();
+            var normalizedNotes = notes?.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedReceiptNumber))
+            {
+                return string.IsNullOrWhiteSpace(normalizedNotes) ? null : normalizedNotes;
+            }
+
+            if (string.IsNullOrWhiteSpace(normalizedNotes))
+            {
+                return $"ReceiptNumber:{normalizedReceiptNumber}";
+            }
+
+            return $"ReceiptNumber:{normalizedReceiptNumber}\n{normalizedNotes}";
+        }
+
+        private static string? ExtractReceiptNumber(string? notes)
+        {
+            if (string.IsNullOrWhiteSpace(notes))
+            {
+                return null;
+            }
+
+            const string prefix = "ReceiptNumber:";
+            if (!notes.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var firstLine = notes.Split('\n', StringSplitOptions.None)[0];
+            var number = firstLine.Substring(prefix.Length).Trim();
+            return string.IsNullOrWhiteSpace(number) ? null : number;
+        }
+
+        private static string? CleanNotesFromReceiptNumber(string? notes)
+        {
+            if (string.IsNullOrWhiteSpace(notes))
+            {
+                return null;
+            }
+
+            const string prefix = "ReceiptNumber:";
+            if (!notes.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return notes;
+            }
+
+            var parts = notes.Split('\n', 2, StringSplitOptions.None);
+            if (parts.Length < 2)
+            {
+                return null;
+            }
+
+            var cleaned = parts[1].Trim();
+            return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
+        }
+
+        private class AddStockBatchItem
+        {
+            public string MaterialName { get; set; } = string.Empty;
+            public decimal Quantity { get; set; }
+            public decimal UnitPrice { get; set; }
+            public decimal? Amount { get; set; }
+            public string? UnitType { get; set; }
         }
     }
 }

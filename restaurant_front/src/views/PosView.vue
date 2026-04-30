@@ -405,6 +405,65 @@
                       :placeholder="$t('enterPagerNumber') || 'أدخل رقم جهاز النداء...'"
                     />
                   </div>
+                  <div class="order-notes-input-wrapper order-discount-wrapper">
+                    <label class="order-notes-label">{{ $t("orderDiscount") || "خصم الطلب" }}</label>
+                    <div class="order-discount-type-toggle">
+                      <button
+                        type="button"
+                        class="order-discount-type-btn"
+                        :class="{ 'order-discount-type-btn-active': orderDiscountType === 'amount' }"
+                        @click="orderDiscountType = 'amount'"
+                      >
+                        {{ $t("discountByAmount") || "مبلغ" }}
+                      </button>
+                      <button
+                        type="button"
+                        class="order-discount-type-btn"
+                        :class="{ 'order-discount-type-btn-active': orderDiscountType === 'percentage' }"
+                        @click="orderDiscountType = 'percentage'"
+                      >
+                        {{ $t("discountByPercentage") || "نسبة" }}
+                      </button>
+                    </div>
+                    <div class="order-discount-input-row">
+                      <input
+                        v-model.number="orderDiscountValue"
+                        type="number"
+                        min="0"
+                        :max="orderDiscountType === 'percentage' ? 100 : null"
+                        class="order-notes-input"
+                        :placeholder="orderDiscountType === 'percentage' ? (($t('discountPercentPlaceholder') || 'ادخل النسبة %')) : (($t('discountAmountPlaceholder') || 'ادخل مبلغ الخصم'))"
+                      />
+                      <button type="button" class="order-discount-clear-btn" @click="clearOrderDiscount">
+                        {{ $t("clear") || "مسح" }}
+                      </button>
+                    </div>
+                    <div class="order-discount-presets">
+                      <button
+                        v-for="preset in orderDiscountPresets"
+                        :key="preset.id"
+                        type="button"
+                        class="order-discount-preset-btn"
+                        @click="applyOrderDiscountPreset(preset)"
+                      >
+                        {{ preset.label }} {{ preset.type === 'amount' ? $t("currency") : "" }}
+                      </button>
+                    </div>
+                    <div class="order-discount-preview">
+                      <div class="order-discount-preview-row">
+                        <span>{{ $t("subtotal") || "المجموع قبل الخصم" }}</span>
+                        <strong>{{ formatPrice(totaPrice) }} {{ $t("currency") }}</strong>
+                      </div>
+                      <div class="order-discount-preview-row">
+                        <span>{{ $t("discountLabel") || "الخصم" }} ({{ orderDiscountPreviewLabel }})</span>
+                        <strong>- {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}</strong>
+                      </div>
+                      <div class="order-discount-preview-row order-discount-preview-row-total">
+                        <span>{{ $t("totalLabel") || "الإجمالي" }}</span>
+                        <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
+                      </div>
+                    </div>
+                  </div>
                   <div class="order-notes-actions">
                     <button class="order-notes-confirm-button" @click="confirmAddOrder">
                       <b-icon icon="check-circle-fill" class="me-2"></b-icon>
@@ -419,12 +478,179 @@
               </div>
             </b-modal>
 
-          <!-- Cart Section -->
-          <div
-            class="pos-cart-section"
-            :class="{ 'pos-cart-section--mobile-open': posMobileCartOpen }"
+            <!-- Delivery Information Modal -->
+            <b-modal
+              id="modal-delivery-info"
+              modal-class="users-modal pos-delivery-modal"
+              hide-header
+              hide-footer
+              centered
+              size="lg"
+            >
+              <div class="modal-content-wrapper">
+                <div class="pos-modal-custom-header">
+                  <h3 class="delete-confirmation-title mb-0">
+                    {{ $t('deliveryInformation') || 'معلومات التوصيل' }}
+                  </h3>
+                  <button class="pos-modal-close-btn" @click="$bvModal.hide('modal-delivery-info')">
+                    <b-icon icon="x-lg" class="me-2"></b-icon>
+                    {{ $t("close") || "إغلاق" }}
+                  </button>
+                </div>
+                <div class="delivery-info-section">
+                <form class="users-form">
+                  <div class="users-form-group">
+                    <label class="users-form-label">
+                      <b-icon icon="person-badge-fill" class="form-label-icon"></b-icon>
+                      {{ $t("customerName") || "اسم المستلم" }} <span class="required">*</span>
+                    </label>
+                    <input
+                      v-model="orderForSend.deliveryCustomerName"
+                      type="text"
+                      class="users-form-input"
+                      :placeholder="$t('enterCustomerName') || 'أدخل اسم المستلم'"
+                      required
+                    />
+                  </div>
+
+                  <div class="users-form-group">
+                    <label class="users-form-label">
+                      <b-icon icon="telephone-fill" class="form-label-icon"></b-icon>
+                      {{ $t("deliveryPhoneNumber") || "رقم هاتف المستلم" }} <span class="required">*</span>
+                    </label>
+                    <input
+                      v-model="orderForSend.deliveryPhoneNumber"
+                      type="text"
+                      class="users-form-input"
+                      :placeholder="$t('enterPhoneNumber') || 'أدخل رقم الهاتف'"
+                      required
+                    />
+                  </div>
+
+                  <div class="users-form-group">
+                    <label class="users-form-label">
+                      <b-icon icon="geo-alt-fill" class="form-label-icon"></b-icon>
+                      {{ $t("deliveryAddress") || "عنوان التوصيل" }} <span class="required">*</span>
+                    </label>
+                    <textarea
+                      v-model="orderForSend.deliveryAddress"
+                      class="users-form-input"
+                      rows="2"
+                      :placeholder="$t('enterDeliveryAddress') || 'أدخل عنوان التوصيل'"
+                      required
+                    ></textarea>
+                  </div>
+
+                  <div class="users-form-group">
+                    <label class="users-form-label">
+                      <b-icon icon="cash-coin" class="form-label-icon"></b-icon>
+                      {{ $t("deliveryFee") || "رسوم التوصيل" }}
+                    </label>
+                    <input
+                      v-model.number="orderForSend.deliveryFee"
+                      type="number"
+                      class="users-form-input"
+                      min="0"
+                      step="0.01"
+                      :placeholder="$t('enterDeliveryFee') || 'أدخل رسوم التوصيل (اختياري)'"
+                    />
+                  </div>
+
+                  <div class="users-form-group">
+                    <label class="users-form-label">
+                      <b-icon icon="truck" class="form-label-icon"></b-icon>
+                      {{ $t("driverSelection") || "اختيار السائق" }}
+                    </label>
+                    <div class="delivery-radio-group">
+                      <label class="delivery-radio-label">
+                        <input
+                          type="radio"
+                          v-model="useExistingDriver"
+                          :value="true"
+                          class="delivery-radio-input"
+                        />
+                        <span class="delivery-radio-text">{{ $t("useExistingDriver") || "استخدام سائق موجود" }}</span>
+                      </label>
+                      <label class="delivery-radio-label">
+                        <input
+                          type="radio"
+                          v-model="useExistingDriver"
+                          :value="false"
+                          class="delivery-radio-input"
+                        />
+                        <span class="delivery-radio-text">{{ $t("addNewDriver") || "إضافة سائق جديد" }}</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div v-if="useExistingDriver" class="users-form-group">
+                    <label class="users-form-label">
+                      <b-icon icon="person-badge" class="form-label-icon"></b-icon>
+                      {{ $t("selectDriver") || "اختر السائق" }}
+                    </label>
+                    <select
+                      v-model="orderForSend.deliveryDriverId"
+                      class="users-form-select"
+                      :disabled="loadingDeliveryDrivers"
+                    >
+                      <option value="">{{ $t("selectDriver") || "اختر السائق" }}</option>
+                      <option
+                        v-for="driver in deliveryDrivers.filter(d => d.isActive)"
+                        :key="driver.id"
+                        :value="driver.id"
+                      >
+                        {{ driver.name }} - {{ driver.phoneNumber }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div v-else class="users-form-group">
+                    <button
+                      type="button"
+                      class="delivery-add-btn"
+                      @click="showAddDriverModal = true"
+                    >
+                      <b-icon icon="person-plus-fill" class="me-2"></b-icon>
+                      {{ $t("addNewDriver") || "إضافة سائق جديد" }}
+                    </button>
+                  </div>
+
+                  <div class="order-notes-actions mt-3">
+                    <button
+                      type="button"
+                      class="order-notes-confirm-button"
+                      @click="$bvModal.hide('modal-delivery-info')"
+                    >
+                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                      {{ $t("confirmButton") || "تأكيد" }}
+                    </button>
+                  </div>
+                </form>
+                </div>
+              </div>
+            </b-modal>
+
+          <!-- Cart Modal -->
+          <b-modal
+            id="modal-pos-cart"
+            v-model="posMobileCartOpen"
+            modal-class="users-modal pos-cart-modal"
+            hide-header
+            hide-footer
+            centered
+            size="xl"
+            body-class="p-0"
           >
-              <div class="pos-mobile-cart-handle" aria-hidden="true"></div>
+              <div class="modal-content-wrapper">
+                <div class="pos-modal-custom-header">
+                  <h3 class="delete-confirmation-title mb-0">
+                    {{ $t("cart") || 'السلة' }}
+                  </h3>
+                  <button class="pos-modal-close-btn" @click.stop="closePosMobileCart">
+                    <b-icon icon="x-lg" class="me-2"></b-icon>
+                    {{ $t("close") || "إغلاق" }}
+                  </button>
+                </div>
               <div class="pos-cart-container" ref="posCartScrollArea">
                 <!-- Cart Items List -->
                 <div class="pos-cart-items-section">
@@ -550,6 +776,15 @@
                     </span>
                     <span class="pos-cart-summary-value">{{ totalCardItems }} {{ $t("itemLabel") }}</span>
                   </div>
+                  <div class="pos-cart-summary-row" v-if="orderDiscountAmount > 0">
+                    <span class="pos-cart-summary-label">
+                      <b-icon icon="tag-fill" class="me-2"></b-icon>
+                      {{ $t("discountLabel") || "الخصم" }}:
+                    </span>
+                    <span class="pos-cart-summary-value">
+                      - {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}
+                    </span>
+                  </div>
                   <div class="pos-cart-summary-row pos-cart-total-row">
                     <span class="pos-cart-summary-label">
                       <b-icon icon="currency-dollar" class="me-2"></b-icon>
@@ -661,153 +896,37 @@
                   </div>
                 </div>
 
-                <!-- Delivery (accordion on narrow screens) -->
+                <!-- Delivery (open large modal for better usability) -->
                 <div v-if="orderForSend.orderType === 'Delivery'" class="pos-mobile-cart-accordion">
                   <button
                     type="button"
                     class="pos-mobile-cart-accordion-trigger"
-                    @click="posCartAccordionDeliveryOpen = !posCartAccordionDeliveryOpen"
-                    :aria-expanded="posCartAccordionDeliveryOpen ? 'true' : 'false'"
+                    @click="openDeliveryInfoModal"
+                    aria-expanded="false"
                   >
                     <span class="pos-mobile-cart-accordion-trigger-label">
                       <b-icon icon="truck" class="me-2"></b-icon>
-                      {{ $t("posCartAccordionDelivery") }}
+                      {{ $t("deliveryInformation") || "معلومات التوصيل" }}
                     </span>
-                    <b-icon
-                      :icon="posCartAccordionDeliveryOpen ? 'chevron-up' : 'chevron-down'"
-                      class="pos-mobile-cart-accordion-chevron"
-                    />
+                    <b-icon icon="box-arrow-up-right" class="pos-mobile-cart-accordion-chevron" />
                   </button>
-                  <div
-                    v-show="posCartAccordionDeliveryOpen"
-                    class="pos-mobile-cart-accordion-panel pos-mobile-cart-accordion-panel--delivery"
-                  >
+                  <div class="pos-mobile-cart-accordion-panel pos-mobile-cart-accordion-panel--delivery">
                     <div class="delivery-info-section">
-                  <h5 class="delivery-section-title">
-                    <b-icon icon="truck" class="me-2"></b-icon>
-                    {{ $t("deliveryInformation") || "معلومات التوصيل" }}
-                  </h5>
-                  
-                  <form class="users-form">
-                    <div class="users-form-group">
-                      <label class="users-form-label">
-                        <b-icon icon="person-badge-fill" class="form-label-icon"></b-icon>
-                        {{ $t("customerName") || "اسم المستلم" }} <span class="required">*</span>
-                      </label>
-                      <input 
-                        v-model="orderForSend.deliveryCustomerName" 
-                        type="text" 
-                        class="users-form-input"
-                        :placeholder="$t('enterCustomerName') || 'أدخل اسم المستلم'"
-                        required
-                      />
-                    </div>
-                    
-                    <div class="users-form-group">
-                      <label class="users-form-label">
-                        <b-icon icon="telephone-fill" class="form-label-icon"></b-icon>
-                        {{ $t("deliveryPhoneNumber") || "رقم هاتف المستلم" }} <span class="required">*</span>
-                      </label>
-                      <input 
-                        v-model="orderForSend.deliveryPhoneNumber" 
-                        type="text" 
-                        class="users-form-input"
-                        :placeholder="$t('enterPhoneNumber') || 'أدخل رقم الهاتف'"
-                        required
-                      />
-                    </div>
-                    
-                    <div class="users-form-group">
-                      <label class="users-form-label">
-                        <b-icon icon="geo-alt-fill" class="form-label-icon"></b-icon>
-                        {{ $t("deliveryAddress") || "عنوان التوصيل" }} <span class="required">*</span>
-                      </label>
-                      <textarea 
-                        v-model="orderForSend.deliveryAddress" 
-                        class="users-form-input"
-                        rows="2"
-                        :placeholder="$t('enterDeliveryAddress') || 'أدخل عنوان التوصيل'"
-                        required
-                      ></textarea>
-                    </div>
-                    
-                    <div class="users-form-group">
-                      <label class="users-form-label">
-                        <b-icon icon="cash-coin" class="form-label-icon"></b-icon>
-                        {{ $t("deliveryFee") || "رسوم التوصيل" }}
-                      </label>
-                      <input 
-                        v-model.number="orderForSend.deliveryFee" 
-                        type="number" 
-                        class="users-form-input"
-                        min="0"
-                        step="0.01"
-                        :placeholder="$t('enterDeliveryFee') || 'أدخل رسوم التوصيل (اختياري)'"
-                      />
-                    </div>
-                    
-                    <!-- Driver Selection -->
-                    <div class="users-form-group">
-                      <label class="users-form-label">
-                        <b-icon icon="truck" class="form-label-icon"></b-icon>
-                        {{ $t("driverSelection") || "اختيار السائق" }}
-                      </label>
-                      <div class="delivery-radio-group">
-                        <label class="delivery-radio-label">
-                          <input 
-                            type="radio" 
-                            v-model="useExistingDriver" 
-                            :value="true"
-                            class="delivery-radio-input"
-                          />
-                          <span class="delivery-radio-text">{{ $t("useExistingDriver") || "استخدام سائق موجود" }}</span>
-                        </label>
-                        <label class="delivery-radio-label">
-                          <input 
-                            type="radio" 
-                            v-model="useExistingDriver" 
-                            :value="false"
-                            class="delivery-radio-input"
-                          />
-                          <span class="delivery-radio-text">{{ $t("addNewDriver") || "إضافة سائق جديد" }}</span>
-                        </label>
-                      </div>
-                    </div>
-                    
-                    <!-- Existing Driver Selection -->
-                    <div v-if="useExistingDriver" class="users-form-group">
-                      <label class="users-form-label">
-                        <b-icon icon="person-badge" class="form-label-icon"></b-icon>
-                        {{ $t("selectDriver") || "اختر السائق" }}
-                      </label>
-                      <select 
-                        v-model="orderForSend.deliveryDriverId" 
-                        class="users-form-select"
-                        :disabled="loadingDeliveryDrivers"
-                      >
-                        <option value="">{{ $t("selectDriver") || "اختر السائق" }}</option>
-                        <option 
-                          v-for="driver in deliveryDrivers.filter(d => d.isActive)" 
-                          :key="driver.id" 
-                          :value="driver.id"
-                        >
-                          {{ driver.name }} - {{ driver.phoneNumber }}
-                        </option>
-                      </select>
-                    </div>
-                    
-                    <!-- New Driver Button -->
-                    <div v-else class="users-form-group">
-                      <button 
-                        type="button" 
+                      <p class="mb-2">
+                        {{
+                          ($te && $te("deliveryInformationHint"))
+                            ? $t("deliveryInformationHint")
+                            : "افتح نافذة معلومات التوصيل لإدخال البيانات بشكل أوضح."
+                        }}
+                      </p>
+                      <button
+                        type="button"
                         class="delivery-add-btn"
-                        @click="showAddDriverModal = true"
+                        @click="openDeliveryInfoModal"
                       >
-                        <b-icon icon="person-plus-fill" class="me-2"></b-icon>
-                        {{ $t("addNewDriver") || "إضافة سائق جديد" }}
+                        <b-icon icon="truck" class="me-2"></b-icon>
+                        {{ $t("deliveryInformation") || "معلومات التوصيل" }}
                       </button>
-                    </div>
-                  </form>
                     </div>
                   </div>
                 </div>
@@ -904,7 +1023,8 @@
                   </button>
                 </div>
               </div>
-            </div>
+              </div>
+          </b-modal>
           </div>
         </b-container>
 
@@ -919,12 +1039,6 @@
           <b-icon icon="cart-fill" class="pos-mobile-cart-fab-icon"></b-icon>
           <span v-if="carditems.length > 0" class="pos-mobile-cart-fab-badge">{{ carditems.length }}</span>
         </button>
-        <div
-          v-if="posMobileCartOpen"
-          class="pos-mobile-cart-backdrop"
-          @click="closePosMobileCart"
-          aria-hidden="true"
-        ></div>
       </div>
       <b-sidebar id="sidebar-right" title="Sidebar" no-header right shadow>
         <div class="px-3 py-2">
@@ -1038,6 +1152,10 @@
           <div class="bill-summary-row">
             <span class="bill-summary-label">{{ $t("count") }}:</span>
             <span class="bill-summary-value">{{ totalCardItems }} {{ $t("items") }}</span>
+          </div>
+          <div class="bill-summary-row" v-if="orderDiscountAmount > 0">
+            <span class="bill-summary-label">{{ $t("discountLabel") || "الخصم" }}:</span>
+            <span class="bill-summary-value">- {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}</span>
           </div>
           <div class="bill-summary-row bill-summary-total">
             <span class="bill-summary-label">{{ $t("total") }}:</span>
@@ -1373,8 +1491,23 @@ export default {
         newDriverPhone: "",
         newDriverAddress: "",
         newDriverVehicleType: "",
-        newDriverVehicleNumber: ""
+        newDriverVehicleNumber: "",
+        discountType: null,
+        discountValue: null,
+        discountAmount: 0,
+        discountPercent: 0,
+        orderSubTotal: 0,
+        orderTotalAfterDiscount: 0
       },
+      orderDiscountType: "amount",
+      orderDiscountValue: null,
+      orderDiscountPresets: [
+        { id: "p5", type: "percentage", value: 5, label: "5%" },
+        { id: "p10", type: "percentage", value: 10, label: "10%" },
+        { id: "p15", type: "percentage", value: 15, label: "15%" },
+        { id: "a5000", type: "amount", value: 5000, label: "5,000" },
+        { id: "a10000", type: "amount", value: 10000, label: "10,000" },
+      ],
       deliveryDrivers: [],
       loadingDeliveryDrivers: false,
       useExistingDriver: true,
@@ -1456,15 +1589,37 @@ export default {
       return this.$t("all");
     },
     formattedNumber() {
-      return this.totaPrice.toLocaleString();
+      return this.finalOrderTotal.toLocaleString();
     },
-    orderDiscount() {
-      // Calculate total discount from items if needed
-      return 0;
+    orderDiscountAmount() {
+      const subTotal = Number(this.totaPrice) || 0;
+      const value = Number(this.orderDiscountValue);
+      if (subTotal <= 0 || !Number.isFinite(value) || value <= 0) {
+        return 0;
+      }
+
+      if (this.orderDiscountType === "percentage") {
+        const clampedPercent = Math.min(Math.max(value, 0), 100);
+        return Math.min((subTotal * clampedPercent) / 100, subTotal);
+      }
+
+      return Math.min(value, subTotal);
     },
-    orderTax() {
-      // Calculate tax if needed
-      return 0;
+    finalOrderTotal() {
+      const subTotal = Number(this.totaPrice) || 0;
+      const discount = Number(this.orderDiscountAmount) || 0;
+      return Math.max(subTotal - discount, 0);
+    },
+    orderDiscountPreviewLabel() {
+      if (!this.orderDiscountAmount) {
+        return this.$t("noDiscount") || "بدون خصم";
+      }
+
+      if (this.orderDiscountType === "percentage") {
+        return `${Number(this.orderDiscountValue) || 0}%`;
+      }
+
+      return `${this.formatPrice(this.orderDiscountValue)} ${this.$t("currency")}`;
     },
     uniqueZones() {
       if (!Array.isArray(this.allTables)) {
@@ -1690,12 +1845,16 @@ export default {
           this.orderForSend.newDriverVehicleType = "";
           this.orderForSend.newDriverVehicleNumber = "";
           this.useExistingDriver = true;
+          this.$bvModal.hide('modal-delivery-info');
         } else {
           // Set default delivery status when switching to Delivery
           if (!this.orderForSend.deliveryStatus) {
             this.orderForSend.deliveryStatus = "Pending";
           }
           this.posCartAccordionDeliveryOpen = true;
+          this.$nextTick(() => {
+            this.$bvModal.show('modal-delivery-info');
+          });
         }
       }
     },
@@ -1714,7 +1873,10 @@ export default {
     },
     posMobileCartOpen(val) {
       if (typeof document === "undefined") return;
-      document.body.style.overflow = val ? "hidden" : "";
+      const isNarrowViewport =
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 1200px)").matches;
+      document.body.style.overflow = val && isNarrowViewport ? "hidden" : "";
     },
 
   },
@@ -1798,6 +1960,40 @@ export default {
   },
 
   methods: {
+    applyOrderDiscountPreset(preset) {
+      if (!preset) return;
+      this.orderDiscountType = preset.type;
+      this.orderDiscountValue = preset.value;
+    },
+    clearOrderDiscount() {
+      this.orderDiscountType = "amount";
+      this.orderDiscountValue = null;
+      this.orderForSend.discountType = null;
+      this.orderForSend.discountValue = null;
+      this.orderForSend.discountAmount = 0;
+      this.orderForSend.discountPercent = 0;
+      this.orderForSend.orderSubTotal = 0;
+      this.orderForSend.orderTotalAfterDiscount = 0;
+    },
+    buildOrderDiscountPayload() {
+      const discountAmount = Number(this.orderDiscountAmount) || 0;
+      const discountPercent =
+        this.orderDiscountType === "percentage"
+          ? Math.min(Math.max(Number(this.orderDiscountValue) || 0, 0), 100)
+          : 0;
+
+      return {
+        discountType: discountAmount > 0 ? this.orderDiscountType : null,
+        discountValue: discountAmount > 0 ? Number(this.orderDiscountValue) || 0 : null,
+        discountAmount: discountAmount > 0 ? discountAmount : 0,
+        discountPercent: discountAmount > 0 ? discountPercent : 0,
+        orderSubTotal: Number(this.totaPrice) || 0,
+        orderTotalAfterDiscount: Number(this.finalOrderTotal) || 0,
+      };
+    },
+    openDeliveryInfoModal() {
+      this.$bvModal.show('modal-delivery-info');
+    },
     openPosMobileCart() {
       this.posMobileCartOpen = true;
       this.$nextTick(() => {
@@ -2500,6 +2696,9 @@ export default {
         this.orderForSend.newDriverVehicleNumber = null;
       }
       
+      const discountPayload = this.buildOrderDiscountPayload();
+      Object.assign(this.orderForSend, discountPayload);
+
       HTTP.post(`Admin/AddOrder`, this.orderForSend)
         .then((response) => {
           if (response) {
@@ -2517,6 +2716,7 @@ export default {
             this.orderForSend.orderType = 'Takeaway'; // Reset to default when clearing
             this.orderForSend.notes = ""; // Reset notes
             this.orderForSend.pagerNumber = ""; // Reset pager number
+            this.clearOrderDiscount();
             this.tableOrders = [];
             
             // Update table status to Available if table was selected
@@ -2715,6 +2915,9 @@ export default {
         this.orderForSend.newDriverVehicleNumber = null;
       }
       
+      const discountPayload = this.buildOrderDiscountPayload();
+      Object.assign(this.orderForSend, discountPayload);
+
       HTTP.post(`Admin/AddOrder`, this.orderForSend)
         .then((response) => {
           if (response) {
@@ -2727,6 +2930,7 @@ export default {
             // Save a copy of carditems for printing before clearing
             const itemsForPrint = JSON.parse(JSON.stringify(this.carditems));
             this.carditems = [];
+            this.clearOrderDiscount();
             if (this.$refs.posQuickSearchInput) {
               this.$refs.posQuickSearchInput.focus();
             }
@@ -2966,9 +3170,9 @@ export default {
               discount: item.discount || null
             })),
             subtotal: this.totaPrice.toLocaleString(),
-            discount: '0',
+            discount: this.orderDiscountAmount.toLocaleString(),
             tax: '0',
-            total: this.totaPrice.toLocaleString(),
+            total: this.finalOrderTotal.toLocaleString(),
             paymentMethod: this.orderForSend.paymentMethod === 'Cash' ? 'نقدي' : 
                           this.orderForSend.paymentMethod === 'Card' ? 'بطاقة' : 
                           this.orderForSend.paymentMethod || 'نقدي'
@@ -3131,9 +3335,15 @@ export default {
             <span data-v-f8758d62="" class="bill-summary-value">${this.escapeHtml(tagName)}</span>
           </div>
           ` : ''}
+          ${this.orderDiscountAmount > 0 ? `
+          <div data-v-f8758d62="" class="bill-summary-row">
+            <span data-v-f8758d62="" class="bill-summary-label">الخصم:</span>
+            <span data-v-f8758d62="" class="bill-summary-value">- ${this.orderDiscountAmount.toLocaleString()} د.ع</span>
+          </div>
+          ` : ''}
           <div data-v-f8758d62="" class="bill-summary-row bill-total-row">
             <span data-v-f8758d62="" class="bill-summary-label">المجموع:</span>
-            <span data-v-f8758d62="" class="bill-summary-value bill-total-amount">${subtotal.toLocaleString()} د.ع</span>
+            <span data-v-f8758d62="" class="bill-summary-value bill-total-amount">${this.finalOrderTotal.toLocaleString()} د.ع</span>
           </div>
         </div>
       `;
@@ -3584,9 +3794,9 @@ export default {
                   discount: item.discount || null
                 })),
                 subtotal: this.totaPrice.toLocaleString(),
-                discount: '0',
+                discount: this.orderDiscountAmount.toLocaleString(),
                 tax: '0',
-                total: this.totaPrice.toLocaleString(),
+                total: this.finalOrderTotal.toLocaleString(),
                 paymentMethod: this.orderForSend.paymentMethod === 'Cash' ? 'نقدي' : 
                               this.orderForSend.paymentMethod === 'Card' ? 'بطاقة' : 
                               this.orderForSend.paymentMethod || 'نقدي',
@@ -4714,6 +4924,92 @@ export default {
   color: var(--danger-color);
 }
 
+.order-discount-wrapper {
+  padding: 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  background: var(--bg-secondary);
+}
+
+.order-discount-type-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.order-discount-type-btn {
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-radius: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.order-discount-type-btn-active {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.order-discount-input-row {
+  margin-top: 0.65rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+}
+
+.order-discount-clear-btn {
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border-radius: 0.65rem;
+  padding: 0.5rem 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.order-discount-presets {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.order-discount-preset-btn {
+  border: 1px dashed var(--primary-color);
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--primary-color);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.order-discount-preview {
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.order-discount-preview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.order-discount-preview-row-total {
+  color: var(--primary-color);
+  font-weight: 800;
+}
+
 /* Order Notes Section Styles */
 .pos-orders-notes-section {
   margin-top: 1rem;
@@ -5683,15 +5979,6 @@ export default {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .pos-cart-section {
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-  }
 }
 
 </style>

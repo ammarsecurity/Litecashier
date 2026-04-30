@@ -91,124 +91,72 @@
             </div>
           </div>
 
-          <!-- Orders Grid -->
-          <div class="users-grid-container">
-            <div class="users-grid">
-              <div class="user-card" v-for="item in Orders" :key="item.id">
-                <div class="user-card-header">
-                  <div class="user-avatar">
-                    <b-icon icon="receipt-cutoff" class="avatar-icon"></b-icon>
-                  </div>
-                  <div class="order-header-info">
-                    <h3 class="user-name">#{{ item.dailySequenceNumber }} - {{ item.orderCode }}</h3>
-                    <span class="order-date">{{ formatDate(item.insertDate) }}</span>
-                  </div>
-                </div>
-                <div class="user-card-body">
-                  <div class="user-info-item">
-                    <b-icon icon="tag" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("orderType") || "نوع الطلب:" }}</span>
-                    <span class="info-value">
-                      <span class="order-type-badge" :class="getOrderTypeClass(item.orderType)">
-                        {{ getOrderTypeText(item.orderType) }}
-                      </span>
-                    </span>
-                  </div>
-                  <div class="user-info-item">
-                    <b-icon icon="currency-dollar" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("total") || "المبلغ:" }}</span>
-                    <span class="info-value">{{ formatPrice(item.orderPrice) }} {{ $t("currency") || "د.ع" }}</span>
-                  </div>
-                  <div class="user-info-item">
-                    <b-icon icon="box-seam" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("itemsCount") || "عدد العناصر:" }}</span>
-                    <span class="info-value">{{ item.itemsCount }}</span>
-                  </div>
-                  <div class="user-info-item" v-if="item.paymentMethod">
-                    <b-icon :icon="getPaymentMethodIcon(item.paymentMethod)" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("paymentMethod") || "طريقة الدفع:" }}</span>
-                    <span class="info-value">{{ getPaymentMethodText(item.paymentMethod) }}</span>
-                  </div>
-                  
-                  <!-- Delivery Information (if Delivery order) -->
-                  <div v-if="item.orderType === 'Delivery'" class="delivery-info-section">
-                    <div class="user-info-item" v-if="item.deliveryCustomerName">
-                      <b-icon icon="person" class="info-icon"></b-icon>
-                      <span class="info-label">{{ $t("customerName") || "اسم العميل:" }}</span>
-                      <span class="info-value">{{ item.deliveryCustomerName }}</span>
-                    </div>
-                    <div class="user-info-item" v-if="item.deliveryPhoneNumber">
-                      <b-icon icon="telephone" class="info-icon"></b-icon>
-                      <span class="info-label">{{ $t("phoneNumber") || "رقم الهاتف:" }}</span>
-                      <span class="info-value">{{ item.deliveryPhoneNumber }}</span>
-                    </div>
-                    <div class="user-info-item" v-if="item.deliveryAddress">
-                      <b-icon icon="geo-alt" class="info-icon"></b-icon>
-                      <span class="info-label">{{ $t("address") || "العنوان:" }}</span>
-                      <span class="info-value">{{ item.deliveryAddress }}</span>
-                    </div>
-                    <div class="user-info-item" v-if="item.deliveryDriver">
-                      <b-icon icon="truck" class="info-icon"></b-icon>
-                      <span class="info-label">{{ $t("driverName") || "اسم السائق:" }}</span>
-                      <span class="info-value">{{ item.deliveryDriver.name }}</span>
-                    </div>
-                    <div class="user-info-item" v-if="item.deliveryStatus">
-                      <b-icon icon="clock-history" class="info-icon"></b-icon>
-                      <span class="info-label">{{ $t("deliveryStatus") || "حالة التوصيل:" }}</span>
-                      <span class="info-value">
-                        <span class="delivery-status-badge" :class="getDeliveryStatusClass(item.deliveryStatus)">
-                          {{ getDeliveryStatusText(item.deliveryStatus) }}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <!-- Order Status -->
-                  <div class="status-section">
-                    <div class="status-item">
-                      <span class="status-label">{{ $t("orderStatus") || "حالة الطلب:" }}</span>
-                      <select 
-                        v-model="item.orderStatus" 
-                        class="status-select"
-                        @change="updateOrderStatus(item.id, 'orderStatus', item.orderStatus)"
-                      >
-                        <option value="Pending">{{ $t("pending") || "قيد الانتظار" }}</option>
-                        <option value="Processing">{{ $t("processing") || "قيد التحضير" }}</option>
-                        <option value="Ready">{{ $t("ready") || "جاهز" }}</option>
-                        <option value="Completed">{{ $t("completed") || "مكتمل" }}</option>
-                        <option value="Cancelled">{{ $t("cancelled") || "ملغي" }}</option>
-                      </select>
-                      <span class="status-badge" :class="getOrderStatusClass(item.orderStatus)">
-                        {{ getOrderStatusText(item.orderStatus) }}
-                      </span>
-                    </div>
-                    
-                    <!-- Payment Status -->
-                    <div class="status-item">
-                      <span class="status-label">{{ $t("paymentStatus") || "حالة الدفع:" }}</span>
-                      <select 
-                        v-model="item.paymentStatus" 
-                        class="status-select"
-                        @change="updateOrderStatus(item.id, 'paymentStatus', item.paymentStatus)"
-                      >
-                        <option value="Pending">{{ $t("pending") || "قيد الانتظار" }}</option>
-                        <option value="Paid">{{ $t("paid") || "مدفوع" }}</option>
-                        <option value="Refunded">{{ $t("refunded") || "مسترد" }}</option>
-                      </select>
-                      <span class="status-badge" :class="getPaymentStatusClass(item.paymentStatus)">
-                        {{ getPaymentStatusText(item.paymentStatus) }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div class="user-card-footer">
-                  <button class="user-action-button user-edit-button" @click="showItemsModal(item)">
-                    <b-icon icon="eye-fill" class="action-icon"></b-icon>
-                    <span>{{ $t("viewItems") || "عرض العناصر" }}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
+          <!-- Orders Table -->
+          <div class="report-table-container">
+            <b-table
+              id="orders-table"
+              :items="Orders"
+              :fields="ordersTableFields"
+              striped
+              hover
+              responsive
+              class="reports-table"
+              :empty-text="$t('noOrders') || 'لا توجد طلبات'"
+            >
+              <template #cell(orderCode)="row">
+                <span class="item-name-text">#{{ row.item.dailySequenceNumber || '-' }} - {{ row.item.orderCode }}</span>
+              </template>
+              <template #cell(insertDate)="row">
+                <span class="orders-date-text">{{ formatDate(row.item.insertDate) }}</span>
+              </template>
+              <template #cell(orderType)="row">
+                <span class="order-type-badge" :class="getOrderTypeClass(row.item.orderType)">
+                  {{ getOrderTypeText(row.item.orderType) }}
+                </span>
+              </template>
+              <template #cell(paymentMethod)="row">
+                <span>{{ getPaymentMethodText(row.item.paymentMethod) }}</span>
+              </template>
+              <template #cell(totalAmount)="row">
+                <span class="stat-amount">{{ formatPrice(row.item.orderTotalAfterDiscount ?? row.item.orderPrice ?? 0) }} {{ $t("currency") || "د.ع" }}</span>
+              </template>
+              <template #cell(discountAmount)="row">
+                <span v-if="Number(row.item.discountAmount || 0) > 0" class="stat-danger">- {{ formatPrice(row.item.discountAmount || 0) }}</span>
+                <span v-else>-</span>
+              </template>
+              <template #cell(itemsCount)="row">
+                <span class="quantity-badge">{{ row.item.itemsCount || 0 }}</span>
+              </template>
+              <template #cell(orderStatus)="row">
+                <select
+                  v-model="row.item.orderStatus"
+                  class="status-select status-select-table"
+                  @change="updateOrderStatus(row.item.id, 'orderStatus', row.item.orderStatus)"
+                >
+                  <option value="Pending">{{ $t("pending") || "قيد الانتظار" }}</option>
+                  <option value="Processing">{{ $t("processing") || "قيد التحضير" }}</option>
+                  <option value="Ready">{{ $t("ready") || "جاهز" }}</option>
+                  <option value="Completed">{{ $t("completed") || "مكتمل" }}</option>
+                  <option value="Cancelled">{{ $t("cancelled") || "ملغي" }}</option>
+                </select>
+              </template>
+              <template #cell(paymentStatus)="row">
+                <select
+                  v-model="row.item.paymentStatus"
+                  class="status-select status-select-table"
+                  @change="updateOrderStatus(row.item.id, 'paymentStatus', row.item.paymentStatus)"
+                >
+                  <option value="Pending">{{ $t("pending") || "قيد الانتظار" }}</option>
+                  <option value="Paid">{{ $t("paid") || "مدفوع" }}</option>
+                  <option value="Refunded">{{ $t("refunded") || "مسترد" }}</option>
+                </select>
+              </template>
+              <template #cell(actions)="row">
+                <button class="user-action-button public-orders-action-btn" @click="showItemsModal(row.item)">
+                  <b-icon icon="eye-fill" class="action-icon"></b-icon>
+                </button>
+              </template>
+            </b-table>
           </div>
 
           <!-- Empty State -->
@@ -371,7 +319,11 @@
             </div>
             <div class="order-total-section">
               <span class="total-label">{{ $t("total") || "المجموع" }}:</span>
-              <span class="total-amount">{{ formatPrice(selectedOrder.orderPrice) }} {{ $t("currency") || "د.ع" }}</span>
+              <span class="total-amount">{{ formatPrice(selectedOrder.orderTotalAfterDiscount ?? selectedOrder.orderPrice ?? 0) }} {{ $t("currency") || "د.ع" }}</span>
+            </div>
+            <div class="order-total-section" v-if="Number(selectedOrder.discountAmount || 0) > 0">
+              <span class="total-label">{{ $t("discountLabel") || "الخصم" }}:</span>
+              <span class="total-amount">- {{ formatPrice(selectedOrder.discountAmount || 0) }} {{ $t("currency") || "د.ع" }}</span>
             </div>
           </div>
         </div>
@@ -414,6 +366,22 @@ export default {
       selectedOrder: null,
       commercialUserId: null
     };
+  },
+  computed: {
+    ordersTableFields() {
+      return [
+        { key: 'orderCode', label: this.$t("orderCode") || "رقم الطلب" },
+        { key: 'insertDate', label: this.$t("date") || "التاريخ" },
+        { key: 'orderType', label: this.$t("orderType") || "نوع الطلب" },
+        { key: 'paymentMethod', label: this.$t("paymentMethod") || "طريقة الدفع" },
+        { key: 'itemsCount', label: this.$t("itemsCount") || "العناصر" },
+        { key: 'discountAmount', label: this.$t("discountLabel") || "الخصم" },
+        { key: 'totalAmount', label: this.$t("total") || "المجموع" },
+        { key: 'orderStatus', label: this.$t("orderStatus") || "حالة الطلب" },
+        { key: 'paymentStatus', label: this.$t("paymentStatus") || "حالة الدفع" },
+        { key: 'actions', label: this.$t("actions") || "إجراءات" }
+      ];
+    }
   },
   mounted() {
     // Set default dates to today
@@ -829,6 +797,50 @@ export default {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.1);
+}
+
+.status-select-table {
+  min-width: 130px;
+  font-size: 0.8125rem;
+  padding: 0.375rem 0.5rem;
+}
+
+.reports-table .user-action-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reports-table .stat-value {
+  text-shadow: none !important;
+  filter: none !important;
+  background: none !important;
+  -webkit-text-fill-color: currentColor !important;
+  color: var(--text-primary) !important;
+}
+
+.public-orders-action-btn {
+  border-radius: 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
+  background: color-mix(in srgb, var(--primary-color) 12%, var(--bg-primary));
+  color: var(--primary-color);
+  transition: all 0.2s ease;
+}
+
+.public-orders-action-btn:hover {
+  background: color-mix(in srgb, var(--primary-color) 20%, var(--bg-primary));
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+}
+
+.orders-date-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .status-badge {

@@ -332,6 +332,12 @@ namespace RestaurantPOS.Controllers
                     DeliveryPhoneNumber = request.DeliveryPhoneNumber,
                     DeliveryCustomerName = request.DeliveryCustomerName,
                     DeliveryFee = request.DeliveryFee,
+                    DiscountType = request.DiscountType,
+                    DiscountValue = request.DiscountValue,
+                    DiscountAmount = request.DiscountAmount,
+                    DiscountPercent = request.DiscountPercent,
+                    OrderSubTotal = request.OrderSubTotal,
+                    OrderTotalAfterDiscount = request.OrderTotalAfterDiscount,
                     DeliveryAssignedAt = deliveryDriverId.HasValue ? DateTime.UtcNow : null
                 };
 
@@ -541,6 +547,12 @@ namespace RestaurantPOS.Controllers
                         InsertDate = x.InsertDate,
                         Notes = x.Notes,
                         OrderPrice = x.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity),
+                        DiscountType = x.DiscountType,
+                        DiscountValue = x.DiscountValue,
+                        DiscountAmount = x.DiscountAmount,
+                        DiscountPercent = x.DiscountPercent,
+                        OrderSubTotal = x.OrderSubTotal,
+                        OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
                         ItemsCount = x.CustomerOrderItem.Count(),
                         // Delivery fields
                         DeliveryDriverId = x.DeliveryDriverId,
@@ -654,9 +666,16 @@ namespace RestaurantPOS.Controllers
                     TableId = order.TableId,
                     TableNumber = order.Table?.TableNumber,
                     DailySequenceNumber = order.DailySequenceNumber ?? 0,
-                    Total = order.CustomerOrderItem != null 
-                        ? order.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity) 
-                        : 0,
+                    Total = order.OrderTotalAfterDiscount
+                        ?? (order.CustomerOrderItem != null
+                            ? order.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity)
+                            : 0),
+                    DiscountType = order.DiscountType,
+                    DiscountValue = order.DiscountValue,
+                    DiscountAmount = order.DiscountAmount,
+                    DiscountPercent = order.DiscountPercent,
+                    OrderSubTotal = order.OrderSubTotal,
+                    OrderTotalAfterDiscount = order.OrderTotalAfterDiscount,
                     ItemsCount = order.CustomerOrderItem != null ? order.CustomerOrderItem.Count() : 0,
                     Items = order.CustomerOrderItem != null ? order.CustomerOrderItem.Select(item => new
                     {
@@ -906,6 +925,14 @@ namespace RestaurantPOS.Controllers
         public string? DeliveryPhoneNumber { get; set; } // رقم هاتف المستلم
         public string? DeliveryCustomerName { get; set; } // اسم المستلم
         public decimal? DeliveryFee { get; set; } // رسوم التوصيل
+
+        // Order discount fields
+        public string? DiscountType { get; set; }
+        public decimal? DiscountValue { get; set; }
+        public decimal? DiscountAmount { get; set; }
+        public decimal? DiscountPercent { get; set; }
+        public decimal? OrderSubTotal { get; set; }
+        public decimal? OrderTotalAfterDiscount { get; set; }
         
         // معلومات سائق جديد (إذا لم يتم اختيار سائق موجود)
         public string? NewDriverName { get; set; }

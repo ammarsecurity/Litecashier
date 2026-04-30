@@ -37,6 +37,14 @@ namespace RestaurantPOS.Models
 
         public string? PagerNumber { get; set; } // رقم جهاز النداء
 
+        // Order discount fields
+        public string? DiscountType { get; set; } // amount, percentage
+        public decimal? DiscountValue { get; set; } // raw input value
+        public decimal? DiscountAmount { get; set; } // computed amount in currency
+        public decimal? DiscountPercent { get; set; } // computed percent value
+        public decimal? OrderSubTotal { get; set; } // total before discount
+        public decimal? OrderTotalAfterDiscount { get; set; } // total after discount
+
         public string OrderStatus { get; set; } = "Pending"; // Pending, Processing, Ready, Completed, Cancelled
 
         public string PaymentStatus { get; set; } = "Pending"; // Pending, Paid, Refunded

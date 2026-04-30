@@ -1527,37 +1527,31 @@ namespace RestaurantPOS.Controllers
                 var orderCode = request.OrderCode ?? RandomCode();
                 var orderType = request.OrderType ?? "DineIn";
                 
-                // Calculate DailySequenceNumber for Takeaway and Delivery orders
+                // Calculate DailySequenceNumber for all orders (resets daily)
                 int? dailySequenceNumber = null;
-                if (orderType == "Takeaway" || orderType == "Delivery")
+                try
                 {
-                    try
-                    {
-                        var commercialUserId = GetCommercialUserId();
-                        var today = DateTime.UtcNow.Date;
-                        var tomorrow = today.AddDays(1);
-                        
-                        // Get the maximum DailySequenceNumber for today's orders
-                        // Use date range comparison instead of .Date property for better SQL translation
-                        var ordersToday = await _dbConfig.CustomerOrders
-                            .Where(o => o.InsertByUserId == commercialUserId 
-                                && o.InsertDate >= today
-                                && o.InsertDate < tomorrow
-                                && o.DailySequenceNumber.HasValue
-                                && (o.OrderType == "Takeaway" || o.OrderType == "Delivery")
-                                && !o.IsDeleted)
-                            .Select(o => o.DailySequenceNumber.Value)
-                            .ToListAsync();
+                    var commercialUserId = GetCommercialUserId();
+                    var today = DateTime.UtcNow.Date;
+                    var tomorrow = today.AddDays(1);
 
-                        var maxSequenceToday = ordersToday.Any() ? ordersToday.Max() : 0;
-                        dailySequenceNumber = maxSequenceToday + 1;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error calculating DailySequenceNumber");
-                        // If calculation fails, set to null (will be handled gracefully)
-                        dailySequenceNumber = null;
-                    }
+                    // Get max daily sequence for current business day
+                    var ordersToday = await _dbConfig.CustomerOrders
+                        .Where(o => o.InsertByUserId == commercialUserId
+                            && o.InsertDate >= today
+                            && o.InsertDate < tomorrow
+                            && o.DailySequenceNumber.HasValue
+                            && !o.IsDeleted)
+                        .Select(o => o.DailySequenceNumber.Value)
+                        .ToListAsync();
+
+                    var maxSequenceToday = ordersToday.Any() ? ordersToday.Max() : 0;
+                    dailySequenceNumber = maxSequenceToday + 1;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error calculating DailySequenceNumber");
+                    dailySequenceNumber = null;
                 }
 
                 // Handle Delivery Driver
@@ -1621,6 +1615,12 @@ namespace RestaurantPOS.Controllers
                     DeliveryPhoneNumber = request.DeliveryPhoneNumber,
                     DeliveryCustomerName = request.DeliveryCustomerName,
                     DeliveryFee = request.DeliveryFee,
+                    DiscountType = request.DiscountType,
+                    DiscountValue = request.DiscountValue,
+                    DiscountAmount = request.DiscountAmount,
+                    DiscountPercent = request.DiscountPercent,
+                    OrderSubTotal = request.OrderSubTotal,
+                    OrderTotalAfterDiscount = request.OrderTotalAfterDiscount,
                     DeliveryAssignedAt = deliveryDriverId.HasValue ? DateTime.UtcNow : null
                 };
                 _dbConfig.CustomerOrders.Add(newOrder);
@@ -1957,6 +1957,13 @@ namespace RestaurantPOS.Controllers
                     TableId = existingOrder.TableId,
                     ReservationId = existingOrder.ReservationId,
                     Notes = existingOrder.Notes,
+                    PagerNumber = existingOrder.PagerNumber,
+                    DiscountType = existingOrder.DiscountType,
+                    DiscountValue = existingOrder.DiscountValue,
+                    DiscountAmount = existingOrder.DiscountAmount,
+                    DiscountPercent = existingOrder.DiscountPercent,
+                    OrderSubTotal = existingOrder.OrderSubTotal,
+                    OrderTotalAfterDiscount = existingOrder.OrderTotalAfterDiscount,
                     ItemsCount = oldItemsCount
                 };
 
@@ -1964,8 +1971,15 @@ namespace RestaurantPOS.Controllers
                 existingOrder.PaymentMethod = request.PaymentMethod;
                 existingOrder.OrderType = request.OrderType;
                 existingOrder.Notes = request.Notes;
+                existingOrder.PagerNumber = request.PagerNumber;
                 existingOrder.TableId = request.TableId;
                 existingOrder.ReservationId = request.ReservationId;
+                existingOrder.DiscountType = request.DiscountType;
+                existingOrder.DiscountValue = request.DiscountValue;
+                existingOrder.DiscountAmount = request.DiscountAmount;
+                existingOrder.DiscountPercent = request.DiscountPercent;
+                existingOrder.OrderSubTotal = request.OrderSubTotal;
+                existingOrder.OrderTotalAfterDiscount = request.OrderTotalAfterDiscount;
 
                 // Handle order items update
                 // Remove old order items
@@ -2032,6 +2046,13 @@ namespace RestaurantPOS.Controllers
                     TableId = existingOrder.TableId,
                     ReservationId = existingOrder.ReservationId,
                     Notes = existingOrder.Notes,
+                    PagerNumber = existingOrder.PagerNumber,
+                    DiscountType = existingOrder.DiscountType,
+                    DiscountValue = existingOrder.DiscountValue,
+                    DiscountAmount = existingOrder.DiscountAmount,
+                    DiscountPercent = existingOrder.DiscountPercent,
+                    OrderSubTotal = existingOrder.OrderSubTotal,
+                    OrderTotalAfterDiscount = existingOrder.OrderTotalAfterDiscount,
                     ItemsCount = newItemsCount
                 };
 
@@ -2263,9 +2284,18 @@ namespace RestaurantPOS.Controllers
                         OrderCode = x.OrderCode,
                         Id = x.Id,
                         ItemsCount = x.CustomerOrderItem?.Count() ?? 0,
+                        DailySequenceNumber = x.DailySequenceNumber,
                         InsertDate = x.InsertDate,
+                        CreatedByUserId = x.User != null ? x.User.Id : null,
+                        CreatedByUsername = x.User != null ? x.User.Username : null,
                         PaymentMethod = x.PaymentMethod,
                         OrderType = x.OrderType,
+                        DiscountType = x.DiscountType,
+                        DiscountValue = x.DiscountValue,
+                        DiscountAmount = x.DiscountAmount,
+                        DiscountPercent = x.DiscountPercent,
+                        OrderSubTotal = x.OrderSubTotal,
+                        OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
                         Tables = tablesDto,
                         MergedTableNumbers = mergedTableNumbers
                     };
@@ -2938,6 +2968,7 @@ namespace RestaurantPOS.Controllers
 
             // Map to OrderDto after filtering
             var ordersList = items
+                .OrderByDescending(x => x.InsertDate)
                 .Skip(pageNumber * pageSize)
                 .Take(pageSize)
                 .ToList()
@@ -2971,13 +3002,22 @@ namespace RestaurantPOS.Controllers
                     OrderCode = x.OrderCode,
                     Id = x.Id,
                     ItemsCount = x.CustomerOrderItem != null ? x.CustomerOrderItem.Count() : 0,
+                    DailySequenceNumber = x.DailySequenceNumber,
                     InsertDate = x.InsertDate,
                     CreatedAt = x.InsertDate,
+                    CreatedByUserId = x.User != null ? x.User.Id : null,
+                    CreatedByUsername = x.User != null ? x.User.Username : null,
                     PaymentMethod = x.PaymentMethod,
                     OrderType = x.OrderType,
                     OrderStatus = x.OrderStatus,
                     Notes = x.Notes,
                     Total = x.CustomerOrderItem != null ? x.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity) : 0,
+                    DiscountType = x.DiscountType,
+                    DiscountValue = x.DiscountValue,
+                    DiscountAmount = x.DiscountAmount,
+                    DiscountPercent = x.DiscountPercent,
+                    OrderSubTotal = x.OrderSubTotal,
+                    OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
                         // Tables information
                         Tables = tableDtos.Any() ? tableDtos : null,
                         MergedTableNumbers = mergedTableNumbers,
@@ -3050,17 +3090,20 @@ namespace RestaurantPOS.Controllers
                     OrderType = x.OrderType ?? "",
                     PaymentMethod = x.PaymentMethod ?? "",
                     OrderPrice = x.CustomerOrderItem != null ? x.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity) : 0,
+                    DiscountAmount = x.DiscountAmount ?? 0,
+                    OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
                     ItemsCount = x.CustomerOrderItem != null ? x.CustomerOrderItem.Count() : 0
                 })
                 .ToList();
 
             var csv = new StringBuilder();
-            var header = "OrderCode,InsertDate,OrderType,PaymentMethod,OrderPrice,ItemsCount";
+            var header = "OrderCode,InsertDate,OrderType,PaymentMethod,OrderPrice,DiscountAmount,FinalTotal,ItemsCount";
             csv.AppendLine(header);
             foreach (var o in ordersList)
             {
                 var dateStr = o.InsertDate.ToString("yyyy-MM-dd HH:mm");
-                var line = $"\"{EscapeCsv(o.OrderCode)}\",\"{dateStr}\",\"{EscapeCsv(o.OrderType)}\",\"{EscapeCsv(o.PaymentMethod)}\",{o.OrderPrice},{o.ItemsCount}";
+                var finalTotal = o.OrderTotalAfterDiscount ?? o.OrderPrice;
+                var line = $"\"{EscapeCsv(o.OrderCode)}\",\"{dateStr}\",\"{EscapeCsv(o.OrderType)}\",\"{EscapeCsv(o.PaymentMethod)}\",{o.OrderPrice},{o.DiscountAmount},{finalTotal},{o.ItemsCount}";
                 csv.AppendLine(line);
             }
 

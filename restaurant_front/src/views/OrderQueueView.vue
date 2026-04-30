@@ -65,7 +65,7 @@
                     </div>
                     <div class="order-info-item">
                       <b-icon icon="currency-dollar" class="info-icon"></b-icon>
-                      <span>{{ formatPrice(order.orderPrice || 0) }} د.ع</span>
+                      <span>{{ formatPrice(order.orderTotalAfterDiscount ?? order.orderPrice ?? 0) }} د.ع</span>
                     </div>
                     <div v-if="order.deliveryDriver" class="order-info-item">
                       <b-icon icon="truck" class="info-icon"></b-icon>
@@ -126,7 +126,7 @@
                     </div>
                     <div class="order-info-item">
                       <b-icon icon="currency-dollar" class="info-icon"></b-icon>
-                      <span>{{ formatPrice(order.orderPrice || 0) }} د.ع</span>
+                      <span>{{ formatPrice(order.orderTotalAfterDiscount ?? order.orderPrice ?? 0) }} د.ع</span>
                     </div>
                     <div v-if="order.deliveryDriver" class="order-info-item">
                       <b-icon icon="truck" class="info-icon"></b-icon>
@@ -187,7 +187,7 @@
                     </div>
                     <div class="order-info-item">
                       <b-icon icon="currency-dollar" class="info-icon"></b-icon>
-                      <span>{{ formatPrice(order.orderPrice || 0) }} د.ع</span>
+                      <span>{{ formatPrice(order.orderTotalAfterDiscount ?? order.orderPrice ?? 0) }} د.ع</span>
                     </div>
                     <div v-if="order.deliveryDriver" class="order-info-item">
                       <b-icon icon="truck" class="info-icon"></b-icon>
@@ -248,7 +248,7 @@
                     </div>
                     <div class="order-info-item">
                       <b-icon icon="currency-dollar" class="info-icon"></b-icon>
-                      <span>{{ formatPrice(order.orderPrice || 0) }} د.ع</span>
+                      <span>{{ formatPrice(order.orderTotalAfterDiscount ?? order.orderPrice ?? 0) }} د.ع</span>
                     </div>
                     <div v-if="order.deliveryDriver" class="order-info-item">
                       <b-icon icon="truck" class="info-icon"></b-icon>
@@ -308,7 +308,11 @@
             </div>
             <div class="detail-item">
               <span class="detail-label">{{ $t("total") || "المجموع" }}:</span>
-              <span class="detail-value">{{ formatPrice(selectedOrder.orderPrice || 0) }} د.ع</span>
+              <span class="detail-value">{{ formatPrice(selectedOrder.orderTotalAfterDiscount ?? selectedOrder.orderPrice ?? 0) }} د.ع</span>
+            </div>
+            <div class="detail-item" v-if="Number(selectedOrder.discountAmount || 0) > 0">
+              <span class="detail-label">{{ $t("discountLabel") || "الخصم" }}:</span>
+              <span class="detail-value">- {{ formatPrice(selectedOrder.discountAmount || 0) }} د.ع</span>
             </div>
             <div v-if="selectedOrder.notes" class="detail-item full-width">
               <span class="detail-label">{{ $t("notes") || "ملاحظات" }}:</span>

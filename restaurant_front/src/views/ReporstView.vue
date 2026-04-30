@@ -238,62 +238,61 @@
                             </div>
                         </div>
 
-                        <!-- Orders Grid -->
-                        <div class="users-grid-container">
-                            <div class="users-grid">
-                                <div class="user-card" v-for="item in Orders" :key="item.id">
-                                    <div class="user-card-header">
-                                        <div class="user-avatar">
-                                            <b-icon icon="receipt-cutoff" class="avatar-icon"></b-icon>
-                                        </div>
-                                        <h3 class="user-name">{{ item.orderCode }}</h3>
-                                    </div>
-                                    <div class="user-card-body">
-                                        <div class="user-info-item">
-                                            <b-icon icon="currency-dollar" class="info-icon"></b-icon>
-                                            <span class="info-label">{{ $t('invoice_amount') }}:</span>
-                                            <span class="info-value">{{ item.orderPrice }} {{ $t('currency') }}</span>
-                                        </div>
-                                        <div class="user-info-item">
-                                            <b-icon icon="box-seam" class="info-icon"></b-icon>
-                                            <span class="info-label">{{ $t('items_count') }}:</span>
-                                            <span class="info-value">{{ item.itemsCount }} {{ $t('items') }}</span>
-                                        </div>
-                                        <div class="user-info-item" v-if="item.paymentMethod">
-                                            <b-icon :icon="getPaymentMethodIcon(item.paymentMethod)" class="info-icon"></b-icon>
-                                            <span class="info-label">{{ $t('paymentMethod') }}:</span>
-                                            <span class="info-value">{{ getPaymentMethodText(item.paymentMethod) }}</span>
-                                        </div>
-                                        <div class="user-info-item" v-if="item.orderType">
-                                            <b-icon :icon="getOrderTypeIcon(item.orderType)" class="info-icon"></b-icon>
-                                            <span class="info-label">{{ $t('orderType') }}:</span>
-                                            <span class="info-value">{{ getOrderTypeText(item.orderType) }}</span>
-                                        </div>
-                                        <div class="user-info-item" v-if="item.orderType === 'DineIn' && (item.mergedTableNumbers || (item.tables && item.tables.length > 0))">
-                                            <b-icon icon="table" class="info-icon"></b-icon>
-                                            <span class="info-label">{{ $t('table') || 'الطاولة' }}:</span>
-                                            <span class="info-value">{{ item.mergedTableNumbers || (item.tables && item.tables.length > 0 ? item.tables[0].tableNumber : '') }}</span>
-                                        </div>
-                                        <div class="user-info-item" v-if="item.tags">
-                                            <b-icon icon="tags" class="info-icon"></b-icon>
-                                            <span class="info-label">{{ $t('categoryPlaceholder') }}:</span>
-                                            <span class="info-value">{{ item.tags }}</span>
-                                        </div>
-                                    </div>
-                                    <div class="user-card-footer">
-                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                                            <button class="user-action-button user-edit-button" @click="showItemsModel(item.customerOrderItem, item)">
+                        <!-- Orders Table -->
+                        <div class="report-table-container">
+                            <b-table
+                                id="orders-table"
+                                :items="Orders"
+                                :fields="ordersTableFields"
+                                striped
+                                hover
+                                responsive
+                                class="reports-table"
+                                :empty-text="$t('noInvoicesFound') || 'لا توجد فواتير'"
+                            >
+                                <template #cell(orderCode)="row">
+                                    <span class="item-name-text">{{ row.item.orderCode }}</span>
+                                </template>
+                                <template #cell(insertDate)="row">
+                                    <span class="stat-value">{{ formatDate(row.item.insertDate) }}</span>
+                                </template>
+                                <template #cell(dailySequenceNumber)="row">
+                                    <span class="quantity-badge">{{ row.item.dailySequenceNumber || '-' }}</span>
+                                </template>
+                                <template #cell(orderType)="row">
+                                    <span>{{ getOrderTypeText(row.item.orderType) }}</span>
+                                </template>
+                                <template #cell(paymentMethod)="row">
+                                    <span>{{ getPaymentMethodText(row.item.paymentMethod) }}</span>
+                                </template>
+                                <template #cell(itemsCount)="row">
+                                    <span class="quantity-badge">{{ row.item.itemsCount || 0 }}</span>
+                                </template>
+                                <template #cell(discountAmount)="row">
+                                    <span v-if="Number(row.item.discountAmount || 0) > 0" class="stat-danger">
+                                        - {{ formatPrice(row.item.discountAmount || 0) }}
+                                    </span>
+                                    <span v-else>-</span>
+                                </template>
+                                <template #cell(totalAmount)="row">
+                                    <span class="stat-amount">
+                                        {{ formatPrice(row.item.orderTotalAfterDiscount ?? row.item.orderPrice ?? 0) }} {{ $t('currency') }}
+                                    </span>
+                                </template>
+                                <template #cell(createdByUsername)="row">
+                                    <span>{{ row.item.createdByUsername || '-' }}</span>
+                                </template>
+                                <template #cell(actions)="row">
+                                    <div class="orders-actions-cell">
+                                        <button class="user-action-button orders-action-btn orders-action-btn-view" @click="showItemsModel(row.item.customerOrderItem, row.item)">
                                             <b-icon icon="eye-fill" class="action-icon"></b-icon>
-                                            <span>{{ $t('view_items') }}</span>
                                         </button>
-                                            <button class="user-action-button user-edit-button" @click="editOrder(item)">
-                                                <b-icon icon="pencil-fill" class="action-icon"></b-icon>
-                                                <span>{{ $t('edit') || 'تعديل' }}</span>
-                                            </button>
-                                        </div>
+                                        <button class="user-action-button orders-action-btn orders-action-btn-edit" @click="editOrder(row.item)">
+                                            <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                                        </button>
                                     </div>
-                                </div>
-                            </div>
+                                </template>
+                            </b-table>
                         </div>
 
                         <!-- Pagination -->
@@ -721,6 +720,10 @@
                                     <span class="bill-info-label">{{ $t('invoice_number') }}:</span>
                                     <span class="bill-info-value" v-if="order">{{ order.orderCode }}</span>
                                 </div>
+                                <div class="bill-info-row" v-if="order && order.dailySequenceNumber">
+                                    <span class="bill-info-label">{{ $t('orderNumber') || 'رقم الطلب اليومي' }}:</span>
+                                    <span class="bill-info-value">#{{ order.dailySequenceNumber }}</span>
+                                </div>
                                 <div class="bill-info-row">
                                     <span class="bill-info-label">{{ $t('from_date') }}:</span>
                                     <span class="bill-info-value" v-if="order">{{ formatDate(order.insertDate) }}</span>
@@ -739,7 +742,7 @@
                                 </div>
                                 <div class="bill-info-row">
                                     <span class="bill-info-label">{{ $t('employeeLabel') }}:</span>
-                                    <span class="bill-info-value" v-if="order">{{ userInfo.name }}</span>
+                                    <span class="bill-info-value" v-if="order">{{ order.createdByUsername || userInfo.name }}</span>
                                 </div>
                             </div>
 
@@ -786,9 +789,17 @@
                                     <span class="bill-summary-label">{{ $t('count') }}:</span>
                                     <span class="bill-summary-value">{{ order.itemsCount }} {{ $t('items') }}</span>
                                 </div>
+                                <div class="bill-summary-row">
+                                    <span class="bill-summary-label">{{ $t('subtotal') || 'المجموع قبل الخصم' }}:</span>
+                                    <span class="bill-summary-value">{{ formatPrice(orderModalSubtotal) }} {{ $t('currency') }}</span>
+                                </div>
+                                <div class="bill-summary-row" v-if="orderModalDiscountAmount > 0">
+                                    <span class="bill-summary-label">{{ $t('discountLabel') || 'الخصم' }} ({{ orderModalDiscountLabel }}):</span>
+                                    <span class="bill-summary-value">- {{ formatPrice(orderModalDiscountAmount) }} {{ $t('currency') }}</span>
+                                </div>
                                 <div class="bill-summary-row bill-summary-total">
                                     <span class="bill-summary-label">{{ $t('total') }}:</span>
-                                    <span class="bill-summary-value">{{ formattedNumber }} {{ $t('currency') }}</span>
+                                    <span class="bill-summary-value">{{ formatPrice(orderModalFinalTotal) }} {{ $t('currency') }}</span>
                                 </div>
                             </div>
 
@@ -888,14 +899,93 @@
                                 </div>
                             </div>
                             <div class="edit-order-total">
-                                <span class="edit-order-total-label">{{ $t('total') || 'المجموع' }}:</span>
+                                <span class="edit-order-total-label">{{ $t('subtotal') || 'المجموع قبل الخصم' }}:</span>
                                 <span class="edit-order-total-value">{{ formatPrice(editOrderTotal) }} {{ $t('currency') }}</span>
+                            </div>
+                            <div class="edit-order-total" v-if="editOrderDiscountAmount > 0">
+                                <span class="edit-order-total-label">{{ $t('discountLabel') || 'الخصم' }} ({{ editOrderDiscountPreviewLabel }}):</span>
+                                <span class="edit-order-total-value">- {{ formatPrice(editOrderDiscountAmount) }} {{ $t('currency') }}</span>
+                            </div>
+                            <div class="edit-order-total">
+                                <span class="edit-order-total-label">{{ $t('total') || 'المجموع' }}:</span>
+                                <span class="edit-order-total-value">{{ formatPrice(editOrderFinalTotal) }} {{ $t('currency') }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="print-edit-order" style="display: none;" v-if="editOrderData">
+                        <div class="bill-container">
+                            <div class="bill-header">
+                                <img src="../assets/logoarabic.png" class="bill-logo-img" />
+                                <h2 class="bill-store-name">نظام لايت كاشير</h2>
+                            </div>
+                            <div class="bill-info-section">
+                                <div class="bill-info-row">
+                                    <span class="bill-info-label">{{ $t('invoice_number') }}:</span>
+                                    <span class="bill-info-value">{{ editOrderData.orderCode || '-' }}</span>
+                                </div>
+                                <div class="bill-info-row" v-if="editOrderData.dailySequenceNumber">
+                                    <span class="bill-info-label">{{ $t('orderNumber') || 'رقم الطلب اليومي' }}:</span>
+                                    <span class="bill-info-value">#{{ editOrderData.dailySequenceNumber }}</span>
+                                </div>
+                                <div class="bill-info-row">
+                                    <span class="bill-info-label">{{ $t('orderType') }}:</span>
+                                    <span class="bill-info-value">{{ getOrderTypeText(editOrderForm.orderType) }}</span>
+                                </div>
+                                <div class="bill-info-row">
+                                    <span class="bill-info-label">{{ $t('paymentMethod') }}:</span>
+                                    <span class="bill-info-value">{{ getPaymentMethodText(editOrderForm.paymentMethod) }}</span>
+                                </div>
+                                <div class="bill-info-row" v-if="editOrderData.createdByUsername">
+                                    <span class="bill-info-label">{{ $t('employeeLabel') || 'الحساب المنشئ' }}:</span>
+                                    <span class="bill-info-value">{{ editOrderData.createdByUsername }}</span>
+                                </div>
+                            </div>
+                            <div class="bill-divider"></div>
+                            <div class="bill-items-section">
+                                <table class="bill-items-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="bill-item-name-col">{{ $t('item_name_label') }}</th>
+                                            <th class="bill-item-qty-col">{{ $t('quantity_label') }}</th>
+                                            <th class="bill-item-price-col">{{ $t('selling_price_label') }}</th>
+                                            <th class="bill-item-total-col">{{ $t('total_label') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(item, index) in editOrderForm.items" :key="`print-edit-${index}`">
+                                            <td class="bill-item-name">{{ item.name }}</td>
+                                            <td class="bill-item-qty">{{ item.quantity }}</td>
+                                            <td class="bill-item-price">{{ formatPrice(item.price) }}</td>
+                                            <td class="bill-item-total">{{ formatPrice(item.price * item.quantity) }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="bill-divider"></div>
+                            <div class="bill-summary-section">
+                                <div class="bill-summary-row">
+                                    <span class="bill-summary-label">{{ $t('subtotal') || 'المجموع قبل الخصم' }}:</span>
+                                    <span class="bill-summary-value">{{ formatPrice(editOrderTotal) }} {{ $t('currency') }}</span>
+                                </div>
+                                <div class="bill-summary-row" v-if="editOrderDiscountAmount > 0">
+                                    <span class="bill-summary-label">{{ $t('discountLabel') || 'الخصم' }} ({{ editOrderDiscountPreviewLabel }}):</span>
+                                    <span class="bill-summary-value">- {{ formatPrice(editOrderDiscountAmount) }} {{ $t('currency') }}</span>
+                                </div>
+                                <div class="bill-summary-row bill-summary-total">
+                                    <span class="bill-summary-label">{{ $t('total') || 'المجموع' }}:</span>
+                                    <span class="bill-summary-value">{{ formatPrice(editOrderFinalTotal) }} {{ $t('currency') }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Modal Actions -->
                     <div class="users-form-actions" style="margin-top: 1.5rem;">
+                        <button type="button" class="users-form-submit-button" @click="printEditOrder" :disabled="loadingUpdateOrder">
+                            <b-icon icon="printer-fill" class="me-2"></b-icon>
+                            {{ $t('print') || 'طباعة' }}
+                        </button>
                         <button class="users-form-submit-button" @click="updateOrder" :disabled="loadingUpdateOrder">
                             <b-spinner small v-if="loadingUpdateOrder" class="me-2"></b-spinner>
                             <b-icon v-else icon="check-circle-fill" class="me-2"></b-icon>
@@ -1017,6 +1107,8 @@ export default {
                 paymentMethod: 'Cash',
                 orderType: 'DineIn',
                 notes: '',
+                discountType: null,
+                discountValue: null,
                 items: []
             },
             availableItems: [],
@@ -1029,10 +1121,46 @@ export default {
         formattedNumber() {
             return this.totaPrice.toLocaleString()
         },
+        orderModalSubtotal() {
+            return Number(this.order?.orderSubTotal ?? this.totaPrice ?? 0);
+        },
+        orderModalDiscountAmount() {
+            return Number(this.order?.discountAmount ?? 0);
+        },
+        orderModalFinalTotal() {
+            const fallbackTotal = Number(this.totaPrice ?? 0);
+            const orderFinal = this.order?.orderTotalAfterDiscount;
+            if (orderFinal !== null && orderFinal !== undefined) return Number(orderFinal);
+            return Math.max(this.orderModalSubtotal - this.orderModalDiscountAmount, fallbackTotal);
+        },
+        orderModalDiscountLabel() {
+            const type = this.order?.discountType;
+            const value = Number(this.order?.discountValue ?? 0);
+            if (type === 'percentage') return `${Math.min(value, 100)}%`;
+            return `${this.formatPrice(value)} ${this.$t('currency')}`;
+        },
         editOrderTotal() {
             return this.editOrderForm.items.reduce((sum, item) => {
                 return sum + (item.price * item.quantity);
             }, 0);
+        },
+        editOrderDiscountAmount() {
+            const rawValue = Number(this.editOrderForm.discountValue) || 0;
+            if (rawValue <= 0) return 0;
+            if (this.editOrderForm.discountType === 'percentage') {
+                return Math.min(this.editOrderTotal, (this.editOrderTotal * Math.min(rawValue, 100)) / 100);
+            }
+            return Math.min(this.editOrderTotal, rawValue);
+        },
+        editOrderFinalTotal() {
+            return Math.max(this.editOrderTotal - this.editOrderDiscountAmount, 0);
+        },
+        editOrderDiscountPreviewLabel() {
+            if (this.editOrderForm.discountType === 'percentage') {
+                const percent = Number(this.editOrderForm.discountValue) || 0;
+                return `${Math.min(percent, 100)}%`;
+            }
+            return `${this.formatPrice(Number(this.editOrderForm.discountValue) || 0)} ${this.$t('currency')}`;
         },
 
         customerOrderItemField() {
@@ -1246,6 +1374,20 @@ export default {
                 }
             ];
         },
+        ordersTableFields() {
+            return [
+                { key: 'orderCode', label: this.$t('invoice_number') || 'رقم الفاتورة', sortable: true },
+                { key: 'insertDate', label: this.$t('date') || 'التاريخ', sortable: true },
+                { key: 'dailySequenceNumber', label: this.$t('orderNumber') || 'الرقم اليومي', sortable: true },
+                { key: 'orderType', label: this.$t('orderType') || 'نوع الطلب', sortable: true },
+                { key: 'paymentMethod', label: this.$t('paymentMethod') || 'طريقة الدفع', sortable: true },
+                { key: 'itemsCount', label: this.$t('items_count') || 'عدد العناصر', sortable: true },
+                { key: 'discountAmount', label: this.$t('discountLabel') || 'الخصم', sortable: true },
+                { key: 'totalAmount', label: this.$t('invoice_amount') || 'مبلغ الفاتورة', sortable: true },
+                { key: 'createdByUsername', label: this.$t('employeeLabel') || 'الحساب المنشئ', sortable: true },
+                { key: 'actions', label: this.$t('actions') || 'الإجراءات' }
+            ];
+        },
         hasActiveFilters() {
             return this.search.orderType || 
                    this.search.paymentMethod || 
@@ -1293,6 +1435,14 @@ export default {
     },
 
     mounted() {
+        const routeQuery = this.$route?.query || {};
+        const hasDriverFilter = !!routeQuery.deliveryDriverId;
+        if (hasDriverFilter) {
+            this.search.deliveryDriverId = String(routeQuery.deliveryDriverId);
+            this.search.startDate = routeQuery.startDate ? String(routeQuery.startDate) : "";
+            this.search.endDate = routeQuery.endDate ? String(routeQuery.endDate) : "";
+            this.activeTab = "orders";
+        }
         this.GetAllOrders();
         this.userInfo = JSON.parse(localStorage.getItem('info'));
         this.loadDeliveryDrivers();
@@ -1373,8 +1523,10 @@ export default {
             }
             return "0";
         },
-        print() {
-            const prtHtml = document.getElementById('print').innerHTML;
+        print(printTargetId = 'print') {
+            const targetNode = document.getElementById(printTargetId);
+            if (!targetNode) return;
+            const prtHtml = targetNode.innerHTML;
             
             // Professional POS printer styles (80mm thermal printer)
             const stylesHtml = `
@@ -1631,6 +1783,9 @@ export default {
                 }, 100);
             }, 250);
         },
+        printEditOrder() {
+            this.print('print-edit-order');
+        },
 
         showItemsModel(items, order) {
             this.customerOrderItem = items;
@@ -1655,6 +1810,8 @@ export default {
                 paymentMethod: order.paymentMethod || 'Cash',
                 orderType: order.orderType || 'DineIn',
                 notes: order.notes || '',
+                discountType: order.discountType || null,
+                discountValue: order.discountValue ?? null,
                 items: order.customerOrderItem ? order.customerOrderItem.map(item => ({
                     id: item.item?.id || item.itemId,
                     name: item.item?.name || '',
@@ -1673,6 +1830,8 @@ export default {
                 paymentMethod: 'Cash',
                 orderType: 'DineIn',
                 notes: '',
+                discountType: null,
+                discountValue: null,
                 items: []
             };
             this.$bvModal.hide('modal-edit-order');
@@ -1763,6 +1922,12 @@ export default {
                     paymentMethod: this.editOrderForm.paymentMethod,
                     orderType: this.editOrderForm.orderType,
                     notes: this.editOrderForm.notes,
+                    discountType: this.editOrderDiscountAmount > 0 ? this.editOrderForm.discountType : null,
+                    discountValue: this.editOrderDiscountAmount > 0 ? (Number(this.editOrderForm.discountValue) || 0) : null,
+                    discountAmount: this.editOrderDiscountAmount > 0 ? this.editOrderDiscountAmount : 0,
+                    discountPercent: this.editOrderForm.discountType === 'percentage' ? (Number(this.editOrderForm.discountValue) || 0) : 0,
+                    orderSubTotal: this.editOrderTotal,
+                    orderTotalAfterDiscount: this.editOrderFinalTotal,
                     customerOrderItem: this.editOrderForm.items.map(item => ({
                         itemId: item.itemId || item.id,
                         quantity: item.quantity
@@ -2366,6 +2531,119 @@ export default {
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--primary-color);
+}
+
+/* Bill table in view modals - match system design */
+.report-print-container {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+}
+
+.report-print-container .bill-container {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+}
+
+.report-print-container .bill-items-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: 0.625rem;
+    background: var(--bg-primary) !important;
+}
+
+.report-print-container .bill-items-table thead {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.report-print-container .bill-items-table thead th {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    font-weight: 700;
+    font-size: 0.875rem;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color) !important;
+    text-shadow: none !important;
+}
+
+.report-print-container .bill-items-table tbody td {
+    padding: 0.75rem;
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    font-size: 0.875rem;
+}
+
+.report-print-container .bill-items-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.report-print-container .bill-items-table tbody tr:nth-child(even) {
+    background: color-mix(in srgb, var(--bg-secondary) 45%, transparent) !important;
+}
+
+.report-print-container .bill-items-table tbody tr:nth-child(odd) {
+    background: var(--bg-primary) !important;
+}
+
+.report-print-container .bill-item-qty,
+.report-print-container .bill-item-total,
+.report-print-container .bill-item-price {
+    font-weight: 600;
+}
+
+.report-print-container .bill-summary-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.625rem;
+    padding: 0.75rem;
+}
+
+.orders-actions-cell {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.orders-action-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 0.6rem;
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.orders-action-btn-view {
+    background: color-mix(in srgb, var(--primary-color) 14%, var(--bg-primary));
+    color: var(--primary-color);
+    border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
+}
+
+.orders-action-btn-edit {
+    background: color-mix(in srgb, #2563eb 16%, var(--bg-primary));
+    color: #2563eb;
+    border-color: color-mix(in srgb, #2563eb 40%, var(--border-color));
+}
+
+.orders-action-btn:hover {
+    transform: translateY(-1px);
+}
+
+:root.light-theme .orders-action-btn-view {
+    background: color-mix(in srgb, var(--primary-color) 10%, #ffffff);
+}
+
+:root.light-theme .orders-action-btn-edit {
+    background: color-mix(in srgb, #2563eb 10%, #ffffff);
 }
 
 .edit-order-items-search-results {

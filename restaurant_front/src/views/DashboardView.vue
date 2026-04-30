@@ -294,7 +294,7 @@
                             </span>
                           </td>
                           <td>{{ getPaymentMethodText(invoice.paymentMethod) }}</td>
-                          <td>{{ formatPrice(invoice.total || invoice.orderPrice || 0) }} {{ $t("currency") || "د.ع" }}</td>
+                          <td>{{ formatPrice(invoice.orderTotalAfterDiscount ?? invoice.total ?? invoice.orderPrice ?? 0) }} {{ $t("currency") || "د.ع" }}</td>
                           <td>
                             <span class="status-badge" :class="getStatusClass(invoice.orderStatus || 'Pending')">
                               {{ getStatusText(invoice.orderStatus || 'Pending') }}
@@ -528,7 +528,11 @@
             </div>
             <div class="invoice-detail-item">
               <label class="invoice-detail-label">{{ $t("total") || "المجموع" }}</label>
-              <span class="invoice-detail-value invoice-total">{{ formatPrice(selectedInvoice.total || selectedInvoice.orderPrice || 0) }} {{ $t("currency") || "د.ع" }}</span>
+              <span class="invoice-detail-value invoice-total">{{ formatPrice(selectedInvoice.orderTotalAfterDiscount ?? selectedInvoice.total ?? selectedInvoice.orderPrice ?? 0) }} {{ $t("currency") || "د.ع" }}</span>
+            </div>
+            <div class="invoice-detail-item" v-if="Number(selectedInvoice.discountAmount || 0) > 0">
+              <label class="invoice-detail-label">{{ $t("discountLabel") || "الخصم" }}</label>
+              <span class="invoice-detail-value">- {{ formatPrice(selectedInvoice.discountAmount || 0) }} {{ $t("currency") || "د.ع" }}</span>
             </div>
           </div>
 

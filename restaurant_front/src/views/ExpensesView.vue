@@ -158,71 +158,62 @@
             </button>
           </div>
 
-          <!-- Expenses Grid -->
-          <div class="users-grid-container">
+          <!-- Expenses Table -->
+          <div class="report-table-container">
             <div v-if="loadingExpenses" class="loading-state-full">
               <b-spinner variant="primary"></b-spinner>
               <span>{{ $t("loading") || "جاري التحميل..." }}</span>
             </div>
-            <div v-else class="users-grid">
-              <div class="user-card expense-card" v-for="expense in Expenses" :key="expense.id">
-                <div class="user-card-header">
-                  <div class="user-avatar">
-                    <b-icon icon="wallet2" class="avatar-icon"></b-icon>
-                  </div>
-                  <div class="expense-header-info">
-                    <h3 class="user-name">{{ formatPrice(expense.amount) }} {{ $t("currency") || "د.ع" }}</h3>
-                    <span class="expense-date">{{ formatDate(expense.date) }}</span>
-                  </div>
+            <b-table
+              v-else
+              id="expenses-table"
+              :items="Expenses"
+              :fields="expensesTableFields"
+              striped
+              hover
+              responsive
+              class="reports-table"
+              :empty-text="$t('noExpenses') || 'لا توجد صرفيات'"
+            >
+              <template #cell(amount)="row">
+                <span class="expense-amount-text">{{ formatPrice(row.item.amount) }} {{ $t("currency") || "د.ع" }}</span>
+              </template>
+              <template #cell(date)="row">
+                <span class="expense-date-text">{{ formatDate(row.item.date) }}</span>
+              </template>
+              <template #cell(category)="row">
+                <span
+                  class="expense-category-badge"
+                  :class="getCategoryClass(row.item.category)"
+                  :style="getCategoryClass(row.item.category) === '' ? {
+                    backgroundColor: getCategoryColor(row.item.category) + '20',
+                    color: getCategoryColor(row.item.category),
+                    borderColor: getCategoryColor(row.item.category) + '50'
+                  } : {}"
+                >
+                  {{ row.item.category }}
+                </span>
+              </template>
+              <template #cell(description)="row">
+                <span>{{ row.item.description || '-' }}</span>
+              </template>
+              <template #cell(employee)="row">
+                <span>{{ row.item.employee?.name || '-' }}</span>
+              </template>
+              <template #cell(tag)="row">
+                <span>{{ row.item.tag?.name || '-' }}</span>
+              </template>
+              <template #cell(actions)="row">
+                <div class="expenses-actions-cell">
+                  <button class="user-action-button expense-action-btn expense-action-btn-edit" @click="editExpense(row.item)">
+                    <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                  </button>
+                  <button class="user-action-button expense-action-btn expense-action-btn-delete" @click="confirmDeleteExpense(row.item)">
+                    <b-icon icon="trash-fill" class="action-icon"></b-icon>
+                  </button>
                 </div>
-                <div class="user-card-body">
-                  <div class="user-info-item">
-                    <b-icon icon="tag-fill" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("expenseCategory") || "الفئة:" }}</span>
-                    <span class="info-value">
-                      <span 
-                        class="expense-category-badge" 
-                        :class="getCategoryClass(expense.category)"
-                        :style="getCategoryClass(expense.category) === '' ? { 
-                          backgroundColor: getCategoryColor(expense.category) + '20',
-                          color: getCategoryColor(expense.category),
-                          borderColor: getCategoryColor(expense.category) + '50'
-                        } : {}"
-                      >
-                        {{ expense.category }}
-                      </span>
-                    </span>
-                  </div>
-                  <div class="user-info-item" v-if="expense.description">
-                    <b-icon icon="file-text" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("expenseDescription") || "الوصف:" }}</span>
-                    <span class="info-value">{{ expense.description }}</span>
-                  </div>
-                  <div class="user-info-item" v-if="expense.employee">
-                    <b-icon icon="person-badge-fill" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("employeeLabel") || "الموظف:" }}</span>
-                    <span class="info-value">{{ expense.employee.name }}</span>
-                  </div>
-                  <div class="user-info-item" v-if="expense.tag">
-                    <b-icon icon="tags-fill" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("expenseTag") || "القسم (Tag):" }}</span>
-                    <span class="info-value">{{ expense.tag.name }}</span>
-                  </div>
-                </div>
-                <div class="user-card-footer">
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                    <button class="user-action-button user-edit-button" @click="editExpense(expense)">
-                      <b-icon icon="pencil-fill" class="action-icon"></b-icon>
-                      <span>{{ $t("edit") || "تعديل" }}</span>
-                    </button>
-                    <button class="user-action-button user-delete-button" @click="confirmDeleteExpense(expense)">
-                      <b-icon icon="trash-fill" class="action-icon"></b-icon>
-                      <span>{{ $t("delete") || "حذف" }}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+              </template>
+            </b-table>
           </div>
 
           <!-- Empty State -->
@@ -550,6 +541,19 @@ export default {
       savingCategory: false,
       deletingCategory: false
     };
+  },
+  computed: {
+    expensesTableFields() {
+      return [
+        { key: 'amount', label: this.$t("expenseAmount") || "المبلغ" },
+        { key: 'date', label: this.$t("expenseDate") || "التاريخ" },
+        { key: 'category', label: this.$t("expenseCategory") || "الفئة" },
+        { key: 'description', label: this.$t("expenseDescription") || "الوصف" },
+        { key: 'employee', label: this.$t("employeeLabel") || "الموظف" },
+        { key: 'tag', label: this.$t("expenseTag") || "القسم (Tag)" },
+        { key: 'actions', label: this.$t("actions") || "الإجراءات" }
+      ];
+    }
   },
   mounted() {
     const userInfo = JSON.parse(localStorage.getItem('info') || '{}');
@@ -1268,6 +1272,70 @@ export default {
   padding: 4rem 2rem;
   color: var(--text-secondary);
   min-height: 300px;
+}
+
+.expenses-actions-cell {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.reports-table .user-action-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.expense-action-btn {
+  border-radius: 0.55rem;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.expense-action-btn-edit {
+  background: color-mix(in srgb, var(--primary-color) 12%, var(--bg-primary));
+  color: var(--primary-color);
+  border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
+}
+
+.expense-action-btn-delete {
+  background: color-mix(in srgb, #dc3545 12%, var(--bg-primary));
+  color: #dc3545;
+  border-color: color-mix(in srgb, #dc3545 40%, var(--border-color));
+}
+
+.expense-action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.expense-action-btn-edit:hover {
+  background: color-mix(in srgb, var(--primary-color) 20%, var(--bg-primary));
+  border-color: var(--primary-color);
+}
+
+.expense-action-btn-delete:hover {
+  background: color-mix(in srgb, #dc3545 20%, var(--bg-primary));
+  border-color: #dc3545;
+}
+
+.expense-amount-text {
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.expense-date-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.reports-table ::v-deep tbody td {
+  vertical-align: middle;
 }
 
 .empty-state {

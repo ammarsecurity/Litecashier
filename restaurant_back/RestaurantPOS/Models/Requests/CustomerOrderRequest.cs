@@ -13,6 +13,14 @@ namespace RestaurantPOS.Models.Requests
         public string OrderType { get; set; } = "DineIn"; // DineIn, Takeaway, Delivery
         public string? Notes { get; set; } // ملاحظات الطلب
         public string? PagerNumber { get; set; } // رقم جهاز النداء
+
+        // Order discount fields
+        public string? DiscountType { get; set; } // amount, percentage
+        public decimal? DiscountValue { get; set; } // raw input value
+        public decimal? DiscountAmount { get; set; } // computed amount in currency
+        public decimal? DiscountPercent { get; set; } // computed percent value
+        public decimal? OrderSubTotal { get; set; } // total before discount
+        public decimal? OrderTotalAfterDiscount { get; set; } // total after discount
         
         // Delivery fields
         public int? DeliveryDriverId { get; set; } // سائق التوصيل (اختياري - يمكن استخدام سائق موجود)

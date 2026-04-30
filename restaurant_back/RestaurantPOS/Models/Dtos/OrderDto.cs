@@ -12,6 +12,7 @@ namespace RestaurantPOS.Models.Dtos
         public List<CustomerOrderItem>? CustomerOrderItem { get; set; }
         public decimal OrderPrice { get; set; }
         public int? ItemsCount { get; set;}
+        public int? DailySequenceNumber { get; set; }
         public DateTime InsertDate { get; set;}
         public string? PaymentMethod { get; set; }
         public string? OrderType { get; set; }
@@ -19,6 +20,16 @@ namespace RestaurantPOS.Models.Dtos
         public string? Notes { get; set; }
         public DateTime? CreatedAt { get; set; }
         public decimal? Total { get; set; }
+        public int? CreatedByUserId { get; set; }
+        public string? CreatedByUsername { get; set; }
+
+        // Discount fields
+        public string? DiscountType { get; set; }
+        public decimal? DiscountValue { get; set; }
+        public decimal? DiscountAmount { get; set; }
+        public decimal? DiscountPercent { get; set; }
+        public decimal? OrderSubTotal { get; set; }
+        public decimal? OrderTotalAfterDiscount { get; set; }
         
         // Tables relationship
         public List<TableDto>? Tables { get; set; }

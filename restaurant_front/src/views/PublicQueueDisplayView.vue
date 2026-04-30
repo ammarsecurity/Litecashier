@@ -73,7 +73,11 @@
               </div>
               <div class="public-order-info-item">
                 <b-icon icon="currency-dollar" class="public-info-icon"></b-icon>
-                <span class="public-info-text public-price">{{ formatPrice(order.orderPrice || 0) }} د.ع</span>
+                <span class="public-info-text public-price">{{ formatPrice(order.orderTotalAfterDiscount ?? order.orderPrice ?? 0) }} د.ع</span>
+              </div>
+              <div v-if="Number(order.discountAmount || 0) > 0" class="public-order-info-item">
+                <b-icon icon="tag-fill" class="public-info-icon"></b-icon>
+                <span class="public-info-text">- {{ formatPrice(order.discountAmount || 0) }} د.ع</span>
               </div>
               <div v-if="order.deliveryDriver" class="public-order-info-item">
                 <b-icon icon="truck" class="public-info-icon"></b-icon>

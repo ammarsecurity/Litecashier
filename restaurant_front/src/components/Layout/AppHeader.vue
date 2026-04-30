@@ -1,9 +1,12 @@
 <template>
   <header class="app-top-header">
     <div class="app-top-header-inner">
-      <router-link to="/sections" class="app-top-header-sections-link">
+      <router-link
+        to="/sections"
+        class="app-top-header-sections-link"
+        :title="$t('systemModules') || 'أقسام النظام'"
+      >
         <b-icon icon="grid-3x3-gap-fill" class="app-top-header-sections-icon"></b-icon>
-        <span class="app-top-header-sections-text">{{ $t("systemModules") }}</span>
       </router-link>
 
       <div class="app-top-header-actions">
@@ -35,18 +38,21 @@
           ></b-icon>
         </button>
 
-        <select
-          v-model="$i18n.locale"
-          @change="changeLanguage"
+        <button
+          type="button"
           class="app-top-header-lang"
+          @click="toggleLanguage"
+          :title="$t('changeLanguage') || 'تغيير اللغة'"
         >
-          <option value="en">English</option>
-          <option value="ar">عربي</option>
-        </select>
+          <b-icon icon="translate" class="app-top-header-icon"></b-icon>
+        </button>
 
-        <router-link to="/logout" class="app-top-header-logout">
-          <b-icon icon="box-arrow-right" class="me-1 app-top-header-logout-icon"></b-icon>
-          <span class="app-top-header-logout-text">{{ $t("Logout") }}</span>
+        <router-link
+          to="/logout"
+          class="app-top-header-logout"
+          :title="$t('Logout') || 'تسجيل الخروج'"
+        >
+          <b-icon icon="box-arrow-right" class="app-top-header-logout-icon"></b-icon>
         </router-link>
       </div>
     </div>
@@ -77,6 +83,11 @@ export default {
       localStorage.setItem("language", lang);
       this.$i18n.locale = lang;
       document.body.dir = lang === "en" ? "ltr" : "rtl";
+    },
+    toggleLanguage() {
+      const currentLang = this.$i18n.locale || localStorage.getItem("language") || "ar";
+      const nextLang = currentLang === "ar" ? "en" : "ar";
+      this.changeLanguage({ target: { value: nextLang } });
     },
     toggleTheme() {
       this.currentTheme = this.currentTheme === "dark" ? "light" : "dark";

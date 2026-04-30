@@ -77,7 +77,12 @@
                     <tr>
                       <th>{{ $t("itemName") || "اسم المادة" }}</th>
                       <th>{{ $t("currentStock") || "الكمية الحالية" }}</th>
+                      <th>{{ $t("totalAdded") || "إجمالي الداخل" }}</th>
+                      <th>{{ $t("totalWithdrawn") || "إجمالي السحب" }}</th>
                       <th>{{ $t("unitType") || "الوحدة" }}</th>
+                      <th>{{ $t("supplierName") || "المورد" }}</th>
+                      <th>{{ $t("receiptNumber") || "رقم الوصل" }}</th>
+                      <th>{{ $t("date") || "التاريخ" }}</th>
                       <th>{{ $t("actions") || "العمليات" }}</th>
                     </tr>
                   </thead>
@@ -85,7 +90,12 @@
                     <tr v-for="(row, idx) in items" :key="(row.materialName || '') + '-' + idx">
                       <td>{{ row.materialName }}</td>
                       <td>{{ formatNumber(row.currentQuantity) }}</td>
+                      <td>{{ formatNumber(row.totalAdded) }}</td>
+                      <td>{{ formatNumber(row.totalWithdrawn) }}</td>
                       <td>{{ row.unitType || ($t("piece") || "قطعة") }}</td>
+                      <td>{{ row.lastSupplierName || '—' }}</td>
+                      <td>{{ row.lastReceiptNumber || '—' }}</td>
+                      <td>{{ formatMovementDate(row.lastMovementDate) }}</td>
                       <td>
                         <button class="btn-inventory-add" @click="openAddModal(row)">
                           <b-icon icon="plus-circle" class="me-1"></b-icon>
@@ -117,6 +127,13 @@
                   class="users-search-input movements-filter-input"
                   @input="debounceLoadMovements"
                 />
+                <input
+                  v-model="movementFilterReceiptNumber"
+                  type="text"
+                  :placeholder="$t('receiptNumber') || 'رقم الوصل'"
+                  class="users-search-input movements-filter-input"
+                  @input="debounceLoadMovements"
+                />
                 <select v-model="movementFilterType" class="users-search-input movements-filter-input" @change="loadStockMovements">
                   <option value="">{{ $t("all") || "الكل" }}</option>
                   <option value="Add">{{ $t("add") || "إضافة" }}</option>
@@ -141,6 +158,8 @@
                       <th>{{ $t("quantity") || "الكمية" }}</th>
                       <th>{{ $t("supplierName") || "المورد" }}</th>
                       <th>{{ $t("amount") || "المبلغ" }}</th>
+                      <th>{{ $t("receiptNumber") || "رقم الوصل" }}</th>
+                      <th>{{ $t("receiptAttachment") || "مرفق الوصل" }}</th>
                       <th>{{ $t("unitType") || "الوحدة" }}</th>
                       <th>{{ $t("notes") || "ملاحظات" }}</th>
                     </tr>
@@ -157,6 +176,20 @@
                       <td>{{ formatNumber(m.quantity) }}</td>
                       <td>{{ m.supplierName || '—' }}</td>
                       <td>{{ m.amount != null ? formatNumber(m.amount) : '—' }}</td>
+                      <td>{{ m.receiptNumber || '—' }}</td>
+                      <td>
+                        <a
+                          v-if="m.receiptAttachmentPath"
+                          :href="buildReceiptUrl(m.receiptAttachmentPath)"
+                          target="_blank"
+                          rel="noopener"
+                          class="receipt-link"
+                        >
+                          <b-icon icon="paperclip"></b-icon>
+                          {{ $t("open") || "فتح" }}
+                        </a>
+                        <span v-else>—</span>
+                      </td>
                       <td>{{ m.unitType || '—' }}</td>
                       <td>{{ m.notes || '—' }}</td>
                     </tr>
@@ -232,20 +265,7 @@
       <div class="modal-content-wrapper">
         <h2 class="modal-title">{{ $t("addStock") || "إضافة دخول مخزون" }}</h2>
         <form @submit.prevent="submitAddStock" class="users-form">
-            <div class="modal-form-grid">
-            <div class="users-form-group">
-              <label class="users-form-label">
-                <b-icon icon="inbox-fill" class="form-label-icon"></b-icon>
-                {{ $t("itemName") || "اسم المادة" }} <span class="required">*</span>
-              </label>
-              <input
-                v-model="addForm.materialName"
-                type="text"
-                class="users-form-input"
-                required
-                :placeholder="$t('materialNamePlaceholder') || 'اكتب اسم المادة'"
-              />
-            </div>
+          <div class="modal-form-grid">
             <div class="users-form-group">
               <label class="users-form-label">
                 <b-icon icon="person-badge" class="form-label-icon"></b-icon>
@@ -264,66 +284,117 @@
                 :placeholder="$t('supplierNamePlaceholder') || 'اسم المورد'"
               />
             </div>
+            <div class="users-form-group">
+              <label class="users-form-label">
+                <b-icon icon="receipt" class="form-label-icon"></b-icon>
+                {{ $t("receiptNumber") || "رقم الوصل" }}
+              </label>
+              <input
+                v-model="addForm.receiptNumber"
+                type="text"
+                class="users-form-input"
+                :placeholder="$t('receiptNumberPlaceholder') || 'أدخل رقم الوصل'"
+              />
+            </div>
           </div>
+
+          <div class="users-form-group">
+            <div class="stock-items-header">
+              <label class="users-form-label mb-0">
+                <b-icon icon="list-ul" class="form-label-icon"></b-icon>
+                {{ $t("inventoryItemsList") || "قائمة المواد المدخلة" }}
+              </label>
+              <button type="button" class="btn-inventory-add" @click="addStockItemRow">
+                <b-icon icon="plus-circle" class="me-1"></b-icon>
+                {{ $t("addItem") || "إضافة منتج" }}
+              </button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table users-table movements-table stock-items-table">
+                <thead>
+                  <tr>
+                    <th>{{ $t("itemName") || "اسم المادة" }}</th>
+                    <th>{{ $t("unitPrice") || "سعر الوحدة" }}</th>
+                    <th>{{ $t("quantity") || "الكمية" }}</th>
+                    <th>{{ $t("amount") || "المبلغ" }}</th>
+                    <th>{{ $t("unitType") || "الوحدة" }}</th>
+                    <th>{{ $t("actions") || "العمليات" }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(itemRow, rowIndex) in addForm.items" :key="'stock-item-' + rowIndex">
+                    <td>
+                      <input
+                        v-model="itemRow.materialName"
+                        type="text"
+                        class="users-form-input"
+                        :placeholder="$t('materialNamePlaceholder') || 'اكتب اسم المادة'"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        v-model.number="itemRow.unitPrice"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="users-form-input"
+                        :placeholder="$t('unitPrice') || 'سعر الوحدة'"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        v-model.number="itemRow.quantity"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        class="users-form-input"
+                        :placeholder="$t('quantityPlaceholder') || 'الكمية'"
+                      />
+                    </td>
+                    <td>{{ formatNumber(calculateRowAmount(itemRow)) }}</td>
+                    <td>
+                      <select v-model="itemRow.unitType" class="users-form-input">
+                        <option value="">{{ $t("selectUnit") || "اختر الوحدة" }}</option>
+                        <option value="قطعة">{{ $t("piece") || "قطعة" }}</option>
+                        <option value="كارتون">{{ $t("carton") || "كارتون" }}</option>
+                        <option value="كيلو">{{ $t("kilo") || "كيلو" }}</option>
+                        <option value="لتر">{{ $t("liter") || "لتر" }}</option>
+                        <option value="علبة">{{ $t("box") || "علبة" }}</option>
+                        <option value="أخرى">{{ $t("other") || "أخرى" }}</option>
+                      </select>
+                    </td>
+                    <td>
+                      <button type="button" class="btn-inventory-withdraw" @click="removeStockItemRow(rowIndex)">
+                        <b-icon icon="trash"></b-icon>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="stock-total-row">
+            <span>{{ $t("totalAmount") || "إجمالي المبلغ" }}</span>
+            <strong>{{ formatNumber(totalStockInvoiceAmount) }}</strong>
+          </div>
+
           <div class="modal-form-grid">
             <div class="users-form-group">
               <label class="users-form-label">
-                <b-icon icon="currency-dollar" class="form-label-icon"></b-icon>
-                {{ $t("amount") || "المبلغ" }}
+                <b-icon icon="paperclip" class="form-label-icon"></b-icon>
+                {{ $t("receiptAttachment") || "مرفق الوصل" }}
               </label>
               <input
-                v-model.number="addForm.amount"
-                type="number"
-                step="0.01"
-                min="0"
+                ref="receiptInput"
+                type="file"
+                accept=".jpg,.jpeg,.png,.gif,.pdf"
                 class="users-form-input"
-                :placeholder="$t('amountPlaceholder') || 'المبلغ'"
+                @change="onReceiptSelect"
               />
+              <small v-if="addForm.receiptFileName" class="text-muted">{{ addForm.receiptFileName }}</small>
             </div>
-            <div class="users-form-group">
-              <label class="users-form-label">
-                <b-icon icon="layers" class="form-label-icon"></b-icon>
-                {{ $t("unitType") || "نوع الوحدة" }}
-              </label>
-              <select v-model="addForm.unitType" class="users-form-input">
-                <option value="">{{ $t("selectUnit") || "اختر الوحدة" }}</option>
-                <option value="قطعة">{{ $t("piece") || "قطعة" }}</option>
-                <option value="كارتون">{{ $t("carton") || "كارتون" }}</option>
-                <option value="كيلو">{{ $t("kilo") || "كيلو" }}</option>
-                <option value="لتر">{{ $t("liter") || "لتر" }}</option>
-                <option value="علبة">{{ $t("box") || "علبة" }}</option>
-                <option value="أخرى">{{ $t("other") || "أخرى" }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="users-form-group">
-            <label class="users-form-label">
-              <b-icon icon="hash" class="form-label-icon"></b-icon>
-              {{ $t("quantity") || "الكمية" }} <span class="required">*</span>
-            </label>
-            <input
-              v-model.number="addForm.quantity"
-              type="number"
-              step="0.01"
-              min="0.01"
-              class="users-form-input"
-              required
-              :placeholder="$t('quantityPlaceholder') || 'الكمية'"
-            />
-          </div>
-          <div class="users-form-group">
-            <label class="users-form-label">
-              <b-icon icon="paperclip" class="form-label-icon"></b-icon>
-              {{ $t("receiptAttachment") || "مرفق الوصل" }}
-            </label>
-            <input
-              ref="receiptInput"
-              type="file"
-              accept=".jpg,.jpeg,.png,.gif,.pdf"
-              class="users-form-input"
-              @change="onReceiptSelect"
-            />
-            <small v-if="addForm.receiptFileName" class="text-muted">{{ addForm.receiptFileName }}</small>
           </div>
           <div class="users-form-group">
             <label class="users-form-label">
@@ -514,12 +585,12 @@ export default {
       savingAdd: false,
       savingWithdraw: false,
       addForm: {
-        materialName: '',
         supplierSelect: '',
         supplierOtherName: '',
-        amount: 0,
-        unitType: '',
-        quantity: 0.01,
+        receiptNumber: '',
+        items: [
+          { materialName: '', unitPrice: 0, quantity: 0.01, unitType: '' }
+        ],
         notes: '',
         receiptFile: null,
         receiptFileName: ''
@@ -537,6 +608,7 @@ export default {
       movementsTotal: 0,
       movementFilterMaterial: '',
       movementFilterType: '',
+      movementFilterReceiptNumber: '',
       movementsSearchTimer: null,
       activeInventoryTab: 'stock',
       suppliersList: [],
@@ -547,6 +619,11 @@ export default {
       editingSupplierId: null,
       savingSupplier: false
     };
+  },
+  computed: {
+    totalStockInvoiceAmount() {
+      return (this.addForm.items || []).reduce((sum, row) => sum + this.calculateRowAmount(row), 0);
+    }
   },
   mounted() {
     this.loadInventory();
@@ -670,6 +747,7 @@ export default {
         });
         if (this.movementFilterMaterial) params.append('materialName', this.movementFilterMaterial);
         if (this.movementFilterType) params.append('movementType', this.movementFilterType);
+        if (this.movementFilterReceiptNumber) params.append('receiptNumber', this.movementFilterReceiptNumber);
         const response = await HTTP.get(`Inventory/GetStockMovements?${params.toString()}`);
         if (response.data && !response.data.errorStatus && response.data.data) {
           this.movementsList = response.data.data.items || [];
@@ -728,13 +806,31 @@ export default {
       if (this.searchTimer) clearTimeout(this.searchTimer);
       this.searchTimer = setTimeout(() => this.loadInventory(), 400);
     },
+    addStockItemRow() {
+      this.addForm.items.push({ materialName: '', unitPrice: 0, quantity: 0.01, unitType: '' });
+    },
+    removeStockItemRow(index) {
+      if (this.addForm.items.length <= 1) {
+        this.$bvToast.toast(this.$t('materialNameRequired') || 'يجب إدخال مادة واحدة على الأقل', { variant: 'warning', solid: true });
+        return;
+      }
+      this.addForm.items.splice(index, 1);
+    },
+    calculateRowAmount(row) {
+      const unitPrice = Number(row?.unitPrice || 0);
+      const quantity = Number(row?.quantity || 0);
+      return Math.max(0, unitPrice * quantity);
+    },
     openAddModal(row) {
-      this.addForm.materialName = row && row.materialName ? row.materialName : '';
       this.addForm.supplierSelect = '';
       this.addForm.supplierOtherName = '';
-      this.addForm.amount = 0;
-      this.addForm.unitType = row && row.unitType ? row.unitType : '';
-      this.addForm.quantity = 0.01;
+      this.addForm.receiptNumber = '';
+      this.addForm.items = [{
+        materialName: row && row.materialName ? row.materialName : '',
+        unitPrice: 0,
+        quantity: 0.01,
+        unitType: row && row.unitType ? row.unitType : ''
+      }];
       this.addForm.notes = '';
       this.addForm.receiptFile = null;
       this.addForm.receiptFileName = '';
@@ -743,9 +839,10 @@ export default {
       this.showAddModal = true;
     },
     resetAddForm() {
-      this.addForm.materialName = '';
       this.addForm.supplierSelect = '';
       this.addForm.supplierOtherName = '';
+      this.addForm.receiptNumber = '';
+      this.addForm.items = [{ materialName: '', unitPrice: 0, quantity: 0.01, unitType: '' }];
       this.addForm.receiptFile = null;
       this.addForm.receiptFileName = '';
     },
@@ -764,26 +861,27 @@ export default {
       this.addForm.receiptFileName = file ? file.name : '';
     },
     async submitAddStock() {
-      const name = (this.addForm.materialName || '').trim();
-      if (!name) {
-        this.$bvToast.toast(this.$t('materialNameRequired') || 'اسم المادة مطلوب', { variant: 'warning', solid: true });
-        return;
-      }
-      if (!this.addForm.quantity || this.addForm.quantity <= 0) {
-        this.$bvToast.toast(this.$t('quantityRequired') || 'الكمية مطلوبة وأكبر من صفر', { variant: 'warning', solid: true });
+      const rows = (this.addForm.items || []).map((row) => ({
+        materialName: (row.materialName || '').trim(),
+        quantity: Number(row.quantity || 0),
+        unitPrice: Number(row.unitPrice || 0),
+        amount: this.calculateRowAmount(row),
+        unitType: row.unitType || ''
+      }));
+      const validRows = rows.filter((row) => row.materialName && row.quantity > 0);
+      if (validRows.length === 0) {
+        this.$bvToast.toast(this.$t('materialNameRequired') || 'يرجى إدخال مادة واحدة على الأقل مع كمية صحيحة', { variant: 'warning', solid: true });
         return;
       }
       try {
         this.savingAdd = true;
         const formData = new FormData();
-        formData.append('materialName', name);
-        formData.append('quantity', this.addForm.quantity);
         formData.append('supplierName', this.getAddFormSupplierName());
-        formData.append('amount', this.addForm.amount || 0);
-        formData.append('unitType', this.addForm.unitType || '');
+        formData.append('receiptNumber', this.addForm.receiptNumber || '');
         formData.append('notes', this.addForm.notes || '');
+        formData.append('itemsJson', JSON.stringify(validRows));
         if (this.addForm.receiptFile) formData.append('receiptFile', this.addForm.receiptFile);
-        const response = await HTTP.post('Inventory/AddStock', formData, {
+        const response = await HTTP.post('Inventory/AddStockBatch', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
         if (response.data && !response.data.errorStatus) {
@@ -868,6 +966,10 @@ export default {
     formatNumber(val) {
       if (val == null || val === '') return '0';
       return Number(val).toLocaleString('ar-EG', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    },
+    buildReceiptUrl(fileName) {
+      if (!fileName) return '#';
+      return `${window.location.origin}/Receipts/${fileName}`;
     }
   }
 };
@@ -1052,5 +1154,40 @@ export default {
   margin-top: 1rem;
   display: flex;
   justify-content: center;
+}
+
+.stock-items-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.stock-items-table .users-form-input {
+  min-width: 120px;
+}
+
+.stock-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color, #d1d5db);
+  background: var(--bg-primary, #fff);
+  font-weight: 700;
+}
+
+.receipt-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.receipt-link:hover {
+  color: var(--primary-hover);
 }
 </style>

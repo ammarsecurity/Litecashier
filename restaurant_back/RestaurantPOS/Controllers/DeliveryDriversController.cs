@@ -356,7 +356,7 @@ namespace RestaurantPOS.Controllers
         // GET: api/DeliveryDrivers/{id}/Statistics
         [Authorize(Roles = "Commercial,Admin")]
         [HttpGet("{id}/Statistics")]
-        public async Task<ActionResult<GlobalResponse<object>>> GetDriverStatistics(int id)
+        public async Task<ActionResult<GlobalResponse<object>>> GetDriverStatistics(int id, DateTime? startDate = null, DateTime? endDate = null)
         {
             try
             {
@@ -375,12 +375,23 @@ namespace RestaurantPOS.Controllers
                     });
                 }
 
-                var orders = await _dbConfig.CustomerOrders
+                var ordersQuery = _dbConfig.CustomerOrders
                     .Include(o => o.CustomerOrderItem)
                     .Where(o => o.DeliveryDriverId == id 
                         && !o.IsDeleted 
-                        && o.InsertByUserId == commercialUserId)
-                    .ToListAsync();
+                        && o.InsertByUserId == commercialUserId);
+
+                if (startDate.HasValue)
+                {
+                    ordersQuery = ordersQuery.Where(o => o.InsertDate.Date >= startDate.Value.Date);
+                }
+
+                if (endDate.HasValue)
+                {
+                    ordersQuery = ordersQuery.Where(o => o.InsertDate.Date <= endDate.Value.Date);
+                }
+
+                var orders = await ordersQuery.ToListAsync();
 
                 var totalOrders = orders.Count;
                 // Count delivered orders: DeliveryStatus is Delivered/Completed OR OrderStatus is Completed

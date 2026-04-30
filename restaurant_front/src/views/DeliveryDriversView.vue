@@ -160,9 +160,11 @@
                     <button 
                       class="btn-view-stats"
                       @click="viewDriverStatistics(driver.id)"
+                      :disabled="loadingDriverStatisticsId === driver.id"
                       :title="$t('viewStatistics') || 'عرض الإحصائيات'"
                     >
-                      <b-icon icon="graph-up"></b-icon>
+                      <b-spinner small v-if="loadingDriverStatisticsId === driver.id"></b-spinner>
+                      <b-icon v-else icon="graph-up"></b-icon>
                     </button>
                     <button 
                       class="btn-edit-driver"
@@ -355,6 +357,25 @@
     >
       <div class="modal-content-wrapper">
         <h2 class="modal-title">{{ selectedDriverStats ? ($t('driverStatistics') || 'إحصائيات السائق') + ': ' + selectedDriverStats.driverName : ($t('driverStatistics') || 'إحصائيات السائق') }}</h2>
+        <div class="driver-stats-filters">
+          <div class="users-form-group">
+            <label class="users-form-label">{{ $t('from_date') || 'من تاريخ' }}</label>
+            <input v-model="driverStatsFilter.startDate" type="date" class="users-form-input" />
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">{{ $t('to_date') || 'إلى تاريخ' }}</label>
+            <input v-model="driverStatsFilter.endDate" type="date" class="users-form-input" />
+          </div>
+          <button
+            type="button"
+            class="users-form-submit-button driver-stats-apply-btn"
+            :disabled="loadingDriverStatisticsModal || !selectedDriverStats"
+            @click="selectedDriverStats && viewDriverStatistics(selectedDriverStats.driverId)"
+          >
+            <b-spinner small v-if="loadingDriverStatisticsModal" class="me-2"></b-spinner>
+            {{ $t('applyFilter') || 'تطبيق الفلتر' }}
+          </button>
+        </div>
         <div v-if="selectedDriverStats" class="driver-statistics-content">
           <div class="statistics-detail-grid">
             <div class="stat-detail-card">
@@ -392,6 +413,15 @@
           </div>
         </div>
         <div class="users-form-actions">
+          <button
+            type="button"
+            class="users-form-submit-button"
+            :disabled="!selectedDriverStats"
+            @click="goToDriverInvoices"
+          >
+            <b-icon icon="receipt-cutoff" class="me-2"></b-icon>
+            {{ $t('viewDriverInvoices') || 'عرض الفواتير الخاصة بهذا السائق' }}
+          </button>
           <button type="button" class="users-form-cancel-button" @click="showStatisticsModal = false">
             {{ $t("close") || "إغلاق" }}
           </button>
@@ -420,8 +450,14 @@ export default {
       showAddDriverModal: false,
       showStatisticsModal: false,
       savingDriver: false,
+      loadingDriverStatisticsId: null,
+      loadingDriverStatisticsModal: false,
       selectedDriver: null,
       selectedDriverStats: null,
+      driverStatsFilter: {
+        startDate: "",
+        endDate: "",
+      },
       driverForm: {
         name: '',
         phoneNumber: '',
@@ -434,10 +470,19 @@ export default {
     };
   },
   mounted() {
+    const today = this.getTodayDateString();
+    this.driverStatsFilter.startDate = today;
+    this.driverStatsFilter.endDate = today;
     this.loadDrivers();
     this.loadStatistics();
   },
   methods: {
+    getTodayDateString() {
+      const now = new Date();
+      const month = `${now.getMonth() + 1}`.padStart(2, "0");
+      const day = `${now.getDate()}`.padStart(2, "0");
+      return `${now.getFullYear()}-${month}-${day}`;
+    },
     async loadDrivers() {
       try {
         this.loadingDrivers = true;
@@ -476,8 +521,17 @@ export default {
       }
     },
     async viewDriverStatistics(driverId) {
+      const isFromModal = this.showStatisticsModal && this.selectedDriverStats?.driverId === driverId;
       try {
-        const response = await HTTP.get(`DeliveryDrivers/${driverId}/Statistics`);
+        if (isFromModal) {
+          this.loadingDriverStatisticsModal = true;
+        } else {
+          this.loadingDriverStatisticsId = driverId;
+        }
+        const params = new URLSearchParams();
+        if (this.driverStatsFilter.startDate) params.append("startDate", this.driverStatsFilter.startDate);
+        if (this.driverStatsFilter.endDate) params.append("endDate", this.driverStatsFilter.endDate);
+        const response = await HTTP.get(`DeliveryDrivers/${driverId}/Statistics?${params.toString()}`);
         if (response.data && !response.data.errorStatus) {
           this.selectedDriverStats = response.data.data;
           this.showStatisticsModal = true;
@@ -495,7 +549,26 @@ export default {
           timeout: 3000,
           rtl: this.$i18n.locale === 'ar'
         });
+      } finally {
+        this.loadingDriverStatisticsId = null;
+        this.loadingDriverStatisticsModal = false;
       }
+    },
+    goToDriverInvoices() {
+      if (!this.selectedDriverStats?.driverId) {
+        return;
+      }
+      const query = {
+        deliveryDriverId: String(this.selectedDriverStats.driverId),
+      };
+      if (this.driverStatsFilter.startDate) {
+        query.startDate = this.driverStatsFilter.startDate;
+      }
+      if (this.driverStatsFilter.endDate) {
+        query.endDate = this.driverStatsFilter.endDate;
+      }
+      this.showStatisticsModal = false;
+      this.$router.push({ path: "/reports", query });
     },
     async saveDriver() {
       if (!this.driverForm.name || !this.driverForm.name.trim()) {
@@ -1139,6 +1212,18 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
+}
+
+.driver-stats-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  align-items: end;
+}
+
+.driver-stats-apply-btn {
+  min-height: 42px;
 }
 
 .stat-detail-card {
