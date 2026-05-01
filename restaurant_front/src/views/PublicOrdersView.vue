@@ -152,9 +152,11 @@
                 </select>
               </template>
               <template #cell(actions)="row">
-                <button class="user-action-button public-orders-action-btn" @click="showItemsModal(row.item)">
-                  <b-icon icon="eye-fill" class="action-icon"></b-icon>
-                </button>
+                <div class="actions-cell">
+                  <button type="button" class="action-btn action-btn--icon action-btn--view" @click="showItemsModal(row.item)">
+                    <b-icon icon="eye-fill" class="action-icon"></b-icon>
+                  </button>
+                </div>
               </template>
             </b-table>
           </div>
@@ -820,20 +822,6 @@ export default {
   background: none !important;
   -webkit-text-fill-color: currentColor !important;
   color: var(--text-primary) !important;
-}
-
-.public-orders-action-btn {
-  border-radius: 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
-  background: color-mix(in srgb, var(--primary-color) 12%, var(--bg-primary));
-  color: var(--primary-color);
-  transition: all 0.2s ease;
-}
-
-.public-orders-action-btn:hover {
-  background: color-mix(in srgb, var(--primary-color) 20%, var(--bg-primary));
-  border-color: var(--primary-color);
-  transform: translateY(-1px);
 }
 
 .orders-date-text {

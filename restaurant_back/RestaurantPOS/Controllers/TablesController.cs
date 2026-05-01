@@ -84,10 +84,14 @@ namespace RestaurantPOS.Controllers
             // Order by table number
             query = query.OrderBy(t => t.TableNumber);
 
+            pageNumber = Math.Max(0, pageNumber);
+            if (pageSize < 1) pageSize = 10;
+            if (pageSize > 500) pageSize = 500;
+
             var totalItems = await query.CountAsync();
             var tables = await query.ToListAsync();
 
-            var pagedResult = new PagedList<Table>(tables, totalItems, pageNumber, 10000);
+            var pagedResult = new PagedList<Table>(tables, totalItems, pageNumber, pageSize);
 
             return Ok(new GlobalResponse<PagedList<Table>>
             {

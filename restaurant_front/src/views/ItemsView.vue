@@ -97,34 +97,38 @@
               </template>
 
               <template #cell(actions)="row">
-                <div class="item-actions-cell">
+                <div class="actions-cell">
                   <button 
-                    class="item-action-btn edit-btn" 
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--edit" 
                     @click="getItemInfo(row.item)"
                     :title="$t('editButtonLabel')"
                   >
-                    <b-icon icon="pencil-fill"></b-icon>
+                    <b-icon icon="pencil-fill" class="action-icon"></b-icon>
                   </button>
                   <button 
-                    class="item-action-btn ai-image-btn" 
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--ai" 
                     @click="generateItemImageWithAI(row.item)"
                     :title="$t('generateImageWithAI') || 'إنشاء صورة بالذكاء الاصطناعي'"
                   >
-                    <b-icon icon="image-fill"></b-icon>
+                    <b-icon icon="image-fill" class="action-icon"></b-icon>
                   </button>
                   <button 
-                    class="item-action-btn print-btn" 
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--print" 
                     @click="printListOfCode(row.item, 30)"
                     :title="$t('printCodeButtonLabel')"
                   >
-                    <b-icon icon="printer-fill"></b-icon>
+                    <b-icon icon="printer-fill" class="action-icon"></b-icon>
                   </button>
                   <button 
-                    class="item-action-btn delete-btn" 
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--delete" 
                     @click="deleteItemModel(row.item.id)"
                     :title="$t('deleteButtonLabel')"
                   >
-                    <b-icon icon="trash-fill"></b-icon>
+                    <b-icon icon="trash-fill" class="action-icon"></b-icon>
                   </button>
                 </div>
               </template>
@@ -2326,62 +2330,6 @@ export default {
   font-size: 0.875rem;
 }
 
-.item-actions-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.item-action-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
-}
-
-.item-action-btn.edit-btn {
-  background-color: #eff6ff;
-  color: #2563eb;
-}
-
-.item-action-btn.edit-btn:hover {
-  background-color: #2563eb;
-  color: white;
-  transform: scale(1.05);
-}
-
-.item-action-btn.print-btn {
-  background-color: #f0f9ff;
-  color: #0284c7;
-}
-
-.item-action-btn.print-btn:hover {
-  background-color: #0284c7;
-  color: white;
-  transform: scale(1.05);
-}
-
-.item-action-btn.delete-btn {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-.item-action-btn.delete-btn:hover {
-  background-color: #991b1b;
-  color: white;
-  transform: scale(1.05);
-}
-
-.item-action-btn:active {
-  transform: scale(0.95);
-}
-
 .pagination-container {
   display: flex;
   justify-content: space-between;
@@ -2843,17 +2791,6 @@ export default {
   padding: 3rem;
   color: var(--text-muted);
   font-size: 0.9375rem;
-}
-
-.ai-image-btn {
-  background-color: #8b5cf6;
-  color: white;
-}
-
-.ai-image-btn:hover {
-  background-color: #7c3aed;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
 }
 
 .item-category-hint {

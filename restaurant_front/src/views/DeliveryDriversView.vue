@@ -158,27 +158,30 @@
                     </div>
                   <div class="driver-card-actions">
                     <button 
-                      class="btn-view-stats"
+                      type="button"
+                      class="action-btn action-btn--icon action-btn--view"
                       @click="viewDriverStatistics(driver.id)"
                       :disabled="loadingDriverStatisticsId === driver.id"
                       :title="$t('viewStatistics') || 'عرض الإحصائيات'"
                     >
                       <b-spinner small v-if="loadingDriverStatisticsId === driver.id"></b-spinner>
-                      <b-icon v-else icon="graph-up"></b-icon>
+                      <b-icon v-else icon="graph-up" class="action-icon"></b-icon>
                     </button>
                     <button 
-                      class="btn-edit-driver"
+                      type="button"
+                      class="action-btn action-btn--icon action-btn--edit"
                       @click="editDriver(driver)"
                       :title="$t('edit') || 'تعديل'"
                     >
-                      <b-icon icon="pencil"></b-icon>
+                      <b-icon icon="pencil" class="action-icon"></b-icon>
                     </button>
                     <button 
-                      class="btn-delete-driver"
+                      type="button"
+                      class="action-btn action-btn--icon action-btn--delete"
                       @click="confirmDeleteDriver(driver)"
                       :title="$t('delete') || 'حذف'"
                     >
-                      <b-icon icon="trash"></b-icon>
+                      <b-icon icon="trash" class="action-icon"></b-icon>
                     </button>
                   </div>
                 </div>
@@ -1041,57 +1044,6 @@ export default {
 .driver-card-actions {
   display: flex;
   gap: 0.5rem;
-}
-
-.btn-view-stats,
-.btn-edit-driver,
-.btn-delete-driver {
-  width: 40px;
-  height: 40px;
-  border: 2px solid;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  font-size: 1rem;
-}
-
-.btn-view-stats {
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--info-color);
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.btn-view-stats:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: var(--info-color);
-  transform: scale(1.05);
-}
-
-.btn-edit-driver {
-  background: rgba(251, 191, 36, 0.1);
-  color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.3);
-}
-
-.btn-edit-driver:hover {
-  background: rgba(251, 191, 36, 0.2);
-  border-color: #fbbf24;
-  transform: scale(1.05);
-}
-
-.btn-delete-driver {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--danger-color);
-  border-color: rgba(239, 68, 68, 0.3);
-}
-
-.btn-delete-driver:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: var(--danger-color);
-  transform: scale(1.05);
 }
 
 .driver-card-body {

@@ -39,8 +39,16 @@ namespace RestaurantPOS.Models
         [StringLength(500)]
         public string? ReceiptAttachmentPath { get; set; }
 
+        /// <summary>رقم الوصل المرتبط بهذه الدفعة (مع اسم المادة يحدّد سطراً مستقلاً في المخزن)</summary>
+        [StringLength(200)]
+        public string? ReceiptNumber { get; set; }
+
         [StringLength(1000)]
         public string? Notes { get; set; }
+
+        /// <summary>اسم الموظف الذي استلم السحب (لحركات السحب فقط)</summary>
+        [StringLength(200)]
+        public string? ReceivedByEmployeeName { get; set; }
 
         [ForeignKey("InsertByUserId")]
         public int InsertByUserId { get; set; }

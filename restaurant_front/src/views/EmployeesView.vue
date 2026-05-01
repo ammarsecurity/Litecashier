@@ -48,59 +48,65 @@
               <b-spinner small></b-spinner>
               <span>{{ $t("loading") || "جاري التحميل..." }}</span>
             </div>
-            <div v-else-if="employees.length > 0" class="employees-grid">
-              <div
-                v-for="emp in employees"
-                :key="emp.id"
-                class="employee-card"
-              >
-                <div class="employee-card-header">
-                  <div class="employee-card-title">
-                    <b-icon icon="person-circle" class="employee-card-icon"></b-icon>
-                    <h4>{{ emp.name }}</h4>
+            <div v-else-if="employees.length > 0" class="users-grid-container employees-cards-wrap">
+              <div class="users-grid">
+                <div
+                  v-for="emp in employees"
+                  :key="emp.id"
+                  class="user-card"
+                >
+                  <div class="user-card-header">
+                    <div class="user-avatar">
+                      <b-icon icon="person-circle" class="avatar-icon"></b-icon>
+                    </div>
+                    <h3 class="user-name">{{ emp.name }}</h3>
                   </div>
-                  <div class="employee-card-actions">
+                  <div class="user-card-body">
+                    <div class="user-info-item">
+                      <b-icon icon="telephone-fill" class="info-icon"></b-icon>
+                      <span class="info-label">{{ $t("phoneNumber") || "رقم الهاتف" }}</span>
+                      <span class="info-value">{{ emp.phoneNumber }}</span>
+                    </div>
+                    <div class="user-info-item" v-if="emp.address">
+                      <b-icon icon="geo-alt-fill" class="info-icon"></b-icon>
+                      <span class="info-label">{{ $t("address") || "العنوان" }}</span>
+                      <span class="info-value">{{ emp.address }}</span>
+                    </div>
+                    <div class="user-info-item" v-if="emp.jobTitle">
+                      <b-icon icon="briefcase-fill" class="info-icon"></b-icon>
+                      <span class="info-label">{{ $t("jobTitle") || "المسمى الوظيفي" }}</span>
+                      <span class="info-value">{{ emp.jobTitle }}</span>
+                    </div>
+                    <div class="user-info-item">
+                      <b-icon icon="cash-stack" class="info-icon"></b-icon>
+                      <span class="info-label">{{ $t("salary") || "الراتب" }}</span>
+                      <span class="info-value">{{ formatPrice(emp.salary) }} ({{ salaryTypeLabel(emp.salaryType) }})</span>
+                    </div>
+                    <div class="user-info-item" v-if="emp.tag">
+                      <b-icon icon="tags-fill" class="info-icon"></b-icon>
+                      <span class="info-label">{{ $t("category") || "القسم" }}</span>
+                      <span class="info-value">{{ emp.tag.name }}</span>
+                    </div>
+                  </div>
+                  <div class="user-card-footer employees-card-footer">
                     <button
-                      class="btn-edit-employee"
+                      type="button"
+                      class="user-action-button action-btn action-btn--edit"
                       @click="editEmployee(emp)"
                       :title="$t('edit') || 'تعديل'"
                     >
-                      <b-icon icon="pencil"></b-icon>
+                      <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                      <span>{{ $t("edit") }}</span>
                     </button>
                     <button
-                      class="btn-delete-employee"
+                      type="button"
+                      class="user-action-button action-btn action-btn--delete"
                       @click="confirmDeleteEmployee(emp)"
                       :title="$t('delete') || 'حذف'"
                     >
-                      <b-icon icon="trash"></b-icon>
+                      <b-icon icon="trash-fill" class="action-icon"></b-icon>
+                      <span>{{ $t("delete") }}</span>
                     </button>
-                  </div>
-                </div>
-                <div class="employee-card-body">
-                  <div class="employee-info-item">
-                    <b-icon icon="telephone" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("phoneNumber") || "رقم الهاتف:" }}</span>
-                    <span class="info-value">{{ emp.phoneNumber }}</span>
-                  </div>
-                  <div class="employee-info-item" v-if="emp.address">
-                    <b-icon icon="geo-alt" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("address") || "العنوان:" }}</span>
-                    <span class="info-value">{{ emp.address }}</span>
-                  </div>
-                  <div class="employee-info-item" v-if="emp.jobTitle">
-                    <b-icon icon="briefcase-fill" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("jobTitle") || "المسمى الوظيفي:" }}</span>
-                    <span class="info-value">{{ emp.jobTitle }}</span>
-                  </div>
-                  <div class="employee-info-item">
-                    <b-icon icon="cash-stack" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("salary") || "الراتب:" }}</span>
-                    <span class="info-value">{{ formatPrice(emp.salary) }} ({{ salaryTypeLabel(emp.salaryType) }})</span>
-                  </div>
-                  <div class="employee-info-item" v-if="emp.tag">
-                    <b-icon icon="tags-fill" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("category") || "القسم:" }}</span>
-                    <span class="info-value">{{ emp.tag.name }}</span>
                   </div>
                 </div>
               </div>
@@ -446,9 +452,11 @@ export default {
     },
     formatPrice(price) {
       if (price != null && price !== '') {
-        return Number(price).toLocaleString("en-EG");
+        const n = Number(price);
+        if (Number.isNaN(n)) return '0';
+        return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
       }
-      return "0";
+      return '0';
     },
   },
 };
@@ -555,110 +563,9 @@ export default {
   color: var(--text-secondary);
 }
 
-.employees-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
-}
-
-.employee-card {
-  background: var(--bg-secondary);
-  border: 2px solid var(--border-color);
-  border-radius: 0.75rem;
-  padding: 1.25rem;
-  transition: all 0.3s ease;
-}
-
-.employee-card:hover {
-  border-color: var(--primary-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.employee-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-}
-
-.employee-card-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.employee-card-icon {
-  font-size: 1.5rem;
-  color: var(--primary-color);
-}
-
-.employee-card-title h4 {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.employee-card-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.btn-edit-employee,
-.btn-delete-employee {
-  padding: 0.4rem;
-  border: none;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.btn-edit-employee {
-  background: rgba(0, 123, 255, 0.1);
-  color: #007bff;
-}
-
-.btn-edit-employee:hover {
-  background: rgba(0, 123, 255, 0.2);
-}
-
-.btn-delete-employee {
-  background: rgba(220, 53, 69, 0.1);
-  color: #dc3545;
-}
-
-.btn-delete-employee:hover {
-  background: rgba(220, 53, 69, 0.2);
-}
-
-.employee-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.employee-info-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-}
-
-.info-icon {
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-
-.info-label {
-  color: var(--text-secondary);
-  min-width: 100px;
-}
-
-.info-value {
-  color: var(--text-primary);
+/* بطاقات الموظفين: نفس أسلوب user-card مع عمودين للأزرار */
+.employees-cards-wrap .employees-card-footer {
+  grid-template-columns: 1fr 1fr;
 }
 
 .empty-state {
@@ -702,9 +609,6 @@ export default {
 
 @media (max-width: 768px) {
   .modal-form-grid {
-    grid-template-columns: 1fr;
-  }
-  .employees-grid {
     grid-template-columns: 1fr;
   }
 }

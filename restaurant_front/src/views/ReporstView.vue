@@ -283,11 +283,11 @@
                                     <span>{{ row.item.createdByUsername || '-' }}</span>
                                 </template>
                                 <template #cell(actions)="row">
-                                    <div class="orders-actions-cell">
-                                        <button class="user-action-button orders-action-btn orders-action-btn-view" @click="showItemsModel(row.item.customerOrderItem, row.item)">
+                                    <div class="actions-cell">
+                                        <button type="button" class="action-btn action-btn--icon action-btn--view" @click="showItemsModel(row.item.customerOrderItem, row.item)">
                                             <b-icon icon="eye-fill" class="action-icon"></b-icon>
                                         </button>
-                                        <button class="user-action-button orders-action-btn orders-action-btn-edit" @click="editOrder(row.item)">
+                                        <button type="button" class="action-btn action-btn--icon action-btn--edit" @click="editOrder(row.item)">
                                             <b-icon icon="pencil-fill" class="action-icon"></b-icon>
                                         </button>
                                     </div>
@@ -2603,47 +2603,6 @@ export default {
     border: 1px solid var(--border-color);
     border-radius: 0.625rem;
     padding: 0.75rem;
-}
-
-.orders-actions-cell {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: center;
-}
-
-.orders-action-btn {
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    border-radius: 0.6rem;
-    border: 1px solid transparent;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.orders-action-btn-view {
-    background: color-mix(in srgb, var(--primary-color) 14%, var(--bg-primary));
-    color: var(--primary-color);
-    border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
-}
-
-.orders-action-btn-edit {
-    background: color-mix(in srgb, #2563eb 16%, var(--bg-primary));
-    color: #2563eb;
-    border-color: color-mix(in srgb, #2563eb 40%, var(--border-color));
-}
-
-.orders-action-btn:hover {
-    transform: translateY(-1px);
-}
-
-:root.light-theme .orders-action-btn-view {
-    background: color-mix(in srgb, var(--primary-color) 10%, #ffffff);
-}
-
-:root.light-theme .orders-action-btn-edit {
-    background: color-mix(in srgb, #2563eb 10%, #ffffff);
 }
 
 .edit-order-items-search-results {

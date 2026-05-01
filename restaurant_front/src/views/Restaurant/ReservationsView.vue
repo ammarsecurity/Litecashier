@@ -140,21 +140,23 @@
               </template>
 
               <template #cell(actions)="row">
-                <div class="reservation-actions-cell">
+                <div class="actions-cell">
                   <button 
-                    class="reservation-action-btn edit-btn" 
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--edit" 
                     @click="editReservation(row.item)"
                     :title="$t('edit')"
                   >
-                    <b-icon icon="pencil-fill"></b-icon>
+                    <b-icon icon="pencil-fill" class="action-icon"></b-icon>
                   </button>
                   <button 
-                    class="reservation-action-btn" 
-                    :class="row.item.status === 'Confirmed' ? 'cancel-btn' : 'confirm-btn'"
+                    type="button"
+                    class="action-btn action-btn--icon"
+                    :class="row.item.status === 'Confirmed' ? 'action-btn--delete' : 'action-btn--success'"
                     @click="updateReservationStatus(row.item)"
                     :title="row.item.status === 'Confirmed' ? $t('cancel') : $t('confirm')"
                   >
-                    <b-icon :icon="row.item.status === 'Confirmed' ? 'x-circle-fill' : 'check-circle-fill'"></b-icon>
+                    <b-icon :icon="row.item.status === 'Confirmed' ? 'x-circle-fill' : 'check-circle-fill'" class="action-icon"></b-icon>
                   </button>
                 </div>
               </template>
@@ -1201,62 +1203,6 @@ export default {
 .reservation-status-badge.reservation-cancelled {
   background-color: var(--danger-light);
   color: var(--danger-color);
-}
-
-.reservation-actions-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.reservation-action-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
-}
-
-.reservation-action-btn.edit-btn {
-  background-color: #eff6ff;
-  color: #2563eb;
-}
-
-.reservation-action-btn.edit-btn:hover {
-  background-color: #2563eb;
-  color: white;
-  transform: scale(1.05);
-}
-
-.reservation-action-btn.confirm-btn {
-  background-color: #d1fae5;
-  color: #047857;
-}
-
-.reservation-action-btn.confirm-btn:hover {
-  background-color: #047857;
-  color: white;
-  transform: scale(1.05);
-}
-
-.reservation-action-btn.cancel-btn {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-.reservation-action-btn.cancel-btn:hover {
-  background-color: #991b1b;
-  color: white;
-  transform: scale(1.05);
-}
-
-.reservation-action-btn:active {
-  transform: scale(0.95);
 }
 
 .pagination-container {

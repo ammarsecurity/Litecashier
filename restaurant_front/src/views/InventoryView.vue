@@ -75,19 +75,20 @@
                 <table class="table users-table">
                   <thead>
                     <tr>
-                      <th>{{ $t("itemName") || "اسم المادة" }}</th>
+                      <th>{{ $t("inventoryMaterialName") || "اسم المادة" }}</th>
                       <th>{{ $t("currentStock") || "الكمية الحالية" }}</th>
                       <th>{{ $t("totalAdded") || "إجمالي الداخل" }}</th>
                       <th>{{ $t("totalWithdrawn") || "إجمالي السحب" }}</th>
                       <th>{{ $t("unitType") || "الوحدة" }}</th>
                       <th>{{ $t("supplierName") || "المورد" }}</th>
                       <th>{{ $t("receiptNumber") || "رقم الوصل" }}</th>
+                      <th>{{ $t("receiptAttachment") || "مرفق الوصل" }}</th>
                       <th>{{ $t("date") || "التاريخ" }}</th>
                       <th>{{ $t("actions") || "العمليات" }}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(row, idx) in items" :key="(row.materialName || '') + '-' + idx">
+                    <tr v-for="(row, idx) in items" :key="inventoryRowKey(row, idx)">
                       <td>{{ row.materialName }}</td>
                       <td>{{ formatNumber(row.currentQuantity) }}</td>
                       <td>{{ formatNumber(row.totalAdded) }}</td>
@@ -95,14 +96,40 @@
                       <td>{{ row.unitType || ($t("piece") || "قطعة") }}</td>
                       <td>{{ row.lastSupplierName || '—' }}</td>
                       <td>{{ row.lastReceiptNumber || '—' }}</td>
+                      <td class="inventory-receipt-cell">
+                        <template v-if="row.lastReceiptAttachmentPath">
+                          <a
+                            v-if="isReceiptImageFile(row.lastReceiptAttachmentPath)"
+                            :href="receiptPublicUrl(row.lastReceiptAttachmentPath)"
+                            target="_blank"
+                            rel="noopener"
+                            class="inventory-receipt-thumb-frame"
+                            :title="$t('open') || 'فتح'"
+                            :aria-label="$t('open') || 'فتح'"
+                          >
+                            <img
+                              :src="receiptPublicUrl(row.lastReceiptAttachmentPath)"
+                              alt=""
+                              class="inventory-receipt-thumb"
+                            />
+                          </a>
+                          <a
+                            v-else
+                            :href="receiptPublicUrl(row.lastReceiptAttachmentPath)"
+                            target="_blank"
+                            rel="noopener"
+                            class="receipt-link-btn"
+                          >
+                            <b-icon icon="box-arrow-up-right" class="receipt-link-btn__icon"></b-icon>
+                            <span>{{ $t('open') || 'فتح' }}</span>
+                          </a>
+                        </template>
+                        <span v-else>—</span>
+                      </td>
                       <td>{{ formatMovementDate(row.lastMovementDate) }}</td>
                       <td>
-                        <button class="btn-inventory-add" @click="openAddModal(row)">
-                          <b-icon icon="plus-circle" class="me-1"></b-icon>
-                          {{ $t("add") || "إضافة" }}
-                        </button>
-                        <button class="btn-inventory-withdraw" @click="openWithdrawModal(row)">
-                          <b-icon icon="dash-circle" class="me-1"></b-icon>
+                        <button type="button" class="action-btn action-btn--warn" @click="openWithdrawModal(row)">
+                          <b-icon icon="dash-circle" class="action-icon me-1"></b-icon>
                           {{ $t("withdraw") || "سحب" }}
                         </button>
                       </td>
@@ -123,7 +150,7 @@
                 <input
                   v-model="movementFilterMaterial"
                   type="text"
-                  :placeholder="$t('itemName') || 'اسم المادة'"
+                  :placeholder="$t('inventoryMaterialName') || 'اسم المادة'"
                   class="users-search-input movements-filter-input"
                   @input="debounceLoadMovements"
                 />
@@ -134,15 +161,49 @@
                   class="users-search-input movements-filter-input"
                   @input="debounceLoadMovements"
                 />
+                <input
+                  v-model="movementFilterReceivedBy"
+                  type="text"
+                  :placeholder="$t('movementsFilterReceivedBy') || 'الموظف المستلم'"
+                  class="users-search-input movements-filter-input"
+                  @input="debounceLoadMovements"
+                />
                 <select v-model="movementFilterType" class="users-search-input movements-filter-input" @change="loadStockMovements">
                   <option value="">{{ $t("all") || "الكل" }}</option>
                   <option value="Add">{{ $t("add") || "إضافة" }}</option>
                   <option value="Withdraw">{{ $t("withdraw") || "سحب" }}</option>
                 </select>
+                <input
+                  v-model="movementFilterStartDate"
+                  type="date"
+                  class="users-search-input movements-filter-input movements-filter-date"
+                  :aria-label="$t('fromDate') || 'من تاريخ'"
+                  @change="onMovementDateFilterChange"
+                />
+                <input
+                  v-model="movementFilterEndDate"
+                  type="date"
+                  class="users-search-input movements-filter-input movements-filter-date"
+                  :aria-label="$t('toDate') || 'إلى تاريخ'"
+                  @change="onMovementDateFilterChange"
+                />
                 <button type="button" class="btn-refresh-movements" @click="loadStockMovements">
                   <b-icon icon="arrow-clockwise"></b-icon>
                   {{ $t("refresh") || "تحديث" }}
                 </button>
+              </div>
+              <div
+                v-if="!loadingMovements"
+                class="movements-filter-summary-wrap"
+              >
+                <div class="inventory-stock-total-bar movements-filter-total-bar" role="status">
+                  <span class="inventory-stock-total-bar__label">{{
+                    $t('movementsFilterTotalAmount') || 'إجمالي المبلغ (حسب الفلتر)'
+                  }}</span>
+                  <span class="inventory-stock-total-bar__value">
+                    {{ formatNumber(movementsTotalAmount) }} {{ $t('currency') || 'د.ع' }}
+                  </span>
+                </div>
               </div>
               <div v-if="loadingMovements" class="loading-state-full">
                 <b-spinner variant="primary"></b-spinner>
@@ -153,8 +214,9 @@
                   <thead>
                     <tr>
                       <th>{{ $t("date") || "التاريخ" }}</th>
-                      <th>{{ $t("itemName") || "اسم المادة" }}</th>
+                      <th>{{ $t("inventoryMaterialName") || "اسم المادة" }}</th>
                       <th>{{ $t("movementType") || "النوع" }}</th>
+                      <th>{{ $t("withdrawReceivedByEmployee") || "الموظف المستلم" }}</th>
                       <th>{{ $t("quantity") || "الكمية" }}</th>
                       <th>{{ $t("supplierName") || "المورد" }}</th>
                       <th>{{ $t("amount") || "المبلغ" }}</th>
@@ -173,21 +235,39 @@
                           {{ m.movementType === 'Add' ? ($t('add') || 'إضافة') : ($t('withdraw') || 'سحب') }}
                         </span>
                       </td>
+                      <td>{{ m.movementType === 'Withdraw' ? (m.receivedByEmployeeName || '—') : '—' }}</td>
                       <td>{{ formatNumber(m.quantity) }}</td>
                       <td>{{ m.supplierName || '—' }}</td>
                       <td>{{ m.amount != null ? formatNumber(m.amount) : '—' }}</td>
                       <td>{{ m.receiptNumber || '—' }}</td>
-                      <td>
-                        <a
-                          v-if="m.receiptAttachmentPath"
-                          :href="buildReceiptUrl(m.receiptAttachmentPath)"
-                          target="_blank"
-                          rel="noopener"
-                          class="receipt-link"
-                        >
-                          <b-icon icon="paperclip"></b-icon>
-                          {{ $t("open") || "فتح" }}
-                        </a>
+                      <td class="inventory-receipt-cell">
+                        <template v-if="movementAttachmentRef(m)">
+                          <a
+                            v-if="isReceiptImageFile(movementAttachmentRef(m))"
+                            :href="receiptPublicUrl(movementAttachmentRef(m))"
+                            target="_blank"
+                            rel="noopener"
+                            class="inventory-receipt-thumb-frame"
+                            :title="$t('open') || 'فتح'"
+                            :aria-label="$t('open') || 'فتح'"
+                          >
+                            <img
+                              :src="receiptPublicUrl(movementAttachmentRef(m))"
+                              alt=""
+                              class="inventory-receipt-thumb"
+                            />
+                          </a>
+                          <a
+                            v-else
+                            :href="receiptPublicUrl(movementAttachmentRef(m))"
+                            target="_blank"
+                            rel="noopener"
+                            class="receipt-link-btn"
+                          >
+                            <b-icon icon="box-arrow-up-right" class="receipt-link-btn__icon"></b-icon>
+                            <span>{{ $t("open") || "فتح" }}</span>
+                          </a>
+                        </template>
                         <span v-else>—</span>
                       </td>
                       <td>{{ m.unitType || '—' }}</td>
@@ -236,8 +316,10 @@
                     <td>{{ s.name }}</td>
                     <td>{{ s.notes || '—' }}</td>
                     <td>
-                      <button type="button" class="btn-inventory-add btn-sm me-1" @click="openEditSupplierModal(s)">{{ $t("editSupplier") || "تعديل" }}</button>
-                      <button type="button" class="btn-inventory-withdraw btn-sm" @click="confirmDeleteSupplier(s)">{{ $t("deleteSupplier") || "حذف" }}</button>
+                      <div class="actions-cell justify-content-start">
+                      <button type="button" class="action-btn action-btn--edit me-1" @click="openEditSupplierModal(s)">{{ $t("editSupplier") || "تعديل" }}</button>
+                      <button type="button" class="action-btn action-btn--delete" @click="confirmDeleteSupplier(s)">{{ $t("deleteSupplier") || "حذف" }}</button>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -254,19 +336,20 @@
     <!-- Modal: إضافة مخزون -->
     <b-modal
       v-model="showAddModal"
-      :title="$t('addStock') || 'إضافة دخول مخزون'"
       @hidden="resetAddForm"
       hide-header
       hide-footer
       class="users-modal"
       centered
-      size="lg"
+      size="xl"
     >
       <div class="modal-content-wrapper">
         <h2 class="modal-title">{{ $t("addStock") || "إضافة دخول مخزون" }}</h2>
+        <p class="inventory-modal-subtitle">{{ $t("inventoryStockEntryHint") || "ربط الوصل بالمورد ثم إضافة أسطر المواد والكميات والأسعار." }}</p>
+
         <form @submit.prevent="submitAddStock" class="users-form">
           <div class="modal-form-grid">
-            <div class="users-form-group">
+            <div class="users-form-group mb-0">
               <label class="users-form-label">
                 <b-icon icon="person-badge" class="form-label-icon"></b-icon>
                 {{ $t("supplierName") || "اسم المورد" }}
@@ -284,7 +367,7 @@
                 :placeholder="$t('supplierNamePlaceholder') || 'اسم المورد'"
               />
             </div>
-            <div class="users-form-group">
+            <div class="users-form-group mb-0">
               <label class="users-form-label">
                 <b-icon icon="receipt" class="form-label-icon"></b-icon>
                 {{ $t("receiptNumber") || "رقم الوصل" }}
@@ -294,32 +377,36 @@
                 type="text"
                 class="users-form-input"
                 :placeholder="$t('receiptNumberPlaceholder') || 'أدخل رقم الوصل'"
+                autocomplete="off"
               />
             </div>
           </div>
 
-          <div class="users-form-group">
-            <div class="stock-items-header">
-              <label class="users-form-label mb-0">
-                <b-icon icon="list-ul" class="form-label-icon"></b-icon>
-                {{ $t("inventoryItemsList") || "قائمة المواد المدخلة" }}
-              </label>
-              <button type="button" class="btn-inventory-add" @click="addStockItemRow">
-                <b-icon icon="plus-circle" class="me-1"></b-icon>
-                {{ $t("addItem") || "إضافة منتج" }}
+          <div class="inventory-lines-panel">
+            <div class="inventory-lines-toolbar">
+              <div class="inventory-lines-toolbar__text">
+                <span class="inventory-lines-heading">
+                  <b-icon icon="box-seam" class="form-label-icon"></b-icon>
+                  {{ $t("inventoryItemsList") || "قائمة المواد المدخلة" }}
+                </span>
+                <span class="inventory-lines-hint">{{ addForm.items.length }} {{ $t("linesCount") || "سطر" }}</span>
+              </div>
+              <button type="button" class="inventory-add-line-btn" @click="addStockItemRow">
+                <b-icon icon="plus-lg" class="me-1"></b-icon>
+                {{ $t("inventoryAddLine") || "إضافة سطر" }}
               </button>
             </div>
 
-            <div class="table-responsive">
-              <table class="table users-table movements-table stock-items-table">
+            <div class="table-responsive stock-lines-wrap">
+              <table class="table users-table movements-table stock-lines-table">
                 <thead>
                   <tr>
-                    <th>{{ $t("itemName") || "اسم المادة" }}</th>
-                    <th>{{ $t("unitPrice") || "سعر الوحدة" }}</th>
-                    <th>{{ $t("quantity") || "الكمية" }}</th>
-                    <th>{{ $t("amount") || "المبلغ" }}</th>
-                    <th>{{ $t("unitType") || "الوحدة" }}</th>
-                    <th>{{ $t("actions") || "العمليات" }}</th>
+                    <th class="col-material">{{ $t("inventoryMaterialName") || "اسم المادة" }}</th>
+                    <th class="col-num">{{ $t("unitPrice") || "سعر الوحدة" }}</th>
+                    <th class="col-num">{{ $t("quantity") || "الكمية" }}</th>
+                    <th class="col-num col-amount">{{ $t("lineTotal") || "المجموع" }}</th>
+                    <th class="col-unit">{{ $t("unitType") || "الوحدة" }}</th>
+                    <th class="col-actions">{{ $t("actions") || "حذف" }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -328,7 +415,7 @@
                       <input
                         v-model="itemRow.materialName"
                         type="text"
-                        class="users-form-input"
+                        class="users-form-input stock-line-input"
                         :placeholder="$t('materialNamePlaceholder') || 'اكتب اسم المادة'"
                       />
                     </td>
@@ -338,8 +425,8 @@
                         type="number"
                         min="0"
                         step="0.01"
-                        class="users-form-input"
-                        :placeholder="$t('unitPrice') || 'سعر الوحدة'"
+                        class="users-form-input stock-line-input stock-line-input--num"
+                        :placeholder="'0'"
                       />
                     </td>
                     <td>
@@ -348,14 +435,14 @@
                         type="number"
                         min="0.01"
                         step="0.01"
-                        class="users-form-input"
-                        :placeholder="$t('quantityPlaceholder') || 'الكمية'"
+                        class="users-form-input stock-line-input stock-line-input--num"
+                        :placeholder="'0'"
                       />
                     </td>
-                    <td>{{ formatNumber(calculateRowAmount(itemRow)) }}</td>
+                    <td class="stock-line-amount">{{ formatNumber(calculateRowAmount(itemRow)) }}</td>
                     <td>
-                      <select v-model="itemRow.unitType" class="users-form-input">
-                        <option value="">{{ $t("selectUnit") || "اختر الوحدة" }}</option>
+                      <select v-model="itemRow.unitType" class="users-form-input stock-line-input stock-line-input--unit">
+                        <option value="">{{ $t("selectUnit") || "الوحدة" }}</option>
                         <option value="قطعة">{{ $t("piece") || "قطعة" }}</option>
                         <option value="كارتون">{{ $t("carton") || "كارتون" }}</option>
                         <option value="كيلو">{{ $t("kilo") || "كيلو" }}</option>
@@ -364,8 +451,13 @@
                         <option value="أخرى">{{ $t("other") || "أخرى" }}</option>
                       </select>
                     </td>
-                    <td>
-                      <button type="button" class="btn-inventory-withdraw" @click="removeStockItemRow(rowIndex)">
+                    <td class="text-center">
+                      <button
+                        type="button"
+                        class="stock-btn-remove-row"
+                        :title="$t('delete') || 'حذف'"
+                        @click="removeStockItemRow(rowIndex)"
+                      >
                         <b-icon icon="trash"></b-icon>
                       </button>
                     </td>
@@ -373,46 +465,53 @@
                 </tbody>
               </table>
             </div>
-          </div>
 
-          <div class="stock-total-row">
-            <span>{{ $t("totalAmount") || "إجمالي المبلغ" }}</span>
-            <strong>{{ formatNumber(totalStockInvoiceAmount) }}</strong>
+            <div class="inventory-stock-total-bar">
+              <span class="inventory-stock-total-bar__label">{{ $t("totalAmount") || "إجمالي المبلغ" }}</span>
+              <span class="inventory-stock-total-bar__value">{{ formatNumber(totalStockInvoiceAmount) }} {{ $t("currency") || "د.ع" }}</span>
+            </div>
           </div>
 
           <div class="modal-form-grid">
-            <div class="users-form-group">
+            <div class="users-form-group mb-0">
               <label class="users-form-label">
                 <b-icon icon="paperclip" class="form-label-icon"></b-icon>
                 {{ $t("receiptAttachment") || "مرفق الوصل" }}
               </label>
-              <input
-                ref="receiptInput"
-                type="file"
-                accept=".jpg,.jpeg,.png,.gif,.pdf"
+              <label class="inventory-file-drop">
+                <input
+                  ref="receiptInput"
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.gif,.pdf"
+                  class="inventory-file-drop__input"
+                  @change="onReceiptSelect"
+                />
+                <span class="inventory-file-drop__text">
+                  <b-icon icon="cloud-upload" class="me-2"></b-icon>
+                  {{ $t("inventoryAttachHint") || "صورة أو PDF — انقر للاختيار" }}
+                </span>
+              </label>
+              <small v-if="addForm.receiptFileName" class="inventory-file-name">{{ addForm.receiptFileName }}</small>
+            </div>
+            <div class="users-form-group mb-0">
+              <label class="users-form-label">
+                <b-icon icon="file-text" class="form-label-icon"></b-icon>
+                {{ $t("notes") || "ملاحظات" }}
+              </label>
+              <textarea
+                v-model="addForm.notes"
                 class="users-form-input"
-                @change="onReceiptSelect"
-              />
-              <small v-if="addForm.receiptFileName" class="text-muted">{{ addForm.receiptFileName }}</small>
+                rows="3"
+                :placeholder="$t('inventoryNotesPlaceholder') || 'ملاحظات على هذه الفاتورة (اختياري)'"
+              ></textarea>
             </div>
           </div>
-          <div class="users-form-group">
-            <label class="users-form-label">
-              <b-icon icon="file-text" class="form-label-icon"></b-icon>
-              {{ $t("notes") || "ملاحظات" }}
-            </label>
-            <textarea
-              v-model="addForm.notes"
-              class="users-form-input"
-              rows="2"
-              :placeholder="$t('notesPlaceholder') || 'ملاحظات (اختياري)'"
-            ></textarea>
-          </div>
+
           <div class="users-form-actions">
             <button type="submit" class="users-form-submit-button" :disabled="savingAdd">
               <b-spinner small v-if="savingAdd" class="me-2"></b-spinner>
               <b-icon v-else icon="check-circle-fill" class="me-2"></b-icon>
-              {{ savingAdd ? ($t("saving") || "جاري الحفظ...") : ($t("save") || "حفظ") }}
+              {{ savingAdd ? ($t("saving") || "جاري الحفظ...") : ($t("saveStockEntry") || "حفظ الإدخال") }}
             </button>
             <button type="button" class="users-form-cancel-button" @click="showAddModal = false">
               <b-icon icon="x-circle-fill" class="me-2"></b-icon>
@@ -426,27 +525,32 @@
     <!-- Modal: سحب مخزون -->
     <b-modal
       v-model="showWithdrawModal"
-      :title="$t('withdrawStock') || 'سحب من المخزن'"
       @hidden="resetWithdrawForm"
       hide-header
       hide-footer
       class="users-modal"
       centered
+      size="md"
     >
       <div class="modal-content-wrapper">
         <h2 class="modal-title">{{ $t("withdrawStock") || "سحب من المخزن" }}</h2>
         <form @submit.prevent="submitWithdraw" class="users-form">
           <div class="users-form-group">
-            <label class="users-form-label">{{ $t("itemName") || "اسم المادة" }}</label>
+            <label class="users-form-label">
+              <b-icon icon="box-seam" class="form-label-icon"></b-icon>
+              {{ $t("inventoryMaterialName") || "اسم المادة" }}
+            </label>
             <input v-model="withdrawForm.materialName" type="text" class="users-form-input" readonly />
           </div>
           <div class="users-form-group">
             <label class="users-form-label">
+              <b-icon icon="layers" class="form-label-icon"></b-icon>
               {{ $t("currentStock") || "الكمية الحالية" }}: {{ formatNumber(withdrawForm.currentStock) }}
             </label>
           </div>
           <div class="users-form-group">
             <label class="users-form-label">
+              <b-icon icon="hash" class="form-label-icon"></b-icon>
               {{ $t("quantity") || "الكمية" }} <span class="required">*</span>
             </label>
             <input
@@ -460,7 +564,20 @@
             />
           </div>
           <div class="users-form-group">
-            <label class="users-form-label">{{ $t("notes") || "ملاحظات" }}</label>
+            <label class="users-form-label">
+              <b-icon icon="person-badge" class="form-label-icon"></b-icon>
+              {{ $t("withdrawReceivedByEmployee") || "الموظف المستلم" }} <span class="required">*</span>
+            </label>
+            <select v-model="withdrawForm.receivedByEmployeeId" class="users-form-input" required>
+              <option disabled value="">{{ $t("selectEmployeeWhoReceived") || "اختر الموظف الذي استلم السحب" }}</option>
+              <option v-for="e in withdrawEmployeesList" :key="e.id" :value="e.id">{{ e.name }}</option>
+            </select>
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="file-text" class="form-label-icon"></b-icon>
+              {{ $t("notes") || "ملاحظات" }}
+            </label>
             <textarea
               v-model="withdrawForm.notes"
               class="users-form-input"
@@ -486,11 +603,11 @@
     <!-- Modal: إضافة مورد -->
     <b-modal
       v-model="showAddSupplierModal"
-      :title="$t('addSupplier') || 'إضافة مورد'"
       hide-header
       hide-footer
       class="users-modal"
       centered
+      size="md"
     >
       <div class="modal-content-wrapper">
         <h2 class="modal-title">{{ $t("addSupplier") || "إضافة مورد" }}</h2>
@@ -527,11 +644,11 @@
     <!-- Modal: تعديل مورد -->
     <b-modal
       v-model="showEditSupplierModal"
-      :title="$t('editSupplier') || 'تعديل مورد'"
       hide-header
       hide-footer
       class="users-modal"
       centered
+      size="md"
     >
       <div class="modal-content-wrapper">
         <h2 class="modal-title">{{ $t("editSupplier") || "تعديل مورد" }}</h2>
@@ -595,10 +712,13 @@ export default {
         receiptFile: null,
         receiptFileName: ''
       },
+      withdrawEmployeesList: [],
       withdrawForm: {
         materialName: '',
+        stockReceiptKey: '',
         currentStock: 0,
         quantity: 0.01,
+        receivedByEmployeeId: '',
         notes: ''
       },
       movementsList: [],
@@ -609,6 +729,10 @@ export default {
       movementFilterMaterial: '',
       movementFilterType: '',
       movementFilterReceiptNumber: '',
+      movementFilterReceivedBy: '',
+      movementFilterStartDate: '',
+      movementFilterEndDate: '',
+      movementsTotalAmount: 0,
       movementsSearchTimer: null,
       activeInventoryTab: 'stock',
       suppliersList: [],
@@ -633,6 +757,15 @@ export default {
     if (this.movementsSearchTimer) clearTimeout(this.movementsSearchTimer);
   },
   methods: {
+    /** خيارات موحّدة مع vue-toastification (نفس نمط Employees/Users) */
+    inventoryToastOpts(overrides = {}) {
+      return {
+        position: 'top-right',
+        timeout: 3000,
+        rtl: this.$i18n.locale === 'ar',
+        ...overrides
+      };
+    },
     onStockTabClick() {
       if (this.items.length === 0) this.loadInventory();
     },
@@ -668,21 +801,21 @@ export default {
     async submitAddSupplier() {
       const name = (this.supplierForm.name || '').trim();
       if (!name) {
-        this.$bvToast.toast(this.$t('supplierNameRequired') || 'اسم المورد مطلوب', { variant: 'warning', solid: true });
+        this.$toast.warning(this.$t('supplierNameRequired') || 'اسم المورد مطلوب', this.inventoryToastOpts());
         return;
       }
       try {
         this.savingSupplier = true;
         const response = await HTTP.post('Inventory/AddSupplier', { name, notes: this.supplierForm.notes?.trim() || null });
         if (response.data && !response.data.errorStatus) {
-          this.$bvToast.toast(response.data.message || this.$t('supplierAdded'), { title: this.$t('success'), variant: 'success', solid: true });
+          this.$toast.success(response.data.message || this.$t('supplierAdded'), this.inventoryToastOpts());
           this.showAddSupplierModal = false;
           this.loadSuppliers();
         } else {
-          this.$bvToast.toast(response.data?.message || this.$t('error'), { variant: 'danger', solid: true });
+          this.$toast.error(response.data?.message || this.$t('error'), this.inventoryToastOpts());
         }
       } catch (error) {
-        this.$bvToast.toast(error.response?.data?.message || this.$t('error'), { variant: 'danger', solid: true });
+        this.$toast.error(error.response?.data?.message || this.$t('error'), this.inventoryToastOpts());
       } finally {
         this.savingSupplier = false;
       }
@@ -695,7 +828,7 @@ export default {
     async submitEditSupplier() {
       const name = (this.supplierForm.name || '').trim();
       if (!name) {
-        this.$bvToast.toast(this.$t('supplierNameRequired') || 'اسم المورد مطلوب', { variant: 'warning', solid: true });
+        this.$toast.warning(this.$t('supplierNameRequired') || 'اسم المورد مطلوب', this.inventoryToastOpts());
         return;
       }
       if (this.editingSupplierId == null) return;
@@ -703,14 +836,14 @@ export default {
         this.savingSupplier = true;
         const response = await HTTP.put(`Inventory/UpdateSupplier/${this.editingSupplierId}`, { name, notes: this.supplierForm.notes?.trim() || null });
         if (response.data && !response.data.errorStatus) {
-          this.$bvToast.toast(response.data.message || this.$t('supplierUpdated'), { title: this.$t('success'), variant: 'success', solid: true });
+          this.$toast.success(response.data.message || this.$t('supplierUpdated'), this.inventoryToastOpts());
           this.showEditSupplierModal = false;
           this.loadSuppliers();
         } else {
-          this.$bvToast.toast(response.data?.message || this.$t('error'), { variant: 'danger', solid: true });
+          this.$toast.error(response.data?.message || this.$t('error'), this.inventoryToastOpts());
         }
       } catch (error) {
-        this.$bvToast.toast(error.response?.data?.message || this.$t('error'), { variant: 'danger', solid: true });
+        this.$toast.error(error.response?.data?.message || this.$t('error'), this.inventoryToastOpts());
       } finally {
         this.savingSupplier = false;
       }
@@ -729,13 +862,13 @@ export default {
       try {
         const response = await HTTP.delete(`Inventory/DeleteSupplier/${id}`);
         if (response.data && !response.data.errorStatus) {
-          this.$bvToast.toast(response.data.message || this.$t('supplierDeleted'), { title: this.$t('success'), variant: 'success', solid: true });
+          this.$toast.success(response.data.message || this.$t('supplierDeleted'), this.inventoryToastOpts());
           this.loadSuppliers();
         } else {
-          this.$bvToast.toast(response.data?.message || this.$t('error'), { variant: 'danger', solid: true });
+          this.$toast.error(response.data?.message || this.$t('error'), this.inventoryToastOpts());
         }
       } catch (error) {
-        this.$bvToast.toast(error.response?.data?.message || this.$t('error'), { variant: 'danger', solid: true });
+        this.$toast.error(error.response?.data?.message || this.$t('error'), this.inventoryToastOpts());
       }
     },
     async loadStockMovements() {
@@ -748,18 +881,27 @@ export default {
         if (this.movementFilterMaterial) params.append('materialName', this.movementFilterMaterial);
         if (this.movementFilterType) params.append('movementType', this.movementFilterType);
         if (this.movementFilterReceiptNumber) params.append('receiptNumber', this.movementFilterReceiptNumber);
+        if (this.movementFilterReceivedBy) params.append('receivedByEmployeeName', this.movementFilterReceivedBy);
+        if (this.movementFilterStartDate) params.append('startDate', this.movementFilterStartDate);
+        if (this.movementFilterEndDate) params.append('endDate', this.movementFilterEndDate);
         const response = await HTTP.get(`Inventory/GetStockMovements?${params.toString()}`);
         if (response.data && !response.data.errorStatus && response.data.data) {
           this.movementsList = response.data.data.items || [];
           this.movementsTotal = response.data.data.totalItems || 0;
+          const d = response.data.data;
+          const rawTotal = d.totalFilteredAmount ?? d.TotalFilteredAmount;
+          this.movementsTotalAmount =
+            rawTotal !== undefined && rawTotal !== null ? Number(rawTotal) : 0;
         } else {
           this.movementsList = [];
           this.movementsTotal = 0;
+          this.movementsTotalAmount = 0;
         }
       } catch (error) {
         console.error('Error loading movements:', error);
         this.movementsList = [];
         this.movementsTotal = 0;
+        this.movementsTotalAmount = 0;
       } finally {
         this.loadingMovements = false;
       }
@@ -771,10 +913,18 @@ export default {
         this.loadStockMovements();
       }, 400);
     },
+    onMovementDateFilterChange() {
+      this.movementsPage = 1;
+      this.loadStockMovements();
+    },
     formatMovementDate(d) {
       if (!d) return '—';
       const date = new Date(d);
-      return date.toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
+      return date.toLocaleString('ar-EG', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+        numberingSystem: 'latn'
+      });
     },
     async loadInventory() {
       try {
@@ -792,11 +942,7 @@ export default {
         }
       } catch (error) {
         console.error('Error loading inventory:', error);
-        this.$bvToast.toast(error.response?.data?.message || this.$t('error') || 'حدث خطأ', {
-          title: this.$t('error') || 'خطأ',
-          variant: 'danger',
-          solid: true
-        });
+        this.$toast.error(error.response?.data?.message || this.$t('error') || 'حدث خطأ', this.inventoryToastOpts());
         this.items = [];
       } finally {
         this.loading = false;
@@ -811,7 +957,7 @@ export default {
     },
     removeStockItemRow(index) {
       if (this.addForm.items.length <= 1) {
-        this.$bvToast.toast(this.$t('materialNameRequired') || 'يجب إدخال مادة واحدة على الأقل', { variant: 'warning', solid: true });
+        this.$toast.warning(this.$t('materialNameRequired') || 'يجب إدخال مادة واحدة على الأقل', this.inventoryToastOpts());
         return;
       }
       this.addForm.items.splice(index, 1);
@@ -870,7 +1016,7 @@ export default {
       }));
       const validRows = rows.filter((row) => row.materialName && row.quantity > 0);
       if (validRows.length === 0) {
-        this.$bvToast.toast(this.$t('materialNameRequired') || 'يرجى إدخال مادة واحدة على الأقل مع كمية صحيحة', { variant: 'warning', solid: true });
+        this.$toast.warning(this.$t('materialNameRequired') || 'يرجى إدخال مادة واحدة على الأقل مع كمية صحيحة', this.inventoryToastOpts());
         return;
       }
       try {
@@ -885,91 +1031,140 @@ export default {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
         if (response.data && !response.data.errorStatus) {
-          this.$bvToast.toast(response.data.message || (this.$t('addStockSuccess') || 'تمت إضافة الكمية بنجاح'), {
-            title: this.$t('success') || 'نجاح',
-            variant: 'success',
-            solid: true
-          });
+          this.$toast.success(
+            response.data.message || (this.$t('addStockSuccess') || 'تمت إضافة الكمية بنجاح'),
+            this.inventoryToastOpts()
+          );
           this.showAddModal = false;
           this.loadInventory();
           if (this.activeInventoryTab === 'movements') this.loadStockMovements();
         } else {
-          this.$bvToast.toast(response.data?.message || (this.$t('error') || 'حدث خطأ'), {
-            variant: 'danger',
-            solid: true
-          });
+          this.$toast.error(response.data?.message || (this.$t('error') || 'حدث خطأ'), this.inventoryToastOpts());
         }
       } catch (error) {
-        this.$bvToast.toast(error.response?.data?.message || (this.$t('error') || 'حدث خطأ'), {
-          variant: 'danger',
-          solid: true
-        });
+        this.$toast.error(error.response?.data?.message || (this.$t('error') || 'حدث خطأ'), this.inventoryToastOpts());
       } finally {
         this.savingAdd = false;
       }
     },
-    openWithdrawModal(row) {
+    inventoryRowKey(row, idx) {
+      const name = row.materialName || '';
+      const rk = row.stockReceiptKey != null ? String(row.stockReceiptKey) : (row.lastReceiptNumber || '');
+      return `${name}|||${rk}|||${idx}`;
+    },
+    async loadEmployeesForWithdraw() {
+      try {
+        const response = await HTTP.get('Employees');
+        if (response.data && !response.data.errorStatus) {
+          this.withdrawEmployeesList = response.data.data || [];
+        } else {
+          this.withdrawEmployeesList = [];
+        }
+      } catch (e) {
+        console.error('Error loading employees for withdraw:', e);
+        this.withdrawEmployeesList = [];
+      }
+    },
+    async openWithdrawModal(row) {
+      if (this.withdrawEmployeesList.length === 0) {
+        await this.loadEmployeesForWithdraw();
+      }
+      if (this.withdrawEmployeesList.length === 0) {
+        this.$toast.warning(
+          this.$t('noEmployeesForWithdraw') || 'لا يوجد موظفون. أضف موظفاً من إدارة الموظفين أولاً.',
+          this.inventoryToastOpts()
+        );
+        return;
+      }
       this.withdrawForm.materialName = row.materialName || '';
+      this.withdrawForm.stockReceiptKey =
+        row.stockReceiptKey != null && row.stockReceiptKey !== undefined ? String(row.stockReceiptKey) : '';
       this.withdrawForm.currentStock = row.currentQuantity ?? 0;
       this.withdrawForm.quantity = 0.01;
+      this.withdrawForm.receivedByEmployeeId = '';
       this.withdrawForm.notes = '';
       this.showWithdrawModal = true;
     },
     resetWithdrawForm() {
       this.withdrawForm.materialName = '';
+      this.withdrawForm.stockReceiptKey = '';
       this.withdrawForm.currentStock = 0;
+      this.withdrawForm.receivedByEmployeeId = '';
     },
     async submitWithdraw() {
       if (!(this.withdrawForm.materialName || '').trim()) {
-        this.$bvToast.toast(this.$t('materialNameRequired') || 'اسم المادة مطلوب', { variant: 'warning', solid: true });
+        this.$toast.warning(this.$t('materialNameRequired') || 'اسم المادة مطلوب', this.inventoryToastOpts());
         return;
       }
       if (!this.withdrawForm.quantity || this.withdrawForm.quantity <= 0) {
-        this.$bvToast.toast(this.$t('quantityRequired') || 'الكمية مطلوبة وأكبر من صفر', { variant: 'warning', solid: true });
+        this.$toast.warning(this.$t('quantityRequired') || 'الكمية مطلوبة وأكبر من صفر', this.inventoryToastOpts());
         return;
       }
       if (this.withdrawForm.quantity > this.withdrawForm.currentStock) {
-        this.$bvToast.toast(this.$t('insufficientQuantity') || 'الكمية المتاحة غير كافية', { variant: 'danger', solid: true });
+        this.$toast.error(this.$t('insufficientQuantity') || 'الكمية المتاحة غير كافية', this.inventoryToastOpts());
+        return;
+      }
+      const empId = this.withdrawForm.receivedByEmployeeId;
+      const selectedEmp = this.withdrawEmployeesList.find((e) => e.id === empId || String(e.id) === String(empId));
+      if (!selectedEmp || !(selectedEmp.name || '').trim()) {
+        this.$toast.warning(this.$t('selectEmployeeWhoReceived') || 'اختر الموظف الذي استلم السحب', this.inventoryToastOpts());
         return;
       }
       try {
         this.savingWithdraw = true;
         const response = await HTTP.post('Inventory/WithdrawStock', {
           materialName: this.withdrawForm.materialName.trim(),
+          receiptNumber: this.withdrawForm.stockReceiptKey || null,
           quantity: this.withdrawForm.quantity,
+          receivedByEmployeeName: selectedEmp.name.trim(),
           notes: this.withdrawForm.notes || null
         });
         if (response.data && !response.data.errorStatus) {
-          this.$bvToast.toast(response.data.message || (this.$t('withdrawSuccess') || 'تم السحب بنجاح'), {
-            title: this.$t('success') || 'نجاح',
-            variant: 'success',
-            solid: true
-          });
+          this.$toast.success(
+            response.data.message || (this.$t('withdrawSuccess') || 'تم السحب بنجاح'),
+            this.inventoryToastOpts()
+          );
           this.showWithdrawModal = false;
           this.loadInventory();
           if (this.activeInventoryTab === 'movements') this.loadStockMovements();
         } else {
-          this.$bvToast.toast(response.data?.message || (this.$t('error') || 'حدث خطأ'), {
-            variant: 'danger',
-            solid: true
-          });
+          this.$toast.error(response.data?.message || (this.$t('error') || 'حدث خطأ'), this.inventoryToastOpts());
         }
       } catch (error) {
-        this.$bvToast.toast(error.response?.data?.message || (this.$t('error') || 'حدث خطأ'), {
-          variant: 'danger',
-          solid: true
-        });
+        this.$toast.error(error.response?.data?.message || (this.$t('error') || 'حدث خطأ'), this.inventoryToastOpts());
       } finally {
         this.savingWithdraw = false;
       }
     },
+    /** أرقام لاتينية (0–9) لتنسيق موحّد في الجداول بغض النظر عن لغة الواجهة */
     formatNumber(val) {
       if (val == null || val === '') return '0';
-      return Number(val).toLocaleString('ar-EG', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      const n = Number(val);
+      if (Number.isNaN(n)) return '0';
+      return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     },
     buildReceiptUrl(fileName) {
       if (!fileName) return '#';
       return `${window.location.origin}/Receipts/${fileName}`;
+    },
+    /** رابط كامل من الباك أو اسم ملف قديم → URL للعرض */
+    receiptPublicUrl(ref) {
+      if (!ref) return '#';
+      const s = String(ref).trim();
+      if (/^https?:\/\//i.test(s)) return s;
+      return this.buildReceiptUrl(s);
+    },
+    /** مرجع المرفق من سجل الحركات: رابط كامل من الباك أو اسم ملف */
+    movementAttachmentRef(m) {
+      if (!m) return '';
+      return m.receiptAttachmentUrl || m.receiptAttachmentPath || m.receiptFileName || '';
+    },
+    isReceiptImageFile(pathOrUrl) {
+      if (!pathOrUrl || typeof pathOrUrl !== 'string') return false;
+      const segment = pathOrUrl.split(/[/\\]/).pop() || '';
+      const base = segment.split('?')[0];
+      const ext = (base.includes('.') ? base.split('.').pop() : '').toLowerCase();
+      return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
     }
   }
 };
@@ -984,43 +1179,6 @@ export default {
 .users-table td {
   padding: 0.75rem 1rem;
   vertical-align: middle;
-}
-.btn-inventory-add,
-.btn-inventory-withdraw {
-  border: none;
-  border-radius: 0.5rem;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.875rem;
-  margin-left: 0.25rem;
-  display: inline-flex;
-  align-items: center;
-  cursor: pointer;
-}
-.btn-inventory-add {
-  background: rgba(34, 197, 94, 0.15);
-  color: #16a34a;
-}
-.btn-inventory-add:hover {
-  background: #16a34a;
-  color: #fff;
-}
-.btn-inventory-withdraw {
-  background: rgba(234, 179, 8, 0.2);
-  color: #ca8a04;
-}
-.btn-inventory-withdraw:hover {
-  background: #ca8a04;
-  color: #fff;
-}
-.modal-form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-@media (max-width: 768px) {
-  .modal-form-grid {
-    grid-template-columns: 1fr;
-  }
 }
 .required {
   color: #ef4444;
@@ -1111,6 +1269,18 @@ export default {
 .movements-filter-input {
   max-width: 200px;
 }
+.movements-filter-date {
+  max-width: 170px;
+}
+.movements-filter-summary-wrap {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+.movements-filter-total-bar.inventory-stock-total-bar {
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.06));
+}
 .btn-refresh-movements {
   display: inline-flex;
   align-items: center;
@@ -1156,38 +1326,300 @@ export default {
   justify-content: center;
 }
 
-.stock-items-header {
+/* مودالات المخزون — متوافقة مع users-modal في main.css */
+.inventory-modal-subtitle {
+  text-align: center;
+  margin: -0.35rem 0 1.25rem;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  font-weight: 500;
+}
+
+.inventory-lines-panel {
+  border: 1px solid var(--border-color);
+  border-radius: 0.85rem;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.inventory-lines-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
 }
 
-.stock-items-table .users-form-input {
-  min-width: 120px;
-}
-
-.stock-total-row {
+.inventory-lines-toolbar__text {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--border-color, #d1d5db);
-  background: var(--bg-primary, #fff);
-  font-weight: 700;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
-.receipt-link {
+.inventory-lines-heading {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+}
+
+.inventory-lines-hint {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.inventory-add-line-btn {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--primary-color);
+  color: #fff;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.inventory-add-line-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.stock-lines-wrap {
+  margin: 0;
+  max-height: min(52vh, 420px);
+  overflow: auto;
+}
+
+/* يطابق ألوان/تدرجات الجداول العامة في main.css — لا تُعاد تعريف خلفية الرأس أو صفوف الجسم هنا */
+.stock-lines-table {
+  width: 100%;
+  margin-top: 0;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.stock-lines-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.stock-lines-table.users-table th,
+.stock-lines-table.users-table td {
+  padding: 0.5rem 0.5rem;
+  vertical-align: middle;
+}
+
+.stock-lines-table .col-material {
+  min-width: 160px;
+  text-align: right;
+}
+
+.stock-lines-table .col-num {
+  width: 1%;
+  min-width: 88px;
+}
+
+.stock-lines-table .col-amount {
+  min-width: 96px;
+}
+
+.stock-lines-table .col-unit {
+  min-width: 110px;
+}
+
+.stock-lines-table .col-actions {
+  width: 52px;
+}
+
+.stock-line-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.875rem;
+  border-radius: 0.45rem;
+}
+
+.stock-line-input--num {
+  text-align: center;
+}
+
+.stock-line-input--unit {
+  padding-right: 0.35rem;
+  padding-left: 0.35rem;
+}
+
+.stock-line-amount {
+  font-weight: 700;
+  text-align: center;
+  color: var(--primary-color, #6366f1) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-btn-remove-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 0.45rem;
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.stock-btn-remove-row:hover {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+
+.inventory-stock-total-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  background: rgba(99, 102, 241, 0.08);
+  border-top: 1px solid var(--border-color);
+}
+
+.inventory-stock-total-bar__label {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+}
+
+.inventory-stock-total-bar__value {
+  font-weight: 800;
+  font-size: 1.05rem;
   color: var(--primary-color);
-  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.inventory-file-drop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.65rem 1rem;
+  border: 2px dashed var(--border-color);
+  border-radius: 0.65rem;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.inventory-file-drop:hover {
+  border-color: var(--primary-color);
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.inventory-file-drop__input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.inventory-file-drop__text {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.inventory-file-name {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--success-color, #16a34a);
   font-weight: 600;
 }
 
-.receipt-link:hover {
-  color: var(--primary-hover);
+.inventory-receipt-cell {
+  vertical-align: middle;
+  min-width: 7.5rem;
+}
+
+.receipt-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  text-decoration: none;
+  line-height: 1.2;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.receipt-link-btn:hover {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: var(--primary-color);
+  color: var(--primary-hover, #4f46e5);
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
+.receipt-link-btn__icon {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.inventory-receipt-thumb-frame {
+  display: block;
+  flex-shrink: 0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.08));
+  line-height: 0;
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.inventory-receipt-thumb-frame:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.1));
+  transform: scale(1.03);
+}
+
+.inventory-receipt-thumb {
+  display: block;
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
 }
 </style>

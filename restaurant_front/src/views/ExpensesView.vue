@@ -204,11 +204,11 @@
                 <span>{{ row.item.tag?.name || '-' }}</span>
               </template>
               <template #cell(actions)="row">
-                <div class="expenses-actions-cell">
-                  <button class="user-action-button expense-action-btn expense-action-btn-edit" @click="editExpense(row.item)">
+                <div class="actions-cell">
+                  <button type="button" class="action-btn action-btn--icon action-btn--edit" @click="editExpense(row.item)">
                     <b-icon icon="pencil-fill" class="action-icon"></b-icon>
                   </button>
-                  <button class="user-action-button expense-action-btn expense-action-btn-delete" @click="confirmDeleteExpense(row.item)">
+                  <button type="button" class="action-btn action-btn--icon action-btn--delete" @click="confirmDeleteExpense(row.item)">
                     <b-icon icon="trash-fill" class="action-icon"></b-icon>
                   </button>
                 </div>
@@ -1272,53 +1272,6 @@ export default {
   padding: 4rem 2rem;
   color: var(--text-secondary);
   min-height: 300px;
-}
-
-.expenses-actions-cell {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: center;
-}
-
-.reports-table .user-action-button {
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.expense-action-btn {
-  border-radius: 0.55rem;
-  border: 1px solid transparent;
-  transition: all 0.2s ease;
-}
-
-.expense-action-btn-edit {
-  background: color-mix(in srgb, var(--primary-color) 12%, var(--bg-primary));
-  color: var(--primary-color);
-  border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
-}
-
-.expense-action-btn-delete {
-  background: color-mix(in srgb, #dc3545 12%, var(--bg-primary));
-  color: #dc3545;
-  border-color: color-mix(in srgb, #dc3545 40%, var(--border-color));
-}
-
-.expense-action-btn:hover {
-  transform: translateY(-1px);
-}
-
-.expense-action-btn-edit:hover {
-  background: color-mix(in srgb, var(--primary-color) 20%, var(--bg-primary));
-  border-color: var(--primary-color);
-}
-
-.expense-action-btn-delete:hover {
-  background: color-mix(in srgb, #dc3545 20%, var(--bg-primary));
-  border-color: #dc3545;
 }
 
 .expense-amount-text {

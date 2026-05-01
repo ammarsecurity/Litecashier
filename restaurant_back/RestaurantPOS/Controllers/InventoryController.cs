@@ -48,22 +48,29 @@ namespace RestaurantPOS.Controllers
                 .ToListAsync();
 
             var byName = movements
-                .GroupBy(x => x.MaterialName.Trim())
+                .GroupBy(x => new { Mat = x.MaterialName.Trim(), Rec = InventoryReceiptKey(x) })
                 .Select(g =>
                 {
                     var adds = g.Where(m => m.MovementType == "Add").Sum(m => m.Quantity);
                     var withdraws = g.Where(m => m.MovementType == "Withdraw").Sum(m => m.Quantity);
                     var lastAdd = g.Where(m => m.MovementType == "Add").OrderByDescending(m => m.InsertDate).FirstOrDefault();
                     var lastMovement = g.OrderByDescending(m => m.InsertDate).FirstOrDefault();
+                    var receiptDisplay = string.IsNullOrEmpty(g.Key.Rec) ? null : g.Key.Rec;
+                    var latestAddWithAttachment = g
+                        .Where(m => m.MovementType == "Add" && !string.IsNullOrWhiteSpace(m.ReceiptAttachmentPath))
+                        .OrderByDescending(m => m.InsertDate)
+                        .FirstOrDefault();
                     return new
                     {
-                        materialName = g.Key,
+                        materialName = g.Key.Mat,
+                        stockReceiptKey = g.Key.Rec,
                         currentQuantity = adds - withdraws,
                         totalAdded = adds,
                         totalWithdrawn = withdraws,
                         unitType = lastAdd?.UnitType ?? "",
                         lastSupplierName = lastAdd?.SupplierName ?? "",
-                        lastReceiptNumber = ExtractReceiptNumber(lastAdd?.Notes),
+                        lastReceiptNumber = receiptDisplay,
+                        lastReceiptAttachmentPath = BuildReceiptPublicUrl(latestAddWithAttachment?.ReceiptAttachmentPath),
                         lastMovementDate = lastMovement?.InsertDate
                     };
                 })
@@ -90,6 +97,7 @@ namespace RestaurantPOS.Controllers
             string? materialName = null,
             string? movementType = null,
             string? receiptNumber = null,
+            string? receivedByEmployeeName = null,
             DateTime? startDate = null,
             DateTime? endDate = null)
         {
@@ -102,36 +110,107 @@ namespace RestaurantPOS.Controllers
             if (!string.IsNullOrWhiteSpace(movementType) && (movementType == "Add" || movementType == "Withdraw"))
                 query = query.Where(x => x.MovementType == movementType);
             if (!string.IsNullOrWhiteSpace(receiptNumber))
-                query = query.Where(x => x.Notes != null && x.Notes.Contains($"ReceiptNumber:{receiptNumber.Trim()}"));
+            {
+                var rn = receiptNumber.Trim();
+                query = query.Where(x =>
+                    (x.Notes != null && x.Notes.Contains($"ReceiptNumber:{rn}")) ||
+                    (x.ReceiptNumber != null && x.ReceiptNumber == rn));
+            }
+            // نطاق تواريخ شامل ليوم البداية والنهاية (حسب التقويم المحلي للخادم)
             if (startDate.HasValue)
-                query = query.Where(x => x.InsertDate >= startDate.Value);
+                query = query.Where(x => x.InsertDate >= startDate.Value.Date);
             if (endDate.HasValue)
-                query = query.Where(x => x.InsertDate <= endDate.Value.AddDays(1));
+                query = query.Where(x => x.InsertDate < endDate.Value.Date.AddDays(1));
+            if (!string.IsNullOrWhiteSpace(receivedByEmployeeName))
+            {
+                var recv = receivedByEmployeeName.Trim();
+                query = query.Where(x =>
+                    x.ReceivedByEmployeeName != null && x.ReceivedByEmployeeName.Contains(recv));
+            }
 
             var total = await query.CountAsync();
-            var list = await query
-                .OrderByDescending(x => x.InsertDate)
-                .Skip(pageNumber * pageSize)
-                .Take(pageSize)
-                .Select(x => new
+            const int enrichedSumRowCap = 5000;
+
+            List<StockMovement> pageRows;
+            IReadOnlyList<StockMovement> addsPool;
+            decimal totalFilteredAmount;
+
+            if (total <= enrichedSumRowCap && total > 0)
+            {
+                var allRows = await query
+                    .AsNoTracking()
+                    .OrderByDescending(x => x.InsertDate)
+                    .ToListAsync();
+                var namesForSum = allRows.Select(x => x.MaterialName).Distinct().ToList();
+                var addsForSum = await _dbConfig.StockMovements
+                    .AsNoTracking()
+                    .Where(x => !x.IsDeleted && x.InsertByUserId == commercialUserId && x.MovementType == "Add"
+                        && namesForSum.Contains(x.MaterialName))
+                    .ToListAsync();
+                totalFilteredAmount = allRows
+                    .Sum(x => ResolveDisplayAmount(x, FindEnrichingAddForWithdraw(x, addsForSum)) ?? 0m);
+                pageRows = allRows.Skip(pageNumber * pageSize).Take(pageSize).ToList();
+                var namesOnPage = pageRows.Select(x => x.MaterialName).Distinct().ToList();
+                addsPool = addsForSum.Where(a => namesOnPage.Contains(a.MaterialName)).ToList();
+            }
+            else
+            {
+                totalFilteredAmount = total > 0
+                    ? await query.SumAsync(x => x.Amount ?? 0m)
+                    : 0m;
+                pageRows = await query
+                    .AsNoTracking()
+                    .OrderByDescending(x => x.InsertDate)
+                    .Skip(pageNumber * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+                var namesOnPage = pageRows.Select(x => x.MaterialName).Distinct().ToList();
+                addsPool = await _dbConfig.StockMovements
+                    .AsNoTracking()
+                    .Where(x => !x.IsDeleted && x.InsertByUserId == commercialUserId && x.MovementType == "Add"
+                        && namesOnPage.Contains(x.MaterialName))
+                    .ToListAsync();
+            }
+
+            var list = pageRows.Select(x =>
+            {
+                StockMovement? enrich = null;
+                if (x.MovementType == "Withdraw")
+                    enrich = FindEnrichingAddForWithdraw(x, addsPool);
+
+                var supplierOut = x.SupplierName ?? enrich?.SupplierName;
+                var unitOut = x.UnitType ?? enrich?.UnitType;
+                var attachFile = x.ReceiptAttachmentPath ?? enrich?.ReceiptAttachmentPath;
+                var attachUrl = BuildReceiptPublicUrl(attachFile);
+
+                var receiptNum = DisplayReceiptNumber(x);
+                if (x.MovementType == "Withdraw" && string.IsNullOrWhiteSpace(receiptNum))
+                    receiptNum = enrich != null ? DisplayReceiptNumber(enrich) : null;
+
+                var amountOut = ResolveDisplayAmount(x, enrich);
+
+                return new
                 {
                     id = x.Id,
                     materialName = x.MaterialName,
                     movementType = x.MovementType,
                     quantity = x.Quantity,
-                    supplierName = x.SupplierName,
-                    amount = x.Amount,
-                    unitType = x.UnitType,
-                    receiptNumber = ExtractReceiptNumber(x.Notes),
+                    supplierName = supplierOut,
+                    amount = amountOut,
+                    unitType = unitOut,
+                    receiptNumber = receiptNum,
                     notes = CleanNotesFromReceiptNumber(x.Notes),
-                    receiptAttachmentPath = x.ReceiptAttachmentPath,
+                    receivedByEmployeeName = x.MovementType == "Withdraw" ? x.ReceivedByEmployeeName : null,
+                    receiptFileName = attachFile,
+                    receiptAttachmentUrl = attachUrl,
+                    receiptAttachmentPath = attachUrl,
                     insertDate = x.InsertDate
-                })
-                .ToListAsync();
+                };
+            }).ToList();
 
             return Ok(new GlobalResponse<object>
             {
-                Data = new { items = list, totalItems = total },
+                Data = new { items = list, totalItems = total, totalFilteredAmount },
                 ErrorStatus = false,
                 Message = "Success"
             });
@@ -233,6 +312,7 @@ namespace RestaurantPOS.Controllers
                 }
             }
 
+            var normalizedReceipt = NormalizeReceiptNumber(receiptNumber);
             var movement = new StockMovement
             {
                 MaterialName = materialName.Trim(),
@@ -242,6 +322,7 @@ namespace RestaurantPOS.Controllers
                 Amount = amount,
                 UnitType = unitType?.Trim(),
                 ReceiptAttachmentPath = receiptPath,
+                ReceiptNumber = normalizedReceipt,
                 Notes = BuildNotesWithReceiptNumber(receiptNumber, notes),
                 InsertByUserId = commercialUserId
             };
@@ -303,6 +384,7 @@ namespace RestaurantPOS.Controllers
                 }
             }
 
+            var normalizedBatchReceipt = NormalizeReceiptNumber(receiptNumber);
             var movements = validItems.Select(item => new StockMovement
             {
                 MaterialName = item.MaterialName.Trim(),
@@ -312,6 +394,7 @@ namespace RestaurantPOS.Controllers
                 Amount = item.Amount ?? (item.UnitPrice * item.Quantity),
                 UnitType = item.UnitType?.Trim(),
                 ReceiptAttachmentPath = receiptPath,
+                ReceiptNumber = normalizedBatchReceipt,
                 Notes = BuildNotesWithReceiptNumber(receiptNumber, notes),
                 InsertByUserId = commercialUserId
             }).ToList();
@@ -336,22 +419,31 @@ namespace RestaurantPOS.Controllers
             if (string.IsNullOrEmpty(name))
                 return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "اسم المادة مطلوب" });
 
+            var receiptKey = NormalizeReceiptNumber(request.ReceiptNumber) ?? "";
+
             var movements = await _dbConfig.StockMovements
-                .Where(x => !x.IsDeleted && x.InsertByUserId == commercialUserId && x.MaterialName == name)
+                .Where(x => !x.IsDeleted && x.InsertByUserId == commercialUserId && x.MaterialName.Trim() == name)
                 .ToListAsync();
-            var adds = movements.Where(m => m.MovementType == "Add").Sum(m => m.Quantity);
-            var withdraws = movements.Where(m => m.MovementType == "Withdraw").Sum(m => m.Quantity);
+            var slotMovements = movements.Where(x => InventoryReceiptKey(x) == receiptKey).ToList();
+            var adds = slotMovements.Where(m => m.MovementType == "Add").Sum(m => m.Quantity);
+            var withdraws = slotMovements.Where(m => m.MovementType == "Withdraw").Sum(m => m.Quantity);
             var currentBalance = adds - withdraws;
 
             if (currentBalance < request.Quantity)
                 return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "الكمية المتاحة في المخزن غير كافية" });
+
+            var receivedBy = request.ReceivedByEmployeeName?.Trim() ?? "";
+            if (string.IsNullOrEmpty(receivedBy))
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "يجب تحديد الموظف الذي استلم السحب" });
 
             var movement = new StockMovement
             {
                 MaterialName = name,
                 MovementType = "Withdraw",
                 Quantity = request.Quantity,
+                ReceiptNumber = string.IsNullOrEmpty(receiptKey) ? null : receiptKey,
                 Notes = request.Notes?.Trim(),
+                ReceivedByEmployeeName = receivedBy,
                 InsertByUserId = commercialUserId
             };
             _dbConfig.StockMovements.Add(movement);
@@ -384,6 +476,24 @@ namespace RestaurantPOS.Controllers
             using (var stream = new FileStream(filePath, FileMode.Create))
                 await file.CopyToAsync(stream);
             return uniqueName;
+        }
+
+        /// <summary>رابط عام كامل لمرفق الوصل (للاستخدام من الواجهة أو تطبيقات أخرى).</summary>
+        private string? BuildReceiptPublicUrl(string? storedFileName)
+        {
+            if (string.IsNullOrWhiteSpace(storedFileName))
+                return null;
+            var raw = storedFileName.Trim();
+            if (raw.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                raw.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return raw;
+
+            var name = Path.GetFileName(raw.Replace('\\', '/'));
+            if (string.IsNullOrEmpty(name) || name.Contains("..", StringComparison.Ordinal))
+                return null;
+
+            var root = $"{Request.Scheme}://{Request.Host}{Request.PathBase}".TrimEnd('/');
+            return $"{root}/Receipts/{Uri.EscapeDataString(name)}";
         }
 
         private static string? BuildNotesWithReceiptNumber(string? receiptNumber, string? notes)
@@ -442,6 +552,57 @@ namespace RestaurantPOS.Controllers
 
             var cleaned = parts[1].Trim();
             return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
+        }
+
+        /// <summary>تطبيع رقم الوصل للتخزين (فارغ = null).</summary>
+        private static string? NormalizeReceiptNumber(string? receiptNumber)
+        {
+            if (string.IsNullOrWhiteSpace(receiptNumber))
+                return null;
+            return receiptNumber.Trim();
+        }
+
+        /// <summary>مفتاح دفعة المخزن: اسم المادة نفسه مع رقم وصل مختلف = صف مستقل.</summary>
+        private static string InventoryReceiptKey(StockMovement x)
+        {
+            if (!string.IsNullOrWhiteSpace(x.ReceiptNumber))
+                return x.ReceiptNumber.Trim();
+            if (x.MovementType == "Add")
+                return ExtractReceiptNumber(x.Notes)?.Trim() ?? "";
+            return "";
+        }
+
+        /// <summary>رقم الوصل للعرض: العمود المخصص أو السطر الأول في الملاحظات.</summary>
+        private static string? DisplayReceiptNumber(StockMovement x)
+        {
+            if (!string.IsNullOrWhiteSpace(x.ReceiptNumber))
+                return x.ReceiptNumber.Trim();
+            return ExtractReceiptNumber(x.Notes);
+        }
+
+        /// <summary>مبلغ العرض في الجدول: الإضافة كما هي؛ السحب يُقدَّر تناسبياً من آخر إضافة لنفس الدفعة عند غياب المبلغ.</summary>
+        private static decimal? ResolveDisplayAmount(StockMovement x, StockMovement? enrich)
+        {
+            if (x.MovementType == "Add")
+                return x.Amount;
+            if (x.Amount.HasValue && x.Amount.Value != 0)
+                return x.Amount;
+            if (enrich != null && enrich.Quantity > 0 && enrich.Amount.HasValue && enrich.Amount.Value != 0)
+                return Math.Round(enrich.Amount.Value * (x.Quantity / enrich.Quantity), 2, MidpointRounding.AwayFromZero);
+            return x.Amount;
+        }
+
+        /// <summary>آخر إضافة لنفس الدفعة قبل تاريخ السحب — لعرض مورد/وحدة/مرفق في سجل السحب.</summary>
+        private static StockMovement? FindEnrichingAddForWithdraw(StockMovement withdraw, IReadOnlyList<StockMovement> addsPool)
+        {
+            var name = withdraw.MaterialName.Trim();
+            var rk = InventoryReceiptKey(withdraw);
+            return addsPool
+                .Where(a => a.MaterialName.Trim() == name
+                            && InventoryReceiptKey(a) == rk
+                            && a.InsertDate <= withdraw.InsertDate)
+                .OrderByDescending(a => a.InsertDate)
+                .FirstOrDefault();
         }
 
         private class AddStockBatchItem

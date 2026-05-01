@@ -86,13 +86,14 @@
               </template>
 
               <template #cell(actions)="row">
-                <div class="table-actions-cell">
+                <div class="actions-cell">
                   <button 
-                    class="table-action-btn edit-btn" 
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--edit" 
                     @click="editTable(row.item)"
                     :title="$t('edit')"
                   >
-                    <b-icon icon="pencil-fill"></b-icon>
+                    <b-icon icon="pencil-fill" class="action-icon"></b-icon>
                   </button>
                 </div>
               </template>
@@ -453,9 +454,13 @@ export default {
       HTTP.get("Tables", { params })
         .then((response) => {
           const pagedData = response.data.data;
-          this.tables = pagedData.items || [];
-          this.totalItems = pagedData.totalItems || 0;
-          this.totalPages = pagedData.totalPages || 0;
+          const rawItems = pagedData.items || pagedData.Items || [];
+          this.tables = rawItems.map((t) => ({
+            ...t,
+            currentOrderId: t.currentOrderId ?? t.CurrentOrderId ?? null,
+          }));
+          this.totalItems = pagedData.totalItems ?? pagedData.TotalItems ?? 0;
+          this.totalPages = pagedData.totalPages ?? pagedData.TotalPages ?? 0;
           this.show = false;
         })
         .catch((error) => {
@@ -753,43 +758,6 @@ export default {
 .order-icon {
   color: var(--text-muted);
   font-size: 1rem;
-}
-
-.table-actions-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.table-action-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
-}
-
-.table-action-btn.edit-btn {
-  background-color: rgba(129, 140, 248, 0.2);
-  color: var(--primary-color);
-  border: 1px solid rgba(129, 140, 248, 0.4);
-}
-
-.table-action-btn.edit-btn:hover {
-  background-color: var(--primary-color);
-  color: #ffffff;
-  border-color: var(--primary-color);
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(129, 140, 248, 0.4);
-}
-
-.table-action-btn:active {
-  transform: scale(0.95);
 }
 
 .text-muted {

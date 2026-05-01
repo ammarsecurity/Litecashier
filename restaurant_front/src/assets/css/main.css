@@ -3977,6 +3977,162 @@ p {
   color: inherit !important;
 }
 
+/* ========== Unified table row actions (reports / invoices style) ========== */
+.actions-cell {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  height: 36px;
+  min-width: 36px;
+  padding: 0 0.65rem;
+  border-radius: 0.6rem;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: inherit;
+  box-sizing: border-box;
+}
+
+.action-btn .action-icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+.action-btn--icon {
+  padding: 0;
+  width: 36px;
+  min-width: 36px;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.action-btn:active:not(:disabled) {
+  transform: none;
+}
+
+.action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.action-btn--view {
+  background: color-mix(in srgb, var(--primary-color) 14%, var(--bg-primary));
+  color: var(--primary-color);
+  border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
+}
+
+.action-btn--edit {
+  background: color-mix(in srgb, #2563eb 16%, var(--bg-primary));
+  color: #2563eb;
+  border-color: color-mix(in srgb, #2563eb 40%, var(--border-color));
+}
+
+.action-btn--delete {
+  background: color-mix(in srgb, #dc3545 12%, var(--bg-primary));
+  color: #dc3545;
+  border-color: color-mix(in srgb, #dc3545 40%, var(--border-color));
+}
+
+.action-btn--print {
+  background: color-mix(in srgb, #0284c7 14%, var(--bg-primary));
+  color: #0284c7;
+  border-color: color-mix(in srgb, #0284c7 40%, var(--border-color));
+}
+
+.action-btn--success {
+  background: color-mix(in srgb, #16a34a 14%, var(--bg-primary));
+  color: #16a34a;
+  border-color: color-mix(in srgb, #16a34a 40%, var(--border-color));
+}
+
+.action-btn--warn {
+  background: color-mix(in srgb, #d97706 14%, var(--bg-primary));
+  color: #d97706;
+  border-color: color-mix(in srgb, #d97706 40%, var(--border-color));
+}
+
+.action-btn--ai {
+  background: color-mix(in srgb, #7c3aed 14%, var(--bg-primary));
+  color: #7c3aed;
+  border-color: color-mix(in srgb, #7c3aed 40%, var(--border-color));
+}
+
+:root.light-theme .action-btn--view {
+  background: color-mix(in srgb, var(--primary-color) 10%, #ffffff);
+}
+
+:root.light-theme .action-btn--edit {
+  background: color-mix(in srgb, #2563eb 10%, #ffffff);
+}
+
+:root.light-theme .action-btn--delete {
+  background: color-mix(in srgb, #dc3545 10%, #ffffff);
+}
+
+:root.light-theme .action-btn--print {
+  background: color-mix(in srgb, #0284c7 10%, #ffffff);
+}
+
+:root.light-theme .action-btn--success {
+  background: color-mix(in srgb, #16a34a 10%, #ffffff);
+}
+
+:root.light-theme .action-btn--warn {
+  background: color-mix(in srgb, #d97706 10%, #ffffff);
+}
+
+:root.light-theme .action-btn--ai {
+  background: color-mix(in srgb, #7c3aed 10%, #ffffff);
+}
+
+/* Employees card footer: keep layout + unified tint buttons */
+.user-card-footer .user-action-button.action-btn {
+  height: auto;
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 0.6rem;
+}
+
+.user-card-footer .user-action-button.action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+
+.user-card-footer .user-action-button.action-btn--edit {
+  background: color-mix(in srgb, #2563eb 16%, var(--bg-primary));
+  color: #2563eb;
+  border-color: color-mix(in srgb, #2563eb 40%, var(--border-color));
+}
+
+.user-card-footer .user-action-button.action-btn--delete {
+  background: color-mix(in srgb, #dc3545 12%, var(--bg-primary));
+  color: #dc3545;
+  border-color: color-mix(in srgb, #dc3545 40%, var(--border-color));
+}
+
+:root.light-theme .user-card-footer .user-action-button.action-btn--edit {
+  background: color-mix(in srgb, #2563eb 10%, #ffffff);
+}
+
+:root.light-theme .user-card-footer .user-action-button.action-btn--delete {
+  background: color-mix(in srgb, #dc3545 10%, #ffffff);
+}
+
 /* General Action Icons in Tables */
 table .action-icon,
 .table .action-icon,

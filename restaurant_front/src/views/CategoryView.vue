@@ -52,20 +52,22 @@
                             </template>
 
                             <template #cell(actions)="row">
-                                <div class="category-actions-cell">
+                                <div class="actions-cell">
                                     <button 
-                                        class="category-action-btn edit-btn" 
+                                        type="button"
+                                        class="action-btn action-btn--icon action-btn--edit" 
                                         @click="getTagsInfo(row.item)"
                                         :title="$t('edit')"
                                     >
-                                        <b-icon icon="pencil-fill"></b-icon>
+                                        <b-icon icon="pencil-fill" class="action-icon"></b-icon>
                                     </button>
                                     <button 
-                                        class="category-action-btn delete-btn" 
+                                        type="button"
+                                        class="action-btn action-btn--icon action-btn--delete" 
                                         @click="deleteTagsModel(row.item.id)"
                                         :title="$t('delete')"
                                     >
-                                        <b-icon icon="trash-fill"></b-icon>
+                                        <b-icon icon="trash-fill" class="action-icon"></b-icon>
                                     </button>
                                 </div>
                             </template>
@@ -964,51 +966,6 @@ export default {
   font-weight: 600;
   font-size: 0.9375rem;
   color: #111827;
-}
-
-.category-actions-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.category-action-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
-}
-
-.category-action-btn.edit-btn {
-  background-color: #eff6ff;
-  color: #2563eb;
-}
-
-.category-action-btn.edit-btn:hover {
-  background-color: #2563eb;
-  color: white;
-  transform: scale(1.05);
-}
-
-.category-action-btn.delete-btn {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-.category-action-btn.delete-btn:hover {
-  background-color: #991b1b;
-  color: white;
-  transform: scale(1.05);
-}
-
-.category-action-btn:active {
-  transform: scale(0.95);
 }
 
 .pagination-container {
