@@ -135,10 +135,33 @@
       :show-pos-fullscreen-button="true"
       :pos-fullscreen-active="isFullscreen"
       @toggle-pos-fullscreen="toggleFullscreen"
-    />
+    >
+      <template #pos-actions>
+        <button
+          type="button"
+          class="app-top-header-icon-btn"
+          @click="initPosFloorPlanGate"
+          :title="$t('posFloorPlanGateTitle')"
+        >
+          <b-icon icon="grid-3x3-gap-fill" class="app-top-header-icon"></b-icon>
+        </button>
+      </template>
+      <template #pos-center>
+        <div class="pos-quick-search pos-quick-search--header">
+          <b-icon icon="search" class="pos-quick-search-icon"></b-icon>
+          <input
+            v-model="quickSearch"
+            ref="posQuickSearchInput"
+            type="search"
+            :placeholder="$t('searchPlaceholder')"
+            class="pos-quick-search-input"
+          />
+        </div>
+      </template>
+    </AppHeader>
     <div
         class="main-content-wrapper pos-route pos-route--v2"
-        :class="{ 'pos-fullscreen': isFullscreen }"
+        :class="{ 'pos-fullscreen': isFullscreen, 'pos-has-checkout-bar': showPosCheckoutBar }"
       >
         <b-container fluid class="pos-container-fluid">
           <div class="pos-page-container pos-page-container--v2">
@@ -146,32 +169,26 @@
               <main class="pos-workspace-main">
             <!-- الكتالوج: بحث، طاولات، أقسام، منتجات -->
             <div class="pos-main-section pos-main-section--v2">
-            <!-- Quick Actions Bar -->
-            <div class="pos-quick-actions">
-              <div class="pos-quick-search">
-                <b-icon icon="search" class="pos-quick-search-icon"></b-icon>
-                <input
-                  v-model="quickSearch"
-                  ref="posQuickSearchInput"
-                  type="search"
-                  :placeholder="$t('searchPlaceholder')"
-                  class="pos-quick-search-input"
-                />
-              </div>
-            </div>
-
             <!-- Tables: summary bar + modal picker + row actions (one card) -->
             <div class="pos-tables-section-compact">
               <div class="pos-tables-block">
-                <div class="pos-tables-picker-bar">
+                <div class="pos-tables-toolbar-unified">
                   <div class="pos-tables-picker-main">
-                    <b-icon icon="table" class="pos-tables-picker-icon"></b-icon>
-                    <div class="pos-tables-picker-text">
+                    <b-icon icon="table" class="pos-tables-picker-icon pos-tables-picker-icon--toolbar"></b-icon>
+                    <div class="pos-tables-picker-text pos-tables-picker-text--inline">
                       <span class="pos-tables-picker-label">{{ $t("tables") || "الطاولات" }}</span>
+                      <span class="pos-tables-picker-sep" aria-hidden="true">·</span>
                       <span class="pos-tables-picker-value">{{ selectedTableSummary }}</span>
+                      <span
+                        v-if="selectedTableId && mergedTableIds.length > 1"
+                        class="pos-tables-picker-badge"
+                        :title="$t('mergedTables') || ''"
+                      >
+                        {{ mergedTableIds.length }}
+                      </span>
                     </div>
                   </div>
-                  <div class="pos-tables-picker-actions">
+                  <div class="pos-tables-toolbar-end">
                     <button
                       v-if="selectedTableIds.length > 1"
                       type="button"
@@ -180,57 +197,38 @@
                       :title="$t('mergeTables') || 'دمج طاولات'"
                     >
                       <b-icon icon="layers"></b-icon>
-                      <span>{{ $t("mergeTables") || "دمج" }}</span>
+                      <span class="pos-merge-tables-btn-compact-text">{{ $t("mergeTables") || "دمج" }}</span>
                     </button>
-                    <button type="button" class="pos-tables-open-modal-btn" @click="initPosFloorPlanGate">
-                      <b-icon icon="grid-3x3-gap-fill" class="me-1"></b-icon>
-                      {{ $t("posFloorPlanGateTitle") }}
-                    </button>
-                  </div>
-                </div>
-
-                <div v-if="selectedTableId" class="pos-table-actions-bar">
-                  <div class="pos-table-actions-meta">
-                    <template v-if="mergedTableIds.length > 1">
-                      <b-icon icon="layers-fill" class="pos-table-actions-meta-icon"></b-icon>
-                      <span class="pos-table-actions-meta-label">{{ $t("mergedTables") || "الطاولات المدمجة" }}</span>
-                      <span class="pos-table-actions-count">{{ mergedTableIds.length }}</span>
-                    </template>
-                    <template v-else>
-                      <b-icon icon="table" class="pos-table-actions-meta-icon"></b-icon>
-                      <span class="pos-table-actions-meta-label">{{ $t("selectedTable") || "الطاولة المختارة" }}</span>
-                      <span class="pos-table-actions-count">{{ selectedTable ? selectedTable.tableNumber : "" }}</span>
-                    </template>
-                  </div>
-                  <div class="pos-table-actions-buttons">
-                    <template v-if="mergedTableIds.length > 1">
-                      <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" @click="addOrder(false)">
-                        <b-icon icon="check-circle-fill"></b-icon>
-                        <span>{{ $t("saveForAllMergedTables") || "حفظ لجميع الطاولات" }}</span>
-                      </button>
-                      <button class="pos-table-action-btn pos-table-action-close" v-if="selectedTable && selectedTable.status === 'Occupied'" @click="closeTableOrder(selectedTableId)">
-                        <b-icon icon="x-circle-fill"></b-icon>
-                        <span>{{ $t("closeAndPrint") || "إغلاق وطباعة" }}</span>
-                      </button>
-                      <button class="pos-table-action-btn pos-table-action-deselect" @click="deselectTable">
-                        <b-icon icon="x-circle-fill"></b-icon>
-                        <span>{{ $t("deselectAllMergedTables") || "إلغاء جميع الطاولات" }}</span>
-                      </button>
-                    </template>
-                    <template v-else>
-                      <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" @click="addOrder(false)">
-                        <b-icon icon="check-circle-fill"></b-icon>
-                        <span>{{ $t("save") || "حفظ" }}</span>
-                      </button>
-                      <button class="pos-table-action-btn pos-table-action-close" v-if="selectedTable && selectedTable.status === 'Occupied'" @click="closeTableOrder(selectedTableId)">
-                        <b-icon icon="x-circle-fill"></b-icon>
-                        <span>{{ $t("closeAndPrint") || "إغلاق وطباعة" }}</span>
-                      </button>
-                      <button class="pos-table-action-btn pos-table-action-deselect" @click="deselectTable">
-                        <b-icon icon="x-circle-fill"></b-icon>
-                        <span>{{ $t("deselectTable") || "إلغاء" }}</span>
-                      </button>
-                    </template>
+                    <div v-if="selectedTableId" class="pos-table-actions-buttons pos-table-actions-buttons--inline">
+                      <template v-if="mergedTableIds.length > 1">
+                        <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" @click="addOrder(false)">
+                          <b-icon icon="check-circle-fill"></b-icon>
+                          <span>{{ $t("saveForAllMergedTables") || "حفظ لجميع الطاولات" }}</span>
+                        </button>
+                        <button class="pos-table-action-btn pos-table-action-close" v-if="selectedTable && selectedTable.status === 'Occupied'" @click="closeTableOrder(selectedTableId)">
+                          <b-icon icon="x-circle-fill"></b-icon>
+                          <span>{{ $t("closeAndPrint") || "إغلاق وطباعة" }}</span>
+                        </button>
+                        <button class="pos-table-action-btn pos-table-action-deselect" @click="deselectTable">
+                          <b-icon icon="x-circle-fill"></b-icon>
+                          <span>{{ $t("deselectAllMergedTables") || "إلغاء جميع الطاولات" }}</span>
+                        </button>
+                      </template>
+                      <template v-else>
+                        <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" @click="addOrder(false)">
+                          <b-icon icon="check-circle-fill"></b-icon>
+                          <span>{{ $t("save") || "حفظ" }}</span>
+                        </button>
+                        <button class="pos-table-action-btn pos-table-action-close" v-if="selectedTable && selectedTable.status === 'Occupied'" @click="closeTableOrder(selectedTableId)">
+                          <b-icon icon="x-circle-fill"></b-icon>
+                          <span>{{ $t("closeAndPrint") || "إغلاق وطباعة" }}</span>
+                        </button>
+                        <button class="pos-table-action-btn pos-table-action-deselect" @click="deselectTable">
+                          <b-icon icon="x-circle-fill"></b-icon>
+                          <span>{{ $t("deselectTable") || "إلغاء" }}</span>
+                        </button>
+                      </template>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -337,28 +335,6 @@
                   <!-- Product Info -->
                   <div class="pos-product-info">
                     <h4 class="pos-product-name">{{ item.name }}</h4>
-                    <div class="pos-product-meta">
-                      <div class="pos-product-category">
-                        <b-icon icon="tags" class="me-1"></b-icon>
-                        {{ item.tags }}
-                      </div>
-                      <div class="pos-product-price">
-                        <div
-                          v-if="item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
-                          class="pos-product-price-discounted"
-                        >
-                          <span class="pos-product-price-current">
-                            {{ formatPrice(item.disCountPrice) }} {{ $t("currency") }}
-                          </span>
-                          <span class="pos-product-price-old">
-                            {{ formatPrice(item.sellingPrice) }} {{ $t("currency") }}
-                          </span>
-                        </div>
-                        <div v-else class="pos-product-price-regular">
-                          {{ formatPrice(item.sellingPrice) }} {{ $t("currency") }}
-                        </div>
-                      </div>
-                    </div>
                     <div class="pos-product-unavailable-badge" v-if="!item.isAvailable">
                       <b-icon icon="x-circle-fill" class="me-1"></b-icon>
                       {{ $t("notAvailable") || "غير متوفر" }}
@@ -396,18 +372,19 @@
                       <b-icon icon="cart-fill" class="me-2"></b-icon>
                       {{ $t("cart") || 'السلة' }}
                     </h3>
-                    <div class="pos-cart-header-actions">
-                      <span class="pos-cart-count-badge" v-if="carditems.length > 0">
+                    <div class="pos-cart-header-actions" v-if="carditems.length > 0">
+                      <span class="pos-cart-count-badge">
                         {{ carditems.length }}
                       </span>
                       <button
                         type="button"
-                        class="pos-cart-mobile-close-btn"
-                        @click.stop="closePosMobileCart"
-                        :aria-label="$t('close')"
-                        :title="$t('close')"
+                        class="pos-cart-header-clear-btn"
+                        v-b-modal.modal-empty
+                        :disabled="totalCardItems <= 0"
+                        :title="$t('emptyButton') || 'افراغ فقط'"
                       >
-                        <b-icon icon="chevron-down"></b-icon>
+                        <b-icon icon="trash-fill" class="pos-cart-header-clear-ic"></b-icon>
+                        <span class="pos-cart-header-clear-label">{{ $t("emptyButton") || "افراغ فقط" }}</span>
                       </button>
                     </div>
                   </div>
@@ -417,56 +394,64 @@
                     ref="posCartItemsList"
                   >
                     <div
-                      class="pos-cart-item"
+                      class="pos-cart-item pos-cart-item--v2"
                       v-for="(item, index) in carditems"
                       :key="index"
                     >
-                      <!-- Item Name and Price -->
-                      <div class="pos-cart-item-info">
+                      <div class="pos-cart-item-top">
                         <h4 class="pos-cart-item-name">{{ item.name }}</h4>
-                        <div class="pos-cart-item-price-row">
-                          <span class="pos-cart-item-price">
-                            {{ formatPrice((item.disCountPrice > 0 && item.disCountPrice !== item.price) ? item.disCountPrice : (item.price || 0)) }} {{ $t("currency") }}
-                          </span>
-                          <span class="pos-cart-item-total">
-                            {{ formatPrice(item.total) }} {{ $t("currency") }}
-                          </span>
+                        <div class="pos-cart-item-line-total">
+                          {{ formatPrice(item.total) }} {{ $t("currency") }}
                         </div>
                       </div>
-                      
-                      <!-- Quantity Controls and Delete -->
-                      <div class="pos-cart-item-controls">
-                        <div class="pos-cart-item-quantity">
+                      <div class="pos-cart-item-bottom">
+                        <div class="pos-cart-item-unit-wrap">
+                          <span class="pos-cart-item-unit-price">
+                            {{ $t("unitPrice") }}:
+                            {{
+                              formatPrice(
+                                (item.disCountPrice > 0 && item.disCountPrice !== item.price)
+                                  ? item.disCountPrice
+                                  : (item.price || 0)
+                              )
+                            }}
+                            {{ $t("currency") }}
+                          </span>
+                          <span class="pos-cart-item-qty-badge">× {{ item.quantity }}</span>
+                        </div>
+                        <div class="pos-cart-item-controls">
+                          <div class="pos-cart-item-quantity">
+                            <button
+                              class="pos-quantity-btn pos-quantity-decrease"
+                              @click.stop="decreaseQuantity(index)"
+                              :title="$t('decrease') || 'تقليل'"
+                            >
+                              <b-icon icon="dash-lg"></b-icon>
+                            </button>
+                            <input
+                              type="number"
+                              :value="item.quantity"
+                              @input="updateQuantity(index, $event.target.value)"
+                              @click.stop
+                              class="pos-quantity-input"
+                              min="1"
+                            />
+                            <button
+                              class="pos-quantity-btn pos-quantity-increase"
+                              @click.stop="increaseQuantity(index)"
+                              :title="$t('increase') || 'زيادة'"
+                            >
+                              <b-icon icon="plus-lg"></b-icon>
+                            </button>
+                          </div>
                           <button
-                            class="pos-quantity-btn pos-quantity-decrease"
-                            @click.stop="decreaseQuantity(index)"
-                            :title="$t('decrease') || 'تقليل'"
+                            class="pos-cart-item-delete"
+                            @click.stop="deleteItem(index)"
+                            :title="$t('delete') || 'حذف'"
                           >
-                            <b-icon icon="dash-lg"></b-icon>
-                          </button>
-                          <input
-                            type="number"
-                            :value="item.quantity"
-                            @input="updateQuantity(index, $event.target.value)"
-                            @click.stop
-                            class="pos-quantity-input"
-                            min="1"
-                          />
-                          <button
-                            class="pos-quantity-btn pos-quantity-increase"
-                            @click.stop="increaseQuantity(index)"
-                            :title="$t('increase') || 'زيادة'"
-                          >
-                            <b-icon icon="plus-lg"></b-icon>
+                            <b-icon icon="x-lg"></b-icon>
                           </button>
                         </div>
-                        <button
-                          class="pos-cart-item-delete"
-                          @click.stop="deleteItem(index)"
-                          :title="$t('delete') || 'حذف'"
-                        >
-                          <b-icon icon="x-lg"></b-icon>
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -502,262 +487,6 @@
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <!-- Cart Summary -->
-                <div class="pos-cart-summary" v-if="carditems.length > 0">
-                  <div class="pos-cart-summary-row">
-                    <span class="pos-cart-summary-label">
-                      <b-icon icon="box-seam" class="me-2"></b-icon>
-                      {{ $t("countLabel") }}:
-                    </span>
-                    <span class="pos-cart-summary-value">{{ totalCardItems }} {{ $t("itemLabel") }}</span>
-                  </div>
-                  <div class="pos-cart-summary-row" v-if="orderDiscountAmount > 0">
-                    <span class="pos-cart-summary-label">
-                      <b-icon icon="tag-fill" class="me-2"></b-icon>
-                      {{ $t("discountLabel") || "الخصم" }}:
-                    </span>
-                    <span class="pos-cart-summary-value">
-                      - {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}
-                    </span>
-                  </div>
-                  <div class="pos-cart-summary-row pos-cart-total-row">
-                    <span class="pos-cart-summary-label">
-                      <b-icon icon="currency-dollar" class="me-2"></b-icon>
-                      {{ $t("totalLabel") }}:
-                    </span>
-                    <span class="pos-cart-summary-value pos-cart-total-value">
-                      {{ formattedNumber }} {{ $t("currency") }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Order type + payment (accordion on narrow screens) -->
-                <div class="pos-mobile-cart-accordion" v-if="carditems.length > 0">
-                  <button
-                    type="button"
-                    class="pos-mobile-cart-accordion-trigger"
-                    @click="posCartAccordionOrderOpen = !posCartAccordionOrderOpen"
-                    :aria-expanded="posCartAccordionOrderOpen ? 'true' : 'false'"
-                  >
-                    <span class="pos-mobile-cart-accordion-trigger-label">
-                      <b-icon icon="sliders" class="me-2"></b-icon>
-                      {{ $t("posCartAccordionOrderPayment") }}
-                    </span>
-                    <b-icon
-                      :icon="posCartAccordionOrderOpen ? 'chevron-up' : 'chevron-down'"
-                      class="pos-mobile-cart-accordion-chevron"
-                    />
-                  </button>
-                  <div
-                    v-show="posCartAccordionOrderOpen"
-                    class="pos-mobile-cart-accordion-panel"
-                  >
-                    <div class="pos-printer-section">
-                      <div class="pos-printer-header">
-                        <b-icon icon="shop" class="me-2"></b-icon>
-                        <span>{{ $t("orderType") || "نوع الطلب" }}</span>
-                      </div>
-                      <div class="pos-order-types-grid">
-                        <button
-                          v-if="selectedTableId"
-                          class="pos-order-type-btn pos-order-type-active"
-                          disabled
-                        >
-                          <b-icon icon="house-door" class="pos-order-type-icon"></b-icon>
-                          <span class="pos-order-type-label">{{ $t("dineIn") || "داخلي" }}</span>
-                        </button>
-                        <button
-                          v-if="selectedTableId"
-                          class="pos-order-type-btn pos-transfer-table-btn"
-                          @click="openTransferTableModal"
-                          :title="$t('transferTable') || 'تبديل الطاولة'"
-                        >
-                          <b-icon icon="arrow-left-right" class="pos-order-type-icon"></b-icon>
-                          <span class="pos-order-type-label">{{ $t("transferTable") || "تبديل الطاولة" }}</span>
-                        </button>
-                        <template v-if="!selectedTableId">
-                          <button
-                            class="pos-order-type-btn"
-                            :class="{ 'pos-order-type-active': orderForSend.orderType === 'Takeaway' }"
-                            @click="orderForSend.orderType = 'Takeaway'"
-                          >
-                            <b-icon icon="bag" class="pos-order-type-icon"></b-icon>
-                            <span class="pos-order-type-label">{{ $t("takeaway") || "طلب خارجي" }}</span>
-                          </button>
-                          <button
-                            class="pos-order-type-btn"
-                            :class="{ 'pos-order-type-active': orderForSend.orderType === 'Delivery' }"
-                            @click="orderForSend.orderType = 'Delivery'"
-                          >
-                            <b-icon icon="truck" class="pos-order-type-icon"></b-icon>
-                            <span class="pos-order-type-label">{{ $t("delivery") || "توصيل" }}</span>
-                          </button>
-                        </template>
-                      </div>
-                    </div>
-
-                    <div class="pos-printer-section">
-                      <div class="pos-printer-header">
-                        <b-icon icon="credit-card-fill" class="me-2"></b-icon>
-                        <span>{{ $t("paymentMethod") || "طريقة الدفع" }}</span>
-                      </div>
-                      <div class="pos-payment-methods-grid">
-                        <button
-                          class="pos-payment-method-btn"
-                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Cash' }"
-                          @click="orderForSend.paymentMethod = 'Cash'"
-                        >
-                          <b-icon icon="cash-stack" class="pos-payment-icon"></b-icon>
-                          <span class="pos-payment-label">{{ $t("cash") || "نقد" }}</span>
-                        </button>
-                        <button
-                          class="pos-payment-method-btn"
-                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Card' }"
-                          @click="orderForSend.paymentMethod = 'Card'"
-                        >
-                          <b-icon icon="credit-card" class="pos-payment-icon"></b-icon>
-                          <span class="pos-payment-label">{{ $t("card") || "بطاقة" }}</span>
-                        </button>
-                        <button
-                          class="pos-payment-method-btn"
-                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Credit' }"
-                          @click="orderForSend.paymentMethod = 'Credit'"
-                        >
-                          <b-icon icon="clock-history" class="pos-payment-icon"></b-icon>
-                          <span class="pos-payment-label">{{ $t("credit") || "دفع لاحق" }}</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Delivery (open large modal for better usability) -->
-                <div v-if="orderForSend.orderType === 'Delivery'" class="pos-mobile-cart-accordion">
-                  <button
-                    type="button"
-                    class="pos-mobile-cart-accordion-trigger"
-                    @click="openDeliveryInfoModal"
-                    aria-expanded="false"
-                  >
-                    <span class="pos-mobile-cart-accordion-trigger-label">
-                      <b-icon icon="truck" class="me-2"></b-icon>
-                      {{ $t("deliveryInformation") || "معلومات التوصيل" }}
-                    </span>
-                    <b-icon icon="box-arrow-up-right" class="pos-mobile-cart-accordion-chevron" />
-                  </button>
-                  <div class="pos-mobile-cart-accordion-panel pos-mobile-cart-accordion-panel--delivery">
-                    <div class="delivery-info-section">
-                      <p class="mb-2">
-                        {{
-                          ($te && $te("deliveryInformationHint"))
-                            ? $t("deliveryInformationHint")
-                            : "افتح نافذة معلومات التوصيل لإدخال البيانات بشكل أوضح."
-                        }}
-                      </p>
-                      <button
-                        type="button"
-                        class="delivery-add-btn"
-                        @click="openDeliveryInfoModal"
-                      >
-                        <b-icon icon="truck" class="me-2"></b-icon>
-                        {{ $t("deliveryInformation") || "معلومات التوصيل" }}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Printer (accordion on narrow screens) -->
-                <div
-                  class="pos-mobile-cart-accordion"
-                  v-if="availablePrinters.length > 0 || webPrintAPISupported"
-                >
-                  <button
-                    type="button"
-                    class="pos-mobile-cart-accordion-trigger"
-                    @click="posCartAccordionPrinterOpen = !posCartAccordionPrinterOpen"
-                    :aria-expanded="posCartAccordionPrinterOpen ? 'true' : 'false'"
-                  >
-                    <span class="pos-mobile-cart-accordion-trigger-label">
-                      <b-icon icon="printer-fill" class="me-2"></b-icon>
-                      {{ $t("posCartAccordionPrinter") }}
-                    </span>
-                    <b-icon
-                      :icon="posCartAccordionPrinterOpen ? 'chevron-up' : 'chevron-down'"
-                      class="pos-mobile-cart-accordion-chevron"
-                    />
-                  </button>
-                  <div
-                    v-show="posCartAccordionPrinterOpen"
-                    class="pos-mobile-cart-accordion-panel"
-                  >
-                    <div class="pos-printer-section">
-                  <div class="pos-printer-header">
-                    <b-icon icon="printer-fill" class="me-2"></b-icon>
-                    <span>{{ $t("printerSettings") || "إعدادات الطابعة" }}</span>
-                  </div>
-                  
-                  <!-- Web Print API Support Status -->
-                  <div class="pos-printer-status" v-if="webPrintAPISupported">
-                    <div class="pos-printer-status-badge pos-printer-status-supported">
-                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                      <span>{{ $t("webPrintAPISupported") || "المتصفح يدعم الطباعة المباشرة" }}</span>
-                    </div>
-                  </div>
-                  <div class="pos-printer-status" v-else>
-                    <div class="pos-printer-status-badge pos-printer-status-not-supported">
-                      <b-icon icon="info-circle-fill" class="me-2"></b-icon>
-                      <span>{{ $t("webPrintAPINotSupported") || "سيتم استخدام نافذة الطباعة العادية" }}</span>
-                    </div>
-                  </div>
-
-                  <!-- Printer Selection Dropdown -->
-                  <div class="pos-printer-select-wrapper" v-if="availablePrinters.length > 0">
-                    <label class="pos-printer-select-label">
-                      {{ $t("selectPrinter") || "اختر الطابعة" }}
-                    </label>
-                    <select 
-                      v-model="selectedPrinterId" 
-                      @change="onPrinterChange"
-                      class="pos-printer-select"
-                    >
-                      <option 
-                        v-for="printer in availablePrinters" 
-                        :key="printer.id" 
-                        :value="printer.id"
-                      >
-                        {{ printer.name }} {{ printer.isDefault ? ' (افتراضي)' : '' }}
-                      </option>
-                    </select>
-                  </div>
-                  <div class="pos-printer-select-wrapper" v-else-if="webPrintAPISupported">
-                    <label class="pos-printer-select-label">
-                      {{ $t("loadingPrinters") || "جاري تحميل الطابعات..." }}
-                    </label>
-                  </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Cart Actions -->
-                <div class="pos-cart-actions">
-                  <button
-                    class="pos-action-btn pos-action-btn-primary"
-                    @click="openOrderNotesModal"
-                    :disabled="totalCardItems <= 0"
-                  >
-                    <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                    {{ $t("saveAndClear") || "حفظ وافراغ" }}
-                  </button>
-                  <button
-                    class="pos-action-btn pos-action-btn-danger"
-                    v-b-modal.modal-empty
-                    :disabled="totalCardItems <= 0"
-                  >
-                    <b-icon icon="trash-fill" class="me-2"></b-icon>
-                    {{ $t("emptyButton") || "افراغ فقط" }}
-                  </button>
                 </div>
               </div>
             </div>
@@ -1150,6 +879,170 @@
                 </div>
               </div>
             </b-modal>
+
+            <!-- شريط ثابت أسفل الصفحة — صف واحد أفقي (بدون أكورديون / تداخل صناديق) -->
+            <div v-if="showPosCheckoutBar" class="pos-cart-checkout-bar">
+              <div class="pos-cart-checkout-bar-inner">
+                <div class="pos-cart-checkout-strip">
+                  <template v-if="carditems.length > 0">
+                    <div class="pos-cart-checkout-segment pos-cart-checkout-segment--summary">
+                      <span class="pos-cart-checkout-stat">
+                        <b-icon icon="box-seam" class="pos-cart-checkout-ic"></b-icon>
+                        {{ $t("countLabel") }}
+                        <strong>{{ totalCardItems }} {{ $t("itemLabel") }}</strong>
+                      </span>
+                      <span
+                        v-if="orderDiscountAmount > 0"
+                        class="pos-cart-checkout-stat pos-cart-checkout-stat--discount"
+                      >
+                        <b-icon icon="tag-fill" class="pos-cart-checkout-ic"></b-icon>
+                        − {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}
+                      </span>
+                      <span class="pos-cart-checkout-stat pos-cart-checkout-stat--total">
+                        <b-icon icon="currency-dollar" class="pos-cart-checkout-ic"></b-icon>
+                        {{ $t("totalLabel") }}
+                        <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
+                      </span>
+                    </div>
+
+                    <div class="pos-cart-checkout-segment pos-cart-checkout-segment--types">
+                      <span class="pos-cart-checkout-segment-label">{{ $t("orderType") }}</span>
+                      <div class="pos-cart-checkout-btn-row">
+                        <button
+                          v-if="selectedTableId"
+                          type="button"
+                          class="pos-order-type-btn pos-order-type-active"
+                          disabled
+                        >
+                          <b-icon icon="house-door" class="pos-order-type-icon"></b-icon>
+                          <span class="pos-order-type-label">{{ $t("dineIn") || "داخلي" }}</span>
+                        </button>
+                        <button
+                          v-if="selectedTableId"
+                          type="button"
+                          class="pos-order-type-btn pos-transfer-table-btn"
+                          @click="openTransferTableModal"
+                          :title="$t('transferTable') || 'تبديل الطاولة'"
+                        >
+                          <b-icon icon="arrow-left-right" class="pos-order-type-icon"></b-icon>
+                          <span class="pos-order-type-label">{{ $t("transferTable") || "تبديل الطاولة" }}</span>
+                        </button>
+                        <template v-if="!selectedTableId">
+                          <button
+                            type="button"
+                            class="pos-order-type-btn"
+                            :class="{ 'pos-order-type-active': orderForSend.orderType === 'Takeaway' }"
+                            @click="orderForSend.orderType = 'Takeaway'"
+                          >
+                            <b-icon icon="bag" class="pos-order-type-icon"></b-icon>
+                            <span class="pos-order-type-label">{{ $t("takeaway") || "طلب خارجي" }}</span>
+                          </button>
+                          <button
+                            type="button"
+                            class="pos-order-type-btn"
+                            :class="{ 'pos-order-type-active': orderForSend.orderType === 'Delivery' }"
+                            @click="orderForSend.orderType = 'Delivery'"
+                          >
+                            <b-icon icon="truck" class="pos-order-type-icon"></b-icon>
+                            <span class="pos-order-type-label">{{ $t("delivery") || "توصيل" }}</span>
+                          </button>
+                        </template>
+                      </div>
+                    </div>
+
+                    <div class="pos-cart-checkout-segment pos-cart-checkout-segment--pay">
+                      <span class="pos-cart-checkout-segment-label">{{ $t("paymentMethod") }}</span>
+                      <div class="pos-cart-checkout-btn-row">
+                        <button
+                          type="button"
+                          class="pos-payment-method-btn"
+                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Cash' }"
+                          @click="orderForSend.paymentMethod = 'Cash'"
+                        >
+                          <b-icon icon="cash-stack" class="pos-payment-icon"></b-icon>
+                          <span class="pos-payment-label">{{ $t("cash") || "نقد" }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-payment-method-btn"
+                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Card' }"
+                          @click="orderForSend.paymentMethod = 'Card'"
+                        >
+                          <b-icon icon="credit-card" class="pos-payment-icon"></b-icon>
+                          <span class="pos-payment-label">{{ $t("card") || "بطاقة" }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-payment-method-btn"
+                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Credit' }"
+                          @click="orderForSend.paymentMethod = 'Credit'"
+                        >
+                          <b-icon icon="clock-history" class="pos-payment-icon"></b-icon>
+                          <span class="pos-payment-label">{{ $t("credit") || "دفع لاحق" }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+
+                  <div
+                    v-if="carditems.length > 0 && orderForSend.orderType === 'Delivery'"
+                    class="pos-cart-checkout-segment pos-cart-checkout-segment--delivery"
+                  >
+                    <span class="pos-cart-checkout-segment-label">{{ $t("delivery") || "توصيل" }}</span>
+                    <button type="button" class="pos-cart-checkout-delivery-btn" @click="openDeliveryInfoModal">
+                      <b-icon icon="truck"></b-icon>
+                      {{ $t("deliveryInformation") || "معلومات التوصيل" }}
+                    </button>
+                  </div>
+
+                  <div
+                    v-if="availablePrinters.length > 0 || webPrintAPISupported"
+                    class="pos-cart-checkout-segment pos-cart-checkout-segment--printer"
+                  >
+                    <span class="pos-cart-checkout-segment-label">{{ $t("selectPrinter") || "الطابعة" }}</span>
+                    <select
+                      v-if="availablePrinters.length > 0"
+                      v-model="selectedPrinterId"
+                      @change="onPrinterChange"
+                      class="pos-cart-checkout-printer-select"
+                    >
+                      <option
+                        v-for="printer in availablePrinters"
+                        :key="printer.id"
+                        :value="printer.id"
+                      >
+                        {{ printer.name }} {{ printer.isDefault ? " (افتراضي)" : "" }}
+                      </option>
+                    </select>
+                    <span v-else-if="webPrintAPISupported" class="pos-cart-checkout-printer-loading">
+                      {{ $t("loadingPrinters") || "جاري تحميل الطابعات..." }}
+                    </span>
+                  </div>
+
+                  <div v-if="carditems.length > 0" class="pos-cart-checkout-segment pos-cart-checkout-segment--actions">
+                    <button
+                      type="button"
+                      class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn"
+                      @click="openOrderNotesModal"
+                      :disabled="totalCardItems <= 0"
+                    >
+                      <b-icon icon="check-circle-fill" class="me-1"></b-icon>
+                      {{ $t("saveAndPrint") || "حفظ وطباعة" }}
+                    </button>
+                    <button
+                      type="button"
+                      class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
+                      @click="printCartOnly"
+                      :disabled="totalCardItems <= 0"
+                      :title="$t('printOnly')"
+                    >
+                      <b-icon icon="printer-fill" class="me-1"></b-icon>
+                      {{ $t("printOnly") || "طباعة فقط" }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
 
           </div>
         </b-container>
@@ -1674,10 +1567,6 @@ export default {
       posSuppressQuickSearchSync: false,
       quickSearchTimer: null,
       posMobileCartOpen: false,
-      posCartAccordionOrderOpen: true,
-      posCartAccordionDeliveryOpen: true,
-      posCartAccordionPrinterOpen: false,
-
       posFloorPlanGateVisible: false,
       posFloorPlanLoading: false,
       posFloorPlanSelectedKey: "",
@@ -1728,6 +1617,14 @@ export default {
     },
     formattedNumber() {
       return this.finalOrderTotal.toLocaleString();
+    },
+    /** ملخص الطلب + الدفع + الطابعة + الأزرار في شريط سفلي ثابت */
+    showPosCheckoutBar() {
+      if (Array.isArray(this.carditems) && this.carditems.length > 0) return true;
+      return (
+        (Array.isArray(this.availablePrinters) && this.availablePrinters.length > 0) ||
+        !!this.webPrintAPISupported
+      );
     },
     orderDiscountAmount() {
       const subTotal = Number(this.totaPrice) || 0;
@@ -2018,7 +1915,6 @@ export default {
           if (!this.orderForSend.deliveryStatus) {
             this.orderForSend.deliveryStatus = "Pending";
           }
-          this.posCartAccordionDeliveryOpen = true;
           this.$nextTick(() => {
             this.$bvModal.show('modal-delivery-info');
           });
@@ -4642,6 +4538,23 @@ export default {
       this.orderForSend.pagerNumber = "";
       this.$bvModal.show('modal-order-notes');
     },
+    async printCartOnly() {
+      const textDirection = document.documentElement.dir;
+      const toastPosition = textDirection === "rtl" ? "top-right" : "top-left";
+      if (this.carditems.length <= 0) {
+        this.$toast.error(this.$i18n.t("emptyCartMessage"), {
+          position: toastPosition,
+          timeout: 2500,
+          maxToasts: 1,
+        });
+        return;
+      }
+      try {
+        await this.printCard();
+      } catch (e) {
+        console.error("printCartOnly:", e);
+      }
+    },
     confirmAddOrder() {
       this.$bvModal.hide('modal-order-notes');
       // Call the actual add order function
@@ -5077,7 +4990,7 @@ export default {
   margin-bottom: 0.75rem;
 }
 
-/* Tables: one card (picker + optional actions row) */
+/* Tables: كارت واحد — صف موحّد (اختيار المخطط من أيقونة الهيدر) */
 .pos-tables-block {
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 0.75rem;
@@ -5085,24 +4998,22 @@ export default {
   background: var(--bg-tertiary, #1e1e2e);
 }
 
-.pos-tables-picker-bar {
+.pos-tables-toolbar-unified {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem 1rem;
-  padding: 0.75rem 1rem;
+  gap: 0.45rem 0.65rem;
+  padding: 0.45rem 0.65rem;
   background: transparent;
-  border: none;
-  border-radius: 0;
 }
 
 .pos-tables-picker-main {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.55rem;
   min-width: 0;
-  flex: 1;
+  flex: 1 1 10rem;
 }
 
 .pos-tables-picker-icon {
@@ -5111,11 +5022,34 @@ export default {
   flex-shrink: 0;
 }
 
+.pos-tables-picker-icon--toolbar {
+  font-size: 1.15rem;
+}
+
 .pos-tables-picker-text {
   display: flex;
   flex-direction: column;
   min-width: 0;
   gap: 0.15rem;
+}
+
+.pos-tables-picker-text--inline {
+  flex-direction: row;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.4rem;
+}
+
+.pos-tables-picker-text--inline .pos-tables-picker-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.pos-tables-picker-text--inline .pos-tables-picker-value {
+  font-size: 0.9375rem;
 }
 
 .pos-tables-picker-label {
@@ -5133,31 +5067,49 @@ export default {
   word-break: break-word;
 }
 
-.pos-tables-picker-actions {
+.pos-tables-picker-sep {
+  color: var(--text-secondary);
+  opacity: 0.55;
+  font-weight: 700;
+}
+
+.pos-tables-picker-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: rgba(129, 140, 248, 0.22);
+  color: var(--primary-color);
+  border: 1px solid rgba(129, 140, 248, 0.38);
+}
+
+.pos-tables-toolbar-end {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
-  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-.pos-tables-open-modal-btn {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.5rem 0.9rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--primary-color);
-  background: rgba(129, 140, 248, 0.15);
-  color: var(--primary-color);
-  font-weight: 600;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
+.pos-table-actions-buttons--inline {
+  flex: 0 1 auto;
 }
 
-.pos-tables-open-modal-btn:hover {
-  background: var(--primary-color);
-  color: #fff;
+.pos-merge-tables-btn-compact-text {
+  display: none;
+}
+
+@media (min-width: 576px) {
+  .pos-merge-tables-btn-compact-text {
+    display: inline;
+  }
 }
 
 /* Order Notes Modal Styles */
@@ -5733,50 +5685,6 @@ export default {
   margin-bottom: 0.25rem;
 }
 
-/* Table actions: second row inside .pos-tables-block */
-.pos-table-actions-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem 1rem;
-  padding: 0.6rem 1rem 0.75rem;
-  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
-  background: var(--bg-secondary, rgba(0, 0, 0, 0.2));
-}
-
-.pos-table-actions-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-width: 0;
-  flex: 1 1 12rem;
-}
-
-.pos-table-actions-meta-icon {
-  font-size: 1.125rem;
-  color: var(--primary-color);
-  flex-shrink: 0;
-}
-
-.pos-table-actions-meta-label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.pos-table-actions-count {
-  background: var(--primary-color);
-  color: #ffffff;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1.2;
-  flex-shrink: 0;
-}
-
 .pos-table-actions-buttons {
   display: flex;
   gap: 0.45rem;
@@ -5847,12 +5755,19 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .pos-table-actions-bar {
+  .pos-tables-toolbar-unified {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .pos-table-actions-buttons {
+  .pos-tables-toolbar-end {
+    justify-content: stretch;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pos-table-actions-buttons,
+  .pos-table-actions-buttons--inline {
     justify-content: stretch;
   }
 
@@ -6223,6 +6138,122 @@ export default {
   line-height: 1.5;
 }
 
+/* سطر المنتج في السلة — هيكل أوضح: اسم + إجمالي السطر | سعر الوحدة × كمية | تحكم */
+.pos-route--v2 .pos-cart-item--v2 {
+  display: flex !important;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  padding: 0.55rem 0.7rem !important;
+  border-radius: 0.75rem !important;
+  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  background: var(--bg-secondary, rgba(30, 41, 59, 0.72)) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14) !important;
+  grid-template-columns: unset !important;
+  transform: none !important;
+}
+
+.pos-route--v2 .pos-cart-item--v2:hover {
+  border-color: rgba(129, 140, 248, 0.38) !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.14) !important;
+}
+
+.pos-cart-item-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.pos-cart-item-line-total {
+  flex-shrink: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #a5b4fc;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  padding-top: 0.08rem;
+}
+
+.pos-route--v2 .pos-cart-item--v2 .pos-cart-item-name {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.38;
+}
+
+.pos-cart-item-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem 0.65rem;
+  padding-top: 0.38rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.pos-cart-item-unit-wrap {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+  min-width: 0;
+  flex: 1 1 9rem;
+}
+
+.pos-cart-item-unit-price {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-cart-item-qty-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  padding: 0.1rem 0.42rem;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.14);
+  border: 1px solid rgba(129, 140, 248, 0.28);
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-route--v2 .pos-cart-item--v2 .pos-cart-item-controls {
+  grid-column: unset !important;
+  grid-row: unset !important;
+}
+
+.pos-route--v2 .pos-cart-item--v2 .pos-cart-item-quantity {
+  padding: 0.22rem;
+  gap: 0.28rem;
+}
+
+.pos-route--v2 .pos-cart-item--v2 .pos-quantity-btn {
+  width: 2rem;
+  height: 2rem;
+  min-width: 2rem;
+  min-height: 2rem;
+  font-size: 0.92rem;
+}
+
+.pos-route--v2 .pos-cart-item--v2 .pos-quantity-input {
+  width: 2.35rem;
+  height: 2rem;
+  min-height: 2rem;
+  font-size: 0.82rem;
+}
+
+.pos-route--v2 .pos-cart-item--v2 .pos-cart-item-delete {
+  width: 2.05rem;
+  height: 2.05rem;
+  min-width: 2.05rem;
+  min-height: 2.05rem;
+}
+
 /* Scrollbar Styling */
 .pos-cart-items-section::-webkit-scrollbar,
 .pos-cart-items-list::-webkit-scrollbar {
@@ -6251,15 +6282,7 @@ export default {
   flex-direction: row;
 }
 
-[dir="rtl"] .pos-cart-item {
-  flex-direction: row;
-}
-
-[dir="rtl"] .pos-cart-item-price-row {
-  flex-direction: row;
-}
-
-[dir="rtl"] .pos-cart-item-controls {
+[dir="rtl"] .pos-cart-item--v2 .pos-cart-item-controls {
   flex-direction: row;
 }
 
@@ -6993,7 +7016,8 @@ export default {
   .pos-workspace--v2 {
     grid-template-columns: minmax(0, 1fr) min(420px, 34vw);
     gap: 1.25rem;
-    align-items: start;
+    /* يمتد عمود السلة لارتفاع الصف مثل المحتوى الرئيسي */
+    align-items: stretch;
   }
 }
 
@@ -7005,14 +7029,6 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-}
-
-.pos-quick-actions {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 1rem;
-  padding: 0.65rem 0.85rem;
-  box-shadow: var(--shadow-sm);
 }
 
 .pos-quick-search-input {
@@ -7035,6 +7051,64 @@ export default {
 
 .pos-categories-list {
   gap: 0.5rem;
+}
+
+/* واجهة v2 — شريط التصنيفات والأدوات أقل ارتفاعاً (يتغلب على شبكة main.css الكبيرة على الشاشات الواسعة) */
+.pos-main-section--v2 .pos-categories-scroll {
+  padding: 0.12rem 0 0.08rem;
+}
+
+.pos-main-section--v2 .pos-browse-toolbar {
+  margin-bottom: 0.35rem;
+  gap: 0.5rem;
+  padding: 0.08rem 0;
+}
+
+.pos-main-section--v2 .pos-browse-back-btn {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.55rem;
+  border-width: 1px;
+  font-size: clamp(0.82rem, 0.65vw + 0.72rem, 0.98rem);
+}
+
+.pos-main-section--v2 .pos-browse-titles {
+  gap: 0.15rem;
+}
+
+.pos-main-section--v2 .pos-browse-primary {
+  font-size: clamp(0.86rem, 0.55vw + 0.76rem, 1rem);
+  line-height: 1.22;
+}
+
+.pos-main-section--v2 .pos-browse-secondary {
+  font-size: clamp(0.78rem, 0.35vw + 0.68rem, 0.88rem);
+  line-height: 1.28;
+}
+
+.pos-main-section--v2 .pos-categories-list {
+  gap: 0.4rem !important;
+  padding: 0 0.12rem 0.12rem !important;
+  grid-template-columns: repeat(auto-fill, minmax(3.65rem, 1fr)) !important;
+}
+
+.pos-main-section--v2 .pos-category-btn {
+  padding: 0.28rem 0.38rem;
+  border-radius: 0.62rem;
+  font-size: clamp(0.62rem, 1.8vmin + 0.42rem, 0.88rem);
+  line-height: 1.18;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 2px 10px rgba(0, 0, 0, 0.22),
+    0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.pos-main-section--v2 .pos-category-btn:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 6px 18px rgba(99, 102, 241, 0.18),
+    0 3px 10px rgba(0, 0, 0, 0.2);
 }
 
 .pos-category-btn {
@@ -7082,6 +7156,50 @@ export default {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
   border-color: var(--primary-color);
+}
+
+/* بطاقات المنتج — v2: أصغر، بدون مسار التصنيف */
+.pos-main-section--v2 .pos-products-grid {
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+}
+
+@media (min-width: 768px) {
+  .pos-main-section--v2 .pos-products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  }
+}
+
+.pos-main-section--v2 .pos-product-card {
+  padding: 0.45rem 0.5rem;
+  border-radius: 0.7rem;
+}
+
+.pos-main-section--v2 .pos-product-media {
+  margin-bottom: 0.4rem;
+  min-height: 72px;
+}
+
+.pos-main-section--v2 .pos-product-image {
+  max-height: 72px;
+}
+
+.pos-main-section--v2 .pos-product-image-placeholder {
+  height: 72px;
+}
+
+.pos-main-section--v2 .pos-product-placeholder-icon {
+  font-size: 2rem;
+}
+
+.pos-main-section--v2 .pos-product-info {
+  gap: 0.3rem;
+}
+
+.pos-main-section--v2 .pos-product-name {
+  font-size: 0.8125rem;
+  min-height: 1.85rem;
+  line-height: 1.22;
 }
 
 /* سلة جانبية / درج */
@@ -7171,16 +7289,49 @@ export default {
   padding: 0.75rem 0.9rem 1.25rem;
 }
 
+/* امتلاء عمود السلة v2: القائمة/الفراغ يمتدان لارتفاع الحاوي (سلة فارغة = رسالة في منتصف المساحة) */
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-container {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-items-section {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-items-list {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-empty {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  align-self: stretch !important;
+}
+
 @media (min-width: 1200px) {
   .pos-cart-shell {
     position: sticky;
     top: 0.75rem;
     inset: auto;
+    align-self: stretch;
     height: auto;
     max-height: calc(100vh - 1.25rem);
     pointer-events: auto;
     z-index: 1;
-    align-self: start;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
 
   .pos-cart-backdrop {
@@ -7189,8 +7340,12 @@ export default {
 
   .pos-cart-panel {
     width: 100%;
-    height: auto;
-    max-height: calc(100vh - 1.25rem);
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+    display: flex;
+    flex-direction: column;
     transform: none !important;
     border-radius: 1.15rem;
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -7598,6 +7753,226 @@ export default {
   color: var(--text-secondary, #9ca3af);
   word-break: break-word;
   line-height: 1.45;
+}
+
+/* شريط الدفع — شرائح منفصلة بخط رفيع، تسمية فوق الأزرار، محاذاة أوضح */
+.pos-cart-checkout-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1030;
+  overflow: visible;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.06) 0%, var(--bg-primary) 40%);
+  border-top: 1px solid var(--border-color);
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.18);
+}
+
+.pos-cart-checkout-bar-inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0.5rem 0.85rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+.pos-cart-checkout-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0;
+}
+
+.pos-cart-checkout-segment {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.28rem;
+  padding: 0.15rem 0.95rem;
+}
+
+.pos-cart-checkout-segment + .pos-cart-checkout-segment {
+  border-inline-start: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+.pos-cart-checkout-segment-label {
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: 0.92;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+/* ملخص: صف أفقي داخل الشريحة */
+.pos-cart-checkout-segment--summary {
+  flex: 1 1 14rem;
+  min-width: min(100%, 11rem);
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 1rem;
+  padding-inline-start: 0.15rem;
+}
+
+.pos-cart-checkout-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.pos-cart-checkout-stat strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.pos-cart-checkout-stat--discount {
+  color: #f87171;
+}
+
+.pos-cart-checkout-stat--total strong {
+  font-size: 1rem;
+  color: #93c5fd;
+}
+
+.pos-cart-checkout-ic {
+  flex-shrink: 0;
+  opacity: 0.88;
+}
+
+.pos-cart-checkout-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.pos-cart-checkout-bar .pos-order-type-btn,
+.pos-cart-checkout-bar .pos-payment-method-btn {
+  min-height: 2.05rem;
+  min-width: 0;
+  padding: 0.22rem 0.48rem;
+  border-radius: 0.5rem;
+}
+
+.pos-cart-checkout-bar .pos-order-type-icon,
+.pos-cart-checkout-bar .pos-payment-icon {
+  font-size: 0.95rem;
+}
+
+.pos-cart-checkout-bar .pos-order-type-label,
+.pos-cart-checkout-bar .pos-payment-label {
+  font-size: 0.7rem;
+  line-height: 1.15;
+}
+
+.pos-cart-checkout-segment--delivery .pos-cart-checkout-delivery-btn {
+  align-self: flex-start;
+}
+
+.pos-cart-checkout-delivery-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.32rem 0.65rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  background: rgba(129, 140, 248, 0.1);
+  color: var(--primary-color);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pos-cart-checkout-delivery-btn:hover {
+  background: rgba(129, 140, 248, 0.18);
+  border-color: rgba(129, 140, 248, 0.55);
+}
+
+.pos-cart-checkout-printer-select {
+  min-width: 8rem;
+  max-width: 16rem;
+  padding: 0.32rem 0.5rem;
+  font-size: 0.76rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.pos-cart-checkout-printer-loading {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.pos-cart-checkout-segment--actions {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-inline-start: auto;
+  padding-inline-start: 1rem;
+}
+
+.pos-cart-checkout-action-btn {
+  min-height: 2.4rem !important;
+  padding: 0.38rem 0.75rem !important;
+  font-size: 0.8125rem !important;
+}
+
+.main-content-wrapper.pos-route.pos-has-checkout-bar .pos-main-section--v2 {
+  padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+.main-content-wrapper.pos-route.pos-has-checkout-bar .pos-cart-container {
+  padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 991px) {
+  .pos-cart-checkout-bar-inner {
+    padding-left: 0.55rem;
+    padding-right: 0.55rem;
+  }
+
+  .pos-cart-checkout-segment {
+    padding: 0.2rem 0.65rem;
+  }
+
+  .pos-cart-checkout-segment--summary {
+    flex-basis: 100%;
+    border-inline-start: none !important;
+    padding-bottom: 0.35rem;
+    margin-bottom: 0.15rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  /* بعد الملخص يبدأ صف جديد — بدون خط عمودي يقطع بداية الصف */
+  .pos-cart-checkout-segment--summary + .pos-cart-checkout-segment {
+    border-inline-start: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .pos-cart-checkout-segment--actions {
+    flex: 1 1 100%;
+    margin-inline-start: 0;
+    padding-inline-start: 0;
+    padding-top: 0.45rem;
+    margin-top: 0.2rem;
+    border-inline-start: none;
+    border-top: 1px solid rgba(148, 163, 184, 0.22);
+    justify-content: stretch;
+  }
+
+  .pos-cart-checkout-action-btn {
+    flex: 1 1 auto;
+  }
 }
 
 </style>

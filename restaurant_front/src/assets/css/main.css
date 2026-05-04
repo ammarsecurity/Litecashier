@@ -2752,6 +2752,29 @@ p {
   max-width: 100%;
 }
 
+.app-top-header-center {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: min(720px, 100%);
+  display: flex;
+  align-items: center;
+}
+
+.app-top-header-center .pos-quick-search {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+}
+
+/* بحث نقطة البيع في الشريط العلوي — لا يستهلك عمود المحتوى */
+.app-top-header .pos-quick-search--header .pos-quick-search-input {
+  height: 40px;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+  font-size: 0.875rem;
+  border-radius: 999px !important;
+}
+
 .app-top-header-sections-link {
   display: inline-flex;
   align-items: center;
@@ -2786,6 +2809,14 @@ p {
   align-items: center;
   gap: 0.75rem;
   flex-shrink: 0;
+}
+
+.app-top-header-pos-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  margin-inline-end: 0.1rem;
 }
 
 .app-top-header-icon-btn {
@@ -12300,6 +12331,16 @@ table .b-icon,
   direction: rtl;
 }
 
+[dir="rtl"] .pos-quick-search-icon {
+  right: auto;
+  left: 0.75rem;
+}
+
+[dir="rtl"] .pos-quick-search-input {
+  padding-right: 0.75rem;
+  padding-left: 2.5rem;
+}
+
 [dir="rtl"] .pos-quick-add-btn {
   direction: rtl;
 }
@@ -12646,6 +12687,124 @@ table .b-icon,
   background: linear-gradient(145deg, #c4b5fd 0%, #818cf8 45%, #6366f1 100%);
   color: #fff;
   box-shadow: 0 4px 16px rgba(99, 102, 241, 0.45);
+}
+
+/* POS v2 — قسم العناصر بلا حشو، رأس السلة أخف */
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-items-section {
+  padding: 0 !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header {
+  margin-bottom: 0.4rem !important;
+  padding: 0.28rem 0.45rem 0.38rem !important;
+  border-radius: 0.65rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.45rem !important;
+  flex-shrink: 0 !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-title {
+  font-size: 0.92rem !important;
+  font-weight: 700 !important;
+  gap: 0.3rem !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-title .b-icon {
+  font-size: 1rem !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-count-badge {
+  min-width: 1.5rem !important;
+  height: 1.5rem !important;
+  padding: 0 0.35rem !important;
+  font-size: 0.68rem !important;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35) !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  flex-shrink: 0 !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-clear-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.28rem !important;
+  margin: 0 !important;
+  padding: 0.32rem 0.55rem !important;
+  border-radius: 0.55rem !important;
+  border: 1px solid rgba(252, 165, 165, 0.45) !important;
+  background: linear-gradient(
+    145deg,
+    #fb7185 0%,
+    #ef4444 42%,
+    #dc2626 100%
+  ) !important;
+  color: #ffffff !important;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.01em !important;
+  cursor: pointer !important;
+  line-height: 1.2 !important;
+  box-shadow:
+    0 2px 8px rgba(220, 38, 38, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  transition:
+    filter 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease !important;
+  white-space: nowrap !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-clear-btn:hover:not(:disabled) {
+  filter: brightness(1.06) !important;
+  box-shadow:
+    0 4px 14px rgba(220, 38, 38, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+  transform: translateY(-1px) !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-clear-btn:active:not(:disabled) {
+  transform: translateY(0) !important;
+  filter: brightness(0.96) !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-clear-btn:focus-visible {
+  outline: none !important;
+  box-shadow:
+    0 0 0 3px rgba(239, 68, 68, 0.45),
+    0 2px 8px rgba(220, 38, 38, 0.38) !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-clear-btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  filter: grayscale(0.25) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-clear-ic {
+  font-size: 0.82rem !important;
+  opacity: 0.98 !important;
+}
+
+@media (max-width: 380px) {
+  .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-clear-label {
+    display: none !important;
+  }
+
+  .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-clear-btn {
+    padding: 0.35rem 0.45rem !important;
+    border-radius: 999px !important;
+  }
 }
 
 .pos-cart-items-list {
@@ -13036,6 +13195,19 @@ table .b-icon,
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+:root.light-theme .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-clear-btn {
+  border-color: rgba(220, 38, 38, 0.35) !important;
+  box-shadow:
+    0 2px 8px rgba(220, 38, 38, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+:root.light-theme .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-clear-btn:hover:not(:disabled) {
+  box-shadow:
+    0 4px 14px rgba(220, 38, 38, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
 }
 
 :root.light-theme .pos-cart-mobile-close-btn {
@@ -13811,5 +13983,27 @@ table .b-icon,
     max-height: min(42vh, 420px) !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
+  }
+
+  /* POS v2: قائمة السلة تمتد مع ارتفاع اللوحة بدل سقف 42vh؛ التمرير داخل القائمة فقط */
+  .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-container {
+    overflow-y: hidden !important;
+    overflow-x: hidden !important;
+  }
+
+  .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-items-section {
+    flex: 1 1 auto !important;
+  }
+
+  .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-items-list {
+    flex: 1 1 auto !important;
+    max-height: none !important;
+  }
+
+  .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-empty {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    align-self: stretch !important;
   }
 }

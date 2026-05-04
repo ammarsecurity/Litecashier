@@ -9,7 +9,15 @@
         <b-icon icon="grid-3x3-gap-fill" class="app-top-header-sections-icon"></b-icon>
       </router-link>
 
+      <div v-if="$slots['pos-center']" class="app-top-header-center">
+        <slot name="pos-center"></slot>
+      </div>
+
       <div class="app-top-header-actions">
+        <div v-if="$slots['pos-actions']" class="app-top-header-pos-slot">
+          <slot name="pos-actions"></slot>
+        </div>
+
         <button
           v-if="showPosFullscreenButton"
           type="button"
