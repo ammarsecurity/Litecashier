@@ -315,7 +315,7 @@
                         displayValue: true,
                         lineColor: '#2B2B2C',
                         width: 1.5,
-                        height: 60,
+                        height: 48,
                       }"
                     />
                     <div v-else class="pos-product-image-container">
@@ -7243,36 +7243,36 @@ export default {
 
 /* بطاقات المنتج — v2: أصغر، بدون مسار التصنيف */
 .pos-main-section--v2 .pos-products-grid {
-  gap: 0.65rem;
-  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 0.55rem;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
 }
 
 @media (min-width: 768px) {
   .pos-main-section--v2 .pos-products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
   }
 }
 
 .pos-main-section--v2 .pos-product-card {
-  padding: 0.45rem 0.5rem;
-  border-radius: 0.7rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.65rem;
 }
 
 .pos-main-section--v2 .pos-product-media {
-  margin-bottom: 0.4rem;
-  min-height: 72px;
+  margin-bottom: 0.3rem;
+  min-height: 52px;
 }
 
 .pos-main-section--v2 .pos-product-image {
-  max-height: 72px;
+  max-height: 52px;
 }
 
 .pos-main-section--v2 .pos-product-image-placeholder {
-  height: 72px;
+  height: 52px;
 }
 
 .pos-main-section--v2 .pos-product-placeholder-icon {
-  font-size: 2rem;
+  font-size: 1.35rem;
 }
 
 .pos-main-section--v2 .pos-product-info {
@@ -7280,9 +7280,10 @@ export default {
 }
 
 .pos-main-section--v2 .pos-product-name {
-  font-size: 0.8125rem;
-  min-height: 1.85rem;
-  line-height: 1.22;
+  font-size: 0.7rem;
+  min-height: 1.45rem;
+  line-height: 1.2;
+  font-weight: 600;
 }
 
 /* سلة جانبية / درج */
