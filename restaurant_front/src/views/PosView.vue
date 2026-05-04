@@ -886,23 +886,26 @@
                 <div class="pos-cart-checkout-strip">
                   <template v-if="carditems.length > 0">
                     <div class="pos-cart-checkout-segment pos-cart-checkout-segment--summary">
-                      <span class="pos-cart-checkout-stat">
-                        <b-icon icon="box-seam" class="pos-cart-checkout-ic"></b-icon>
-                        {{ $t("countLabel") }}
-                        <strong>{{ totalCardItems }} {{ $t("itemLabel") }}</strong>
-                      </span>
-                      <span
-                        v-if="orderDiscountAmount > 0"
-                        class="pos-cart-checkout-stat pos-cart-checkout-stat--discount"
-                      >
-                        <b-icon icon="tag-fill" class="pos-cart-checkout-ic"></b-icon>
-                        − {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}
-                      </span>
-                      <span class="pos-cart-checkout-stat pos-cart-checkout-stat--total">
-                        <b-icon icon="currency-dollar" class="pos-cart-checkout-ic"></b-icon>
-                        {{ $t("totalLabel") }}
-                        <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
-                      </span>
+                      <span class="pos-cart-checkout-segment-label">{{ $t("checkoutSummary") }}</span>
+                      <div class="pos-cart-checkout-btn-row">
+                        <span class="pos-cart-checkout-stat pos-cart-checkout-stat--pill">
+                          <b-icon icon="box-seam" class="pos-cart-checkout-ic"></b-icon>
+                          <span class="pos-cart-checkout-stat-text">{{ $t("countLabel") }}</span>
+                          <strong>{{ totalCardItems }} {{ $t("itemLabel") }}</strong>
+                        </span>
+                        <span
+                          v-if="orderDiscountAmount > 0"
+                          class="pos-cart-checkout-stat pos-cart-checkout-stat--pill pos-cart-checkout-stat--pill-discount"
+                        >
+                          <b-icon icon="tag-fill" class="pos-cart-checkout-ic"></b-icon>
+                          <span class="pos-cart-checkout-stat-text">− {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}</span>
+                        </span>
+                        <span class="pos-cart-checkout-stat pos-cart-checkout-stat--pill pos-cart-checkout-stat--pill-total">
+                          <b-icon icon="currency-dollar" class="pos-cart-checkout-ic"></b-icon>
+                          <span class="pos-cart-checkout-stat-text">{{ $t("totalLabel") }}</span>
+                          <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
+                        </span>
+                      </div>
                     </div>
 
                     <div class="pos-cart-checkout-segment pos-cart-checkout-segment--types">
@@ -1020,25 +1023,28 @@
                   </div>
 
                   <div v-if="carditems.length > 0" class="pos-cart-checkout-segment pos-cart-checkout-segment--actions">
-                    <button
-                      type="button"
-                      class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn"
-                      @click="openOrderNotesModal"
-                      :disabled="totalCardItems <= 0"
-                    >
-                      <b-icon icon="check-circle-fill" class="me-1"></b-icon>
-                      {{ $t("saveAndPrint") || "حفظ وطباعة" }}
-                    </button>
-                    <button
-                      type="button"
-                      class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
-                      @click="printCartOnly"
-                      :disabled="totalCardItems <= 0"
-                      :title="$t('printOnly')"
-                    >
-                      <b-icon icon="printer-fill" class="me-1"></b-icon>
-                      {{ $t("printOnly") || "طباعة فقط" }}
-                    </button>
+                    <span class="pos-cart-checkout-segment-label">{{ $t("checkoutActions") }}</span>
+                    <div class="pos-cart-checkout-btn-row pos-cart-checkout-actions-row">
+                      <button
+                        type="button"
+                        class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn"
+                        @click="openOrderNotesModal"
+                        :disabled="totalCardItems <= 0"
+                      >
+                        <b-icon icon="check-circle-fill" class="me-1"></b-icon>
+                        {{ $t("saveAndPrint") || "حفظ وطباعة" }}
+                      </button>
+                      <button
+                        type="button"
+                        class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
+                        @click="printCartOnly"
+                        :disabled="totalCardItems <= 0"
+                        :title="$t('printOnly')"
+                      >
+                        <b-icon icon="printer-fill" class="me-1"></b-icon>
+                        {{ $t("printOnly") || "طباعة فقط" }}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -5002,10 +5008,14 @@ export default {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  align-content: flex-start;
   justify-content: space-between;
   gap: 0.45rem 0.65rem;
   padding: 0.45rem 0.65rem;
   background: transparent;
+  /* لا يمتد لملء ارتفاع العمود الأب (كان يُظهر فراغاً ضمن الشريط) */
+  flex: 0 0 auto;
+  min-height: 0;
 }
 
 .pos-tables-picker-main {
@@ -5013,7 +5023,9 @@ export default {
   align-items: center;
   gap: 0.55rem;
   min-width: 0;
-  flex: 1 1 10rem;
+  /* بدون flex-grow: في الشريط العمودي لا يبتلع الفراغ الرأسي */
+  flex: 0 1 auto;
+  max-width: 100%;
 }
 
 .pos-tables-picker-icon {
@@ -5094,7 +5106,7 @@ export default {
   align-items: center;
   justify-content: flex-end;
   gap: 0.35rem;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -5691,7 +5703,7 @@ export default {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
 }
 
 .pos-table-action-btn {
@@ -5754,26 +5766,97 @@ export default {
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 991px) {
+  /* لوحيّات وموبايل: عمود مضغوط بدون flex-grow يبلع الفراغ الرأسي */
   .pos-tables-toolbar-unified {
     flex-direction: column;
     align-items: stretch;
+    align-content: flex-start;
+    gap: 0.35rem;
+    padding: 0.38rem 0.5rem;
+  }
+
+  .pos-tables-picker-main {
+    flex: 0 0 auto !important;
   }
 
   .pos-tables-toolbar-end {
-    justify-content: stretch;
-    flex-direction: column;
-    align-items: stretch;
+    flex: 0 0 auto !important;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.3rem;
+  }
+
+  .pos-merge-tables-btn-compact {
+    flex: 0 0 auto;
+    padding: 0.35rem 0.5rem !important;
+  }
+
+  /* صف واحد: ثلاثة أعمدة متساوية — أقل ارتفاعاً من تكديس كامل العرض */
+  .pos-table-actions-buttons.pos-table-actions-buttons--inline {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0.3rem !important;
+    width: 100% !important;
+    flex: 0 0 auto !important;
+    justify-content: stretch !important;
+    align-items: center;
   }
 
   .pos-table-actions-buttons,
   .pos-table-actions-buttons--inline {
-    justify-content: stretch;
+    flex: 0 0 auto !important;
   }
 
   .pos-table-action-btn {
-    flex: 1 1 auto;
-    min-width: 0;
+    flex: unset !important;
+    min-width: 0 !important;
+    width: 100%;
+    padding: 0.4rem 0.3rem !important;
+    font-size: 0.7rem !important;
+    font-weight: 700 !important;
+    white-space: normal !important;
+    line-height: 1.2;
+    min-height: 2.6rem;
+    box-sizing: border-box;
+  }
+
+  .pos-table-action-btn span {
+    display: block;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    font-size: 0.66rem;
+  }
+
+  .pos-table-action-btn b-icon {
+    font-size: 0.9rem;
+  }
+}
+
+/* سطح مكتب واسع: شريط أفقي — المنتقي لا يبتلع ارتفاعاً زائداً */
+@media (min-width: 992px) {
+  .pos-tables-toolbar-unified {
+    flex-direction: row;
+    align-items: center;
+    align-content: center;
+  }
+
+  .pos-tables-toolbar-end {
+    justify-content: flex-end;
+  }
+}
+
+/* عرض ضيق جداً: عمودان للأزرار الطويلة عند الدمج */
+@media (max-width: 400px) {
+  .pos-table-actions-buttons.pos-table-actions-buttons--inline {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .pos-table-actions-buttons.pos-table-actions-buttons--inline .pos-table-action-btn:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 }
 
@@ -7755,7 +7838,7 @@ export default {
   line-height: 1.45;
 }
 
-/* شريط الدفع — شرائح منفصلة بخط رفيع، تسمية فوق الأزرار، محاذاة أوضح */
+/* شريط الدفع — بطاقات شرائح متناسقة، أزرار بلوحة ألوان واحدة */
 .pos-cart-checkout-bar {
   position: fixed;
   bottom: 0;
@@ -7763,22 +7846,35 @@ export default {
   right: 0;
   z-index: 1030;
   overflow: visible;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.06) 0%, var(--bg-primary) 40%);
-  border-top: 1px solid var(--border-color);
-  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.18);
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.97) 0%,
+    var(--bg-primary) 42%,
+    var(--bg-primary) 100%
+  );
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  box-shadow:
+    0 -12px 40px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+:root.light-theme .pos-cart-checkout-bar {
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 55%);
+  border-top-color: #e2e8f0;
+  box-shadow: 0 -10px 36px rgba(15, 23, 42, 0.07);
 }
 
 .pos-cart-checkout-bar-inner {
   max-width: 1440px;
   margin: 0 auto;
-  padding: 0.5rem 0.85rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  padding: 0.55rem 1rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
 }
 
 .pos-cart-checkout-strip {
   display: flex;
   flex-wrap: wrap;
-  align-items: stretch;
-  gap: 0;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .pos-cart-checkout-segment {
@@ -7786,40 +7882,53 @@ export default {
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
-  gap: 0.28rem;
-  padding: 0.15rem 0.95rem;
+  gap: 0.32rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.7rem;
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--bg-secondary) 94%, transparent) 0%,
+    color-mix(in srgb, var(--bg-tertiary) 78%, transparent) 100%
+  );
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-.pos-cart-checkout-segment + .pos-cart-checkout-segment {
-  border-inline-start: 1px solid rgba(148, 163, 184, 0.28);
+:root.light-theme .pos-cart-checkout-segment {
+  background: linear-gradient(165deg, #ffffff 0%, #f8fafc 100%);
+  border-color: rgba(226, 232, 240, 0.95);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
 .pos-cart-checkout-segment-label {
-  font-size: 0.625rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-secondary);
-  opacity: 0.92;
+  opacity: 0.95;
   line-height: 1.15;
   white-space: nowrap;
 }
 
-/* ملخص: صف أفقي داخل الشريحة */
+/* ملخص: نفس هيكل الشرائح (عنوان + صف أزرار/بلاطات مثل الدفع ونوع الطلب) */
 .pos-cart-checkout-segment--summary {
   flex: 1 1 14rem;
   min-width: min(100%, 11rem);
-  flex-direction: row;
+}
+
+.pos-cart-checkout-segment--summary .pos-cart-checkout-btn-row {
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem 1rem;
-  padding-inline-start: 0.15rem;
 }
 
 .pos-cart-checkout-stat {
   display: inline-flex;
   align-items: center;
-  gap: 0.28rem;
+  gap: 0.32rem;
   font-size: 0.8125rem;
   white-space: nowrap;
   color: var(--text-secondary);
@@ -7830,33 +7939,94 @@ export default {
   font-weight: 700;
 }
 
-.pos-cart-checkout-stat--discount {
-  color: #f87171;
+/* بلاطات بنفس مقاس وأسلوب أزرار الدفع (قراءة فقط) */
+.pos-cart-checkout-segment--summary .pos-cart-checkout-stat--pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  min-height: 2.15rem;
+  min-width: 0;
+  padding: 0.26rem 0.52rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: color-mix(in srgb, var(--bg-primary) 65%, transparent);
+  font-size: 0.72rem;
+  line-height: 1.15;
+  font-weight: 700;
+  box-sizing: border-box;
 }
 
-.pos-cart-checkout-stat--total strong {
-  font-size: 1rem;
-  color: #93c5fd;
+:root.light-theme .pos-cart-checkout-segment--summary .pos-cart-checkout-stat--pill {
+  background: #f1f5f9;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.pos-cart-checkout-stat-text {
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.pos-cart-checkout-stat--pill-total {
+  border-color: rgba(129, 140, 248, 0.38) !important;
+  background: rgba(129, 140, 248, 0.12) !important;
+}
+
+:root.light-theme .pos-cart-checkout-stat--pill-total {
+  background: linear-gradient(165deg, #eef2ff 0%, #f8fafc 100%) !important;
+  border-color: rgba(129, 140, 248, 0.42) !important;
+}
+
+.pos-cart-checkout-stat--pill-total strong {
+  font-size: 0.85rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--primary-color);
+}
+
+.pos-cart-checkout-stat--pill-discount {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.45) !important;
+  background: rgba(248, 113, 113, 0.12) !important;
+}
+
+:root.light-theme .pos-cart-checkout-stat--pill-discount {
+  color: #b91c1c !important;
+  border-color: rgba(248, 113, 113, 0.4) !important;
+  background: rgba(254, 226, 226, 0.85) !important;
+}
+
+.pos-cart-checkout-stat--pill-discount .pos-cart-checkout-ic {
+  color: inherit;
 }
 
 .pos-cart-checkout-ic {
   flex-shrink: 0;
-  opacity: 0.88;
+  opacity: 0.85;
+  color: var(--text-secondary);
 }
 
 .pos-cart-checkout-btn-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.35rem;
 }
 
 .pos-cart-checkout-bar .pos-order-type-btn,
 .pos-cart-checkout-bar .pos-payment-method-btn {
-  min-height: 2.05rem;
+  min-height: 2.15rem;
   min-width: 0;
-  padding: 0.22rem 0.48rem;
-  border-radius: 0.5rem;
+  padding: 0.26rem 0.52rem;
+  border-radius: 0.55rem;
+  border-width: 1px;
+  background: color-mix(in srgb, var(--bg-primary) 65%, transparent);
+}
+
+:root.light-theme .pos-cart-checkout-bar .pos-order-type-btn,
+:root.light-theme .pos-cart-checkout-bar .pos-payment-method-btn {
+  background: #f1f5f9;
+  border-color: rgba(148, 163, 184, 0.35);
 }
 
 .pos-cart-checkout-bar .pos-order-type-icon,
@@ -7866,8 +8036,9 @@ export default {
 
 .pos-cart-checkout-bar .pos-order-type-label,
 .pos-cart-checkout-bar .pos-payment-label {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   line-height: 1.15;
+  font-weight: 700;
 }
 
 .pos-cart-checkout-segment--delivery .pos-cart-checkout-delivery-btn {
@@ -7879,10 +8050,10 @@ export default {
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  padding: 0.32rem 0.65rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(129, 140, 248, 0.35);
-  background: rgba(129, 140, 248, 0.1);
+  padding: 0.34rem 0.68rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(129, 140, 248, 0.4);
+  background: rgba(129, 140, 248, 0.12);
   color: var(--primary-color);
   font-size: 0.76rem;
   font-weight: 600;
@@ -7891,17 +8062,17 @@ export default {
 }
 
 .pos-cart-checkout-delivery-btn:hover {
-  background: rgba(129, 140, 248, 0.18);
+  background: rgba(129, 140, 248, 0.2);
   border-color: rgba(129, 140, 248, 0.55);
 }
 
 .pos-cart-checkout-printer-select {
   min-width: 8rem;
   max-width: 16rem;
-  padding: 0.32rem 0.5rem;
+  padding: 0.34rem 0.55rem;
   font-size: 0.76rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--border-color);
+  border-radius: 0.55rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
@@ -7911,19 +8082,61 @@ export default {
   color: var(--text-secondary);
 }
 
+/* نفس بطاقة الشرائح الأخرى — عنوان + صف (بدون خلفية مميزة) */
 .pos-cart-checkout-segment--actions {
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.45rem;
   margin-inline-start: auto;
-  padding-inline-start: 1rem;
+}
+
+.pos-cart-checkout-segment--actions .pos-cart-checkout-actions-row {
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .pos-cart-checkout-action-btn {
-  min-height: 2.4rem !important;
-  padding: 0.38rem 0.75rem !important;
-  font-size: 0.8125rem !important;
+  min-height: 2.15rem !important;
+  padding: 0.26rem 0.52rem !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  border-radius: 0.55rem !important;
+  line-height: 1.15 !important;
+}
+
+.pos-cart-checkout-bar .pos-cart-checkout-action-btn.pos-action-btn-primary {
+  background: linear-gradient(135deg, #818cf8 0%, #6366f1 42%, #4f46e5 100%) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow:
+    0 2px 10px rgba(79, 70, 229, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+.pos-cart-checkout-bar .pos-cart-checkout-action-btn.pos-action-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.pos-cart-checkout-bar .pos-cart-checkout-action-btn.pos-action-btn-secondary {
+  background: transparent !important;
+  color: #c4b5fd !important;
+  border: 1.5px solid rgba(165, 180, 252, 0.55) !important;
+  box-shadow: none !important;
+}
+
+.pos-cart-checkout-bar .pos-cart-checkout-action-btn.pos-action-btn-secondary:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.16) !important;
+  color: #fff !important;
+  border-color: rgba(199, 210, 254, 0.85) !important;
+}
+
+:root.light-theme .pos-cart-checkout-bar .pos-cart-checkout-action-btn.pos-action-btn-secondary {
+  color: #4f46e5 !important;
+  border-color: rgba(99, 102, 241, 0.42) !important;
+}
+
+:root.light-theme .pos-cart-checkout-bar .pos-cart-checkout-action-btn.pos-action-btn-secondary:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.12) !important;
+  color: #4338ca !important;
+  border-color: rgba(79, 70, 229, 0.55) !important;
 }
 
 .main-content-wrapper.pos-route.pos-has-checkout-bar .pos-main-section--v2 {
@@ -7936,25 +8149,16 @@ export default {
 
 @media (max-width: 991px) {
   .pos-cart-checkout-bar-inner {
-    padding-left: 0.55rem;
-    padding-right: 0.55rem;
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
   }
 
   .pos-cart-checkout-segment {
-    padding: 0.2rem 0.65rem;
+    padding: 0.4rem 0.7rem;
   }
 
   .pos-cart-checkout-segment--summary {
     flex-basis: 100%;
-    border-inline-start: none !important;
-    padding-bottom: 0.35rem;
-    margin-bottom: 0.15rem;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-  }
-
-  /* بعد الملخص يبدأ صف جديد — بدون خط عمودي يقطع بداية الصف */
-  .pos-cart-checkout-segment--summary + .pos-cart-checkout-segment {
-    border-inline-start: none;
   }
 }
 
@@ -7962,16 +8166,17 @@ export default {
   .pos-cart-checkout-segment--actions {
     flex: 1 1 100%;
     margin-inline-start: 0;
-    padding-inline-start: 0;
-    padding-top: 0.45rem;
-    margin-top: 0.2rem;
-    border-inline-start: none;
-    border-top: 1px solid rgba(148, 163, 184, 0.22);
+    margin-top: 0.15rem;
+  }
+
+  .pos-cart-checkout-segment--actions .pos-cart-checkout-actions-row {
+    width: 100%;
     justify-content: stretch;
   }
 
   .pos-cart-checkout-action-btn {
     flex: 1 1 auto;
+    min-width: 0;
   }
 }
 

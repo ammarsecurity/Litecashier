@@ -77,6 +77,8 @@
   "deleteButton": "حذف",
   "totalLabel": "المجموع",
   "countLabel": "العدد",
+  "checkoutSummary": "ملخص الطلب",
+  "checkoutActions": "إنهاء الطلب",
   "itemLabel": "طبق/مشروب",
   "printButton": "طباعة",
   "emptyButton": "افراغ فقط",

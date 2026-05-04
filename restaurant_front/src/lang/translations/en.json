@@ -77,6 +77,8 @@
   "deleteButton": "Delete",
   "totalLabel": "Total",
   "countLabel": "Count",
+  "checkoutSummary": "Order summary",
+  "checkoutActions": "Checkout",
   "itemLabel": "Dish/Beverage",
   "printButton": "Print",
   "emptyButton": "Clear Only",
