@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace RestaurantPOS.Migrations
 {
     /// <inheritdoc />
+    [Migration("20260219000000_AddEmployeesTable")]
     public partial class AddEmployeesTable : Migration
     {
         /// <inheritdoc />

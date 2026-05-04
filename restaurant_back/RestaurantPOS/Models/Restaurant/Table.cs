@@ -20,6 +20,12 @@ namespace RestaurantPOS.Models.Restaurant
 
         public string? Zone { get; set; } // مثل: داخلية، خارجية، شرفة
 
+        /// <summary>موضع الطاولة على المخطط (0–1 من عرض اللوحة).</summary>
+        public double? LayoutPosX { get; set; }
+
+        /// <summary>موضع الطاولة على المخطط (0–1 من ارتفاع اللوحة).</summary>
+        public double? LayoutPosY { get; set; }
+
         public string? Notes { get; set; }
 
         // العلاقة مع الطلبات الحالية

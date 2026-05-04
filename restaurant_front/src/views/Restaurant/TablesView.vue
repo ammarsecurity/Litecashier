@@ -14,7 +14,15 @@
           <div class="users-header-section">
             <div class="users-header-content">
               <h1 class="users-page-title">{{ $t("tables") || "الطاولات" }}</h1>
-              <div style="display: flex; gap: 10px;">
+              <div class="tables-header-actions">
+                <router-link
+                  to="/restaurant/table-layout"
+                  class="users-add-button floor-plan-nav-link"
+                  style="text-decoration: none;"
+                >
+                  <b-icon icon="columns-gap" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("tableFloorPlanTitle") }}</span>
+                </router-link>
                 <button class="users-add-button" v-b-modal.modal-addTableBulk>
                   <b-icon icon="layers-fill" class="button-icon"></b-icon>
                   <span class="button-text">{{ $t("addTablesBulk") || "إضافة مجموعات" }}</span>
@@ -22,6 +30,24 @@
                 <button class="users-add-button" v-b-modal.modal-addTable>
                   <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
                   <span class="button-text">{{ $t("addTable") || "إضافة طاولة" }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="users-add-button tables-action-btn tables-action-btn--outline-danger"
+                  :disabled="selectedIds.length === 0 || deletingTables"
+                  @click="confirmDeleteSelected"
+                >
+                  <b-icon icon="trash" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("deleteSelectedTables") }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="users-add-button tables-action-btn tables-action-btn--danger"
+                  :disabled="deletingTables || totalItems === 0"
+                  @click="confirmDeleteAll"
+                >
+                  <b-icon icon="trash-fill" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("deleteAllTables") }}</span>
                 </button>
               </div>
             </div>
@@ -41,26 +67,41 @@
             </div>
           </div>
 
-          <!-- Tables Table -->
-          <div class="tables-table-container">
+          <!-- جدول الطاولات — نفس أسلوب جداول الأصناف/التصنيفات -->
+          <div class="items-table-container">
             <b-table
               :items="tables"
               :fields="tableFields"
               striped
               hover
               responsive
-              class="tables-table"
-              :tbody-tr-class="getTableRowClass"
+              class="items-table"
             >
+              <template #head(selected)>
+                <b-form-checkbox
+                  :checked="allPageSelected"
+                  :indeterminate="somePageSelected && !allPageSelected"
+                  @change="onSelectAllPageChange"
+                  :title="$t('selectAll') || 'تحديد الكل في الصفحة'"
+                  class="mb-0"
+                />
+              </template>
+              <template #cell(selected)="row">
+                <b-form-checkbox
+                  :checked="isTableSelected(tableRowId(row.item))"
+                  @change="toggleTableSelected(tableRowId(row.item))"
+                  class="mb-0"
+                />
+              </template>
               <template #cell(tableNumber)="row">
                 <div class="table-number-cell">
-                  <b-icon icon="table" class="table-icon" :class="getTableStatusClass(row.item.status)"></b-icon>
+                  <b-icon icon="table" class="table-list-icon"></b-icon>
                   <span class="table-number-text">{{ row.item.tableNumber }}</span>
                 </div>
               </template>
 
               <template #cell(status)="row">
-                <span class="table-status-badge" :class="getTableStatusClass(row.item.status)">
+                <span class="item-status-badge" :class="getStatusBadgeClass(row.item.status)">
                   {{ getStatusText(row.item.status) }}
                 </span>
               </template>
@@ -95,6 +136,15 @@
                   >
                     <b-icon icon="pencil-fill" class="action-icon"></b-icon>
                   </button>
+                  <button
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--delete"
+                    @click="confirmDeleteOne(row.item)"
+                    :title="$t('deleteTableRow')"
+                    :disabled="deletingTables"
+                  >
+                    <b-icon icon="trash-fill" class="action-icon"></b-icon>
+                  </button>
                 </div>
               </template>
             </b-table>
@@ -109,7 +159,7 @@
                 first-number
                 last-number
                 @change="onPageChange"
-                class="tables-pagination"
+                class="items-pagination"
               ></b-pagination>
               <div class="pagination-info">
                 <span>{{ $t('showing') || 'عرض' }} {{ ((currentPage - 1) * pageSize) + 1 }} - {{ Math.min(currentPage * pageSize, totalItems) }} {{ $t('of') || 'من' }} {{ totalItems }}</span>
@@ -349,6 +399,47 @@
           </form>
         </div>
       </b-modal>
+
+      <!-- مسح طاولة / المحدد / الكل — نفس تصميم تأكيد الحذف في النظام -->
+      <b-modal
+        id="modal-delete-tables"
+        :title="$t('deleteConfirmationModalTitle')"
+        hide-header
+        hide-footer
+        class="users-modal"
+        @hidden="onTableDeleteModalHidden"
+      >
+        <div class="modal-content-wrapper">
+          <div class="delete-confirmation-content">
+            <div class="delete-icon-wrapper">
+              <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
+            </div>
+            <h3 class="delete-confirmation-title">{{ deleteModalHeading }}</h3>
+            <p class="delete-confirmation-text">{{ deleteModalBody }}</p>
+            <div class="delete-confirmation-actions">
+              <button
+                type="button"
+                class="delete-confirm-button"
+                :disabled="deletingTables"
+                @click="executeTableDeleteConfirm"
+              >
+                <b-spinner v-if="deletingTables" small class="me-2"></b-spinner>
+                <b-icon v-else icon="check-circle-fill" class="me-2"></b-icon>
+                {{ $t("deleteButtonLabel") }}
+              </button>
+              <button
+                type="button"
+                class="delete-cancel-button"
+                :disabled="deletingTables"
+                @click="closeTableDeleteModal"
+              >
+                <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                {{ $t("cancelButtonLabel") }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </b-modal>
     </div>
   </b-overlay>
 </template>
@@ -392,48 +483,97 @@ export default {
         capacity: 4,
         notes: ""
       },
+      selectedIds: [],
+      deletingTables: false,
+      deleteModalMode: null,
+      pendingDeleteIds: [],
     };
   },
   computed: {
+    pageTableIds() {
+      return this.tables
+        .map((t) => this.tableRowId(t))
+        .filter((id) => id != null);
+    },
+    allPageSelected() {
+      if (!this.pageTableIds.length) return false;
+      return this.pageTableIds.every((id) => this.selectedIds.includes(id));
+    },
+    somePageSelected() {
+      return this.pageTableIds.some((id) => this.selectedIds.includes(id));
+    },
     tableFields() {
       return [
         {
+          key: "selected",
+          label: "",
+          thClass: "item-header-cell table-col-select",
+          tdClass: "table-col-select",
+        },
+        {
           key: 'tableNumber',
           label: this.$t('tableNumber') || 'رقم الطاولة',
-          sortable: true,
-          thClass: 'table-header-cell'
+          sortable: false,
+          thClass: 'item-header-cell'
         },
         {
           key: 'status',
           label: this.$t('status') || 'الحالة',
-          sortable: true,
-          thClass: 'table-header-cell'
+          sortable: false,
+          thClass: 'item-header-cell'
         },
         {
           key: 'capacity',
           label: this.$t('capacity') || 'السعة',
-          sortable: true,
-          thClass: 'table-header-cell'
+          sortable: false,
+          thClass: 'item-header-cell'
         },
         {
           key: 'zone',
           label: this.$t('zone') || 'المنطقة',
-          sortable: true,
-          thClass: 'table-header-cell'
+          sortable: false,
+          thClass: 'item-header-cell'
         },
         {
           key: 'currentOrderId',
           label: this.$t('currentOrder') || 'الطلب الحالي',
           sortable: false,
-          thClass: 'table-header-cell'
+          thClass: 'item-header-cell'
         },
         {
           key: 'actions',
           label: this.$t('actions') || 'الإجراءات',
           sortable: false,
-          thClass: 'table-header-cell'
+          thClass: 'item-header-cell'
         }
       ];
+    },
+    deleteModalHeading() {
+      const m = this.deleteModalMode;
+      if (m === "one") return this.$t("deleteTableRow") || "مسح الطاولة";
+      if (m === "selected") return this.$t("deleteSelectedTables") || "مسح المحدد";
+      if (m === "all") return this.$t("deleteAllTables") || "مسح الكل";
+      return "";
+    },
+    deleteModalBody() {
+      const m = this.deleteModalMode;
+      if (m === "one") {
+        return this.$t("confirmDeleteTable") || "";
+      }
+      if (m === "selected") {
+        const c = this.pendingDeleteIds.length;
+        return (
+          this.$t("confirmDeleteSelectedTables", { count: c }) ||
+          `مسح ${c} طاولة؟`
+        );
+      }
+      if (m === "all") {
+        const c = this.totalItems;
+        return this.statusFilter
+          ? this.$t("confirmDeleteAllTablesFiltered", { count: c }) || ""
+          : this.$t("confirmDeleteAllTables", { count: c }) || "";
+      }
+      return "";
     },
   },
   mounted() {
@@ -455,10 +595,14 @@ export default {
         .then((response) => {
           const pagedData = response.data.data;
           const rawItems = pagedData.items || pagedData.Items || [];
-          this.tables = rawItems.map((t) => ({
-            ...t,
-            currentOrderId: t.currentOrderId ?? t.CurrentOrderId ?? null,
-          }));
+          this.tables = rawItems.map((t) => {
+            const id = t.id ?? t.Id;
+            return {
+              ...t,
+              id,
+              currentOrderId: t.currentOrderId ?? t.CurrentOrderId ?? null,
+            };
+          });
           this.totalItems = pagedData.totalItems ?? pagedData.TotalItems ?? 0;
           this.totalPages = pagedData.totalPages ?? pagedData.TotalPages ?? 0;
           this.show = false;
@@ -477,6 +621,7 @@ export default {
     },
     onFilterChange() {
       this.currentPage = 1; // Reset to first page when filter changes
+      this.selectedIds = [];
       this.getTables();
     },
     addTable() {
@@ -579,18 +724,14 @@ export default {
         this.$router.push({ path: '/pos', query: { tableId: table.id } });
       }
     },
-    getTableRowClass(item, type) {
-      if (!item || type !== 'row') return '';
-      return `table-row-${this.getTableStatusClass(item.status)}`;
-    },
-    getTableStatusClass(status) {
-      const statusClasses = {
-        Available: "table-available",
-        Occupied: "table-occupied",
-        Reserved: "table-reserved",
-        OutOfService: "table-out-of-service"
+    getStatusBadgeClass(status) {
+      const map = {
+        Available: "table-badge-available",
+        Occupied: "table-badge-occupied",
+        Reserved: "table-badge-reserved",
+        OutOfService: "table-badge-out",
       };
-      return statusClasses[status] || "";
+      return map[status] || "";
     },
     getStatusText(status) {
       const statusTexts = {
@@ -603,13 +744,183 @@ export default {
     },
     closeModel(modalId) {
       this.$bvModal.hide(modalId);
-    }
+    },
+    tableRowId(table) {
+      if (!table) return null;
+      const id = table.id ?? table.Id;
+      return id != null ? Number(id) : null;
+    },
+    isTableSelected(id) {
+      if (id == null) return false;
+      return this.selectedIds.includes(Number(id));
+    },
+    toggleTableSelected(id) {
+      if (id == null) return;
+      const n = Number(id);
+      const i = this.selectedIds.indexOf(n);
+      if (i >= 0) {
+        this.selectedIds.splice(i, 1);
+      } else {
+        this.selectedIds.push(n);
+      }
+    },
+    onSelectAllPageChange(checked) {
+      const take = !!checked;
+      const pageIds = this.pageTableIds;
+      if (take) {
+        const set = new Set([...this.selectedIds, ...pageIds]);
+        this.selectedIds = [...set];
+      } else {
+        const pageSet = new Set(pageIds);
+        this.selectedIds = this.selectedIds.filter((id) => !pageSet.has(id));
+      }
+    },
+    confirmDeleteOne(table) {
+      const id = this.tableRowId(table);
+      if (id == null) return;
+      this.deleteModalMode = "one";
+      this.pendingDeleteIds = [id];
+      this.$bvModal.show("modal-delete-tables");
+    },
+    confirmDeleteSelected() {
+      if (this.selectedIds.length === 0) {
+        this.$toast.error(
+          this.$i18n.t("noTablesSelectedForDelete") ||
+            "لم تحدد أي طاولات",
+          { position: "top-right", timeout: 4000 }
+        );
+        return;
+      }
+      this.deleteModalMode = "selected";
+      this.pendingDeleteIds = [...this.selectedIds];
+      this.$bvModal.show("modal-delete-tables");
+    },
+    confirmDeleteAll() {
+      if (this.totalItems === 0) return;
+      this.deleteModalMode = "all";
+      this.pendingDeleteIds = [];
+      this.$bvModal.show("modal-delete-tables");
+    },
+    closeTableDeleteModal() {
+      if (this.deletingTables) return;
+      this.$bvModal.hide("modal-delete-tables");
+    },
+    onTableDeleteModalHidden() {
+      if (!this.deletingTables) {
+        this.deleteModalMode = null;
+        this.pendingDeleteIds = [];
+      }
+    },
+    executeTableDeleteConfirm() {
+      if (this.deletingTables) return;
+      const mode = this.deleteModalMode;
+      const ids = [...this.pendingDeleteIds];
+      this.$bvModal.hide("modal-delete-tables");
+      if (mode === "all") {
+        this.deleteAllTablesApi();
+      } else if (ids.length) {
+        this.deleteTablesByIds(ids);
+      }
+    },
+    async deleteTablesByIds(ids) {
+      if (!ids || !ids.length) return;
+      this.deletingTables = true;
+      try {
+        if (ids.length === 1) {
+          const response = await HTTP.delete(`Tables/${ids[0]}`);
+          if (response.data.errorStatus) {
+            this.$toast.error(response.data.message || this.$i18n.t("error"), {
+              position: "top-right",
+              timeout: 4000,
+            });
+          } else {
+            this.$toast.success(
+              response.data.message ||
+                this.$i18n.t("tableUpdatedSuccessfully"),
+              { position: "top-right", timeout: 4000 }
+            );
+            this.selectedIds = this.selectedIds.filter((x) => !ids.includes(x));
+            if (this.tables.length <= 1 && this.currentPage > 1) {
+              this.currentPage -= 1;
+            }
+            this.getTables();
+          }
+          return;
+        }
+        const response = await HTTP.post("Tables/bulk-delete", ids);
+        if (response.data.errorStatus) {
+          this.$toast.error(response.data.message || this.$i18n.t("error"), {
+            position: "top-right",
+            timeout: 4000,
+          });
+        } else {
+          this.$toast.success(
+            response.data.message || this.$i18n.t("tableUpdatedSuccessfully"),
+            { position: "top-right", timeout: 4000 }
+          );
+          this.selectedIds = this.selectedIds.filter((x) => !ids.includes(x));
+          if (
+            this.tables.length <= ids.length &&
+            this.currentPage > 1
+          ) {
+            this.currentPage -= 1;
+          }
+          this.getTables();
+        }
+      } catch (error) {
+        this.$toast.error(
+          error.response?.data?.message || this.$i18n.t("error"),
+          { position: "top-right", timeout: 4000 }
+        );
+      } finally {
+        this.deletingTables = false;
+        this.deleteModalMode = null;
+        this.pendingDeleteIds = [];
+      }
+    },
+    async deleteAllTablesApi() {
+      this.deletingTables = true;
+      try {
+        const params = {};
+        if (this.statusFilter) {
+          params.status = this.statusFilter;
+        }
+        const response = await HTTP.post("Tables/delete-all", null, {
+          params,
+        });
+        if (response.data.errorStatus) {
+          this.$toast.error(response.data.message || this.$i18n.t("error"), {
+            position: "top-right",
+            timeout: 4000,
+          });
+        } else {
+          this.$toast.success(
+            response.data.message ||
+              this.$i18n.t("tableUpdatedSuccessfully"),
+            { position: "top-right", timeout: 4000 }
+          );
+          this.selectedIds = [];
+          this.currentPage = 1;
+          this.getTables();
+        }
+      } catch (error) {
+        this.$toast.error(
+          error.response?.data?.message || this.$i18n.t("error"),
+          { position: "top-right", timeout: 4000 }
+        );
+      } finally {
+        this.deletingTables = false;
+        this.deleteModalMode = null;
+        this.pendingDeleteIds = [];
+      }
+    },
   },
 };
 </script>
 
 <style scoped>
-.tables-table-container {
+/* نفس أسلوب جدول الأصناف (ItemsView) والتصنيفات (CategoryView) */
+.items-table-container {
   background: #ffffff;
   border-radius: 0.75rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -617,47 +928,35 @@ export default {
   margin-top: 1.5rem;
 }
 
-.tables-table {
+.items-table {
   margin: 0;
 }
 
-.tables-table >>> thead th {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.9) 0%, rgba(129, 140, 248, 0.9) 100%);
-  color: #ffffff;
+.items-table >>> thead th {
+  background-color: #f9fafb;
+  color: #374151;
   font-weight: 600;
   font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 1rem;
-  border-bottom: 2px solid var(--border-color);
+  border-bottom: 2px solid #e5e7eb;
 }
 
-.tables-table >>> tbody td {
+.items-table >>> tbody td {
   padding: 1rem;
   vertical-align: middle;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid #f3f4f6;
 }
 
-.tables-table >>> tbody tr:hover {
-  background-color: rgba(99, 102, 241, 0.1);
+.items-table >>> tbody tr:hover {
+  background-color: #f9fafb;
 }
 
-.table-row-table-available {
-  border-left: 4px solid var(--success-color);
-}
-
-.table-row-table-occupied {
-  border-left: 4px solid var(--danger-color);
-}
-
-.table-row-table-reserved {
-  border-left: 4px solid var(--warning-color);
-}
-
-.table-row-table-out-of-service {
-  border-left: 4px solid var(--text-muted);
+.items-table >>> .table-col-select {
+  width: 2.75rem;
+  text-align: center;
+  vertical-align: middle;
 }
 
 .table-number-cell {
@@ -666,43 +965,19 @@ export default {
   gap: 0.75rem;
 }
 
-.table-icon {
+.table-list-icon {
+  color: var(--primary-color);
   font-size: 1.25rem;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.5rem;
-}
-
-.table-icon.table-available {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-}
-
-.table-icon.table-occupied {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
-}
-
-.table-icon.table-reserved {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
-}
-
-.table-icon.table-out-of-service {
-  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
-  color: white;
+  flex-shrink: 0;
 }
 
 .table-number-text {
   font-weight: 600;
   font-size: 0.9375rem;
-  color: var(--text-primary);
+  color: #111827;
 }
 
-.table-status-badge {
+.item-status-badge {
   padding: 0.375rem 0.75rem;
   border-radius: 0.5rem;
   font-size: 0.8125rem;
@@ -710,40 +985,37 @@ export default {
   display: inline-block;
 }
 
-.table-status-badge.table-available {
+.item-status-badge.table-badge-available {
   background-color: var(--success-light);
   color: var(--success-color);
-  border: 1px solid rgba(34, 197, 94, 0.4);
 }
 
-.table-status-badge.table-occupied {
+.item-status-badge.table-badge-occupied {
   background-color: var(--danger-light);
   color: var(--danger-color);
-  border: 1px solid rgba(239, 68, 68, 0.4);
 }
 
-.table-status-badge.table-reserved {
+.item-status-badge.table-badge-reserved {
   background-color: var(--warning-light);
   color: var(--warning-color);
-  border: 1px solid rgba(192, 132, 252, 0.4);
 }
 
-.table-status-badge.table-out-of-service {
-  background-color: rgba(30, 41, 59, 0.5);
+.item-status-badge.table-badge-out {
+  background-color: rgba(30, 41, 59, 0.08);
   color: var(--text-muted);
-  border: 1px solid var(--border-color);
 }
 
 .table-capacity-cell {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--text-primary);
+  color: #374151;
   font-weight: 500;
+  font-size: 0.9375rem;
 }
 
 .capacity-icon {
-  color: var(--text-muted);
+  color: #9ca3af;
   font-size: 1rem;
 }
 
@@ -751,12 +1023,13 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--text-primary);
+  color: #374151;
   font-weight: 500;
+  font-size: 0.9375rem;
 }
 
 .order-icon {
-  color: var(--text-muted);
+  color: #9ca3af;
   font-size: 1rem;
 }
 
@@ -779,22 +1052,56 @@ export default {
   font-size: 0.875rem;
 }
 
-.tables-pagination >>> .page-link {
+.items-pagination >>> .page-link {
   color: var(--text-primary);
   border-color: var(--border-color);
   background-color: var(--bg-tertiary);
 }
 
-.tables-pagination >>> .page-item.active .page-link {
+.items-pagination >>> .page-item.active .page-link {
   background-color: var(--primary-color);
   border-color: var(--primary-color);
   color: #ffffff;
 }
 
-.tables-pagination >>> .page-link:hover {
+.items-pagination >>> .page-link:hover {
   background-color: rgba(99, 102, 241, 0.1);
   border-color: var(--border-dark);
   color: var(--primary-color);
+}
+
+.tables-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.tables-action-btn.tables-action-btn--danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  color: #fff !important;
+  border: none;
+}
+
+.tables-action-btn.tables-action-btn--danger:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.tables-action-btn.tables-action-btn--outline-danger {
+  background: transparent !important;
+  color: var(--danger-color, #dc2626) !important;
+  border: 1px solid var(--danger-color, #dc2626) !important;
+}
+
+.tables-action-btn.tables-action-btn--outline-danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.08) !important;
+}
+
+.actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
 }
 </style>
 

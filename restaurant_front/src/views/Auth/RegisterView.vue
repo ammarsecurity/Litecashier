@@ -131,6 +131,25 @@
                                     />
                                 </div>
                             </div>
+
+                            <div class="form-field-group">
+                                <label class="form-field-label">
+                                    <b-icon icon="key-fill" class="form-field-icon"></b-icon>
+                                    {{ $t('accountLoginCodeLabel') || 'رمز دخول سريع' }}
+                                </label>
+                                <div class="form-input-container">
+                                    <input
+                                        id="inputLoginCodeRegister"
+                                        v-model="form.loginCode"
+                                        type="text"
+                                        inputmode="numeric"
+                                        maxlength="12"
+                                        :placeholder="$t('accountLoginCodeAdminPlaceholder') || 'اختياري: 4–12 رقماً'"
+                                        class="form-input-field"
+                                    />
+                                </div>
+                                <p class="form-hint-text register-login-code-hint">{{ $t('accountLoginCodeRegisterHint') || 'اختياري: لتسجيل الدخول لاحقاً بهذا الرمز فقط دون هاتف وكلمة مرور' }}</p>
+                            </div>
                             
                             <!-- Logo Upload Field -->
                             <div class="form-field-group">
@@ -209,6 +228,7 @@ export default {
                 username: 'formWeb',
                 role: 'Commercial',
                 restaurantName: '',
+                loginCode: '',
                 logoFile: null,
                 logoPreview: null
             }
@@ -244,6 +264,15 @@ export default {
                 return;
             }
 
+            const rawCode = (this.form.loginCode || '').trim();
+            if (rawCode && !/^\d{4,12}$/.test(rawCode)) {
+                this.$toast.error(this.$i18n.t('invalidAccountCode') || 'رمز الدخول: 4 إلى 12 رقماً', {
+                    position: "top-right",
+                    timeout: 4000,
+                });
+                return;
+            }
+
             this.show = true;
             
             // Create FormData for file upload
@@ -262,6 +291,10 @@ export default {
             // Add restaurant name if provided
             if (this.form.restaurantName) {
                 formData.append('restaurantName', this.form.restaurantName);
+            }
+
+            if (rawCode) {
+                formData.append('loginCode', rawCode);
             }
             
             HTTP.post('Auth/RegisterUser', formData, {
@@ -356,3 +389,12 @@ export default {
 
 }
 </script>
+
+<style scoped>
+.form-hint-text {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin: 0.35rem 0 0;
+    line-height: 1.4;
+}
+</style>

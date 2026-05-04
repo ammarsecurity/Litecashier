@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RestaurantPOS.Db;
 
@@ -11,9 +12,11 @@ using RestaurantPOS.Db;
 namespace RestaurantPOS.Migrations
 {
     [DbContext(typeof(DbConfig))]
-    partial class DbConfigModelSnapshot : ModelSnapshot
+    [Migration("20260504163532_AddTableLayoutAndFloorPlanSettings")]
+    partial class AddTableLayoutAndFloorPlanSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -684,11 +687,6 @@ namespace RestaurantPOS.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<string>("PlanKey")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("varchar(128)");
-
                     b.Property<DateTime>("UpdateDate")
                         .HasColumnType("datetime(6)");
 
@@ -697,7 +695,7 @@ namespace RestaurantPOS.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("InsertByUserId", "PlanKey")
+                    b.HasIndex("InsertByUserId")
                         .IsUnique();
 
                     b.ToTable("RestaurantLayoutSettings");
@@ -756,45 +754,6 @@ namespace RestaurantPOS.Migrations
                     b.HasIndex("InsertByUserId");
 
                     b.ToTable("Tables");
-                });
-
-            modelBuilder.Entity("RestaurantPOS.Models.Restaurant.TableLayoutPlacement", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("InsertDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<double>("LayoutPosX")
-                        .HasColumnType("double");
-
-                    b.Property<double>("LayoutPosY")
-                        .HasColumnType("double");
-
-                    b.Property<string>("PlanKey")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("varchar(128)");
-
-                    b.Property<int>("TableId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdateDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TableId", "PlanKey")
-                        .IsUnique();
-
-                    b.ToTable("TableLayoutPlacements");
                 });
 
             modelBuilder.Entity("RestaurantPOS.Models.StockMovement", b =>
@@ -1296,17 +1255,6 @@ namespace RestaurantPOS.Migrations
                     b.Navigation("CurrentOrder");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("RestaurantPOS.Models.Restaurant.TableLayoutPlacement", b =>
-                {
-                    b.HasOne("RestaurantPOS.Models.Restaurant.Table", "Table")
-                        .WithMany()
-                        .HasForeignKey("TableId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Table");
                 });
 
             modelBuilder.Entity("RestaurantPOS.Models.StockMovement", b =>

@@ -1,5 +1,129 @@
 <template>
   <div>
+    <!-- طبقة فوق كل الصفحة: لا تُخفى بـ sessionStorage حتى يظهر التحديث دائماً حتى التخطي -->
+    <teleport to="body">
+      <div
+        v-if="posFloorPlanGateVisible"
+        class="pos-floor-plan-gate pos-floor-plan-gate--fullscreen pos-floor-plan-gate--page"
+        role="dialog"
+        aria-modal="true"
+      >
+        <b-overlay
+          :show="posFloorPlanLoading"
+          spinner-variant="light"
+          spinner-type="grow"
+          rounded="sm"
+          class="pos-floor-plan-gate-overlay pos-floor-plan-gate-overlay--v2 pos-floor-plan-gate-overlay--fill"
+          opacity="0.45"
+        >
+          <div class="pos-floor-plan-gate-card pos-floor-plan-gate-card--v2 pos-fp-page-root">
+            <div class="pos-fp-launch">
+              <div class="pos-fp-launch__intro">
+                <div class="pos-fp-launch__intro-main">
+                  <p class="pos-fp-launch__eyebrow">{{ $t("posFloorPlanEyebrow") }}</p>
+                  <h2 class="pos-floor-plan-gate-title">{{ $t("posFloorPlanGateTitle") }}</h2>
+
+                  <div v-if="posFloorPlanKeysForTabs.length" class="pos-fp-gate-tabs-card">
+                    <div class="pos-fp-gate-tabs-label">{{ $t("floorPlanFloorTabs") }}</div>
+                    <div class="pos-fp-gate-tabs-scroll">
+                      <div class="pos-floor-plan-gate-tabs" role="tablist">
+                        <button
+                          v-for="k in posFloorPlanKeysForTabs"
+                          :key="'pos-fp-tab-' + k"
+                          type="button"
+                          class="pos-floor-plan-gate-tab"
+                          :class="{ 'pos-floor-plan-gate-tab--active': posFloorPlanSelectedKey === k }"
+                          @click="selectPosFloorPlanKey(k)"
+                        >
+                          {{ k }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pos-fp-gate-tools" @click.stop>
+                  <p class="pos-fp-gate-tools-title">{{ $t("posFloorPlanGateTools") }}</p>
+                  <p class="pos-fp-gate-tools-hint">{{ $t("posFloorPlanMergeModeHelp") }}</p>
+                  <button
+                    type="button"
+                    class="pos-fp-gate-tool-toggle"
+                    :class="{ 'pos-fp-gate-tool-toggle--on': posFloorPlanMergeMode }"
+                    @click="togglePosFloorPlanMergeMode"
+                  >
+                    <b-icon icon="layers" class="pos-fp-gate-tool-ic" />
+                    <span>{{ $t("posFloorPlanMergeMode") }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="pos-fp-gate-tool-btn"
+                    :disabled="selectedTableIds.length < 2"
+                    @click="openMergeTablesModalFromGate"
+                  >
+                    <b-icon icon="check2-circle" class="pos-fp-gate-tool-ic" />
+                    <span>{{ $t("posFloorPlanOpenMerge") }}</span>
+                  </button>
+                  <button type="button" class="pos-fp-gate-tool-btn pos-fp-gate-tool-btn--accent" @click="openTransferTableFromGate">
+                    <b-icon icon="arrow-left-right" class="pos-fp-gate-tool-ic" />
+                    <span>{{ $t("posFloorPlanTransferOrder") }}</span>
+                  </button>
+                </div>
+
+                <div
+                  class="pos-floor-plan-gate-actions pos-floor-plan-gate-actions--footer pos-floor-plan-gate-actions--intro-foot"
+                  :class="{ 'pos-floor-plan-gate-actions--after-tabs': posFloorPlanKeysForTabs.length }"
+                >
+                  <button type="button" class="users-add-button pos-fp-gate-btn-skip" @click="skipPosFloorPlanGate">
+                    <b-icon icon="shop" class="button-icon" />
+                    <span class="button-text">{{ $t("posFloorPlanSkip") }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="pos-floor-plan-gate-canvas-outer">
+                <div class="pos-floor-plan-gate-canvas-wrap" dir="ltr">
+                  <div class="pos-floor-plan-gate-canvas" :style="posFloorCanvasBgStyle">
+                    <div
+                      v-for="(z, zi) in posFloorPlanZoneRects"
+                      :key="'pos-fpz-' + zi"
+                      class="pos-floor-plan-gate-zone"
+                      :style="posFloorZoneRectStyle(z)"
+                    >
+                      <span class="pos-floor-plan-gate-zone-label">{{ z.name }}</span>
+                    </div>
+                    <button
+                      v-for="t in posFloorPlanPlacedTables"
+                      :key="'pos-fpt-' + t.id"
+                      type="button"
+                      class="pos-floor-plan-gate-table-chip"
+                      :class="[
+                        posFloorTableStatusClass(t.status),
+                        {
+                          'pos-floor-plan-gate-table-chip--picked':
+                            selectedTableIds.includes(t.id) && posFloorPlanMergeMode,
+                        },
+                      ]"
+                      :style="posFloorChipStyle(t.id)"
+                      :disabled="t.status === 'OutOfService' || t.status === 'Reserved'"
+                      @click="onPosFloorPlanTableClick(t, $event)"
+                    >
+                      {{ t.tableNumber }}
+                    </button>
+                  </div>
+                </div>
+                <p
+                  v-if="!posFloorPlanPlacedTables.length && !posFloorPlanLoading"
+                  class="pos-floor-plan-gate-empty"
+                >
+                  {{ $t("posFloorPlanNoPlaced") }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </b-overlay>
+      </div>
+    </teleport>
+
     <b-overlay
       :show="show"
       spinner-variant="danger"
@@ -7,19 +131,21 @@
       spinner-large
       rounded="sm"
     >
-      <AppHeader
-        :show-pos-fullscreen-button="true"
-        :pos-fullscreen-active="isFullscreen"
-        @toggle-pos-fullscreen="toggleFullscreen"
-      />
-      <div
-        class="main-content-wrapper pos-route"
+    <AppHeader
+      :show-pos-fullscreen-button="true"
+      :pos-fullscreen-active="isFullscreen"
+      @toggle-pos-fullscreen="toggleFullscreen"
+    />
+    <div
+        class="main-content-wrapper pos-route pos-route--v2"
         :class="{ 'pos-fullscreen': isFullscreen }"
       >
         <b-container fluid class="pos-container-fluid">
-          <div class="pos-page-container">
-            <!-- Left Side: Tables and Products -->
-            <div class="pos-main-section">
+          <div class="pos-page-container pos-page-container--v2">
+            <div class="pos-workspace pos-workspace--v2">
+              <main class="pos-workspace-main">
+            <!-- الكتالوج: بحث، طاولات، أقسام، منتجات -->
+            <div class="pos-main-section pos-main-section--v2">
             <!-- Quick Actions Bar -->
             <div class="pos-quick-actions">
               <div class="pos-quick-search">
@@ -56,9 +182,9 @@
                       <b-icon icon="layers"></b-icon>
                       <span>{{ $t("mergeTables") || "دمج" }}</span>
                     </button>
-                    <button type="button" class="pos-tables-open-modal-btn" @click="showTablesModal = true">
+                    <button type="button" class="pos-tables-open-modal-btn" @click="initPosFloorPlanGate">
                       <b-icon icon="grid-3x3-gap-fill" class="me-1"></b-icon>
-                      {{ $t("chooseTable") || "اختيار الطاولة" }}
+                      {{ $t("posFloorPlanGateTitle") }}
                     </button>
                   </div>
                 </div>
@@ -241,6 +367,401 @@
                 </div>
               </div>
             </div>
+            </div>
+
+              </main>
+
+              <aside
+                class="pos-cart-shell"
+                :class="{ 'pos-cart-shell--open': posMobileCartOpen }"
+                :aria-label="$t('cart')"
+              >
+                <div
+                  class="pos-cart-backdrop d-xl-none"
+                  aria-hidden="true"
+                  @click="closePosMobileCart"
+                />
+                <div class="pos-cart-panel pos-cart-panel--v2">
+                  <header class="pos-cart-panel-head d-xl-none">
+                    <span class="pos-cart-panel-brand">{{ $t("cart") }}</span>
+                    <button type="button" class="pos-cart-panel-dismiss" @click="closePosMobileCart">
+                      <b-icon icon="x-lg" />
+                    </button>
+                  </header>
+                  <div class="pos-cart-container" ref="posCartScrollArea">
+                <!-- Cart Items List -->
+                <div class="pos-cart-items-section">
+                  <div class="pos-cart-header">
+                    <h3 class="pos-cart-title">
+                      <b-icon icon="cart-fill" class="me-2"></b-icon>
+                      {{ $t("cart") || 'السلة' }}
+                    </h3>
+                    <div class="pos-cart-header-actions">
+                      <span class="pos-cart-count-badge" v-if="carditems.length > 0">
+                        {{ carditems.length }}
+                      </span>
+                      <button
+                        type="button"
+                        class="pos-cart-mobile-close-btn"
+                        @click.stop="closePosMobileCart"
+                        :aria-label="$t('close')"
+                        :title="$t('close')"
+                      >
+                        <b-icon icon="chevron-down"></b-icon>
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    class="pos-cart-items-list"
+                    v-if="carditems.length > 0"
+                    ref="posCartItemsList"
+                  >
+                    <div
+                      class="pos-cart-item"
+                      v-for="(item, index) in carditems"
+                      :key="index"
+                    >
+                      <!-- Item Name and Price -->
+                      <div class="pos-cart-item-info">
+                        <h4 class="pos-cart-item-name">{{ item.name }}</h4>
+                        <div class="pos-cart-item-price-row">
+                          <span class="pos-cart-item-price">
+                            {{ formatPrice((item.disCountPrice > 0 && item.disCountPrice !== item.price) ? item.disCountPrice : (item.price || 0)) }} {{ $t("currency") }}
+                          </span>
+                          <span class="pos-cart-item-total">
+                            {{ formatPrice(item.total) }} {{ $t("currency") }}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <!-- Quantity Controls and Delete -->
+                      <div class="pos-cart-item-controls">
+                        <div class="pos-cart-item-quantity">
+                          <button
+                            class="pos-quantity-btn pos-quantity-decrease"
+                            @click.stop="decreaseQuantity(index)"
+                            :title="$t('decrease') || 'تقليل'"
+                          >
+                            <b-icon icon="dash-lg"></b-icon>
+                          </button>
+                          <input
+                            type="number"
+                            :value="item.quantity"
+                            @input="updateQuantity(index, $event.target.value)"
+                            @click.stop
+                            class="pos-quantity-input"
+                            min="1"
+                          />
+                          <button
+                            class="pos-quantity-btn pos-quantity-increase"
+                            @click.stop="increaseQuantity(index)"
+                            :title="$t('increase') || 'زيادة'"
+                          >
+                            <b-icon icon="plus-lg"></b-icon>
+                          </button>
+                        </div>
+                        <button
+                          class="pos-cart-item-delete"
+                          @click.stop="deleteItem(index)"
+                          :title="$t('delete') || 'حذف'"
+                        >
+                          <b-icon icon="x-lg"></b-icon>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="pos-cart-empty" v-else>
+                    <b-icon icon="cart-x" class="pos-cart-empty-icon"></b-icon>
+                    <p class="pos-cart-empty-text">{{ $t("emptyCart") || 'السلة فارغة' }}</p>
+                  </div>
+                  
+                  <!-- Order Notes Section -->
+                  <div class="pos-orders-notes-section" v-if="tableOrders.length > 0 && hasOrderNotes">
+                    <div class="pos-orders-notes-header">
+                      <b-icon icon="file-text-fill" class="me-2"></b-icon>
+                      <h4 class="pos-orders-notes-title">{{ $t("orderNotes") || "ملاحظات الطلبات" }}</h4>
+                    </div>
+                    <div class="pos-orders-notes-list">
+                      <div 
+                        class="pos-order-note-item" 
+                        v-for="(order, index) in tableOrdersWithNotes" 
+                        :key="order.id || index"
+                      >
+                        <div class="pos-order-note-header">
+                          <span class="pos-order-note-code">
+                            <b-icon icon="receipt" class="me-1"></b-icon>
+                            {{ order.orderCode || `#${order.id}` }}
+                          </span>
+                          <span class="pos-order-note-date" v-if="order.insertDate">
+                            {{ formatDate(order.insertDate) }}
+                          </span>
+                        </div>
+                        <div class="pos-order-note-content">
+                          {{ order.notes }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cart Summary -->
+                <div class="pos-cart-summary" v-if="carditems.length > 0">
+                  <div class="pos-cart-summary-row">
+                    <span class="pos-cart-summary-label">
+                      <b-icon icon="box-seam" class="me-2"></b-icon>
+                      {{ $t("countLabel") }}:
+                    </span>
+                    <span class="pos-cart-summary-value">{{ totalCardItems }} {{ $t("itemLabel") }}</span>
+                  </div>
+                  <div class="pos-cart-summary-row" v-if="orderDiscountAmount > 0">
+                    <span class="pos-cart-summary-label">
+                      <b-icon icon="tag-fill" class="me-2"></b-icon>
+                      {{ $t("discountLabel") || "الخصم" }}:
+                    </span>
+                    <span class="pos-cart-summary-value">
+                      - {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}
+                    </span>
+                  </div>
+                  <div class="pos-cart-summary-row pos-cart-total-row">
+                    <span class="pos-cart-summary-label">
+                      <b-icon icon="currency-dollar" class="me-2"></b-icon>
+                      {{ $t("totalLabel") }}:
+                    </span>
+                    <span class="pos-cart-summary-value pos-cart-total-value">
+                      {{ formattedNumber }} {{ $t("currency") }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Order type + payment (accordion on narrow screens) -->
+                <div class="pos-mobile-cart-accordion" v-if="carditems.length > 0">
+                  <button
+                    type="button"
+                    class="pos-mobile-cart-accordion-trigger"
+                    @click="posCartAccordionOrderOpen = !posCartAccordionOrderOpen"
+                    :aria-expanded="posCartAccordionOrderOpen ? 'true' : 'false'"
+                  >
+                    <span class="pos-mobile-cart-accordion-trigger-label">
+                      <b-icon icon="sliders" class="me-2"></b-icon>
+                      {{ $t("posCartAccordionOrderPayment") }}
+                    </span>
+                    <b-icon
+                      :icon="posCartAccordionOrderOpen ? 'chevron-up' : 'chevron-down'"
+                      class="pos-mobile-cart-accordion-chevron"
+                    />
+                  </button>
+                  <div
+                    v-show="posCartAccordionOrderOpen"
+                    class="pos-mobile-cart-accordion-panel"
+                  >
+                    <div class="pos-printer-section">
+                      <div class="pos-printer-header">
+                        <b-icon icon="shop" class="me-2"></b-icon>
+                        <span>{{ $t("orderType") || "نوع الطلب" }}</span>
+                      </div>
+                      <div class="pos-order-types-grid">
+                        <button
+                          v-if="selectedTableId"
+                          class="pos-order-type-btn pos-order-type-active"
+                          disabled
+                        >
+                          <b-icon icon="house-door" class="pos-order-type-icon"></b-icon>
+                          <span class="pos-order-type-label">{{ $t("dineIn") || "داخلي" }}</span>
+                        </button>
+                        <button
+                          v-if="selectedTableId"
+                          class="pos-order-type-btn pos-transfer-table-btn"
+                          @click="openTransferTableModal"
+                          :title="$t('transferTable') || 'تبديل الطاولة'"
+                        >
+                          <b-icon icon="arrow-left-right" class="pos-order-type-icon"></b-icon>
+                          <span class="pos-order-type-label">{{ $t("transferTable") || "تبديل الطاولة" }}</span>
+                        </button>
+                        <template v-if="!selectedTableId">
+                          <button
+                            class="pos-order-type-btn"
+                            :class="{ 'pos-order-type-active': orderForSend.orderType === 'Takeaway' }"
+                            @click="orderForSend.orderType = 'Takeaway'"
+                          >
+                            <b-icon icon="bag" class="pos-order-type-icon"></b-icon>
+                            <span class="pos-order-type-label">{{ $t("takeaway") || "طلب خارجي" }}</span>
+                          </button>
+                          <button
+                            class="pos-order-type-btn"
+                            :class="{ 'pos-order-type-active': orderForSend.orderType === 'Delivery' }"
+                            @click="orderForSend.orderType = 'Delivery'"
+                          >
+                            <b-icon icon="truck" class="pos-order-type-icon"></b-icon>
+                            <span class="pos-order-type-label">{{ $t("delivery") || "توصيل" }}</span>
+                          </button>
+                        </template>
+                      </div>
+                    </div>
+
+                    <div class="pos-printer-section">
+                      <div class="pos-printer-header">
+                        <b-icon icon="credit-card-fill" class="me-2"></b-icon>
+                        <span>{{ $t("paymentMethod") || "طريقة الدفع" }}</span>
+                      </div>
+                      <div class="pos-payment-methods-grid">
+                        <button
+                          class="pos-payment-method-btn"
+                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Cash' }"
+                          @click="orderForSend.paymentMethod = 'Cash'"
+                        >
+                          <b-icon icon="cash-stack" class="pos-payment-icon"></b-icon>
+                          <span class="pos-payment-label">{{ $t("cash") || "نقد" }}</span>
+                        </button>
+                        <button
+                          class="pos-payment-method-btn"
+                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Card' }"
+                          @click="orderForSend.paymentMethod = 'Card'"
+                        >
+                          <b-icon icon="credit-card" class="pos-payment-icon"></b-icon>
+                          <span class="pos-payment-label">{{ $t("card") || "بطاقة" }}</span>
+                        </button>
+                        <button
+                          class="pos-payment-method-btn"
+                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Credit' }"
+                          @click="orderForSend.paymentMethod = 'Credit'"
+                        >
+                          <b-icon icon="clock-history" class="pos-payment-icon"></b-icon>
+                          <span class="pos-payment-label">{{ $t("credit") || "دفع لاحق" }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Delivery (open large modal for better usability) -->
+                <div v-if="orderForSend.orderType === 'Delivery'" class="pos-mobile-cart-accordion">
+                  <button
+                    type="button"
+                    class="pos-mobile-cart-accordion-trigger"
+                    @click="openDeliveryInfoModal"
+                    aria-expanded="false"
+                  >
+                    <span class="pos-mobile-cart-accordion-trigger-label">
+                      <b-icon icon="truck" class="me-2"></b-icon>
+                      {{ $t("deliveryInformation") || "معلومات التوصيل" }}
+                    </span>
+                    <b-icon icon="box-arrow-up-right" class="pos-mobile-cart-accordion-chevron" />
+                  </button>
+                  <div class="pos-mobile-cart-accordion-panel pos-mobile-cart-accordion-panel--delivery">
+                    <div class="delivery-info-section">
+                      <p class="mb-2">
+                        {{
+                          ($te && $te("deliveryInformationHint"))
+                            ? $t("deliveryInformationHint")
+                            : "افتح نافذة معلومات التوصيل لإدخال البيانات بشكل أوضح."
+                        }}
+                      </p>
+                      <button
+                        type="button"
+                        class="delivery-add-btn"
+                        @click="openDeliveryInfoModal"
+                      >
+                        <b-icon icon="truck" class="me-2"></b-icon>
+                        {{ $t("deliveryInformation") || "معلومات التوصيل" }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Printer (accordion on narrow screens) -->
+                <div
+                  class="pos-mobile-cart-accordion"
+                  v-if="availablePrinters.length > 0 || webPrintAPISupported"
+                >
+                  <button
+                    type="button"
+                    class="pos-mobile-cart-accordion-trigger"
+                    @click="posCartAccordionPrinterOpen = !posCartAccordionPrinterOpen"
+                    :aria-expanded="posCartAccordionPrinterOpen ? 'true' : 'false'"
+                  >
+                    <span class="pos-mobile-cart-accordion-trigger-label">
+                      <b-icon icon="printer-fill" class="me-2"></b-icon>
+                      {{ $t("posCartAccordionPrinter") }}
+                    </span>
+                    <b-icon
+                      :icon="posCartAccordionPrinterOpen ? 'chevron-up' : 'chevron-down'"
+                      class="pos-mobile-cart-accordion-chevron"
+                    />
+                  </button>
+                  <div
+                    v-show="posCartAccordionPrinterOpen"
+                    class="pos-mobile-cart-accordion-panel"
+                  >
+                    <div class="pos-printer-section">
+                  <div class="pos-printer-header">
+                    <b-icon icon="printer-fill" class="me-2"></b-icon>
+                    <span>{{ $t("printerSettings") || "إعدادات الطابعة" }}</span>
+                  </div>
+                  
+                  <!-- Web Print API Support Status -->
+                  <div class="pos-printer-status" v-if="webPrintAPISupported">
+                    <div class="pos-printer-status-badge pos-printer-status-supported">
+                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                      <span>{{ $t("webPrintAPISupported") || "المتصفح يدعم الطباعة المباشرة" }}</span>
+                    </div>
+                  </div>
+                  <div class="pos-printer-status" v-else>
+                    <div class="pos-printer-status-badge pos-printer-status-not-supported">
+                      <b-icon icon="info-circle-fill" class="me-2"></b-icon>
+                      <span>{{ $t("webPrintAPINotSupported") || "سيتم استخدام نافذة الطباعة العادية" }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Printer Selection Dropdown -->
+                  <div class="pos-printer-select-wrapper" v-if="availablePrinters.length > 0">
+                    <label class="pos-printer-select-label">
+                      {{ $t("selectPrinter") || "اختر الطابعة" }}
+                    </label>
+                    <select 
+                      v-model="selectedPrinterId" 
+                      @change="onPrinterChange"
+                      class="pos-printer-select"
+                    >
+                      <option 
+                        v-for="printer in availablePrinters" 
+                        :key="printer.id" 
+                        :value="printer.id"
+                      >
+                        {{ printer.name }} {{ printer.isDefault ? ' (افتراضي)' : '' }}
+                      </option>
+                    </select>
+                  </div>
+                  <div class="pos-printer-select-wrapper" v-else-if="webPrintAPISupported">
+                    <label class="pos-printer-select-label">
+                      {{ $t("loadingPrinters") || "جاري تحميل الطابعات..." }}
+                    </label>
+                  </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cart Actions -->
+                <div class="pos-cart-actions">
+                  <button
+                    class="pos-action-btn pos-action-btn-primary"
+                    @click="openOrderNotesModal"
+                    :disabled="totalCardItems <= 0"
+                  >
+                    <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                    {{ $t("saveAndClear") || "حفظ وافراغ" }}
+                  </button>
+                  <button
+                    class="pos-action-btn pos-action-btn-danger"
+                    v-b-modal.modal-empty
+                    :disabled="totalCardItems <= 0"
+                  >
+                    <b-icon icon="trash-fill" class="me-2"></b-icon>
+                    {{ $t("emptyButton") || "افراغ فقط" }}
+                  </button>
+                </div>
+              </div>
+            </div>
+            </aside>
             </div>
 
             <!-- Empty Cart Modal -->
@@ -630,408 +1151,13 @@
               </div>
             </b-modal>
 
-          <!-- Cart Modal -->
-          <b-modal
-            id="modal-pos-cart"
-            v-model="posMobileCartOpen"
-            modal-class="users-modal pos-cart-modal"
-            hide-header
-            hide-footer
-            centered
-            size="xl"
-            body-class="p-0"
-          >
-              <div class="modal-content-wrapper">
-                <div class="pos-modal-custom-header">
-                  <h3 class="delete-confirmation-title mb-0">
-                    {{ $t("cart") || 'السلة' }}
-                  </h3>
-                  <button class="pos-modal-close-btn" @click.stop="closePosMobileCart">
-                    <b-icon icon="x-lg" class="me-2"></b-icon>
-                    {{ $t("close") || "إغلاق" }}
-                  </button>
-                </div>
-              <div class="pos-cart-container" ref="posCartScrollArea">
-                <!-- Cart Items List -->
-                <div class="pos-cart-items-section">
-                  <div class="pos-cart-header">
-                    <h3 class="pos-cart-title">
-                      <b-icon icon="cart-fill" class="me-2"></b-icon>
-                      {{ $t("cart") || 'السلة' }}
-                    </h3>
-                    <div class="pos-cart-header-actions">
-                      <span class="pos-cart-count-badge" v-if="carditems.length > 0">
-                        {{ carditems.length }}
-                      </span>
-                      <button
-                        type="button"
-                        class="pos-cart-mobile-close-btn"
-                        @click.stop="closePosMobileCart"
-                        :aria-label="$t('close')"
-                        :title="$t('close')"
-                      >
-                        <b-icon icon="chevron-down"></b-icon>
-                      </button>
-                    </div>
-                  </div>
-                  <div
-                    class="pos-cart-items-list"
-                    v-if="carditems.length > 0"
-                    ref="posCartItemsList"
-                  >
-                    <div
-                      class="pos-cart-item"
-                      v-for="(item, index) in carditems"
-                      :key="index"
-                    >
-                      <!-- Item Name and Price -->
-                      <div class="pos-cart-item-info">
-                        <h4 class="pos-cart-item-name">{{ item.name }}</h4>
-                        <div class="pos-cart-item-price-row">
-                          <span class="pos-cart-item-price">
-                            {{ formatPrice((item.disCountPrice > 0 && item.disCountPrice !== item.price) ? item.disCountPrice : (item.price || 0)) }} {{ $t("currency") }}
-                          </span>
-                          <span class="pos-cart-item-total">
-                            {{ formatPrice(item.total) }} {{ $t("currency") }}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      <!-- Quantity Controls and Delete -->
-                      <div class="pos-cart-item-controls">
-                        <div class="pos-cart-item-quantity">
-                          <button
-                            class="pos-quantity-btn pos-quantity-decrease"
-                            @click.stop="decreaseQuantity(index)"
-                            :title="$t('decrease') || 'تقليل'"
-                          >
-                            <b-icon icon="dash-lg"></b-icon>
-                          </button>
-                          <input
-                            type="number"
-                            :value="item.quantity"
-                            @input="updateQuantity(index, $event.target.value)"
-                            @click.stop
-                            class="pos-quantity-input"
-                            min="1"
-                          />
-                          <button
-                            class="pos-quantity-btn pos-quantity-increase"
-                            @click.stop="increaseQuantity(index)"
-                            :title="$t('increase') || 'زيادة'"
-                          >
-                            <b-icon icon="plus-lg"></b-icon>
-                          </button>
-                        </div>
-                        <button
-                          class="pos-cart-item-delete"
-                          @click.stop="deleteItem(index)"
-                          :title="$t('delete') || 'حذف'"
-                        >
-                          <b-icon icon="x-lg"></b-icon>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="pos-cart-empty" v-else>
-                    <b-icon icon="cart-x" class="pos-cart-empty-icon"></b-icon>
-                    <p class="pos-cart-empty-text">{{ $t("emptyCart") || 'السلة فارغة' }}</p>
-                  </div>
-                  
-                  <!-- Order Notes Section -->
-                  <div class="pos-orders-notes-section" v-if="tableOrders.length > 0 && hasOrderNotes">
-                    <div class="pos-orders-notes-header">
-                      <b-icon icon="file-text-fill" class="me-2"></b-icon>
-                      <h4 class="pos-orders-notes-title">{{ $t("orderNotes") || "ملاحظات الطلبات" }}</h4>
-                    </div>
-                    <div class="pos-orders-notes-list">
-                      <div 
-                        class="pos-order-note-item" 
-                        v-for="(order, index) in tableOrdersWithNotes" 
-                        :key="order.id || index"
-                      >
-                        <div class="pos-order-note-header">
-                          <span class="pos-order-note-code">
-                            <b-icon icon="receipt" class="me-1"></b-icon>
-                            {{ order.orderCode || `#${order.id}` }}
-                          </span>
-                          <span class="pos-order-note-date" v-if="order.insertDate">
-                            {{ formatDate(order.insertDate) }}
-                          </span>
-                        </div>
-                        <div class="pos-order-note-content">
-                          {{ order.notes }}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Cart Summary -->
-                <div class="pos-cart-summary" v-if="carditems.length > 0">
-                  <div class="pos-cart-summary-row">
-                    <span class="pos-cart-summary-label">
-                      <b-icon icon="box-seam" class="me-2"></b-icon>
-                      {{ $t("countLabel") }}:
-                    </span>
-                    <span class="pos-cart-summary-value">{{ totalCardItems }} {{ $t("itemLabel") }}</span>
-                  </div>
-                  <div class="pos-cart-summary-row" v-if="orderDiscountAmount > 0">
-                    <span class="pos-cart-summary-label">
-                      <b-icon icon="tag-fill" class="me-2"></b-icon>
-                      {{ $t("discountLabel") || "الخصم" }}:
-                    </span>
-                    <span class="pos-cart-summary-value">
-                      - {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}
-                    </span>
-                  </div>
-                  <div class="pos-cart-summary-row pos-cart-total-row">
-                    <span class="pos-cart-summary-label">
-                      <b-icon icon="currency-dollar" class="me-2"></b-icon>
-                      {{ $t("totalLabel") }}:
-                    </span>
-                    <span class="pos-cart-summary-value pos-cart-total-value">
-                      {{ formattedNumber }} {{ $t("currency") }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Order type + payment (accordion on narrow screens) -->
-                <div class="pos-mobile-cart-accordion" v-if="carditems.length > 0">
-                  <button
-                    type="button"
-                    class="pos-mobile-cart-accordion-trigger"
-                    @click="posCartAccordionOrderOpen = !posCartAccordionOrderOpen"
-                    :aria-expanded="posCartAccordionOrderOpen ? 'true' : 'false'"
-                  >
-                    <span class="pos-mobile-cart-accordion-trigger-label">
-                      <b-icon icon="sliders" class="me-2"></b-icon>
-                      {{ $t("posCartAccordionOrderPayment") }}
-                    </span>
-                    <b-icon
-                      :icon="posCartAccordionOrderOpen ? 'chevron-up' : 'chevron-down'"
-                      class="pos-mobile-cart-accordion-chevron"
-                    />
-                  </button>
-                  <div
-                    v-show="posCartAccordionOrderOpen"
-                    class="pos-mobile-cart-accordion-panel"
-                  >
-                    <div class="pos-printer-section">
-                      <div class="pos-printer-header">
-                        <b-icon icon="shop" class="me-2"></b-icon>
-                        <span>{{ $t("orderType") || "نوع الطلب" }}</span>
-                      </div>
-                      <div class="pos-order-types-grid">
-                        <button
-                          v-if="selectedTableId"
-                          class="pos-order-type-btn pos-order-type-active"
-                          disabled
-                        >
-                          <b-icon icon="house-door" class="pos-order-type-icon"></b-icon>
-                          <span class="pos-order-type-label">{{ $t("dineIn") || "داخلي" }}</span>
-                        </button>
-                        <button
-                          v-if="selectedTableId"
-                          class="pos-order-type-btn pos-transfer-table-btn"
-                          @click="openTransferTableModal"
-                          :title="$t('transferTable') || 'تبديل الطاولة'"
-                        >
-                          <b-icon icon="arrow-left-right" class="pos-order-type-icon"></b-icon>
-                          <span class="pos-order-type-label">{{ $t("transferTable") || "تبديل الطاولة" }}</span>
-                        </button>
-                        <template v-if="!selectedTableId">
-                          <button
-                            class="pos-order-type-btn"
-                            :class="{ 'pos-order-type-active': orderForSend.orderType === 'Takeaway' }"
-                            @click="orderForSend.orderType = 'Takeaway'"
-                          >
-                            <b-icon icon="bag" class="pos-order-type-icon"></b-icon>
-                            <span class="pos-order-type-label">{{ $t("takeaway") || "طلب خارجي" }}</span>
-                          </button>
-                          <button
-                            class="pos-order-type-btn"
-                            :class="{ 'pos-order-type-active': orderForSend.orderType === 'Delivery' }"
-                            @click="orderForSend.orderType = 'Delivery'"
-                          >
-                            <b-icon icon="truck" class="pos-order-type-icon"></b-icon>
-                            <span class="pos-order-type-label">{{ $t("delivery") || "توصيل" }}</span>
-                          </button>
-                        </template>
-                      </div>
-                    </div>
-
-                    <div class="pos-printer-section">
-                      <div class="pos-printer-header">
-                        <b-icon icon="credit-card-fill" class="me-2"></b-icon>
-                        <span>{{ $t("paymentMethod") || "طريقة الدفع" }}</span>
-                      </div>
-                      <div class="pos-payment-methods-grid">
-                        <button
-                          class="pos-payment-method-btn"
-                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Cash' }"
-                          @click="orderForSend.paymentMethod = 'Cash'"
-                        >
-                          <b-icon icon="cash-stack" class="pos-payment-icon"></b-icon>
-                          <span class="pos-payment-label">{{ $t("cash") || "نقد" }}</span>
-                        </button>
-                        <button
-                          class="pos-payment-method-btn"
-                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Card' }"
-                          @click="orderForSend.paymentMethod = 'Card'"
-                        >
-                          <b-icon icon="credit-card" class="pos-payment-icon"></b-icon>
-                          <span class="pos-payment-label">{{ $t("card") || "بطاقة" }}</span>
-                        </button>
-                        <button
-                          class="pos-payment-method-btn"
-                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Credit' }"
-                          @click="orderForSend.paymentMethod = 'Credit'"
-                        >
-                          <b-icon icon="clock-history" class="pos-payment-icon"></b-icon>
-                          <span class="pos-payment-label">{{ $t("credit") || "دفع لاحق" }}</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Delivery (open large modal for better usability) -->
-                <div v-if="orderForSend.orderType === 'Delivery'" class="pos-mobile-cart-accordion">
-                  <button
-                    type="button"
-                    class="pos-mobile-cart-accordion-trigger"
-                    @click="openDeliveryInfoModal"
-                    aria-expanded="false"
-                  >
-                    <span class="pos-mobile-cart-accordion-trigger-label">
-                      <b-icon icon="truck" class="me-2"></b-icon>
-                      {{ $t("deliveryInformation") || "معلومات التوصيل" }}
-                    </span>
-                    <b-icon icon="box-arrow-up-right" class="pos-mobile-cart-accordion-chevron" />
-                  </button>
-                  <div class="pos-mobile-cart-accordion-panel pos-mobile-cart-accordion-panel--delivery">
-                    <div class="delivery-info-section">
-                      <p class="mb-2">
-                        {{
-                          ($te && $te("deliveryInformationHint"))
-                            ? $t("deliveryInformationHint")
-                            : "افتح نافذة معلومات التوصيل لإدخال البيانات بشكل أوضح."
-                        }}
-                      </p>
-                      <button
-                        type="button"
-                        class="delivery-add-btn"
-                        @click="openDeliveryInfoModal"
-                      >
-                        <b-icon icon="truck" class="me-2"></b-icon>
-                        {{ $t("deliveryInformation") || "معلومات التوصيل" }}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Printer (accordion on narrow screens) -->
-                <div
-                  class="pos-mobile-cart-accordion"
-                  v-if="availablePrinters.length > 0 || webPrintAPISupported"
-                >
-                  <button
-                    type="button"
-                    class="pos-mobile-cart-accordion-trigger"
-                    @click="posCartAccordionPrinterOpen = !posCartAccordionPrinterOpen"
-                    :aria-expanded="posCartAccordionPrinterOpen ? 'true' : 'false'"
-                  >
-                    <span class="pos-mobile-cart-accordion-trigger-label">
-                      <b-icon icon="printer-fill" class="me-2"></b-icon>
-                      {{ $t("posCartAccordionPrinter") }}
-                    </span>
-                    <b-icon
-                      :icon="posCartAccordionPrinterOpen ? 'chevron-up' : 'chevron-down'"
-                      class="pos-mobile-cart-accordion-chevron"
-                    />
-                  </button>
-                  <div
-                    v-show="posCartAccordionPrinterOpen"
-                    class="pos-mobile-cart-accordion-panel"
-                  >
-                    <div class="pos-printer-section">
-                  <div class="pos-printer-header">
-                    <b-icon icon="printer-fill" class="me-2"></b-icon>
-                    <span>{{ $t("printerSettings") || "إعدادات الطابعة" }}</span>
-                  </div>
-                  
-                  <!-- Web Print API Support Status -->
-                  <div class="pos-printer-status" v-if="webPrintAPISupported">
-                    <div class="pos-printer-status-badge pos-printer-status-supported">
-                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                      <span>{{ $t("webPrintAPISupported") || "المتصفح يدعم الطباعة المباشرة" }}</span>
-                    </div>
-                  </div>
-                  <div class="pos-printer-status" v-else>
-                    <div class="pos-printer-status-badge pos-printer-status-not-supported">
-                      <b-icon icon="info-circle-fill" class="me-2"></b-icon>
-                      <span>{{ $t("webPrintAPINotSupported") || "سيتم استخدام نافذة الطباعة العادية" }}</span>
-                    </div>
-                  </div>
-
-                  <!-- Printer Selection Dropdown -->
-                  <div class="pos-printer-select-wrapper" v-if="availablePrinters.length > 0">
-                    <label class="pos-printer-select-label">
-                      {{ $t("selectPrinter") || "اختر الطابعة" }}
-                    </label>
-                    <select 
-                      v-model="selectedPrinterId" 
-                      @change="onPrinterChange"
-                      class="pos-printer-select"
-                    >
-                      <option 
-                        v-for="printer in availablePrinters" 
-                        :key="printer.id" 
-                        :value="printer.id"
-                      >
-                        {{ printer.name }} {{ printer.isDefault ? ' (افتراضي)' : '' }}
-                      </option>
-                    </select>
-                  </div>
-                  <div class="pos-printer-select-wrapper" v-else-if="webPrintAPISupported">
-                    <label class="pos-printer-select-label">
-                      {{ $t("loadingPrinters") || "جاري تحميل الطابعات..." }}
-                    </label>
-                  </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Cart Actions -->
-                <div class="pos-cart-actions">
-                  <button
-                    class="pos-action-btn pos-action-btn-primary"
-                    @click="openOrderNotesModal"
-                    :disabled="totalCardItems <= 0"
-                  >
-                    <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                    {{ $t("saveAndClear") || "حفظ وافراغ" }}
-                  </button>
-                  <button
-                    class="pos-action-btn pos-action-btn-danger"
-                    v-b-modal.modal-empty
-                    :disabled="totalCardItems <= 0"
-                  >
-                    <b-icon icon="trash-fill" class="me-2"></b-icon>
-                    {{ $t("emptyButton") || "افراغ فقط" }}
-                  </button>
-                </div>
-              </div>
-              </div>
-          </b-modal>
           </div>
         </b-container>
 
         <button
           v-show="!posMobileCartOpen"
           type="button"
-          class="pos-mobile-cart-fab"
+          class="pos-mobile-cart-fab d-xl-none"
           @click="openPosMobileCart"
           :aria-label="$t('posOpenCart')"
           :title="$t('posOpenCart')"
@@ -1551,6 +1677,18 @@ export default {
       posCartAccordionOrderOpen: true,
       posCartAccordionDeliveryOpen: true,
       posCartAccordionPrinterOpen: false,
+
+      posFloorPlanGateVisible: false,
+      posFloorPlanLoading: false,
+      posFloorPlanSelectedKey: "",
+      posFloorPlanAvailableKeys: [],
+      posFloorPlanSettings: null,
+      posFloorPlanPositions: {},
+      posFloorPlanBackgroundColor: "#f1f5f9",
+      posFloorPlanZoneRects: [],
+
+      posFloorPlanMergeMode: false,
+      posFloorPlanAwaitingTransferSource: false,
     };
   },
 
@@ -1629,6 +1767,35 @@ export default {
         .map(table => table.zone)
         .filter(zone => zone && zone.trim() !== '');
       return [...new Set(zones)].sort();
+    },
+    posFloorCanvasBgStyle() {
+      const img = this.posFloorPlanSettings && this.posFloorPlanSettings.floorPlanImageUrl;
+      if (img) {
+        return {
+          backgroundImage: `url("${img}")`,
+          backgroundSize: "contain",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          backgroundColor: this.posFloorPlanBackgroundColor || "#f1f5f9",
+        };
+      }
+      return {
+        backgroundColor: this.posFloorPlanBackgroundColor || "#f1f5f9",
+      };
+    },
+    posFloorPlanKeysForTabs() {
+      return this.posFloorPlanAvailableKeys.filter((k) => String(k ?? "").trim() !== "");
+    },
+    posFloorPlanPlacedTables() {
+      if (!Array.isArray(this.allTables)) return [];
+      const pk = (this.posFloorPlanSelectedKey ?? "").trim();
+      return this.allTables.filter((t) => {
+        const id = String(t.id);
+        if (this.posFloorPlanPositions[id] == null) return false;
+        const z = (t.zone ?? "").trim();
+        if (pk === "") return z === "";
+        return z === pk;
+      });
     },
     filteredTables() {
       if (!Array.isArray(this.allTables)) {
@@ -1890,12 +2057,16 @@ export default {
       }
 
       this.getTags();
-      this.$nextTick(() => {
-        if (this.$refs.posQuickSearchInput) {
-          this.$refs.posQuickSearchInput.focus();
+      this.getTables().then(() => {
+        this.initPosFloorPlanGate();
+        if (!this.posFloorPlanGateVisible) {
+          this.$nextTick(() => {
+            if (this.$refs.posQuickSearchInput) {
+              this.$refs.posQuickSearchInput.focus();
+            }
+          });
         }
       });
-      this.getTables();
       
       const userInfoStr = localStorage.getItem("info");
       if (userInfoStr) {
@@ -2162,22 +2333,181 @@ export default {
       };
     },
     getTables() {
-      HTTP.get("Tables")
+      // الـ API الافتراضي pageSize=10 فيخفي طاولات على المخطط/القوائم رغم وجود مواضع لها
+      return HTTP.get("Tables", { params: { pageNumber: 0, pageSize: 500 } })
         .then((response) => {
-          // Ensure we always have an array
           const data = response.data.data.items;
-          console.log("data", data);
           this.allTables = Array.isArray(data) ? data : [];
-          this.availableTables = Array.isArray(this.allTables) 
-            ? this.allTables.filter(t => t.status === "Available" || t.status === "Occupied")
+          this.availableTables = Array.isArray(this.allTables)
+            ? this.allTables.filter((t) => t.status === "Available" || t.status === "Occupied")
             : [];
         })
         .catch((error) => {
-          console.error('Error loading tables:', error);
+          console.error("Error loading tables:", error);
           // Set to empty array on error to prevent further issues
           this.allTables = [];
           this.availableTables = [];
         });
+    },
+    initPosFloorPlanGate() {
+      try {
+        this.resetPosFloorPlanGateTools();
+        this.posFloorPlanGateVisible = true;
+        this.loadPosFloorPlan();
+      } catch (_) {
+        this.posFloorPlanGateVisible = false;
+      }
+    },
+    async loadPosFloorPlan() {
+      this.posFloorPlanLoading = true;
+      try {
+        const res = await HTTP.get("Tables/floor-plan", {
+          params: { planKey: this.posFloorPlanSelectedKey },
+        });
+        const payload = res.data?.data || res.data?.Data || {};
+        const keys = payload.availablePlanKeys || [];
+        this.posFloorPlanAvailableKeys = keys.length ? keys : [""];
+        if (!this.posFloorPlanAvailableKeys.includes(this.posFloorPlanSelectedKey)) {
+          this.posFloorPlanSelectedKey = this.posFloorPlanAvailableKeys[0] ?? "";
+          return this.loadPosFloorPlan();
+        }
+        this.posFloorPlanSettings = payload.settings || null;
+        if (this.posFloorPlanSettings && this.posFloorPlanSettings.backgroundColor) {
+          this.posFloorPlanBackgroundColor = this.posFloorPlanSettings.backgroundColor;
+        }
+        this.posFloorPlanZoneRects = [];
+        const zj = this.posFloorPlanSettings && this.posFloorPlanSettings.zonesJson;
+        if (zj) {
+          try {
+            const parsed = JSON.parse(zj);
+            if (Array.isArray(parsed)) this.posFloorPlanZoneRects = parsed;
+          } catch (_) {}
+        }
+        const rawTables = payload.tables || [];
+        const next = {};
+        rawTables.forEach((t) => {
+          const id = String(t.id ?? t.Id);
+          const lx = t.layoutPosX ?? t.LayoutPosX;
+          const ly = t.layoutPosY ?? t.LayoutPosY;
+          if (lx != null && ly != null) {
+            next[id] = { x: Number(lx), y: Number(ly) };
+          }
+        });
+        this.posFloorPlanPositions = next;
+      } catch (e) {
+        console.error("loadPosFloorPlan", e);
+      } finally {
+        this.posFloorPlanLoading = false;
+      }
+    },
+    selectPosFloorPlanKey(k) {
+      if (k === this.posFloorPlanSelectedKey) return;
+      this.posFloorPlanSelectedKey = k;
+      this.posFloorPlanMergeMode = false;
+      this.posFloorPlanAwaitingTransferSource = false;
+      this.loadPosFloorPlan();
+    },
+    skipPosFloorPlanGate() {
+      this.resetPosFloorPlanGateTools();
+      this.posFloorPlanGateVisible = false;
+      this.$nextTick(() => {
+        if (this.$refs.posQuickSearchInput) {
+          this.$refs.posQuickSearchInput.focus();
+        }
+      });
+    },
+    resetPosFloorPlanGateTools() {
+      this.posFloorPlanMergeMode = false;
+      this.posFloorPlanAwaitingTransferSource = false;
+    },
+    togglePosFloorPlanMergeMode() {
+      this.posFloorPlanMergeMode = !this.posFloorPlanMergeMode;
+      if (this.posFloorPlanMergeMode) {
+        this.posFloorPlanAwaitingTransferSource = false;
+      }
+    },
+    openMergeTablesModalFromGate() {
+      this.openMergeTablesModal();
+    },
+    openTransferTableFromGate() {
+      const cur =
+        this.selectedTableId &&
+        this.allTables.find((x) => x.id === this.selectedTableId);
+      if (!cur || cur.status !== "Occupied") {
+        this.posFloorPlanMergeMode = false;
+        this.posFloorPlanAwaitingTransferSource = true;
+        this.$toast.info(this.$t("posFloorPlanPickTransferSource"), {
+          position: "top-right",
+          timeout: 3200,
+          maxToasts: 1,
+        });
+        return;
+      }
+      this.posFloorPlanAwaitingTransferSource = false;
+      this.openTransferTableModal();
+    },
+    async onPosFloorPlanTableClick(table, event) {
+      if (!table || (table.status !== "Available" && table.status !== "Occupied")) return;
+
+      if (this.posFloorPlanAwaitingTransferSource) {
+        if (table.status !== "Occupied") {
+          this.$toast.warning(this.$t("posFloorPlanPickOccupiedOnly"), {
+            position: "top-right",
+            timeout: 2500,
+            maxToasts: 1,
+          });
+          return;
+        }
+        await this.selectTable(table, null);
+        this.posFloorPlanAwaitingTransferSource = false;
+        this.$toast.success(this.$t("posFloorPlanTransferSourceSelected"), {
+          position: "top-right",
+          timeout: 3500,
+          maxToasts: 1,
+        });
+        return;
+      }
+
+      if (this.posFloorPlanMergeMode) {
+        await this.selectTable(table, { ctrlKey: true, metaKey: false });
+        return;
+      }
+
+      await this.selectTable(table, event || null);
+      this.posFloorPlanGateVisible = false;
+      this.resetPosFloorPlanGateTools();
+      this.$nextTick(() => {
+        if (this.$refs.posQuickSearchInput) {
+          this.$refs.posQuickSearchInput.focus();
+        }
+      });
+    },
+    posFloorChipStyle(id) {
+      const p = this.posFloorPlanPositions[String(id)];
+      if (!p) return {};
+      return {
+        left: `${p.x * 100}%`,
+        top: `${p.y * 100}%`,
+      };
+    },
+    posFloorZoneRectStyle(z) {
+      return {
+        left: `${z.x * 100}%`,
+        top: `${z.y * 100}%`,
+        width: `${z.w * 100}%`,
+        height: `${z.h * 100}%`,
+        borderColor: z.color || "#6366f1",
+        backgroundColor: z.color ? `${z.color}33` : "rgba(99,102,241,0.12)",
+      };
+    },
+    posFloorTableStatusClass(status) {
+      const m = {
+        Available: "pos-fp-chip-avail",
+        Occupied: "pos-fp-chip-occ",
+        Reserved: "pos-fp-chip-res",
+        OutOfService: "pos-fp-chip-out",
+      };
+      return m[status] || "pos-fp-chip-avail";
     },
     async loadMergedTableIds(tableId) {
       // Initialize cache if not exists
@@ -2216,6 +2546,9 @@ export default {
         (table.status === "Available" || table.status === "Occupied")
       ) {
         this.showTablesModal = false;
+        if (this.posFloorPlanGateVisible) {
+          this.posFloorPlanGateVisible = false;
+        }
       }
     },
     async selectTable(table, event) {
@@ -2515,7 +2848,12 @@ export default {
           
           // Reset multi-select
           this.selectedTableIds = [];
-          
+
+          this.resetPosFloorPlanGateTools();
+          if (this.posFloorPlanGateVisible) {
+            this.posFloorPlanGateVisible = false;
+          }
+
           this.closeMergeTablesModal();
         } else {
           this.$toast.error(response.data?.message || this.$i18n.t("mergeTablesFailed") || "فشل دمج الطاولات", {
@@ -4519,6 +4857,13 @@ export default {
           });
 
           // Listen for order transfers
+          signalRService.on('FloorPlanUpdated', () => {
+            this.getTables();
+            if (this.posFloorPlanGateVisible) {
+              this.loadPosFloorPlan();
+            }
+          });
+
           signalRService.on('OrderTransferred', (data) => {
             console.log('Order transferred via SignalR:', data);
             if (!data) return;
@@ -4553,6 +4898,7 @@ export default {
       // Remove SignalR listeners
       signalRService.off('OrderAdded');
       signalRService.off('TableUpdated');
+      signalRService.off('FloorPlanUpdated');
       signalRService.off('OrderTransferred');
     },
     toggleFullscreen() {
@@ -4693,7 +5039,12 @@ export default {
 
           // Refresh tables
           await this.getTables();
-          
+
+          this.resetPosFloorPlanGateTools();
+          if (this.posFloorPlanGateVisible) {
+            this.posFloorPlanGateVisible = false;
+          }
+
           this.closeTransferTableModal();
         } else {
           this.$toast.error(response.data?.message || this.$i18n.t('errorTransferringTable') || 'حدث خطأ أثناء تبديل الطاولة', {
@@ -5979,6 +6330,1161 @@ export default {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* POS — بوابة مخطط الطاولات عند الدخول (teleport إلى body) */
+.pos-floor-plan-gate {
+  position: relative;
+  z-index: 50;
+  margin-bottom: 1rem;
+}
+
+/* بوابة المخطط: شاشة كاملة (بدون نافذة صغيرة في المنتصف) */
+.pos-floor-plan-gate--fullscreen.pos-floor-plan-gate--page {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100vw;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg-secondary);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.pos-floor-plan-gate--page .pos-floor-plan-gate-card,
+.pos-floor-plan-gate--page .pos-fp-page-root {
+  width: 100%;
+  max-width: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* جعل b-overlay يملأ ارتفاع البوابة */
+.pos-floor-plan-gate--page .pos-floor-plan-gate-overlay--fill {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0 !important;
+}
+
+.pos-floor-plan-gate--page ::v-deep .b-overlay-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.pos-floor-plan-gate--page ::v-deep .b-overlay > .position-relative {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pos-floor-plan-gate--page .pos-fp-launch {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+@media (min-width: 900px) {
+  .pos-floor-plan-gate--page .pos-fp-launch {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-launch__intro {
+    flex: 0 0 clamp(156px, 12vw, 210px);
+    max-width: min(100%, 220px);
+    align-self: stretch;
+    padding: 0.5rem 0.55rem 0.5rem;
+    border-inline-end: 1px solid var(--border-color);
+    overflow: hidden;
+    background: var(--bg-primary);
+    box-shadow: var(--shadow-md);
+  }
+
+  .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas-outer {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0.5rem 0.65rem 0.65rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-primary);
+  }
+}
+
+@media (max-width: 899px) {
+  .pos-floor-plan-gate--page .pos-fp-launch__intro {
+    flex-shrink: 0;
+    max-width: none;
+    padding: 0.65rem 0.75rem 0.55rem;
+    overflow: hidden;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas-outer {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0.5rem 0.75rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-primary);
+  }
+}
+
+/*
+ * تخطيط متوسط (تابلت أفقي / لاب صغير): عمود أوضح للعربية، أزرار أسهل، وهوامش أوضح للمخطط
+ */
+@media (min-width: 900px) and (max-width: 1439px) {
+  .pos-floor-plan-gate--page .pos-fp-launch__intro {
+    flex: 0 0 clamp(188px, 22vw, 268px);
+    max-width: min(100%, 280px);
+    padding: 0.55rem 0.65rem 0.5rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas-outer {
+    padding: 0.45rem 0.55rem 0.6rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-launch__eyebrow {
+    font-size: 0.6875rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-title {
+    font-size: clamp(0.95rem, 1.45vw, 1.22rem);
+    margin-bottom: 0.42rem;
+    line-height: 1.22;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-card {
+    padding: 0.48rem 0.58rem;
+    border-radius: 0.7rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-label {
+    font-size: 0.75rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-floor-plan-gate-tab {
+    padding: 0.3rem 0.48rem;
+    font-size: 0.8125rem;
+    min-height: 2.35rem;
+    border-radius: 0.5rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-floor-plan-gate-tabs {
+    gap: 0.32rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tools {
+    margin-top: 0.38rem;
+    padding-top: 0.48rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tools-title {
+    font-size: 0.75rem;
+    margin-bottom: 0.24rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tools-hint {
+    font-size: 0.66rem;
+    line-height: 1.4;
+    margin-bottom: 0.42rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tool-toggle,
+  .pos-floor-plan-gate--page .pos-fp-gate-tool-btn {
+    padding: 0.48rem 0.52rem;
+    font-size: 0.72rem;
+    margin-bottom: 0.38rem;
+    min-height: 2.55rem;
+    border-radius: 0.5rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tool-ic {
+    font-size: 1rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip {
+    padding: 0.45rem 0.58rem;
+    font-size: 0.8125rem;
+    min-height: 2.65rem;
+    border-radius: 0.5rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip .button-icon {
+    font-size: 0.95rem !important;
+  }
+}
+
+/*
+ * بوابة الصفحة: اللوحة تمتد لكامل ارتفاع العمود المتاح (بدون تقييد 16:10 هنا).
+ * الإحداثيات المحفوظة 0–1 تبقى نسبية لمستطيل اللوحة الحالي.
+ */
+.pos-floor-plan-gate--page .pos-floor-plan-gate-canvas-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  width: 100%;
+}
+
+.pos-floor-plan-gate--page .pos-floor-plan-gate-canvas {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  align-self: stretch;
+  aspect-ratio: unset;
+  max-height: none;
+  max-width: none;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.pos-floor-plan-gate--fullscreen .pos-floor-plan-gate-canvas {
+  max-height: none;
+}
+
+.pos-floor-plan-gate-overlay {
+  border-radius: 1rem;
+}
+
+.pos-floor-plan-gate-card {
+  background: var(--bg-primary, #1e1e2e);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 1rem;
+  padding: 1rem 1.25rem 1.25rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.pos-floor-plan-gate-title {
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+  font-weight: 800;
+  margin: 0 0 0.35rem;
+  color: var(--text-primary, #f9fafb);
+}
+
+/* بطاقة اختيار الموقع — سطح المكتب: لف متعدد الأسطر */
+.pos-fp-gate-tabs-card {
+  margin-bottom: 0;
+  padding: 1rem 1.15rem;
+  background: var(--bg-tertiary);
+  border-radius: 1rem;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.pos-fp-gate-tabs-label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.pos-fp-gate-tabs-scroll {
+  width: 100%;
+}
+
+.pos-floor-plan-gate-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pos-floor-plan-gate-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  border: 2px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pos-floor-plan-gate-tab:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.pos-floor-plan-gate-tab--active {
+  border-color: var(--primary-color);
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.18) 0%, rgba(167, 139, 250, 0.14) 100%);
+  color: var(--primary-color);
+  box-shadow: 0 2px 10px rgba(129, 140, 248, 0.22);
+}
+
+/* شاشات اللمس والتابلت: لا تمرير أفقي — قائمة عمودية، أزرار بعرض كامل */
+@media (max-width: 1023px) {
+  .pos-fp-gate-tabs-card {
+    padding: 1rem 0.85rem;
+    background: var(--bg-primary);
+  }
+
+  .pos-fp-gate-tabs-scroll {
+    overflow: visible;
+  }
+
+  .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tabs {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    width: 100%;
+    gap: 0.65rem;
+  }
+
+  .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tab {
+    width: 100%;
+    min-height: 54px;
+    padding: 0.85rem 1rem;
+    font-size: 1.0625rem;
+    border-radius: 0.85rem;
+    flex: 0 0 auto;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(129, 140, 248, 0.25);
+    box-sizing: border-box;
+  }
+
+  .pos-fp-gate-tabs-label {
+    margin-bottom: 0.65rem;
+    font-size: 0.9rem;
+  }
+
+  /* بوابة الصفحة على اللمس: أزرار أوضح من دون استهلاك كامل 52px */
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tabs {
+    gap: 0.42rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tab {
+    min-height: 44px;
+    padding: 0.48rem 0.72rem;
+    font-size: 0.9rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    border-radius: 0.65rem;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(129, 140, 248, 0.2);
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-label {
+    font-size: 0.8125rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-card {
+    padding: 0.65rem 0.6rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip {
+    padding: 0.55rem 0.8rem;
+    font-size: 0.9375rem;
+    min-height: 48px;
+  }
+
+  .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip .button-icon {
+    font-size: 1.05rem !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tabs {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .pos-floor-plan-gate-tab {
+    width: auto;
+    min-height: unset;
+  }
+
+  /* عمود البوابة ضيق: صف أفقي يضيق الأزرار ويلف النص — عمود كامل العرض، سطر واحد */
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tabs {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    width: 100%;
+    gap: 0.35rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tab {
+    width: 100%;
+    max-width: none;
+    min-height: 2.1rem;
+    justify-content: center;
+    text-align: center;
+    box-sizing: border-box;
+  }
+}
+
+.pos-floor-plan-gate-canvas-outer {
+  margin-bottom: 1rem;
+}
+
+.pos-floor-plan-gate-canvas-wrap {
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.pos-floor-plan-gate-canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  min-height: 200px;
+  max-height: min(42vh, 420px);
+}
+
+.pos-floor-plan-gate-zone {
+  position: absolute;
+  border: 2px dashed;
+  border-radius: 4px;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.pos-floor-plan-gate-zone-label {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #374151;
+  text-shadow: 0 0 4px #fff;
+}
+
+.pos-floor-plan-gate-table-chip {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  height: auto;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.5rem;
+  border: 2px solid #fff;
+  font-weight: 800;
+  font-size: 0.8rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  z-index: 2;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(255, 255, 255, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.pos-floor-plan-gate-table-chip--picked {
+  outline: 3px solid #fbbf24;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.45), 0 2px 10px rgba(0, 0, 0, 0.35);
+  z-index: 3;
+}
+
+.pos-floor-plan-gate-table-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pos-fp-chip-avail {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+}
+
+.pos-fp-chip-occ {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+}
+
+.pos-fp-chip-res {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+}
+
+.pos-fp-chip-out {
+  background: #64748b;
+  color: #fff;
+}
+
+.pos-floor-plan-gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+/* زر «متابعة بدون طاولة» أسفل بطاقة التبويبات */
+.pos-floor-plan-gate-actions--footer {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  flex-direction: column;
+}
+
+.pos-floor-plan-gate-actions--footer.pos-floor-plan-gate-actions--after-tabs {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.pos-floor-plan-gate-actions--footer .users-add-button {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (min-width: 900px) {
+  .pos-floor-plan-gate-actions--footer .users-add-button {
+    width: auto;
+    align-self: stretch;
+  }
+
+  .pos-floor-plan-gate--page .pos-floor-plan-gate-actions--footer.pos-floor-plan-gate-actions--intro-foot .users-add-button.pos-fp-gate-btn-skip {
+    width: 100%;
+  }
+}
+
+.pos-floor-plan-gate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.2rem;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.12s ease, box-shadow 0.15s ease;
+}
+
+.pos-floor-plan-gate-btn--primary {
+  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(129, 140, 248, 0.3);
+}
+
+.pos-floor-plan-gate-btn--secondary {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 2px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.pos-main-section--dimmed {
+  opacity: 0.35;
+  pointer-events: none;
+  user-select: none;
+}
+
+:root.light-theme .pos-floor-plan-gate-card {
+  background: #fff;
+  border-color: var(--border-color, #e5e7eb);
+  box-shadow: var(--shadow-lg, 0 10px 40px rgba(0, 0, 0, 0.08));
+}
+
+:root.light-theme .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-title {
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+:root.light-theme .pos-floor-plan-gate-tab {
+  background: var(--bg-tertiary, #f3f4f6);
+  border-color: var(--border-color, #e5e7eb);
+  color: var(--text-primary, #1f2937);
+}
+
+:root.light-theme .pos-floor-plan-gate-canvas-wrap {
+  border-color: var(--border-color, #e5e7eb);
+  background: #e5e7eb;
+}
+
+:root.light-theme .pos-floor-plan-gate--page {
+  background: var(--bg-secondary);
+}
+
+:root.light-theme .pos-floor-plan-gate--page .pos-floor-plan-gate-card,
+:root.light-theme .pos-floor-plan-gate--page .pos-fp-page-root {
+  background: transparent;
+}
+
+@media (min-width: 900px) {
+  :root.light-theme .pos-floor-plan-gate--page .pos-fp-launch__intro {
+    background: var(--bg-primary);
+    border-inline-end-color: var(--border-color);
+  }
+}
+
+/* ——— POS v2: هيكل، سلة جانبية، أرضية ——— */
+.pos-route--v2 .main-content-wrapper,
+.pos-route--v2 .pos-container-fluid {
+  max-width: 100%;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+@media (min-width: 1200px) {
+  .pos-route--v2 .main-content-wrapper {
+    background: var(--bg-secondary);
+    min-height: calc(100vh - 56px);
+  }
+}
+
+.pos-workspace--v2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  align-items: stretch;
+}
+
+@media (min-width: 1200px) {
+  .pos-workspace--v2 {
+    grid-template-columns: minmax(0, 1fr) min(420px, 34vw);
+    gap: 1.25rem;
+    align-items: start;
+  }
+}
+
+.pos-workspace-main {
+  min-width: 0;
+}
+
+.pos-main-section--v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pos-quick-actions {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  padding: 0.65rem 0.85rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.pos-quick-search-input {
+  border-radius: 999px !important;
+  border: 1px solid var(--border-color) !important;
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+.pos-tables-block {
+  border-radius: 1rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.pos-categories-scroll {
+  padding: 0.35rem 0 0.25rem;
+}
+
+.pos-categories-list {
+  gap: 0.5rem;
+}
+
+.pos-category-btn {
+  border-radius: 999px;
+  padding: 0.55rem 1.15rem;
+  font-weight: 700;
+  border: 2px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.pos-category-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.pos-category-btn-accent {
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.2) 0%, rgba(167, 139, 250, 0.14) 100%);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.pos-products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.85rem;
+}
+
+@media (min-width: 768px) {
+  .pos-products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  }
+}
+
+.pos-product-card {
+  border-radius: 1rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+}
+
+.pos-product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-color);
+}
+
+/* سلة جانبية / درج */
+.pos-cart-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 1040;
+  pointer-events: none;
+  display: flex;
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+[dir="rtl"] .pos-cart-shell {
+  justify-content: flex-end;
+}
+
+.pos-cart-shell--open {
+  pointer-events: auto;
+}
+
+.pos-cart-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.62);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.pos-cart-shell--open .pos-cart-backdrop {
+  opacity: 1;
+}
+
+.pos-cart-panel {
+  position: relative;
+  width: min(100%, 440px);
+  max-width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  border-inline-start: 1px solid var(--border-color);
+  box-shadow: none;
+  transform: translateX(110%);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[dir="rtl"] .pos-cart-panel {
+  transform: translateX(-110%);
+}
+
+.pos-cart-shell--open .pos-cart-panel {
+  transform: translateX(0);
+}
+
+.pos-cart-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.pos-cart-panel-brand {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.pos-cart-panel-dismiss {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pos-cart-container {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.75rem 0.9rem 1.25rem;
+}
+
+@media (min-width: 1200px) {
+  .pos-cart-shell {
+    position: sticky;
+    top: 0.75rem;
+    inset: auto;
+    height: auto;
+    max-height: calc(100vh - 1.25rem);
+    pointer-events: auto;
+    z-index: 1;
+    align-self: start;
+  }
+
+  .pos-cart-backdrop {
+    display: none !important;
+  }
+
+  .pos-cart-panel {
+    width: 100%;
+    height: auto;
+    max-height: calc(100vh - 1.25rem);
+    transform: none !important;
+    border-radius: 1.15rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-inline-start-width: 1px;
+    box-shadow: none;
+  }
+
+  .pos-cart-shell--open .pos-cart-panel {
+    transform: none !important;
+  }
+
+  .pos-cart-panel-head.d-xl-none {
+    display: none !important;
+  }
+}
+
+/* بوابة المخطط — نصوص وأزرار (التخطيط ملء الشاشة يُدار بـ --page أعلاه) */
+.pos-floor-plan-gate-card--v2 {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  max-width: none;
+}
+
+.pos-fp-launch__intro {
+  text-align: start;
+}
+
+/* عمود البوابة: التمرير على العنوان/التبويبات فقط، وزر التخطي ثابت أسفل العمود */
+.pos-floor-plan-gate--page .pos-fp-launch__intro {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pos-floor-plan-gate--page .pos-fp-launch__intro-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pos-floor-plan-gate--page .pos-floor-plan-gate-actions--intro-foot {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+/* أدوات دمج / نقل من بوابة المخطط */
+.pos-fp-gate-tools {
+  flex-shrink: 0;
+  margin-top: 0.35rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.pos-fp-gate-tools-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin: 0 0 0.2rem;
+}
+
+.pos-fp-gate-tools-hint {
+  font-size: 0.6rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+  margin: 0 0 0.45rem;
+}
+
+.pos-fp-gate-tool-toggle,
+.pos-fp-gate-tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  width: 100%;
+  margin-bottom: 0.35rem;
+  padding: 0.38rem 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1.2;
+  border-radius: 0.45rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  box-sizing: border-box;
+}
+
+.pos-fp-gate-tool-toggle:last-child,
+.pos-fp-gate-tool-btn:last-child {
+  margin-bottom: 0;
+}
+
+.pos-fp-gate-tool-toggle:hover,
+.pos-fp-gate-tool-btn:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.pos-fp-gate-tool-toggle--on {
+  border-color: var(--primary-color);
+  background: linear-gradient(
+    135deg,
+    rgba(129, 140, 248, 0.16) 0%,
+    rgba(167, 139, 250, 0.12) 100%
+  );
+  color: var(--primary-color);
+}
+
+.pos-fp-gate-tool-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pos-fp-gate-tool-btn--accent {
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.12) 0%, rgba(167, 139, 250, 0.08) 100%);
+}
+
+.pos-fp-gate-tool-ic {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+}
+
+.pos-fp-launch__eyebrow {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin: 0 0 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+.pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-title {
+  font-size: clamp(1.5rem, 2.2vw, 2rem);
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 0.65rem;
+  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* عمود البوابة (صفحة POS) — عرض أضيق ونصوص وأزرار أصغر (مساحة أكبر للمخطط) */
+.pos-floor-plan-gate--page .pos-fp-launch__eyebrow {
+  font-size: 0.625rem;
+  margin-bottom: 0.28rem;
+}
+
+.pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-title {
+  font-size: clamp(0.9rem, 1.15vw, 1.12rem);
+  line-height: 1.2;
+  margin-bottom: 0.32rem;
+}
+
+.pos-floor-plan-gate--page .pos-fp-gate-tabs-card {
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.65rem;
+}
+
+.pos-floor-plan-gate--page .pos-fp-gate-tabs-label {
+  font-size: 0.6875rem;
+  margin-bottom: 0.28rem;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pos-floor-plan-gate--page .pos-floor-plan-gate-tab {
+  padding: 0.2rem 0.38rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.15;
+  border-radius: 0.45rem;
+  border-width: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.pos-floor-plan-gate--page .pos-floor-plan-gate-tabs {
+  gap: 0.22rem;
+}
+
+.pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer {
+  margin-top: 0.55rem;
+  gap: 0.45rem;
+}
+
+.pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer.pos-floor-plan-gate-actions--intro-foot {
+  margin-top: auto;
+  padding-top: 0.45rem;
+}
+
+.pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer.pos-floor-plan-gate-actions--intro-foot.pos-floor-plan-gate-actions--after-tabs {
+  margin-top: auto;
+  padding-top: 0.55rem;
+}
+
+.pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip {
+  padding: 0.32rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.15;
+  gap: 0.35rem;
+  border-radius: 0.45rem;
+  white-space: nowrap;
+  min-height: unset;
+  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.28);
+}
+
+.pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip .button-text {
+  font-size: inherit;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip .button-icon {
+  font-size: 0.875rem !important;
+}
+
+.pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer {
+  margin-top: 1rem;
+}
+
+.pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-canvas-wrap {
+  border-radius: 1rem;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+.pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-canvas {
+  max-height: min(52vh, 520px);
+}
+
+.pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-canvas {
+  max-height: none;
+  aspect-ratio: unset;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ارتفاع دنيا للّوحة على الشاشات الصغيرة قبل تكديس العمودين */
+@media (max-width: 899px) {
+  .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas {
+    min-height: min(52vh, 520px);
+    flex: 1 1 auto;
+  }
+}
+
+.pos-floor-plan-gate-empty {
+  margin-top: 0.65rem;
+  font-size: 0.88rem;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.pos-mobile-cart-fab {
+  bottom: 1.35rem;
+  inset-inline-start: 1.35rem;
+  width: 3.75rem;
+  height: 3.75rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  border: none;
+  box-shadow: 0 4px 12px rgba(129, 140, 248, 0.35);
+}
+
+:root.light-theme .pos-route--v2 .main-content-wrapper {
+  background: var(--bg-secondary);
+}
+
+:root.light-theme .pos-tables-block {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+:root.light-theme .pos-product-card {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+:root.light-theme .pos-cart-panel {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+:root.light-theme .pos-cart-panel-brand {
+  color: var(--text-primary);
 }
 
 </style>

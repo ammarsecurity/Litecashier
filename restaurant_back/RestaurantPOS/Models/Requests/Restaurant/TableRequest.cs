@@ -15,6 +15,12 @@ namespace RestaurantPOS.Models.Requests.Restaurant
 
         public string? Zone { get; set; }
 
+        /// <summary>موضع على المخطط 0–1 (اختياري).</summary>
+        public double? LayoutPosX { get; set; }
+
+        /// <summary>موضع على المخطط 0–1 (اختياري).</summary>
+        public double? LayoutPosY { get; set; }
+
         public string? Notes { get; set; }
     }
 }

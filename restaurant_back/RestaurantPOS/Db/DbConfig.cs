@@ -63,6 +63,8 @@ namespace RestaurantPOS.Db
 
         // Restaurant Models
         public DbSet<Table> Tables { get; set; }
+        public DbSet<RestaurantLayoutSettings> RestaurantLayoutSettings { get; set; }
+        public DbSet<TableLayoutPlacement> TableLayoutPlacements { get; set; }
         public DbSet<OrderTable> OrderTables { get; set; }
         public DbSet<Reservation> Reservations { get; set; }
         public DbSet<Printer> Printers { get; set; }
@@ -98,6 +100,10 @@ namespace RestaurantPOS.Db
             modelBuilder.Entity<CustomerOrder>().HasOne(r => r.Reservation).WithMany().HasForeignKey(x => x.ReservationId).OnDelete(DeleteBehavior.SetNull);
             modelBuilder.Entity<Table>().HasOne(r => r.CurrentOrder).WithMany().HasForeignKey(x => x.CurrentOrderId).OnDelete(DeleteBehavior.SetNull);
             modelBuilder.Entity<Table>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<RestaurantLayoutSettings>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<RestaurantLayoutSettings>().HasIndex(x => new { x.InsertByUserId, x.PlanKey }).IsUnique();
+            modelBuilder.Entity<TableLayoutPlacement>().HasOne(r => r.Table).WithMany().HasForeignKey(x => x.TableId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<TableLayoutPlacement>().HasIndex(x => new { x.TableId, x.PlanKey }).IsUnique();
             modelBuilder.Entity<Reservation>().HasOne(r => r.Table).WithMany().HasForeignKey(x => x.TableId).OnDelete(DeleteBehavior.SetNull);
             modelBuilder.Entity<Reservation>().HasOne(r => r.Order).WithMany().HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.SetNull);
             modelBuilder.Entity<Reservation>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
@@ -125,6 +131,10 @@ namespace RestaurantPOS.Db
                    .WithMany(r => r.CustomerOrderItems)
                    .HasForeignKey(x => x.ItemId)
                    .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.LoginCode)
+                .IsUnique();
 
             modelBuilder.Entity<User>().HasData(
                                new User

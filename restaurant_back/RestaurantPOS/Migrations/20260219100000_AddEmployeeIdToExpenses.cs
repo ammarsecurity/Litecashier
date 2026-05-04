@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace RestaurantPOS.Migrations
 {
     /// <inheritdoc />
+    [Migration("20260219100000_AddEmployeeIdToExpenses")]
     public partial class AddEmployeeIdToExpenses : Migration
     {
         /// <inheritdoc />

@@ -60,6 +60,15 @@ namespace RestaurantPOS.Controllers
             return user?.InsertByUserId ?? userId;
         }
 
+        /// <summary>رمز دخول رقمي 4–12 خانة؛ فارغ = لا يُستخدم</summary>
+        private static string? NormalizeLoginCode(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+            var s = raw.Trim();
+            if (s.Length < 4 || s.Length > 12 || !s.All(char.IsDigit)) return null;
+            return s;
+        }
+
         // Add User
         [Authorize(Roles = "Commercial,Admin")]
         [HttpPost("AddUser")]
@@ -163,6 +172,30 @@ namespace RestaurantPOS.Controllers
                 {
                     newUse.RestaurantName = request.RestaurantName;
                 }
+
+                if (request.Role == "Commercial" && currentUser?.Role == "Admin" && !string.IsNullOrWhiteSpace(request.LoginCode))
+                {
+                    var lc = NormalizeLoginCode(request.LoginCode);
+                    if (lc == null)
+                    {
+                        return BadRequest(new GlobalResponse<User>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "رمز الدخول يجب أن يكون من 4 إلى 12 رقماً"
+                        });
+                    }
+                    if (await _dbConfig.Users.AnyAsync(u => u.LoginCode == lc && !u.IsDeleted))
+                    {
+                        return BadRequest(new GlobalResponse<User>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "رمز الدخول مستخدم من حساب آخر"
+                        });
+                    }
+                    newUse.LoginCode = lc;
+                }
                 
                 _dbConfig.Users.Add(newUse);
                 await _dbConfig.SaveChangesAsync();
@@ -249,7 +282,8 @@ namespace RestaurantPOS.Controllers
                     Username = user.Username,
                     Role = user.Role,
                     RestaurantName = user.RestaurantName,
-                    Logo = user.Logo
+                    Logo = user.Logo,
+                    LoginCode = user.LoginCode
                 };
 
                 // Update basic fields
@@ -291,6 +325,34 @@ namespace RestaurantPOS.Controllers
                     {
                         user.RestaurantName = request.RestaurantName;
                     }
+
+                    if (string.IsNullOrWhiteSpace(request.LoginCode))
+                    {
+                        user.LoginCode = null;
+                    }
+                    else
+                    {
+                        var lc = NormalizeLoginCode(request.LoginCode);
+                        if (lc == null)
+                        {
+                            return BadRequest(new GlobalResponse<User>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = "رمز الدخول يجب أن يكون من 4 إلى 12 رقماً"
+                            });
+                        }
+                        if (await _dbConfig.Users.AnyAsync(u => u.LoginCode == lc && u.Id != id && !u.IsDeleted))
+                        {
+                            return BadRequest(new GlobalResponse<User>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = "رمز الدخول مستخدم من حساب آخر"
+                            });
+                        }
+                        user.LoginCode = lc;
+                    }
                 }
 
                 // Store new values for audit log
@@ -301,7 +363,8 @@ namespace RestaurantPOS.Controllers
                     Username = user.Username,
                     Role = user.Role,
                     RestaurantName = user.RestaurantName,
-                    Logo = user.Logo
+                    Logo = user.Logo,
+                    LoginCode = user.LoginCode
                 };
 
                 _dbConfig.Users.Update(user);
@@ -828,17 +891,82 @@ namespace RestaurantPOS.Controllers
                 }
 
                 var maxCategories = Math.Min(Math.Max(request.MaxCategories, 1), 20); // بين 1 و 20
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var currentUser = await _dbConfig.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId);
+                var userInsertByUserId = currentUser?.InsertByUserId ?? userId;
 
-                var prompt = $"أنشئ قائمة بأقسام مناسبة لمطعم بناءً على الوصف التالي:\n{request.Description}\n\n";
-                
+                string? parentCategoryName = null;
+                var avoidNames = new List<string>();
                 if (request.ExistingCategories != null && request.ExistingCategories.Count > 0)
+                    avoidNames.AddRange(request.ExistingCategories.Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim()));
+
+                if (request.ParentTagId.HasValue)
                 {
-                    var existingCategoriesList = string.Join(", ", request.ExistingCategories);
-                    prompt += $"الأقسام التالية موجودة بالفعل ولا يجب تكرارها:\n{existingCategoriesList}\n\n";
-                    prompt += "أنشئ أقسام جديدة مختلفة تماماً عن الأقسام الموجودة أعلاه.\n\n";
+                    var parent = await _dbConfig.Tags
+                        .Include(t => t.User)
+                        .FirstOrDefaultAsync(x => x.Id == request.ParentTagId.Value && !x.IsDeleted);
+                    if (parent == null)
+                    {
+                        return BadRequest(new GlobalResponse<List<string>>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "التصنيف الرئيسي غير موجود"
+                        });
+                    }
+                    var parentScoped = parent.InsertByUserId == userId ||
+                        (parent.User != null && (parent.User.Id == userInsertByUserId || parent.User.InsertByUserId == userId));
+                    if (!parentScoped)
+                    {
+                        return BadRequest(new GlobalResponse<List<string>>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "لا يمكن استخدام هذا التصنيف كأب"
+                        });
+                    }
+                    if (parent.ParentTagId != null)
+                    {
+                        return BadRequest(new GlobalResponse<List<string>>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "يُسمح بمستوين فقط: اختر تصنيفاً رئيسياً (ليس فرعياً)"
+                        });
+                    }
+                    parentCategoryName = parent.Name;
+                    var existingSubs = await _dbConfig.Tags.AsNoTracking()
+                        .Where(t => t.ParentTagId == parent.Id && !t.IsDeleted && t.InsertByUserId == userId)
+                        .Select(t => t.Name)
+                        .ToListAsync();
+                    foreach (var n in existingSubs)
+                    {
+                        if (string.IsNullOrEmpty(n)) continue;
+                        if (!avoidNames.Contains(n, StringComparer.OrdinalIgnoreCase))
+                            avoidNames.Add(n);
+                    }
                 }
-                
-                prompt += $"يجب أن تكون الأقسام باللغة العربية ومناسبة لنوع المطعم. أعد قائمة بأسماء الأقسام فقط بدون شرح، كل اسم في سطر منفصل. الحد الأقصى للأقسام: {maxCategories} قسم.";
+
+                string prompt;
+                if (!string.IsNullOrEmpty(parentCategoryName))
+                {
+                    prompt = $"أنشئ قائمة بتصنيفات فرعية مناسبة لمطعم، تندرج جميعها تحت التصنيف الرئيسي «{parentCategoryName}».\n\n";
+                    prompt += $"استخدم أيضاً السياق التالي من صاحب المطعم:\n{request.Description}\n\n";
+                    prompt += "التصنيفات الفرعية يجب أن تكون أسماء أقسام داخلية لهذا القسم الرئيسي فقط (مثل أنواع ضمن «المشروبات» أو «المقبلات»)، وليست أقساماً رئيسية أخرى.\n\n";
+                }
+                else
+                {
+                    prompt = $"أنشئ قائمة بأقسام رئيسية مناسبة لمطعم بناءً على الوصف التالي:\n{request.Description}\n\n";
+                }
+
+                if (avoidNames.Count > 0)
+                {
+                    var existingCategoriesList = string.Join("، ", avoidNames.Distinct());
+                    prompt += $"الأسماء التالية موجودة بالفعل ولا يجب تكرارها:\n{existingCategoriesList}\n\n";
+                    prompt += "أنشئ أسماء جديدة مختلفة عن القائمة أعلاه.\n\n";
+                }
+
+                prompt += $"يجب أن تكون الأسماء باللغة العربية ومناسبة لنوع المطعم. أعد قائمة بأسماء التصنيفات فقط بدون شرح أو ترقيم، كل اسم في سطر منفصل. الحد الأقصى: {maxCategories} اسم.";
 
                 using var httpClient = new HttpClient();
                 httpClient.Timeout = TimeSpan.FromSeconds(60);
@@ -919,6 +1047,58 @@ namespace RestaurantPOS.Controllers
             }
         }
 
+        private const string TagCategorySeparator = " › ";
+
+        private static bool TagIsInUserScope(Tag tag, int userId, int userInsertByUserId)
+        {
+            return tag.InsertByUserId == userId ||
+                   (tag.User != null && (tag.User.Id == userInsertByUserId || tag.User.InsertByUserId == userId));
+        }
+
+        /// <summary>يحدد نص حقل Tags للأطباق عند توليدها ضمن تصنيف محدد.</summary>
+        private async Task<(bool Ok, string? ErrorMessage, string? FixedCategoryPath)> ResolveAiItemsFixedCategoryAsync(
+            int userId, int? rootTagId, int? subTagId)
+        {
+            if (!rootTagId.HasValue)
+                return (true, null, null);
+
+            var currentUser = await _dbConfig.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId);
+            var userInsertByUserId = currentUser?.InsertByUserId ?? userId;
+
+            var root = await _dbConfig.Tags.Include(t => t.User).FirstOrDefaultAsync(x => x.Id == rootTagId.Value && !x.IsDeleted);
+            if (root == null)
+                return (false, "التصنيف الرئيسي غير موجود", null);
+            if (!TagIsInUserScope(root, userId, userInsertByUserId))
+                return (false, "لا يمكن استخدام هذا القسم", null);
+            if (root.ParentTagId != null)
+                return (false, "اختر تصنيفاً رئيسياً فقط (ليس فرعياً)", null);
+
+            var hasChildren = await _dbConfig.Tags.AnyAsync(t => t.ParentTagId == root.Id && !t.IsDeleted);
+
+            if (hasChildren)
+            {
+                if (!subTagId.HasValue)
+                    return (false, "هذا القسم يحتوي تصنيفات فرعية — اختر قسماً فرعياً", null);
+
+                var sub = await _dbConfig.Tags.Include(t => t.User).FirstOrDefaultAsync(x => x.Id == subTagId.Value && !x.IsDeleted);
+                if (sub == null)
+                    return (false, "التصنيف الفرعي غير موجود", null);
+                if (sub.ParentTagId != root.Id)
+                    return (false, "التصنيف الفرعي لا يتبع القسم الرئيسي المختار", null);
+                if (!TagIsInUserScope(sub, userId, userInsertByUserId))
+                    return (false, "لا يمكن استخدام هذا القسم الفرعي", null);
+
+                var rootName = root.Name ?? "";
+                var subName = sub.Name ?? "";
+                return (true, null, $"{rootName}{TagCategorySeparator}{subName}");
+            }
+
+            if (subTagId.HasValue)
+                return (false, "هذا القسم الرئيسي بلا أقسام فرعية — أزل اختيار التصنيف الفرعي", null);
+
+            return (true, null, root.Name ?? "");
+        }
+
         [Authorize(Roles = "Admin,Commercial")]
         [HttpPost("GenerateItemsWithAI")]
         public async Task<ActionResult<GlobalResponse<List<GeneratedItemDto>>>> GenerateItemsWithAI(GenerateItemsRequest request)
@@ -935,6 +1115,20 @@ namespace RestaurantPOS.Controllers
                     });
                 }
 
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var scopeResult = await ResolveAiItemsFixedCategoryAsync(userId, request.RootTagId, request.SubTagId);
+                if (!scopeResult.Ok)
+                {
+                    return BadRequest(new GlobalResponse<List<GeneratedItemDto>>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = scopeResult.ErrorMessage ?? "تعذر تحديد القسم"
+                    });
+                }
+
+                var fixedCategoryPath = scopeResult.FixedCategoryPath;
+
                 var apiKey = _configuration["OpenAISettings:ApiKey"];
                 if (string.IsNullOrEmpty(apiKey))
                 {
@@ -948,16 +1142,33 @@ namespace RestaurantPOS.Controllers
 
                 var maxItems = Math.Min(Math.Max(request.MaxItems, 1), 20);
 
-                var prompt = $"أنشئ قائمة بأطباق ومشروبات مناسبة لمطعم بناءً على الوصف التالي:\n{request.Description}\n\n";
-                
+                string prompt;
+                if (!string.IsNullOrEmpty(fixedCategoryPath))
+                {
+                    prompt = $"أنشئ قائمة بأطباق ومشروبات مناسبة لمطعم، تندرج جميعها تحت القسم «{fixedCategoryPath}».\n\n";
+                    prompt += $"سياق إضافي من صاحب المطعم:\n{request.Description}\n\n";
+                    prompt += "ركز على أصناف منطقية لهذا القسم فقط.\n\n";
+                }
+                else
+                {
+                    prompt = $"أنشئ قائمة بأطباق ومشروبات مناسبة لمطعم بناءً على الوصف التالي:\n{request.Description}\n\n";
+                }
+
                 if (request.ExistingItems != null && request.ExistingItems.Count > 0)
                 {
                     var existingItemsList = string.Join(", ", request.ExistingItems.Select(i => i.Name));
                     prompt += $"الأطباق التالية موجودة بالفعل ولا يجب تكرارها:\n{existingItemsList}\n\n";
-                    prompt += "أنشئ أطباق جديدة مختلفة تماماً عن الأطباق الموجودة أعلاه.\n\n";
+                    prompt += "أنشئ أطباقاً جديدة مختلفة عن الأسماء أعلاه.\n\n";
                 }
-                
-                prompt += $"يجب أن تكون الأطباق باللغة العربية ومناسبة لنوع المطعم. أعد قائمة بكل طبق في سطر منفصل بالشكل التالي:\nاسم الطبق | القسم | السعر (بالأرقام فقط بدون عملة) | الوصف (اختياري)\nمثال: حمص | مقبلات | 3000 | طبق حمص تقليدي من المطبخ العراقي\nالحد الأقصى للأطباق: {maxItems} طبق.";
+
+                if (!string.IsNullOrEmpty(fixedCategoryPath))
+                {
+                    prompt += $"يجب أن تكون الأسماء بالعربية. أعد كل طبق في سطر بالشكل التالي (بدون عمود قسم):\nاسم الطبق | السعر (رقم فقط بدون فواصل) | وصف قصير اختياري\nمثال: عصير برتقال طازج | 2500 | عصير طبيعي\nالحد الأقصى: {maxItems} طبق.";
+                }
+                else
+                {
+                    prompt += $"يجب أن تكون الأطباق باللغة العربية ومناسبة لنوع المطعم. أعد قائمة بكل طبق في سطر منفصل بالشكل التالي:\nاسم الطبق | القسم | السعر (بالأرقام فقط بدون عملة) | الوصف (اختياري)\nمثال: حمص | مقبلات | 3000 | طبق حمص تقليدي من المطبخ العراقي\nالحد الأقصى للأطباق: {maxItems} طبق.";
+                }
 
                 using var httpClient = new HttpClient();
                 httpClient.Timeout = TimeSpan.FromSeconds(60);
@@ -1011,31 +1222,70 @@ namespace RestaurantPOS.Controllers
                     if (string.IsNullOrWhiteSpace(trimmedLine)) continue;
 
                     var parts = trimmedLine.Split('|');
-                    if (parts.Length >= 2)
+                    if (parts.Length < 2) continue;
+
+                    if (!string.IsNullOrEmpty(fixedCategoryPath))
                     {
                         var item = new GeneratedItemDto
                         {
-                            Name = parts[0].Trim(),
-                            Category = parts.Length > 1 ? parts[1].Trim() : "مواد اخرى",
-                            Description = parts.Length > 3 ? parts[3].Trim() : null
+                            Category = fixedCategoryPath,
+                            Name = parts[0].Trim()
                         };
+                        if (string.IsNullOrWhiteSpace(item.Name)) continue;
 
-                        // Parse price
-                        if (parts.Length > 2 && decimal.TryParse(parts[2].Trim().Replace(",", ""), out var price))
+                        if (decimal.TryParse(parts[1].Trim().Replace(",", ""), System.Globalization.NumberStyles.Any,
+                                System.Globalization.CultureInfo.InvariantCulture, out var priceFixed))
                         {
-                            item.SellingPrice = price;
-                            item.DisCountPrice = price;
-                            item.PurchasingPrice = price * 0.6m; // 60% of selling price
+                            item.SellingPrice = priceFixed;
+                            item.DisCountPrice = priceFixed;
+                            item.PurchasingPrice = priceFixed * 0.6m;
+                            item.Description = parts.Length >= 3
+                                ? string.Join("|", parts.Skip(2)).Trim()
+                                : null;
+                        }
+                        else if (parts.Length >= 4 &&
+                                 decimal.TryParse(parts[2].Trim().Replace(",", ""), System.Globalization.NumberStyles.Any,
+                                     System.Globalization.CultureInfo.InvariantCulture, out var priceAlt))
+                        {
+                            item.SellingPrice = priceAlt;
+                            item.DisCountPrice = priceAlt;
+                            item.PurchasingPrice = priceAlt * 0.6m;
+                            item.Description = parts.Length > 3 ? parts[3].Trim() : null;
                         }
                         else
                         {
                             item.SellingPrice = 0;
                             item.DisCountPrice = 0;
                             item.PurchasingPrice = 0;
+                            item.Description = parts.Length >= 2 ? string.Join("|", parts.Skip(1)).Trim() : null;
                         }
 
                         items.Add(item);
+                        continue;
                     }
+
+                    var itemFree = new GeneratedItemDto
+                    {
+                        Name = parts[0].Trim(),
+                        Category = parts.Length > 1 ? parts[1].Trim() : "مواد اخرى",
+                        Description = parts.Length > 3 ? parts[3].Trim() : null
+                    };
+
+                    if (parts.Length > 2 && decimal.TryParse(parts[2].Trim().Replace(",", ""), System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture, out var price))
+                    {
+                        itemFree.SellingPrice = price;
+                        itemFree.DisCountPrice = price;
+                        itemFree.PurchasingPrice = price * 0.6m;
+                    }
+                    else
+                    {
+                        itemFree.SellingPrice = 0;
+                        itemFree.DisCountPrice = 0;
+                        itemFree.PurchasingPrice = 0;
+                    }
+
+                    items.Add(itemFree);
                 }
 
                 if (items.Count == 0)

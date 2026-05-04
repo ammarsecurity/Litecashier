@@ -82,6 +82,13 @@
                     <b-icon icon="layers"></b-icon>
                     <span>{{ $t("mergeTables") || "دمج" }}</span>
                   </button>
+                  <router-link
+                    to="/restaurant/table-layout"
+                    class="waiter-floor-plan-link"
+                    :title="$t('tableFloorPlanTitle') || ''"
+                  >
+                    <b-icon icon="columns-gap"></b-icon>
+                  </router-link>
                   <button class="waiter-refresh-tables-btn-compact" @click="getTables" :title="$t('refresh') || 'تحديث'">
                     <b-icon icon="arrow-clockwise"></b-icon>
                   </button>
@@ -1549,6 +1556,11 @@ export default {
           });
 
           // Listen for order transfers
+          signalRService.on('FloorPlanUpdated', (data) => {
+            console.log('Floor plan updated via SignalR:', data);
+            this.getTables();
+          });
+
           signalRService.on('OrderTransferred', (data) => {
             console.log('Order transferred via SignalR:', data);
             if (!data) return;
@@ -1584,6 +1596,7 @@ export default {
       // Remove SignalR listeners
       signalRService.off('OrderAdded');
       signalRService.off('TableUpdated');
+      signalRService.off('FloorPlanUpdated');
       signalRService.off('OrderTransferred');
     },
     openTransferTableModal() {
@@ -3398,6 +3411,24 @@ export default {
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-secondary);
+}
+
+.waiter-floor-plan-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  margin-inline-end: 0.35rem;
+  background: var(--bg-tertiary, #e5e7eb);
+  color: var(--text-primary, #1f2937);
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.waiter-floor-plan-link:hover {
+  background: var(--border-color, #d1d5db);
+  color: var(--primary-color, #6366f1);
 }
 
 .waiter-refresh-tables-btn-compact {

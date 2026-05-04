@@ -738,6 +738,51 @@
           <form @submit.prevent="generateItemsWithAI" class="users-form">
             <div class="users-form-group">
               <label class="users-form-label">
+                <b-icon icon="diagram-3" class="form-label-icon"></b-icon>
+                {{ $t('itemMainCategory') }}
+              </label>
+              <select
+                v-model="aiFormCategoryRootId"
+                class="users-form-select"
+                @change="onAiFormRootChange"
+              >
+                <option value="">{{ $t('aiItemsCategoryFree') }}</option>
+                <option
+                  v-for="t in itemRootTags"
+                  :key="'ai-r-' + (t.id ?? t.Id)"
+                  :value="String(t.id ?? t.Id)"
+                >
+                  {{ t.name }}
+                </option>
+              </select>
+            </div>
+            <div v-if="aiFormSubTagOptions.length" class="users-form-group">
+              <label class="users-form-label">
+                <b-icon icon="tags" class="form-label-icon"></b-icon>
+                {{ $t('itemSubCategory') }}
+              </label>
+              <select v-model="aiFormCategorySubId" class="users-form-select">
+                <option value="">{{ $t('selectSubCategory') }}</option>
+                <option
+                  v-for="t in aiFormSubTagOptions"
+                  :key="'ai-s-' + (t.id ?? t.Id)"
+                  :value="String(t.id ?? t.Id)"
+                >
+                  {{ t.name }}
+                </option>
+              </select>
+            </div>
+            <div v-else-if="aiFormCategoryRootId" class="users-form-group">
+              <p class="item-category-hint">
+                <b-icon icon="info-circle" class="me-1"></b-icon>
+                {{ $t('itemCategoryNoSubsHint') }}
+              </p>
+            </div>
+            <p v-if="aiFormCategoryRootId" class="item-category-hint mb-2">
+              {{ $t('aiItemsCategoryHint') }}
+            </p>
+            <div class="users-form-group">
+              <label class="users-form-label">
                 <b-icon icon="file-text" class="form-label-icon"></b-icon>
                 {{ $t('enterDescription') }}
               </label>
@@ -1037,7 +1082,11 @@ export default {
       selectedItemId: '',
       // AI Generate Items
       aiDescription: '',
+      aiFormCategoryRootId: '',
+      aiFormCategorySubId: '',
       savedAiDescription: '', // حفظ الوصف الأصلي
+      savedAiRootTagId: '',
+      savedAiSubTagId: '',
       generatedItems: [],
       generatingItems: false,
       generatingMoreItems: false,
@@ -1198,6 +1247,30 @@ export default {
       if (!this.editFormCategorySubId) return null;
       const sub = this.tags.find(
         (t) => String(t.id ?? t.Id) === String(this.editFormCategorySubId)
+      );
+      return sub ? tagItemStorageValue(sub, this.tags) : null;
+    },
+    aiFormSelectedRoot() {
+      if (!this.aiFormCategoryRootId) return null;
+      return (
+        this.tags.find(
+          (t) => String(t.id ?? t.Id) === String(this.aiFormCategoryRootId)
+        ) || null
+      );
+    },
+    aiFormSubTagOptions() {
+      return childTagsOf(this.aiFormSelectedRoot, this.tags);
+    },
+    resolvedAiFixedTags() {
+      const root = this.aiFormSelectedRoot;
+      if (!root) return null;
+      const subs = childTagsOf(root, this.tags);
+      if (subs.length === 0) {
+        return tagItemStorageValue(root, this.tags);
+      }
+      if (!this.aiFormCategorySubId) return null;
+      const sub = this.tags.find(
+        (t) => String(t.id ?? t.Id) === String(this.aiFormCategorySubId)
       );
       return sub ? tagItemStorageValue(sub, this.tags) : null;
     },
@@ -1762,6 +1835,10 @@ export default {
       }
     },
 
+    onAiFormRootChange() {
+      this.aiFormCategorySubId = "";
+    },
+
     // AI Generate Items Methods
     async generateItemsWithAI() {
       if (!this.aiDescription || this.aiDescription.trim() === '') {
@@ -1781,12 +1858,41 @@ export default {
         return;
       }
 
+      if (this.aiFormCategoryRootId && !this.resolvedAiFixedTags) {
+        this.$toast.error(
+          this.$i18n.t("selectSubCategory") ||
+            "اختر القسم الفرعي أو قسماً رئيسياً بلا فروع",
+          {
+            position: "top-right",
+            timeout: 4000,
+            closeOnClick: true,
+            pauseOnFocusLoss: true,
+            pauseOnHover: true,
+            draggable: true,
+            draggablePercent: 0.6,
+            showCloseButtonOnHover: false,
+            hideProgressBar: true,
+            closeButton: "button",
+            icon: true,
+          }
+        );
+        return;
+      }
+
       this.generatingItems = true;
       try {
-        const response = await HTTP.post('Admin/GenerateItemsWithAI', {
+        const payload = {
           description: this.aiDescription,
-          maxItems: 15
-        });
+          maxItems: 15,
+        };
+        if (this.aiFormCategoryRootId) {
+          payload.rootTagId = Number(this.aiFormCategoryRootId);
+          if (this.aiFormCategorySubId) {
+            payload.subTagId = Number(this.aiFormCategorySubId);
+          }
+        }
+
+        const response = await HTTP.post("Admin/GenerateItemsWithAI", payload);
 
         if (response.data.errorStatus) {
           this.$toast.error(response.data.message || this.$i18n.t('somethingWrong'), {
@@ -1812,11 +1918,15 @@ export default {
             description: item.description || '',
             selected: true
           }));
-          // حفظ الوصف الأصلي للاستخدام لاحقاً
+          // حفظ الوصف والقسم للاستخدام لاحقاً (إضافة المزيد)
           this.savedAiDescription = this.aiDescription;
+          this.savedAiRootTagId = this.aiFormCategoryRootId;
+          this.savedAiSubTagId = this.aiFormCategorySubId;
           this.$bvModal.hide('modal-ai-generate-items');
           this.$bvModal.show('modal-ai-items');
           this.aiDescription = '';
+          this.aiFormCategoryRootId = '';
+          this.aiFormCategorySubId = '';
         }
       } catch (error) {
         this.$toast.error(this.$i18n.t('somethingWrong'), {
@@ -1900,6 +2010,8 @@ export default {
           });
           this.generatedItems = [];
           this.savedAiDescription = '';
+          this.savedAiRootTagId = '';
+          this.savedAiSubTagId = '';
           this.$bvModal.hide('modal-ai-items');
           this.GetAllItems(); // تحديث قائمة الأطباق
         }
@@ -1922,15 +2034,30 @@ export default {
       }
     },
 
+    defaultCategoryForSavedAiScope() {
+      if (!this.savedAiRootTagId || !this.tags.length) return "مواد اخرى";
+      const root = this.tags.find(
+        (t) => String(t.id ?? t.Id) === String(this.savedAiRootTagId)
+      );
+      if (!root) return "مواد اخرى";
+      const subs = childTagsOf(root, this.tags);
+      if (subs.length === 0) return tagItemStorageValue(root, this.tags);
+      if (!this.savedAiSubTagId) return "مواد اخرى";
+      const sub = this.tags.find(
+        (t) => String(t.id ?? t.Id) === String(this.savedAiSubTagId)
+      );
+      return sub ? tagItemStorageValue(sub, this.tags) : "مواد اخرى";
+    },
+
     addManualItem() {
       this.generatedItems.push({
-        name: '',
-        category: 'مواد اخرى',
+        name: "",
+        category: this.defaultCategoryForSavedAiScope(),
         sellingPrice: 0,
         purchasingPrice: 0,
         disCountPrice: 0,
-        description: '',
-        selected: true
+        description: "",
+        selected: true,
       });
     },
 
@@ -1977,11 +2104,22 @@ export default {
           }))
           .filter(item => item.name !== '');
 
-        const response = await HTTP.post('Admin/GenerateItemsWithAI', {
+        const morePayload = {
           description: this.savedAiDescription,
           maxItems: 15,
-          existingItems: existingItems
-        });
+          existingItems: existingItems,
+        };
+        if (this.savedAiRootTagId) {
+          morePayload.rootTagId = Number(this.savedAiRootTagId);
+          if (this.savedAiSubTagId) {
+            morePayload.subTagId = Number(this.savedAiSubTagId);
+          }
+        }
+
+        const response = await HTTP.post(
+          "Admin/GenerateItemsWithAI",
+          morePayload
+        );
 
         if (response.data.errorStatus) {
           this.$toast.error(response.data.message || this.$i18n.t('somethingWrong'), {

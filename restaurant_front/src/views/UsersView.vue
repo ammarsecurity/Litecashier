@@ -174,6 +174,21 @@
                         </div>
                         <div class="users-form-group">
                             <label class="users-form-label">
+                                <b-icon icon="key-fill" class="form-label-icon"></b-icon>
+                                {{ $t('accountLoginCodeLabel') || 'رمز دخول سريع' }}
+                            </label>
+                            <input
+                                v-model="addForm.loginCode"
+                                type="text"
+                                inputmode="numeric"
+                                maxlength="12"
+                                :placeholder="$t('accountLoginCodeAdminPlaceholder') || 'اختياري: 4–12 رقماً'"
+                                class="users-form-input"
+                            />
+                            <small class="text-muted d-block mt-1">{{ $t('accountLoginCodeAdminHint') || 'يسمح بتسجيل الدخول برمز فقط دون هاتف وكلمة مرور' }}</small>
+                        </div>
+                        <div class="users-form-group">
+                            <label class="users-form-label">
                                 <b-icon icon="image" class="form-label-icon"></b-icon>
                                 {{ $t('logo') || 'الشعار' }}
                             </label>
@@ -316,6 +331,21 @@
                         </div>
                         <div class="users-form-group">
                             <label class="users-form-label">
+                                <b-icon icon="key-fill" class="form-label-icon"></b-icon>
+                                {{ $t('accountLoginCodeLabel') || 'رمز دخول سريع' }}
+                            </label>
+                            <input
+                                v-model="editForm.loginCode"
+                                type="text"
+                                inputmode="numeric"
+                                maxlength="12"
+                                :placeholder="$t('accountLoginCodeAdminPlaceholder') || 'اتركه فارغاً لإلغاء الرمز'"
+                                class="users-form-input"
+                            />
+                            <small class="text-muted d-block mt-1">{{ $t('accountLoginCodeAdminHint') || 'يسمح بتسجيل الدخول برمز فقط دون هاتف وكلمة مرور' }}</small>
+                        </div>
+                        <div class="users-form-group">
+                            <label class="users-form-label">
                                 <b-icon icon="image" class="form-label-icon"></b-icon>
                                 {{ $t('logo') || 'الشعار' }}
                             </label>
@@ -419,6 +449,7 @@ export default {
                 role: "",
                 id: "",
                 restaurantName: "",
+                loginCode: "",
                 logo: null,
                 logoPreview: null,
                 logoFile: null
@@ -430,6 +461,7 @@ export default {
                 username: "",
                 role: "",
                 restaurantName: "",
+                loginCode: "",
                 logoFile: null,
                 logoPreview: null
             },
@@ -503,6 +535,7 @@ export default {
                 ...User,
                 password: '',
                 restaurantName: User.restaurantName || '',
+                loginCode: User.loginCode != null ? String(User.loginCode) : '',
                 logo: null,
                 logoPreview: User.logo ? `${imageBaseUrl}/Images/${User.logo}` : null,
                 logoFile: null
@@ -564,6 +597,9 @@ export default {
                 if (this.addForm.restaurantName) {
                     formData.append('restaurantName', this.addForm.restaurantName);
                 }
+                if (this.addForm.loginCode) {
+                    formData.append('loginCode', this.addForm.loginCode);
+                }
             }
             
             HTTP.post(`Admin/AddUser`, formData, {
@@ -594,6 +630,7 @@ export default {
                         username: "",
                         role: "",
                         restaurantName: "",
+                        loginCode: "",
                         logoFile: null,
                         logoPreview: null
                     };
@@ -640,6 +677,7 @@ export default {
                 if (this.editForm.restaurantName) {
                     formData.append('restaurantName', this.editForm.restaurantName);
                 }
+                formData.append('loginCode', this.editForm.loginCode || '');
             }
             
             HTTP.put(`Admin/UpdateUser?id=${this.editForm.id}`, formData, {
@@ -672,6 +710,7 @@ export default {
                         role: "",
                         id: "",
                         restaurantName: "",
+                        loginCode: "",
                         logo: null,
                         logoPreview: null,
                         logoFile: null

@@ -12,6 +12,7 @@ import RegisterView from '../views/Auth/RegisterView.vue'
 import PrintServerManagementView from '../views/PrintServerManagementView.vue'
 import PrintServerManagementNewView from '../views/PrintServerManagementNewView.vue'
 import TablesView from '../views/Restaurant/TablesView.vue'
+import TableLayoutView from '../views/Restaurant/TableLayoutView.vue'
 import ReservationsView from '../views/Restaurant/ReservationsView.vue'
 import WaiterView from '../views/Restaurant/WaiterView.vue'
 import PublicMenuView from '../views/PublicMenuView.vue'
@@ -188,6 +189,15 @@ const routes = [
     meta: {
       requiresAuth: true,
       roles: ['Commercial', 'POS', 'Admin', 'TablesManager']
+    }
+  },
+  {
+    path: '/restaurant/table-layout',
+    name: 'tableLayout',
+    component: TableLayoutView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'POS', 'Admin', 'TablesManager', 'Waiter']
     }
   },
   {

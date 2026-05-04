@@ -197,6 +197,21 @@
                     <form @submit.prevent="generateCategoriesWithAI" class="users-form">
                         <div class="users-form-group">
                             <label class="users-form-label">
+                                <b-icon icon="diagram-3-fill" class="form-label-icon"></b-icon>
+                                {{ $t('aiParentCategoryLabel') }}
+                            </label>
+                            <select
+                                class="users-form-select"
+                                :value="aiParentTagId == null ? '' : String(aiParentTagId)"
+                                @change="onAiParentTagChange"
+                            >
+                                <option value="">{{ $t('aiRootCategoriesMode') }}</option>
+                                <option v-for="t in rootTagsForParentSelect" :key="'ai-root-' + t.id" :value="String(t.id)">{{ t.name }}</option>
+                            </select>
+                            <p class="users-form-hint text-muted small mb-0 mt-1">{{ $t('aiParentCategoryHint') }}</p>
+                        </div>
+                        <div class="users-form-group">
+                            <label class="users-form-label">
                                 <b-icon icon="file-text" class="form-label-icon"></b-icon>
                                 {{ $t('enterDescription') }}
                             </label>
@@ -367,8 +382,10 @@ export default {
             allTagsFlat: [],
             TagsId: '',
             // AI Generate Categories
+            aiParentTagId: null,
             aiDescription: '',
             savedAiDescription: '', // حفظ الوصف الأصلي
+            savedAiParentTagId: null,
             generatedCategories: [],
             generatingCategories: false,
             generatingMoreCategories: false,
@@ -452,6 +469,10 @@ export default {
         onEditParentTagChange(e) {
             const v = e.target.value;
             this.editForm.parentTagId = v === "" ? null : Number(v);
+        },
+        onAiParentTagChange(e) {
+            const v = e.target.value;
+            this.aiParentTagId = v === "" ? null : Number(v);
         },
         deleteTagsModel(id) {
             this.TagsId = id;
@@ -649,10 +670,14 @@ export default {
 
             this.generatingCategories = true;
             try {
-                const response = await HTTP.post('Admin/GenerateCategoriesWithAI', {
+                const payload = {
                     description: this.aiDescription,
                     maxCategories: 15
-                });
+                };
+                if (this.aiParentTagId != null && !Number.isNaN(this.aiParentTagId)) {
+                    payload.parentTagId = this.aiParentTagId;
+                }
+                const response = await HTTP.post('Admin/GenerateCategoriesWithAI', payload);
 
                 if (response.data.errorStatus) {
                     this.$toast.error(response.data.message || this.$i18n.t('somethingWrong'), {
@@ -675,6 +700,7 @@ export default {
                     }));
                     // حفظ الوصف الأصلي للاستخدام لاحقاً
                     this.savedAiDescription = this.aiDescription;
+                    this.savedAiParentTagId = this.aiParentTagId;
                     this.$bvModal.hide('modal-ai-generate');
                     this.$bvModal.show('modal-ai-categories');
                     this.aiDescription = '';
@@ -699,12 +725,21 @@ export default {
         },
 
         async saveGeneratedCategories() {
+            const parentId = this.savedAiParentTagId != null && !Number.isNaN(this.savedAiParentTagId)
+                ? this.savedAiParentTagId
+                : null;
             const selectedCategories = this.generatedCategories
                 .filter(cat => cat.selected && cat.name && cat.name.trim() !== '')
-                .map(cat => ({
-                    name: cat.name.trim(),
-                    isForAll: false
-                }));
+                .map(cat => {
+                    const row = {
+                        name: cat.name.trim(),
+                        isForAll: false
+                    };
+                    if (parentId != null) {
+                        row.parentTagId = parentId;
+                    }
+                    return row;
+                });
 
             if (selectedCategories.length === 0) {
                 this.$toast.error(this.$i18n.t('noCategoriesSelected') || 'لم يتم تحديد أي أقسام', {
@@ -756,7 +791,9 @@ export default {
                         icon: true,
                     });
                     this.generatedCategories = [];
-                    this.savedAiDescription = ''; // مسح الوصف المحفوظ بعد الحفظ
+                    this.savedAiDescription = '';
+                    this.savedAiParentTagId = null;
+                    this.aiParentTagId = null;
                     this.$bvModal.hide('modal-ai-categories');
                     this.fetchAllTagsFlat();
                     this.GetAllTagss();
@@ -828,11 +865,15 @@ export default {
                     .map(cat => cat.name.trim())
                     .filter(name => name !== '');
 
-                const response = await HTTP.post('Admin/GenerateCategoriesWithAI', {
+                const morePayload = {
                     description: this.savedAiDescription,
                     maxCategories: 15,
                     existingCategories: existingCategories
-                });
+                };
+                if (this.savedAiParentTagId != null && !Number.isNaN(this.savedAiParentTagId)) {
+                    morePayload.parentTagId = this.savedAiParentTagId;
+                }
+                const response = await HTTP.post('Admin/GenerateCategoriesWithAI', morePayload);
 
                 if (response.data.errorStatus) {
                     this.$toast.error(response.data.message || this.$i18n.t('somethingWrong'), {

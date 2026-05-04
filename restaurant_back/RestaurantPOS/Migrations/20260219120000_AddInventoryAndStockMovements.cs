@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace RestaurantPOS.Migrations
 {
     /// <inheritdoc />
+    [Migration("20260219120000_AddInventoryAndStockMovements")]
     public partial class AddInventoryAndStockMovements : Migration
     {
         /// <inheritdoc />

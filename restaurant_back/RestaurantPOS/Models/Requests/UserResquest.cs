@@ -15,5 +15,7 @@ namespace RestaurantPOS.Models.Requests
         public required string Role { get; set; }
         public IFormFile? Logo { get; set; }
         public string? RestaurantName { get; set; }
+        /// <summary>رمز دخول الحساب التجاري (اختياري، مثل 45443)</summary>
+        public string? LoginCode { get; set; }
     }
 }

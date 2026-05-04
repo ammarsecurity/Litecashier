@@ -10,12 +10,17 @@ namespace RestaurantPOS.Models
         public int Id { get; set; }
         public required string Name { get; set; }
         public required string PhoneNumber { get; set; }
-        public required string Password { get; set; }
+        [JsonIgnore]
+        public string Password { get; set; } = string.Empty;
         public required string Username { get; set; }
         public required string Role { get; set; }
         public int InsertByUserId { get; set; }
         public string? Logo { get; set; }
         public string? RestaurantName { get; set; }
+
+        /// <summary>رمز دخول سريع للحساب التجاري (أرقام فقط) — تسجيل دخول بدون هاتف/كلمة مرور</summary>
+        [StringLength(20)]
+        public string? LoginCode { get; set; }
 
         [JsonIgnore]
         public List<Item>? Items { get; set; }
