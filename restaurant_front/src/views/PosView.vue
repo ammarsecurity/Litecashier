@@ -353,12 +353,12 @@
                 :aria-label="$t('cart')"
               >
                 <div
-                  class="pos-cart-backdrop d-xl-none"
+                  class="pos-cart-backdrop d-lg-none"
                   aria-hidden="true"
                   @click="closePosMobileCart"
                 />
                 <div class="pos-cart-panel pos-cart-panel--v2">
-                  <header class="pos-cart-panel-head d-xl-none">
+                  <header class="pos-cart-panel-head d-lg-none">
                     <span class="pos-cart-panel-brand">{{ $t("cart") }}</span>
                     <button type="button" class="pos-cart-panel-dismiss" @click="closePosMobileCart">
                       <b-icon icon="x-lg" />
@@ -444,6 +444,14 @@
                               <b-icon icon="plus-lg"></b-icon>
                             </button>
                           </div>
+                          <button
+                            v-if="canTransferCartItem(item)"
+                            class="pos-cart-item-transfer"
+                            @click.stop="openTransferItemModal(item)"
+                            :title="$t('transferItem') || 'نقل مادة'"
+                          >
+                            <b-icon icon="arrow-left-right"></b-icon>
+                          </button>
                           <button
                             class="pos-cart-item-delete"
                             @click.stop="deleteItem(index)"
@@ -588,11 +596,11 @@
             </b-modal>
 
             <!-- Transfer Table Modal -->
-            <b-modal id="modal-transfer-table" :title="$t('transferTable') || 'تبديل الطاولة'" hide-header hide-footer class="users-modal">
+            <b-modal id="modal-transfer-table" :title="transferModalTitle" hide-header hide-footer class="users-modal">
               <div class="transfer-table-content">
                 <div class="transfer-table-info">
                   <p class="transfer-table-message">
-                    {{ $t("transferTableMessage") || "اختر الطاولة الجديدة لنقل الطلب من طاولة" }} <strong>{{ getSelectedTableNumber() }}</strong>
+                    {{ transferModalMessage }} <strong>{{ getSelectedTableNumber() }}</strong>
                   </p>
                 </div>
                 <div class="transfer-table-select">
@@ -623,7 +631,7 @@
                   >
                     <b-spinner small v-if="loadingTransferTable" class="me-2"></b-spinner>
                     <b-icon v-else icon="check-circle-fill" class="me-2"></b-icon>
-                    {{ loadingTransferTable ? ($t("transferring") || "جاري التبديل...") : ($t("confirmTransfer") || "تأكيد التبديل") }}
+                    {{ loadingTransferTable ? transferModalLoadingLabel : transferModalConfirmLabel }}
                   </button>
                 </div>
               </div>
@@ -906,6 +914,28 @@
                           <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
                         </span>
                       </div>
+                      <span class="pos-cart-checkout-segment-label">{{ $t("checkoutActions") }}</span>
+                      <div class="pos-cart-checkout-btn-row pos-cart-checkout-summary-actions">
+                        <button
+                          type="button"
+                          class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn"
+                          @click="openOrderNotesModal"
+                          :disabled="totalCardItems <= 0"
+                        >
+                          <b-icon icon="check-circle-fill" class="me-1"></b-icon>
+                          {{ $t("saveAndPrint") || "حفظ وطباعة" }}
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
+                          @click="printCartOnly"
+                          :disabled="totalCardItems <= 0"
+                          :title="$t('printOnly')"
+                        >
+                          <b-icon icon="printer-fill" class="me-1"></b-icon>
+                          {{ $t("printOnly") || "طباعة فقط" }}
+                        </button>
+                      </div>
                     </div>
 
                     <div class="pos-cart-checkout-segment pos-cart-checkout-segment--types">
@@ -1022,30 +1052,6 @@
                     </span>
                   </div>
 
-                  <div v-if="carditems.length > 0" class="pos-cart-checkout-segment pos-cart-checkout-segment--actions">
-                    <span class="pos-cart-checkout-segment-label">{{ $t("checkoutActions") }}</span>
-                    <div class="pos-cart-checkout-btn-row pos-cart-checkout-actions-row">
-                      <button
-                        type="button"
-                        class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn"
-                        @click="openOrderNotesModal"
-                        :disabled="totalCardItems <= 0"
-                      >
-                        <b-icon icon="check-circle-fill" class="me-1"></b-icon>
-                        {{ $t("saveAndPrint") || "حفظ وطباعة" }}
-                      </button>
-                      <button
-                        type="button"
-                        class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
-                        @click="printCartOnly"
-                        :disabled="totalCardItems <= 0"
-                        :title="$t('printOnly')"
-                      >
-                        <b-icon icon="printer-fill" class="me-1"></b-icon>
-                        {{ $t("printOnly") || "طباعة فقط" }}
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -1056,7 +1062,7 @@
         <button
           v-show="!posMobileCartOpen"
           type="button"
-          class="pos-mobile-cart-fab d-xl-none"
+          class="pos-mobile-cart-fab d-lg-none"
           @click="openPosMobileCart"
           :aria-label="$t('posOpenCart')"
           :title="$t('posOpenCart')"
@@ -1561,6 +1567,8 @@ export default {
       isFullscreen: false,
       showTablesModal: false,
       transferToTableId: null,
+      transferMode: "table",
+      transferItemContext: null,
       loadingTableOrders: false,
       loadingTransferTable: false,
       loadingMergeTables: false,
@@ -1788,6 +1796,30 @@ export default {
         table.id !== this.selectedTableId && 
         (table.status === 'Available' || table.status === 'Occupied')
       ).sort((a, b) => a.tableNumber - b.tableNumber);
+    },
+    transferModalTitle() {
+      if (this.transferMode === "item") {
+        return this.$t("transferItem") || "نقل مادة";
+      }
+      return this.$t("transferTable") || "تبديل الطاولة";
+    },
+    transferModalMessage() {
+      if (this.transferMode === "item") {
+        return this.$t("transferItemMessage") || "اختر الطاولة الجديدة لنقل المادة من طاولة";
+      }
+      return this.$t("transferTableMessage") || "اختر الطاولة الجديدة لنقل الطلب من طاولة";
+    },
+    transferModalConfirmLabel() {
+      if (this.transferMode === "item") {
+        return this.$t("confirmTransferItem") || "تأكيد نقل المادة";
+      }
+      return this.$t("confirmTransfer") || "تأكيد التبديل";
+    },
+    transferModalLoadingLabel() {
+      if (this.transferMode === "item") {
+        return this.$t("transferringItem") || "جاري نقل المادة...";
+      }
+      return this.$t("transferring") || "جاري التبديل...";
     },
     mergedTableIds() {
       // Get all merged table IDs for the currently selected table
@@ -2481,32 +2513,24 @@ export default {
             if (order.customerOrderItem) {
               order.customerOrderItem.forEach(orderItem => {
                 if (orderItem.item) {
-                  const existingItem = this.carditems.find(item => item.id === orderItem.item.id);
-                  if (existingItem) {
-                    existingItem.quantity += orderItem.quantity;
-                    // Update total for existing item - ensure prices are valid
-                    const price = existingItem.price || 0;
-                    const disCountPrice = existingItem.disCountPrice || 0;
-                    const finalPrice = (disCountPrice > 0 && disCountPrice !== price) ? disCountPrice : price;
-                    existingItem.total = finalPrice * existingItem.quantity;
-                  } else {
-                    // Calculate final price - ensure prices are valid numbers
-                    const sellingPrice = orderItem.sellingPrice || 0;
-                    const discountPrice = orderItem.item.disCountPrice || 0;
-                    const finalPrice = (discountPrice > 0 && discountPrice !== sellingPrice) ? discountPrice : sellingPrice;
-                    
-                    this.carditems.push({
-                      id: orderItem.item.id,
-                      name: orderItem.item.name,
-                      price: sellingPrice,
-                      disCountPrice: discountPrice,
-                      quantity: orderItem.quantity || 1,
-                      code: orderItem.item.code,
-                      image: orderItem.item.image,
-                      total: finalPrice * (orderItem.quantity || 1),
-                      tags: orderItem.item.tags || 'مواد اخرى' // Add tags from order item
-                    });
-                  }
+                  // Keep one UI line per order item to support "transfer single line item" accurately.
+                  const sellingPrice = orderItem.sellingPrice || 0;
+                  const discountPrice = orderItem.item.disCountPrice || 0;
+                  const finalPrice = (discountPrice > 0 && discountPrice !== sellingPrice) ? discountPrice : sellingPrice;
+
+                  this.carditems.push({
+                    id: orderItem.item.id,
+                    name: orderItem.item.name,
+                    price: sellingPrice,
+                    disCountPrice: discountPrice,
+                    quantity: orderItem.quantity || 1,
+                    code: orderItem.item.code,
+                    image: orderItem.item.image,
+                    total: finalPrice * (orderItem.quantity || 1),
+                    tags: orderItem.item.tags || 'مواد اخرى',
+                    sourceOrderId: order.id,
+                    sourceOrderItemId: orderItem.id
+                  });
                 }
               });
             }
@@ -4919,11 +4943,42 @@ export default {
       this.Items = [];
     },
     openTransferTableModal() {
+      this.transferMode = "table";
+      this.transferItemContext = null;
+      this.transferToTableId = null;
+      this.$root.$emit('bv::show::modal', 'modal-transfer-table');
+    },
+    canTransferCartItem(item) {
+      return Boolean(
+        this.selectedTableId &&
+        item &&
+        item.sourceOrderId &&
+        item.sourceOrderItemId
+      );
+    },
+    openTransferItemModal(item) {
+      if (!this.canTransferCartItem(item)) {
+        this.$toast.warning(this.$i18n.t('transferItemNotAvailable') || 'لا يمكن نقل هذه المادة', {
+          position: "top-right",
+          timeout: 2000,
+          maxToasts: 1,
+        });
+        return;
+      }
+
+      this.transferMode = "item";
+      this.transferItemContext = {
+        sourceOrderId: item.sourceOrderId,
+        sourceOrderItemId: item.sourceOrderItemId,
+        itemName: item.name,
+      };
       this.transferToTableId = null;
       this.$root.$emit('bv::show::modal', 'modal-transfer-table');
     },
     closeTransferTableModal() {
       this.transferToTableId = null;
+      this.transferMode = "table";
+      this.transferItemContext = null;
       this.$root.$emit('bv::hide::modal', 'modal-transfer-table');
     },
     async confirmTransferTable() {
@@ -4938,26 +4993,60 @@ export default {
 
       try {
         this.loadingTransferTable = true;
-        const response = await HTTP.put(`Admin/TransferTable?fromTableId=${this.selectedTableId}&toTableId=${this.transferToTableId}`);
+        const response = this.transferMode === "item"
+          ? await HTTP.post('Admin/TransferOrderItemToTable', {
+              sourceOrderId: this.transferItemContext?.sourceOrderId,
+              sourceOrderItemId: this.transferItemContext?.sourceOrderItemId,
+              sourceTableId: this.selectedTableId,
+              destinationTableId: this.transferToTableId,
+            })
+          : await HTTP.put(`Admin/TransferTable?fromTableId=${this.selectedTableId}&toTableId=${this.transferToTableId}`);
         
         if (response.data && !response.data.errorStatus) {
-          this.$toast.success(response.data.message || this.$i18n.t('tableTransferredSuccessfully') || 'تم تبديل الطاولة بنجاح', {
+          const successMessage = this.transferMode === "item"
+            ? (response.data.message || this.$i18n.t('transferItemSuccess') || 'تم نقل المادة بنجاح')
+            : (response.data.message || this.$i18n.t('tableTransferredSuccessfully') || 'تم تبديل الطاولة بنجاح');
+
+          this.$toast.success(successMessage, {
             position: "top-right",
             timeout: 3000,
             maxToasts: 1,
           });
 
-          // Update selected table to new table
-          const newTable = this.allTables.find(t => t.id === this.transferToTableId);
-          if (newTable) {
-            this.selectedTableId = newTable.id;
-            this.orderForSend.tableId = newTable.id;
-            // Reload table orders
-            await this.selectTable(newTable);
+          if (this.transferMode === "item") {
+            const selectedTableIdBeforeRefresh = this.selectedTableId;
+            const movedOrderItemId = this.transferItemContext?.sourceOrderItemId;
+
+            // Remove moved row immediately from current cart for instant UI feedback.
+            if (movedOrderItemId) {
+              this.carditems = this.carditems.filter(
+                (cartItem) => cartItem.sourceOrderItemId !== movedOrderItemId
+              );
+            }
+
+            await this.getTables();
+
+            const refreshedCurrentTable = this.allTables.find(
+              (t) => t.id === selectedTableIdBeforeRefresh
+            );
+            if (refreshedCurrentTable) {
+              await this.selectTable(refreshedCurrentTable);
+            }
+          } else {
+            // Update selected table to new table
+            const newTable = this.allTables.find(t => t.id === this.transferToTableId);
+            if (newTable) {
+              this.selectedTableId = newTable.id;
+              this.orderForSend.tableId = newTable.id;
+              // Reload table orders
+              await this.selectTable(newTable);
+            }
           }
 
-          // Refresh tables
-          await this.getTables();
+          // Refresh tables (already refreshed in item-transfer branch).
+          if (this.transferMode !== "item") {
+            await this.getTables();
+          }
 
           this.resetPosFloorPlanGateTools();
           if (this.posFloorPlanGateVisible) {
@@ -4966,7 +5055,10 @@ export default {
 
           this.closeTransferTableModal();
         } else {
-          this.$toast.error(response.data?.message || this.$i18n.t('errorTransferringTable') || 'حدث خطأ أثناء تبديل الطاولة', {
+          const errorMessage = this.transferMode === "item"
+            ? (response.data?.message || this.$i18n.t('transferItemFailed') || 'حدث خطأ أثناء نقل المادة')
+            : (response.data?.message || this.$i18n.t('errorTransferringTable') || 'حدث خطأ أثناء تبديل الطاولة');
+          this.$toast.error(errorMessage, {
             position: "top-right",
             timeout: 3000,
             maxToasts: 1,
@@ -4974,7 +5066,10 @@ export default {
         }
       } catch (error) {
         console.error('Error transferring table:', error);
-        this.$toast.error(this.$i18n.t('errorTransferringTable') || 'حدث خطأ أثناء تبديل الطاولة', {
+        const errorMessage = this.transferMode === "item"
+          ? (this.$i18n.t('transferItemFailed') || 'حدث خطأ أثناء نقل المادة')
+          : (this.$i18n.t('errorTransferringTable') || 'حدث خطأ أثناء تبديل الطاولة');
+        this.$toast.error(errorMessage, {
           position: "top-right",
           timeout: 3000,
           maxToasts: 1,
@@ -6337,6 +6432,117 @@ export default {
   min-height: 2.05rem;
 }
 
+.pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer {
+  width: 2.05rem;
+  height: 2.05rem;
+  min-width: 2.05rem;
+  min-height: 2.05rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(79, 70, 229, 0.24);
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.14) 0%, rgba(79, 70, 229, 0.08) 100%);
+  color: #4f46e5;
+  transition: all 0.16s ease;
+}
+
+.pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer:hover {
+  border-color: rgba(79, 70, 229, 0.42);
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.2) 0%, rgba(79, 70, 229, 0.13) 100%);
+  color: #3730a3;
+  transform: translateY(-1px);
+}
+
+.pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer:active {
+  transform: translateY(0);
+}
+
+.pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.26);
+}
+
+/* السلة على الشاشات الصغيرة/المتوسطة: ترتيب أوضح لسطر المادة */
+@media (max-width: 1199px) {
+  .pos-route--v2 .pos-cart-item--v2 {
+    padding: 0.45rem 0.55rem !important;
+    gap: 0.35rem;
+    border-radius: 0.65rem !important;
+  }
+
+  .pos-cart-item-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+  }
+
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-name {
+    font-size: 0.82rem;
+    line-height: 1.3;
+  }
+
+  .pos-cart-item-line-total {
+    align-self: flex-start;
+    font-size: 0.88rem;
+    padding-top: 0;
+  }
+
+  .pos-cart-item-bottom {
+    gap: 0.35rem;
+    padding-top: 0.28rem;
+  }
+
+  .pos-cart-item-unit-wrap {
+    order: 1;
+    flex: 1 1 100%;
+  }
+
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-controls {
+    order: 2;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-quantity {
+    padding: 0.18rem;
+    gap: 0.22rem;
+  }
+
+  .pos-route--v2 .pos-cart-item--v2 .pos-quantity-btn,
+  .pos-route--v2 .pos-cart-item--v2 .pos-quantity-input,
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer,
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-delete {
+    height: 1.9rem;
+    min-height: 1.9rem;
+  }
+
+  .pos-route--v2 .pos-cart-item--v2 .pos-quantity-btn {
+    width: 1.9rem;
+    min-width: 1.9rem;
+    font-size: 0.84rem;
+  }
+
+  .pos-route--v2 .pos-cart-item--v2 .pos-quantity-input {
+    width: 2.1rem;
+    font-size: 0.78rem;
+  }
+
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-delete {
+    width: 1.95rem;
+    min-width: 1.95rem;
+    margin-inline-start: auto;
+  }
+
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer {
+    width: 1.95rem;
+    min-width: 1.95rem;
+  }
+}
+
 /* Scrollbar Styling */
 .pos-cart-items-section::-webkit-scrollbar,
 .pos-cart-items-list::-webkit-scrollbar {
@@ -7081,7 +7287,7 @@ export default {
   padding-right: 0.75rem;
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 700px) {
   .pos-route--v2 .main-content-wrapper {
     background: var(--bg-secondary);
     min-height: calc(100vh - 56px);
@@ -7095,7 +7301,16 @@ export default {
   align-items: stretch;
 }
 
-@media (min-width: 1200px) {
+/* اجعل منطقة العمل تملأ المساحة بين الهيدر وشريط الإنهاء */
+.main-content-wrapper.pos-route.pos-route--v2 .pos-workspace--v2 {
+  min-height: calc(100dvh - 56px);
+}
+
+.main-content-wrapper.pos-route.pos-route--v2.pos-has-checkout-bar .pos-workspace--v2 {
+  min-height: calc(100dvh - 56px - 5.75rem);
+}
+
+@media (min-width: 700px) {
   .pos-workspace--v2 {
     grid-template-columns: minmax(0, 1fr) min(420px, 34vw);
     gap: 1.25rem;
@@ -7133,7 +7348,11 @@ export default {
 }
 
 .pos-categories-list {
-  gap: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.1rem, 1fr));
+  gap: 0.48rem;
+  align-items: stretch;
+  padding: 0 0.12rem 0.12rem;
 }
 
 /* واجهة v2 — شريط التصنيفات والأدوات أقل ارتفاعاً (يتغلب على شبكة main.css الكبيرة على الشاشات الواسعة) */
@@ -7170,49 +7389,93 @@ export default {
 }
 
 .pos-main-section--v2 .pos-categories-list {
-  gap: 0.4rem !important;
-  padding: 0 0.12rem 0.12rem !important;
-  grid-template-columns: repeat(auto-fill, minmax(3.65rem, 1fr)) !important;
+  grid-template-columns: repeat(auto-fill, minmax(4.3rem, 1fr)) !important;
+  gap: 0.44rem !important;
+  padding: 0 0.1rem 0.16rem !important;
 }
 
 .pos-main-section--v2 .pos-category-btn {
-  padding: 0.28rem 0.38rem;
-  border-radius: 0.62rem;
-  font-size: clamp(0.62rem, 1.8vmin + 0.42rem, 0.88rem);
-  line-height: 1.18;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 2px 10px rgba(0, 0, 0, 0.22),
-    0 1px 4px rgba(0, 0, 0, 0.12);
+  min-height: 2.1rem;
+  padding: 0.34rem 0.4rem;
+  border-radius: 0.68rem;
+  font-size: clamp(0.68rem, 1.2vmin + 0.44rem, 0.9rem);
+  line-height: 1.16;
 }
 
 .pos-main-section--v2 .pos-category-btn:hover {
   transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 6px 18px rgba(99, 102, 241, 0.18),
-    0 3px 10px rgba(0, 0, 0, 0.2);
 }
 
 .pos-category-btn {
-  border-radius: 999px;
-  padding: 0.55rem 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  min-height: 2.15rem;
+  padding: 0.38rem 0.5rem;
+  border-radius: 0.72rem;
   font-weight: 700;
-  border: 2px solid var(--border-color);
-  background: var(--bg-primary);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(148, 163, 184, 0.04) 100%);
   color: var(--text-primary);
-  transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .pos-category-btn:hover {
   border-color: var(--primary-color);
   color: var(--primary-color);
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.14) 0%, rgba(99, 102, 241, 0.08) 100%);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.16);
+}
+
+.pos-category-btn:active {
+  transform: translateY(0);
+}
+
+.pos-category-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.28);
 }
 
 .pos-category-btn-accent {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.2) 0%, rgba(167, 139, 250, 0.14) 100%);
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.26) 0%, rgba(129, 140, 248, 0.18) 100%);
+  border-color: rgba(99, 102, 241, 0.7);
+  color: #e0e7ff;
+}
+
+@media (max-width: 575px) {
+  .pos-main-section--v2 .pos-categories-list {
+    grid-template-columns: repeat(auto-fill, minmax(3.7rem, 1fr)) !important;
+    gap: 0.36rem !important;
+  }
+
+  .pos-main-section--v2 .pos-category-btn {
+    min-height: 2rem;
+    padding: 0.28rem 0.3rem;
+    border-radius: 0.58rem;
+    font-size: 0.7rem;
+  }
+}
+
+@media (min-width: 576px) and (max-width: 991px) {
+  .pos-main-section--v2 .pos-categories-list {
+    grid-template-columns: repeat(auto-fill, minmax(4.25rem, 1fr)) !important;
+  }
+}
+
+@media (min-width: 992px) {
+  .pos-main-section--v2 .pos-categories-list {
+    grid-template-columns: repeat(auto-fill, minmax(5.2rem, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+
+  .pos-main-section--v2 .pos-category-btn {
+    min-height: 2.3rem;
+    font-size: 0.82rem;
+    border-radius: 0.76rem;
+  }
 }
 
 .pos-products-grid {
@@ -7368,30 +7631,43 @@ export default {
 
 .pos-cart-container {
   flex: 1;
+  height: 100%;
   min-height: 0;
   overflow: auto;
   padding: 0.75rem 0.9rem 1.25rem;
 }
 
 /* امتلاء عمود السلة v2: القائمة/الفراغ يمتدان لارتفاع الحاوي (سلة فارغة = رسالة في منتصف المساحة) */
+.main-content-wrapper.pos-route.pos-route--v2 .pos-cart-panel--v2 {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
 .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-container {
   display: flex !important;
   flex-direction: column !important;
-  flex: 1 1 auto !important;
+  flex: 1 1 0% !important;
+  height: 100% !important;
   min-height: 0 !important;
   overflow: hidden !important;
 }
 
 .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-items-section {
-  flex: 1 1 auto !important;
+  flex: 1 1 0% !important;
+  height: 100% !important;
   min-height: 0 !important;
+  max-height: none !important;
   display: flex !important;
   flex-direction: column !important;
 }
 
 .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-items-list {
-  flex: 1 1 auto !important;
+  flex: 1 1 0% !important;
+  height: 100% !important;
   min-height: 0 !important;
+  max-height: none !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
 }
@@ -7403,14 +7679,14 @@ export default {
   align-self: stretch !important;
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 700px) {
   .pos-cart-shell {
     position: sticky;
-    top: 0.75rem;
+    top: 0;
     inset: auto;
     align-self: stretch;
-    height: auto;
-    max-height: calc(100vh - 1.25rem);
+    height: 100%;
+    max-height: none;
     pointer-events: auto;
     z-index: 1;
     display: flex;
@@ -7441,7 +7717,11 @@ export default {
     transform: none !important;
   }
 
-  .pos-cart-panel-head.d-xl-none {
+  .pos-cart-panel-head.d-lg-none {
+    display: none !important;
+  }
+
+  .pos-mobile-cart-fab.d-lg-none {
     display: none !important;
   }
 }
@@ -7878,11 +8158,26 @@ export default {
   gap: 0.5rem;
 }
 
+/* من 700px وفوق: شريط الإنهاء بسطر واحد */
+@media (min-width: 700px) {
+  .pos-cart-checkout-strip {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pos-cart-checkout-segment {
+    flex: 0 0 auto;
+  }
+}
+
 .pos-cart-checkout-segment {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
+  min-height: 78px;
   gap: 0.32rem;
   padding: 0.45rem 0.85rem;
   border-radius: 0.7rem;
@@ -8083,14 +8378,50 @@ export default {
   color: var(--text-secondary);
 }
 
-/* نفس بطاقة الشرائح الأخرى — عنوان + صف (بدون خلفية مميزة) */
-.pos-cart-checkout-segment--actions {
-  margin-inline-start: auto;
-}
-
-.pos-cart-checkout-segment--actions .pos-cart-checkout-actions-row {
+.pos-cart-checkout-summary-actions {
+  margin-top: 0.1rem;
   flex-wrap: wrap;
   align-items: center;
+}
+
+/* سطح المكتب: محتوى الملخص (إحصاءات + أزرار الإنهاء) في سطر واحد */
+@media (min-width: 992px) {
+  .pos-cart-checkout-segment--summary {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .pos-cart-checkout-segment--summary > .pos-cart-checkout-segment-label:first-of-type {
+    flex: 0 0 100%;
+    order: 0;
+  }
+
+  .pos-cart-checkout-segment--summary .pos-cart-checkout-segment-label {
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  .pos-cart-checkout-segment--summary > .pos-cart-checkout-btn-row {
+    order: 1;
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .pos-cart-checkout-segment--summary > .pos-cart-checkout-summary-actions {
+    order: 2;
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  /* إخفاء عنوان "إنهاء الطلب" داخل الملخص لتقليل الارتفاع */
+  .pos-cart-checkout-segment--summary > .pos-cart-checkout-segment-label:nth-of-type(2) {
+    display: none;
+  }
 }
 
 .pos-cart-checkout-action-btn {
@@ -8155,6 +8486,7 @@ export default {
   }
 
   .pos-cart-checkout-segment {
+    min-height: 72px;
     padding: 0.4rem 0.7rem;
   }
 
@@ -8164,13 +8496,7 @@ export default {
 }
 
 @media (max-width: 767px) {
-  .pos-cart-checkout-segment--actions {
-    flex: 1 1 100%;
-    margin-inline-start: 0;
-    margin-top: 0.15rem;
-  }
-
-  .pos-cart-checkout-segment--actions .pos-cart-checkout-actions-row {
+  .pos-cart-checkout-summary-actions {
     width: 100%;
     justify-content: stretch;
   }

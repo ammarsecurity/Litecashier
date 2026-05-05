@@ -3001,6 +3001,267 @@ namespace RestaurantPOS.Controllers
         }
 
         [Authorize(Roles = "Commercial,POS,Waiter")]
+        [HttpPost("TransferOrderItemToTable")]
+        public async Task<ActionResult<GlobalResponse<object>>> TransferOrderItemToTable([FromBody] TransferOrderItemToTableRequest request)
+        {
+            try
+            {
+                if (request == null || request.SourceOrderId <= 0 || request.SourceOrderItemId <= 0 || request.SourceTableId <= 0 || request.DestinationTableId <= 0)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "بيانات النقل غير مكتملة"
+                    });
+                }
+
+                if (request.SourceTableId == request.DestinationTableId)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "يرجى اختيار طاولة مختلفة"
+                    });
+                }
+
+                var commercialUserId = GetCommercialUserId();
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+
+                var sourceTable = await _dbConfig.Tables
+                    .Include(t => t.CurrentOrder)
+                    .FirstOrDefaultAsync(t => t.Id == request.SourceTableId && !t.IsDeleted && t.InsertByUserId == commercialUserId);
+
+                if (sourceTable == null)
+                {
+                    return NotFound(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "الطاولة المصدر غير موجودة"
+                    });
+                }
+
+                var destinationTable = await _dbConfig.Tables
+                    .Include(t => t.CurrentOrder)
+                    .FirstOrDefaultAsync(t => t.Id == request.DestinationTableId && !t.IsDeleted && t.InsertByUserId == commercialUserId);
+
+                if (destinationTable == null)
+                {
+                    return NotFound(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "الطاولة الهدف غير موجودة"
+                    });
+                }
+
+                if (!sourceTable.CurrentOrderId.HasValue)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "لا يوجد طلب نشط على الطاولة المصدر"
+                    });
+                }
+
+                if (request.SourceOrderId > 0 && request.SourceOrderId != sourceTable.CurrentOrderId.Value)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "رقم الفاتورة المصدر لا يطابق طلب الطاولة الحالي"
+                    });
+                }
+
+                var sourceOrder = await _dbConfig.CustomerOrders
+                    .Include(o => o.CustomerOrderItem)
+                    .FirstOrDefaultAsync(o => o.Id == sourceTable.CurrentOrderId.Value && !o.IsDeleted);
+
+                if (sourceOrder == null)
+                {
+                    return NotFound(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "الفاتورة المصدر غير موجودة"
+                    });
+                }
+
+                if (sourceTable.CurrentOrderId != sourceOrder.Id)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "الفاتورة المصدر لا تطابق الطاولة الحالية"
+                    });
+                }
+
+                var sourceItem = sourceOrder.CustomerOrderItem?.FirstOrDefault(i => i.Id == request.SourceOrderItemId && !i.IsDeleted);
+                // Backward/fault-tolerant fallback: if FE accidentally sends ItemId instead of CustomerOrderItem.Id.
+                if (sourceItem == null)
+                {
+                    sourceItem = sourceOrder.CustomerOrderItem?.FirstOrDefault(i => i.ItemId == request.SourceOrderItemId && !i.IsDeleted);
+                }
+                if (sourceItem == null)
+                {
+                    return NotFound(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "المادة المصدر غير موجودة"
+                    });
+                }
+
+                // Find or create destination order
+                var destinationOrder = destinationTable.CurrentOrderId.HasValue
+                    ? await _dbConfig.CustomerOrders
+                        .Include(o => o.CustomerOrderItem)
+                        .FirstOrDefaultAsync(o => o.Id == destinationTable.CurrentOrderId.Value && !o.IsDeleted)
+                    : null;
+
+                if (destinationOrder == null)
+                {
+                    destinationOrder = new CustomerOrder
+                    {
+                        OrderCode = RandomCode(),
+                        PaymentMethod = sourceOrder.PaymentMethod,
+                        InsertByUserId = userId,
+                        TableId = destinationTable.Id,
+                        OrderType = "DineIn",
+                        OrderStatus = "Pending",
+                        PaymentStatus = "Pending",
+                        Notes = sourceOrder.Notes
+                    };
+
+                    _dbConfig.CustomerOrders.Add(destinationOrder);
+                    await _dbConfig.SaveChangesAsync();
+
+                    destinationTable.CurrentOrderId = destinationOrder.Id;
+                    destinationTable.Status = "Occupied";
+                    _dbConfig.Tables.Update(destinationTable);
+
+                    var destinationOrderTable = new OrderTable
+                    {
+                        OrderId = destinationOrder.Id,
+                        TableId = destinationTable.Id,
+                        IsPrimary = true,
+                        InsertByUserId = userId
+                    };
+                    _dbConfig.OrderTables.Add(destinationOrderTable);
+                }
+                else
+                {
+                    destinationTable.Status = "Occupied";
+                    if (!destinationTable.CurrentOrderId.HasValue)
+                    {
+                        destinationTable.CurrentOrderId = destinationOrder.Id;
+                    }
+                    _dbConfig.Tables.Update(destinationTable);
+                }
+
+                var destinationExistingItem = destinationOrder.CustomerOrderItem?
+                    .FirstOrDefault(i => !i.IsDeleted && i.ItemId == sourceItem.ItemId && i.SellingPrice == sourceItem.SellingPrice);
+
+                if (destinationExistingItem != null)
+                {
+                    destinationExistingItem.Quantity += sourceItem.Quantity;
+                    _dbConfig.CustomerOrderItems.Update(destinationExistingItem);
+                }
+                else
+                {
+                    var movedItem = new CustomerOrderItem
+                    {
+                        ItemId = sourceItem.ItemId,
+                        CustomerOrderId = destinationOrder.Id,
+                        Quantity = sourceItem.Quantity,
+                        SellingPrice = sourceItem.SellingPrice,
+                        PurchasingPrice = sourceItem.PurchasingPrice,
+                        InsertByUserId = userId
+                    };
+                    _dbConfig.CustomerOrderItems.Add(movedItem);
+                }
+
+                sourceItem.IsDeleted = true;
+                _dbConfig.CustomerOrderItems.Update(sourceItem);
+
+                var sourceRemainingItemsCount = await _dbConfig.CustomerOrderItems
+                    .CountAsync(i => i.CustomerOrderId == sourceOrder.Id && !i.IsDeleted);
+
+                if (sourceRemainingItemsCount == 0)
+                {
+                    sourceTable.Status = "Available";
+                    sourceTable.CurrentOrderId = null;
+                    _dbConfig.Tables.Update(sourceTable);
+
+                    sourceOrder.IsDeleted = true;
+                    _dbConfig.CustomerOrders.Update(sourceOrder);
+                }
+                else
+                {
+                    sourceTable.Status = "Occupied";
+                    sourceTable.CurrentOrderId = sourceOrder.Id;
+                    _dbConfig.Tables.Update(sourceTable);
+                }
+
+                await _dbConfig.SaveChangesAsync();
+
+                try
+                {
+                    await _hubContext.Clients.All.SendAsync("TableUpdated", new
+                    {
+                        TableId = sourceTable.Id,
+                        Status = sourceTable.Status,
+                        TableNumber = sourceTable.TableNumber,
+                        Zone = sourceTable.Zone,
+                        CurrentOrderId = sourceTable.CurrentOrderId
+                    });
+
+                    await _hubContext.Clients.All.SendAsync("TableUpdated", new
+                    {
+                        TableId = destinationTable.Id,
+                        Status = destinationTable.Status,
+                        TableNumber = destinationTable.TableNumber,
+                        Zone = destinationTable.Zone,
+                        CurrentOrderId = destinationTable.CurrentOrderId
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error sending SignalR notifications for item transfer");
+                }
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new
+                    {
+                        SourceOrderId = sourceOrder.Id,
+                        DestinationOrderId = destinationOrder.Id,
+                        SourceTableId = sourceTable.Id,
+                        DestinationTableId = destinationTable.Id,
+                        MovedItemId = sourceItem.ItemId
+                    },
+                    ErrorStatus = false,
+                    Message = $"تم نقل المادة إلى طاولة {destinationTable.TableNumber} بنجاح"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error transferring order item to table");
+                return StatusCode(500, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "حدث خطأ أثناء نقل المادة"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial,POS,Waiter")]
         [HttpPut("TransferTable")]
         public async Task<ActionResult<GlobalResponse<object>>> TransferTable(int fromTableId, int toTableId)
         {

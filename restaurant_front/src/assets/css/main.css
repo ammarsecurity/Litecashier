@@ -10089,7 +10089,6 @@ table .b-icon,
     position: sticky;
     top: 1rem;
     height: auto;
-    max-height: 600px;
     z-index: 10;
   }
   
@@ -12085,7 +12084,6 @@ table .b-icon,
   
   .pos-cart-container {
     height: auto;
-    max-height: 600px;
   }
   
   .pos-cart-items-section {

@@ -44,7 +44,14 @@ export default {
       return localStorage.getItem("role");
     },
     flatHubItems() {
-      return flatNavItemsForHub(this.role, (k) => this.$t(k));
+      const modules = flatNavItemsForHub(this.role, (k) => this.$t(k));
+      const dashboardEntry = {
+        name: "dashboard-home",
+        label: this.$t("appHomeLink") || this.$t("home") || "الرئيسية",
+        link: "/dashboard",
+        icon: "house-door-fill",
+      };
+      return [dashboardEntry, ...modules];
     },
   },
 };

@@ -21,6 +21,30 @@
                 </router-link>
               </div>
             </div>
+            <section v-if="dashboardHubItems.length" class="dashboard-modules-hub">
+              <div class="section-header section-header--compact">
+                <h2 class="section-title">
+                  <b-icon icon="grid-3x3-gap-fill" class="section-title-icon"></b-icon>
+                  {{ $t("systemModules") }}
+                </h2>
+                <p class="dashboard-modules-subtitle">
+                  {{ $t("sectionsPageSubtitle") || "اختر القسم للانتقال السريع" }}
+                </p>
+              </div>
+              <div class="hub-cards-grid">
+                <router-link
+                  v-for="item in dashboardHubItems"
+                  :key="item.name"
+                  :to="item.link"
+                  class="hub-module-card"
+                >
+                  <div class="hub-module-icon-wrap">
+                    <b-icon :icon="item.icon" class="hub-module-icon"></b-icon>
+                  </div>
+                  <span class="hub-module-label">{{ item.label }}</span>
+                </router-link>
+              </div>
+            </section>
 
             <!-- Quick Stats Overview -->
             <div class="dashboard-quick-stats">
@@ -649,6 +673,7 @@
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "../http/api.js";
 import StatCard from "@/components/StatCard.vue";
+import { flatNavItemsForHub } from "@/navigation/navItems.js";
 
 export default {
   name: "DashboardView",
@@ -729,6 +754,9 @@ export default {
     },
     totalInvoicePages() {
       return Math.ceil(this.totalInvoices / this.invoicePageSize);
+    },
+    dashboardHubItems() {
+      return flatNavItemsForHub(this.role, (k) => this.$t(k));
     },
   },
   watch: {
@@ -1029,6 +1057,74 @@ export default {
   border-color: var(--primary-color);
   color: #fff;
   transform: translateY(-1px);
+}
+
+.dashboard-modules-hub {
+  margin: 0.25rem 0 1.5rem;
+}
+
+.section-header--compact {
+  margin-bottom: 1rem;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.dashboard-modules-subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.hub-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 0.8rem;
+}
+
+.hub-module-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.95rem 0.7rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  min-height: 102px;
+  text-align: center;
+}
+
+.hub-module-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-color);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.hub-module-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+}
+
+.hub-module-icon {
+  font-size: 1.2rem;
+  color: var(--primary-color);
+}
+
+.hub-module-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .section-header {
@@ -1519,4 +1615,8 @@ export default {
   text-align: left;
 }
 </style>
+
+
+
+
 
