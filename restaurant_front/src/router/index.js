@@ -1,6 +1,5 @@
 import Vue from 'vue'
 import VueRouter from 'vue-router'
-import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/Auth/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import ItemsView from '../views/ItemsView.vue'
@@ -26,13 +25,27 @@ import PrintTemplatesView from '../views/PrintTemplatesView.vue'
 import { i18n } from '../main'
 Vue.use(VueRouter)
 
+const getDefaultPathForRole = (role) => {
+  if (role === 'Admin') return '/users'
+  if (role === 'POS') return '/pos'
+  if (role === 'TablesManager') return '/restaurant/tables'
+  if (role === 'ReservationsManager') return '/restaurant/reservations'
+  if (role === 'LoyaltyManager') return '/restaurant/loyalty'
+  if (role === 'Waiter') return '/restaurant/waiter'
+  return '/dashboard'
+}
+
 const routes = [
   {
     path: '/',
     name: 'home',
-    component: HomeView,
-    meta: {
-      requiresAuth: false
+    redirect: () => {
+      const token = localStorage.getItem('token')
+      const role = localStorage.getItem('role')
+      if (token && role) {
+        return getDefaultPathForRole(role)
+      }
+      return '/login'
     }
   },
   {
@@ -298,6 +311,14 @@ router.beforeEach((to, from, next) => {
   try {
     i18n.locale = localStorage.getItem('language') || 'ar';
 
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('role');
+
+    // If user is already logged in and tries to open login/register, send to role home.
+    if ((to.path === '/login' || to.path === '/register') && token && role) {
+      return next(getDefaultPathForRole(role));
+    }
+
     // Routes that don't require authentication
     if (to.meta.requiresAuth === false) {
       return next();
@@ -310,10 +331,6 @@ router.beforeEach((to, from, next) => {
       localStorage.removeItem('info');
       return next('/login');
     }
-
-    // Check if user is authenticated
-    const token = localStorage.getItem('token');
-    const role = localStorage.getItem('role');
 
     if (to.meta.requiresAuth === true && !token) {
       return next('/login');
@@ -352,22 +369,8 @@ router.beforeEach((to, from, next) => {
         }
         return next();
       } else {
-        // User doesn't have required role, redirect to appropriate page
-        if (role === 'Admin') {
-          return next('/users');
-        } else if (role === 'POS') {
-          return next('/pos');
-        } else if (role === 'TablesManager') {
-          return next('/restaurant/tables');
-        } else if (role === 'ReservationsManager') {
-          return next('/restaurant/reservations');
-        } else if (role === 'LoyaltyManager') {
-          return next('/restaurant/loyalty');
-        } else if (role === 'Waiter') {
-          return next('/restaurant/waiter');
-        } else {
-          return next('/dashboard');
-        }
+        // User doesn't have required role, redirect to role home.
+        return next(getDefaultPathForRole(role));
       }
     }
 

@@ -73,15 +73,7 @@
                     <span>{{ $t("tables") || "الطاولات" }}</span>
                     <span class="waiter-tables-count">({{ filteredTables.length }})</span>
                   </div>
-                  <button 
-                    v-if="selectedTableIds.length > 1" 
-                    class="waiter-merge-tables-btn-compact" 
-                    @click="openMergeTablesModal"
-                    :title="$t('mergeTables') || 'دمج طاولات'"
-                  >
-                    <b-icon icon="layers"></b-icon>
-                    <span>{{ $t("mergeTables") || "دمج" }}</span>
-                  </button>
+                  
                   <router-link
                     to="/restaurant/table-layout"
                     class="waiter-floor-plan-link"
@@ -302,94 +294,6 @@
               </div>
             </b-modal>
 
-            <!-- Merge Tables Modal -->
-            <b-modal id="modal-merge-tables" :title="$t('mergeTables') || 'دمج الطاولات'" hide-header hide-footer class="users-modal">
-              <div class="merge-tables-content">
-                <div class="merge-tables-info">
-                  <b-icon icon="layers" class="merge-tables-icon"></b-icon>
-                  <h3 class="merge-tables-title">{{ $t("selectTablesToMerge") || "اختر الطاولات للدمج" }}</h3>
-                  <p class="merge-tables-message">
-                    {{ $t("mergeTablesMessage") || "سيتم دمج الطاولات المحددة في طلب واحد. الطاولات المحددة:" }}
-                  </p>
-                </div>
-                <div class="merge-tables-list">
-                  <div 
-                    v-for="tableId in selectedTableIds" 
-                    :key="tableId"
-                    class="merge-table-item"
-                  >
-                    <div class="merge-table-info">
-                      <b-icon icon="table" class="me-2"></b-icon>
-                      <span>{{ getTableNumberById(tableId) }}</span>
-                    </div>
-                    <button 
-                      class="merge-table-remove-btn"
-                      @click="removeTableFromSelection(tableId)"
-                      :title="$t('removeTable') || 'إزالة الطاولة'"
-                    >
-                      <b-icon icon="x-circle-fill"></b-icon>
-                    </button>
-                  </div>
-                </div>
-                <div class="merge-tables-actions">
-                  <button class="merge-tables-cancel-btn" @click="closeMergeTablesModal">
-                    <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-                    {{ $t("cancelButton") || "إلغاء" }}
-                  </button>
-                  <button 
-                    class="merge-tables-confirm-btn" 
-                    @click="confirmMergeTables"
-                    :disabled="selectedTableIds.length < 2 || loadingMergeTables"
-                  >
-                    <b-spinner small v-if="loadingMergeTables" class="me-2"></b-spinner>
-                    <b-icon v-else icon="layers" class="me-2"></b-icon>
-                    {{ loadingMergeTables ? ($t("merging") || "جاري الدمج...") : ($t("confirmMerge") || "تأكيد الدمج") }}
-                  </button>
-                </div>
-              </div>
-            </b-modal>
-
-            <!-- Order Notes Modal -->
-            <b-modal id="modal-transfer-table" :title="$t('transferTable') || 'تبديل الطاولة'" hide-header hide-footer class="users-modal">
-              <div class="transfer-table-content">
-                <div class="transfer-table-info">
-                  <p class="transfer-table-message">
-                    {{ $t("transferTableMessage") || "اختر الطاولة الجديدة لنقل الطلب من طاولة" }} <strong>{{ selectedTableNumber }}</strong>
-                  </p>
-                </div>
-                <div class="transfer-table-select">
-                  <label class="transfer-table-label">
-                    <b-icon icon="table" class="me-2"></b-icon>
-                    {{ $t("selectNewTable") || "اختر الطاولة الجديدة" }}
-                  </label>
-                  <select v-model="transferToTableId" class="transfer-table-select-input">
-                    <option value="">{{ $t("selectTable") || "اختر طاولة" }}</option>
-                    <option 
-                      v-for="table in availableTablesForTransfer" 
-                      :key="table.id" 
-                      :value="table.id"
-                    >
-                      {{ table.tableNumber }} - {{ table.zone || $t("zone") || "المنطقة" }} ({{ $t(table.status.toLowerCase()) || table.status }})
-                    </option>
-                  </select>
-                </div>
-                <div class="transfer-table-actions">
-                  <button class="transfer-table-cancel-btn" @click="closeTransferTableModal">
-                    <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-                    {{ $t("cancelButton") || "إلغاء" }}
-                  </button>
-                  <button 
-                    class="transfer-table-confirm-btn" 
-                    @click="confirmTransferTable"
-                    :disabled="!transferToTableId || transferToTableId === selectedTableId"
-                  >
-                    <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                    {{ $t("confirmTransfer") || "تأكيد التبديل" }}
-                  </button>
-                </div>
-              </div>
-            </b-modal>
-
             <b-modal id="modal-order-notes" :title="$t('orderNotes') || 'ملاحظات الطلب'" hide-header hide-footer class="users-modal">
               <div class="modal-content-wrapper">
                 <div class="order-notes-content">
@@ -536,14 +440,7 @@
                     <b-icon icon="table" class="me-2"></b-icon>
                     <span>{{ $t("selectedTable") || "الطاولة المختارة" }}: {{ selectedTableNumber }}</span>
                   </div>
-                  <button 
-                    class="waiter-transfer-table-btn" 
-                    @click="openTransferTableModal"
-                    :title="$t('transferTable') || 'تبديل الطاولة'"
-                  >
-                    <b-icon icon="arrow-left-right" class="me-2"></b-icon>
-                    <span>{{ $t("transferTable") || "تبديل الطاولة" }}</span>
-                  </button>
+                  
                 </div>
 
                 <!-- Cart Items List -->
@@ -738,9 +635,7 @@ export default {
         status: ''
       },
       refreshInterval: null,
-      transferToTableId: null,
       loadingTableOrders: false,
-      loadingMergeTables: false,
       tablesToClose: null, // For merged tables
       // Print related variables
       commercialUserInfo: {
@@ -801,13 +696,6 @@ export default {
       }
       
       return filtered.sort((a, b) => a.tableNumber - b.tableNumber);
-    },
-    availableTablesForTransfer() {
-      // Get tables that are available or can accept transfer (excluding current selected table)
-      return this.allTables.filter(table => 
-        table.id !== this.selectedTableId && 
-        (table.status === 'Available' || table.status === 'Occupied')
-      ).sort((a, b) => a.tableNumber - b.tableNumber);
     },
     mergedTableIds() {
       // Get all merged table IDs for the currently selected table
@@ -1599,167 +1487,9 @@ export default {
       signalRService.off('FloorPlanUpdated');
       signalRService.off('OrderTransferred');
     },
-    openTransferTableModal() {
-      this.transferToTableId = null;
-      this.$root.$emit('bv::show::modal', 'modal-transfer-table');
-    },
-    closeTransferTableModal() {
-      this.transferToTableId = null;
-      this.$root.$emit('bv::hide::modal', 'modal-transfer-table');
-    },
-    async confirmTransferTable() {
-      if (!this.transferToTableId || this.transferToTableId === this.selectedTableId) {
-        this.$toast.warning(this.$i18n.t('pleaseSelectDifferentTable') || 'يرجى اختيار طاولة مختلفة', {
-          position: "top-right",
-          timeout: 2000,
-          maxToasts: 1,
-        });
-        return;
-      }
-
-      try {
-        this.show = true;
-        const response = await HTTP.put(`Admin/TransferTable?fromTableId=${this.selectedTableId}&toTableId=${this.transferToTableId}`);
-        
-        if (response.data && !response.data.errorStatus) {
-          this.$toast.success(response.data.message || this.$i18n.t('tableTransferredSuccessfully') || 'تم تبديل الطاولة بنجاح', {
-            position: "top-right",
-            timeout: 3000,
-            maxToasts: 1,
-          });
-
-          // Update selected table to new table
-          const newTable = this.allTables.find(t => t.id === this.transferToTableId);
-          if (newTable) {
-            this.selectedTableId = newTable.id;
-            this.selectedTableNumber = newTable.tableNumber;
-            // Reload table orders
-            await this.getTableOrders(newTable);
-          }
-
-          // Refresh tables
-          await this.getTables();
-          
-          this.closeTransferTableModal();
-        } else {
-          this.$toast.error(response.data?.message || this.$i18n.t('errorTransferringTable') || 'حدث خطأ أثناء تبديل الطاولة', {
-            position: "top-right",
-            timeout: 3000,
-            maxToasts: 1,
-          });
-        }
-      } catch (error) {
-        console.error('Error transferring table:', error);
-        this.$toast.error(this.$i18n.t('errorTransferringTable') || 'حدث خطأ أثناء تبديل الطاولة', {
-          position: "top-right",
-          timeout: 3000,
-          maxToasts: 1,
-        });
-      } finally {
-        this.show = false;
-      }
-    },
-    openMergeTablesModal() {
-      if (this.selectedTableIds.length < 2) {
-        this.$toast.warning(this.$i18n.t("selectAtLeastTwoTables") || "يرجى اختيار طاولتين على الأقل للدمج", {
-          position: "top-right",
-          timeout: 2000,
-          maxToasts: 1,
-        });
-        return;
-      }
-      this.$bvModal.show('modal-merge-tables');
-    },
-    closeMergeTablesModal() {
-      this.$bvModal.hide('modal-merge-tables');
-    },
-    removeTableFromSelection(tableId) {
-      this.selectedTableIds = this.selectedTableIds.filter(id => id !== tableId);
-      if (this.selectedTableIds.length === 0) {
-        this.closeMergeTablesModal();
-      }
-    },
-    getTableNumberById(tableId) {
-      const table = this.allTables.find(t => t.id === tableId);
-      return table ? table.tableNumber : '';
-    },
-    getMergedTableNumbers() {
-      if (this.mergedTableIds.length <= 1) {
-        return this.selectedTableNumber || '';
-      }
-      const mergedTables = this.allTables
-        .filter(t => this.mergedTableIds.includes(t.id))
-        .sort((a, b) => a.tableNumber - b.tableNumber);
-      return mergedTables.map(t => t.tableNumber).join('و');
-    },
-    async confirmMergeTables() {
-      if (this.selectedTableIds.length < 2) {
-        this.$toast.warning(this.$i18n.t("selectAtLeastTwoTables") || "يرجى اختيار طاولتين على الأقل للدمج", {
-          position: "top-right",
-          timeout: 2000,
-          maxToasts: 1,
-        });
-        return;
-      }
-
-      this.loadingMergeTables = true;
-      try {
-        const response = await HTTP.post('Admin/MergeTables', this.selectedTableIds);
-        
-        if (response.data && !response.data.errorStatus) {
-          this.$toast.success(response.data.message || this.$i18n.t("tablesMergedSuccess") || "تم دمج الطاولات بنجاح", {
-            position: "top-right",
-            timeout: 2500,
-            maxToasts: 1,
-          });
-          
-          // Refresh tables
-          await this.getTables();
-          
-          // Load the merged order if order ID is available
-          if (response.data.data && response.data.data.id) {
-            // Find the primary table (first table in selectedTableIds)
-            const primaryTableId = this.selectedTableIds[0];
-            
-            // Wait a bit for tables to refresh
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Refresh tables to get updated status
-            await this.getTables();
-            
-            const primaryTable = this.allTables.find(t => t.id === primaryTableId);
-            
-            if (primaryTable) {
-              // Select the primary table to load its order (this will load items into cart)
-              await this.selectTable(primaryTable);
-            }
-          } else {
-            // No order ID, just refresh tables
-            await this.getTables();
-          }
-          
-          // Reset multi-select
-          this.selectedTableIds = [];
-          
-          this.closeMergeTablesModal();
-        } else {
-          this.$toast.error(response.data?.message || this.$i18n.t("mergeTablesFailed") || "فشل دمج الطاولات", {
-            position: "top-right",
-            timeout: 2500,
-            maxToasts: 1,
-          });
-        }
-      } catch (error) {
-        console.error('Error merging tables:', error);
-        this.$toast.error(error.response?.data?.message || this.$i18n.t("mergeTablesError") || "حدث خطأ أثناء دمج الطاولات", {
-          position: "top-right",
-          timeout: 2500,
-          maxToasts: 1,
-        });
-      } finally {
-        this.loadingMergeTables = false;
-      }
-    },
+    
+    
+    
     addOrder(isPrint = false) {
       if (!this.selectedTableId) {
         this.$toast.error(this.$i18n.t("pleaseSelectTable") || "الرجاء اختيار طاولة", {

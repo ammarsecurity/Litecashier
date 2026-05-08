@@ -1,13 +1,12 @@
 <template>
   <div>
     <!-- طبقة فوق كل الصفحة: لا تُخفى بـ sessionStorage حتى يظهر التحديث دائماً حتى التخطي -->
-    <teleport to="body">
-      <div
-        v-if="posFloorPlanGateVisible"
-        class="pos-floor-plan-gate pos-floor-plan-gate--fullscreen pos-floor-plan-gate--page"
-        role="dialog"
-        aria-modal="true"
-      >
+    <div
+      v-if="posFloorPlanGateVisible"
+      class="pos-floor-plan-gate pos-floor-plan-gate--fullscreen pos-floor-plan-gate--page"
+      role="dialog"
+      aria-modal="true"
+    >
         <b-overlay
           :show="posFloorPlanLoading"
           spinner-variant="light"
@@ -42,32 +41,7 @@
                   </div>
                 </div>
 
-                <div class="pos-fp-gate-tools" @click.stop>
-                  <p class="pos-fp-gate-tools-title">{{ $t("posFloorPlanGateTools") }}</p>
-                  <p class="pos-fp-gate-tools-hint">{{ $t("posFloorPlanMergeModeHelp") }}</p>
-                  <button
-                    type="button"
-                    class="pos-fp-gate-tool-toggle"
-                    :class="{ 'pos-fp-gate-tool-toggle--on': posFloorPlanMergeMode }"
-                    @click="togglePosFloorPlanMergeMode"
-                  >
-                    <b-icon icon="layers" class="pos-fp-gate-tool-ic" />
-                    <span>{{ $t("posFloorPlanMergeMode") }}</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="pos-fp-gate-tool-btn"
-                    :disabled="selectedTableIds.length < 2"
-                    @click="openMergeTablesModalFromGate"
-                  >
-                    <b-icon icon="check2-circle" class="pos-fp-gate-tool-ic" />
-                    <span>{{ $t("posFloorPlanOpenMerge") }}</span>
-                  </button>
-                  <button type="button" class="pos-fp-gate-tool-btn pos-fp-gate-tool-btn--accent" @click="openTransferTableFromGate">
-                    <b-icon icon="arrow-left-right" class="pos-fp-gate-tool-ic" />
-                    <span>{{ $t("posFloorPlanTransferOrder") }}</span>
-                  </button>
-                </div>
+                
 
                 <div
                   class="pos-floor-plan-gate-actions pos-floor-plan-gate-actions--footer pos-floor-plan-gate-actions--intro-foot"
@@ -98,10 +72,7 @@
                       class="pos-floor-plan-gate-table-chip"
                       :class="[
                         posFloorTableStatusClass(t.status),
-                        {
-                          'pos-floor-plan-gate-table-chip--picked':
-                            selectedTableIds.includes(t.id) && posFloorPlanMergeMode,
-                        },
+                        {},
                       ]"
                       :style="posFloorChipStyle(t.id)"
                       :disabled="t.status === 'OutOfService' || t.status === 'Reserved'"
@@ -121,8 +92,7 @@
             </div>
           </div>
         </b-overlay>
-      </div>
-    </teleport>
+    </div>
 
     <b-overlay
       :show="show"
@@ -189,16 +159,7 @@
                     </div>
                   </div>
                   <div class="pos-tables-toolbar-end">
-                    <button
-                      v-if="selectedTableIds.length > 1"
-                      type="button"
-                      class="pos-merge-tables-btn-compact"
-                      @click="openMergeTablesModal"
-                      :title="$t('mergeTables') || 'دمج طاولات'"
-                    >
-                      <b-icon icon="layers"></b-icon>
-                      <span class="pos-merge-tables-btn-compact-text">{{ $t("mergeTables") || "دمج" }}</span>
-                    </button>
+                    
                     <div v-if="selectedTableId" class="pos-table-actions-buttons pos-table-actions-buttons--inline">
                       <template v-if="mergedTableIds.length > 1">
                         <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" @click="addOrder(false)">
@@ -444,14 +405,7 @@
                               <b-icon icon="plus-lg"></b-icon>
                             </button>
                           </div>
-                          <button
-                            v-if="canTransferCartItem(item)"
-                            class="pos-cart-item-transfer"
-                            @click.stop="openTransferItemModal(item)"
-                            :title="$t('transferItem') || 'نقل مادة'"
-                          >
-                            <b-icon icon="arrow-left-right"></b-icon>
-                          </button>
+                          
                           <button
                             class="pos-cart-item-delete"
                             @click.stop="deleteItem(index)"
@@ -553,89 +507,7 @@
               </div>
             </b-modal>
 
-            <!-- Merge Tables Modal -->
-            <b-modal id="modal-merge-tables" :title="$t('mergeTables') || 'دمج طاولات'" hide-header hide-footer class="users-modal">
-              <div class="merge-tables-content">
-                <div class="merge-tables-info">
-                  <p class="merge-tables-message">
-                    {{ $t("mergeTablesMessage") || "الطاولات المحددة للدمج:" }}
-                  </p>
-                  <div class="merge-tables-list">
-                    <div 
-                      v-for="tableId in selectedTableIds" 
-                      :key="tableId"
-                      class="merge-table-item"
-                    >
-                      <b-icon icon="table" class="me-2"></b-icon>
-                      <span>{{ getTableNumberById(tableId) }}</span>
-                      <button 
-                        class="merge-table-remove-btn"
-                        @click="removeTableFromSelection(tableId)"
-                      >
-                        <b-icon icon="x-circle-fill"></b-icon>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div class="merge-tables-actions">
-                  <button class="merge-tables-cancel-btn" @click="closeMergeTablesModal">
-                    <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-                    {{ $t("cancelButton") || "إلغاء" }}
-                  </button>
-                  <button 
-                    class="merge-tables-confirm-btn" 
-                    @click="confirmMergeTables"
-                    :disabled="selectedTableIds.length < 2 || loadingMergeTables"
-                  >
-                    <b-spinner small v-if="loadingMergeTables" class="me-2"></b-spinner>
-                    <b-icon v-else icon="layers" class="me-2"></b-icon>
-                    {{ loadingMergeTables ? ($t("merging") || "جاري الدمج...") : ($t("confirmMerge") || "تأكيد الدمج") }}
-                  </button>
-                </div>
-              </div>
-            </b-modal>
-
-            <!-- Transfer Table Modal -->
-            <b-modal id="modal-transfer-table" :title="transferModalTitle" hide-header hide-footer class="users-modal">
-              <div class="transfer-table-content">
-                <div class="transfer-table-info">
-                  <p class="transfer-table-message">
-                    {{ transferModalMessage }} <strong>{{ getSelectedTableNumber() }}</strong>
-                  </p>
-                </div>
-                <div class="transfer-table-select">
-                  <label class="transfer-table-label">
-                    <b-icon icon="table" class="me-2"></b-icon>
-                    {{ $t("selectNewTable") || "اختر الطاولة الجديدة" }}
-                  </label>
-                  <select v-model="transferToTableId" class="transfer-table-select-input">
-                    <option value="">{{ $t("selectTable") || "اختر طاولة" }}</option>
-                    <option 
-                      v-for="table in availableTablesForTransfer" 
-                      :key="table.id" 
-                      :value="table.id"
-                    >
-                      {{ table.tableNumber }} - {{ table.zone || $t("zone") || "المنطقة" }} ({{ $t(table.status.toLowerCase()) || table.status }})
-                    </option>
-                  </select>
-                </div>
-                <div class="transfer-table-actions">
-                  <button class="transfer-table-cancel-btn" @click="closeTransferTableModal">
-                    <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-                    {{ $t("cancelButton") || "إلغاء" }}
-                  </button>
-                  <button 
-                    class="transfer-table-confirm-btn" 
-                    @click="confirmTransferTable"
-                    :disabled="!transferToTableId || transferToTableId === selectedTableId || loadingTransferTable"
-                  >
-                    <b-spinner small v-if="loadingTransferTable" class="me-2"></b-spinner>
-                    <b-icon v-else icon="check-circle-fill" class="me-2"></b-icon>
-                    {{ loadingTransferTable ? transferModalLoadingLabel : transferModalConfirmLabel }}
-                  </button>
-                </div>
-              </div>
-            </b-modal>
+            
 
             <!-- Order Notes Modal -->
             <b-modal id="modal-order-notes" :title="$t('orderNotes') || 'ملاحظات الطلب'" hide-header hide-footer class="users-modal">
@@ -950,16 +822,7 @@
                           <b-icon icon="house-door" class="pos-order-type-icon"></b-icon>
                           <span class="pos-order-type-label">{{ $t("dineIn") || "داخلي" }}</span>
                         </button>
-                        <button
-                          v-if="selectedTableId"
-                          type="button"
-                          class="pos-order-type-btn pos-transfer-table-btn"
-                          @click="openTransferTableModal"
-                          :title="$t('transferTable') || 'تبديل الطاولة'"
-                        >
-                          <b-icon icon="arrow-left-right" class="pos-order-type-icon"></b-icon>
-                          <span class="pos-order-type-label">{{ $t("transferTable") || "تبديل الطاولة" }}</span>
-                        </button>
+                        
                         <template v-if="!selectedTableId">
                           <button
                             type="button"
@@ -1230,7 +1093,7 @@
       <div class="modal-content-wrapper pos-tables-picker-modal">
         <h2 class="modal-title">{{ $t("tables") || "الطاولات" }}</h2>
         <p class="pos-tables-picker-modal-hint">
-          {{ $t("mergeTablesHint") || "Ctrl أو ⌘ + نقر لتحديد عدة طاولات للدمج" }}
+          {{ $t("tablesListHint") || "اختر طاولة لفتح الطلب" }}
         </p>
 
       <b-overlay
@@ -1566,12 +1429,7 @@ export default {
       tablesToClose: null, // For merged tables
       isFullscreen: false,
       showTablesModal: false,
-      transferToTableId: null,
-      transferMode: "table",
-      transferItemContext: null,
       loadingTableOrders: false,
-      loadingTransferTable: false,
-      loadingMergeTables: false,
       mergedTableIdsCache: {}, // Cache for merged table IDs
 
       posBrowseStep: "roots",
@@ -1590,8 +1448,7 @@ export default {
       posFloorPlanBackgroundColor: "#f1f5f9",
       posFloorPlanZoneRects: [],
 
-      posFloorPlanMergeMode: false,
-      posFloorPlanAwaitingTransferSource: false,
+      posFloorPlanForceDefaultTab: false,
     };
   },
 
@@ -1790,37 +1647,7 @@ export default {
       // Get the main printer (IsMain = true)
       return this.managedPrinters.find(p => p.isMain && p.isActive) || null;
     },
-    availableTablesForTransfer() {
-      // Get tables that are available or can accept transfer (excluding current selected table)
-      return this.allTables.filter(table => 
-        table.id !== this.selectedTableId && 
-        (table.status === 'Available' || table.status === 'Occupied')
-      ).sort((a, b) => a.tableNumber - b.tableNumber);
-    },
-    transferModalTitle() {
-      if (this.transferMode === "item") {
-        return this.$t("transferItem") || "نقل مادة";
-      }
-      return this.$t("transferTable") || "تبديل الطاولة";
-    },
-    transferModalMessage() {
-      if (this.transferMode === "item") {
-        return this.$t("transferItemMessage") || "اختر الطاولة الجديدة لنقل المادة من طاولة";
-      }
-      return this.$t("transferTableMessage") || "اختر الطاولة الجديدة لنقل الطلب من طاولة";
-    },
-    transferModalConfirmLabel() {
-      if (this.transferMode === "item") {
-        return this.$t("confirmTransferItem") || "تأكيد نقل المادة";
-      }
-      return this.$t("confirmTransfer") || "تأكيد التبديل";
-    },
-    transferModalLoadingLabel() {
-      if (this.transferMode === "item") {
-        return this.$t("transferringItem") || "جاري نقل المادة...";
-      }
-      return this.$t("transferring") || "جاري التبديل...";
-    },
+    
     mergedTableIds() {
       // Get all merged table IDs for the currently selected table
       if (!this.selectedTableId) {
@@ -2286,6 +2113,7 @@ export default {
     initPosFloorPlanGate() {
       try {
         this.resetPosFloorPlanGateTools();
+        this.posFloorPlanForceDefaultTab = true;
         this.posFloorPlanGateVisible = true;
         this.loadPosFloorPlan();
       } catch (_) {
@@ -2301,6 +2129,17 @@ export default {
         const payload = res.data?.data || res.data?.Data || {};
         const keys = payload.availablePlanKeys || [];
         this.posFloorPlanAvailableKeys = keys.length ? keys : [""];
+        if (this.posFloorPlanForceDefaultTab) {
+          const firstVisibleTab = this.posFloorPlanAvailableKeys.find(
+            (k) => String(k ?? "").trim() !== ""
+          );
+          const defaultTab = firstVisibleTab ?? (this.posFloorPlanAvailableKeys[0] ?? "");
+          this.posFloorPlanForceDefaultTab = false;
+          if (defaultTab !== this.posFloorPlanSelectedKey) {
+            this.posFloorPlanSelectedKey = defaultTab;
+            return this.loadPosFloorPlan();
+          }
+        }
         if (!this.posFloorPlanAvailableKeys.includes(this.posFloorPlanSelectedKey)) {
           this.posFloorPlanSelectedKey = this.posFloorPlanAvailableKeys[0] ?? "";
           return this.loadPosFloorPlan();
@@ -2337,12 +2176,11 @@ export default {
     selectPosFloorPlanKey(k) {
       if (k === this.posFloorPlanSelectedKey) return;
       this.posFloorPlanSelectedKey = k;
-      this.posFloorPlanMergeMode = false;
-      this.posFloorPlanAwaitingTransferSource = false;
       this.loadPosFloorPlan();
     },
     skipPosFloorPlanGate() {
       this.resetPosFloorPlanGateTools();
+      this.posFloorPlanForceDefaultTab = false;
       this.posFloorPlanGateVisible = false;
       this.$nextTick(() => {
         if (this.$refs.posQuickSearchInput) {
@@ -2351,61 +2189,10 @@ export default {
       });
     },
     resetPosFloorPlanGateTools() {
-      this.posFloorPlanMergeMode = false;
-      this.posFloorPlanAwaitingTransferSource = false;
-    },
-    togglePosFloorPlanMergeMode() {
-      this.posFloorPlanMergeMode = !this.posFloorPlanMergeMode;
-      if (this.posFloorPlanMergeMode) {
-        this.posFloorPlanAwaitingTransferSource = false;
-      }
-    },
-    openMergeTablesModalFromGate() {
-      this.openMergeTablesModal();
-    },
-    openTransferTableFromGate() {
-      const cur =
-        this.selectedTableId &&
-        this.allTables.find((x) => x.id === this.selectedTableId);
-      if (!cur || cur.status !== "Occupied") {
-        this.posFloorPlanMergeMode = false;
-        this.posFloorPlanAwaitingTransferSource = true;
-        this.$toast.info(this.$t("posFloorPlanPickTransferSource"), {
-          position: "top-right",
-          timeout: 3200,
-          maxToasts: 1,
-        });
-        return;
-      }
-      this.posFloorPlanAwaitingTransferSource = false;
-      this.openTransferTableModal();
+      // merge/transfer tools removed
     },
     async onPosFloorPlanTableClick(table, event) {
       if (!table || (table.status !== "Available" && table.status !== "Occupied")) return;
-
-      if (this.posFloorPlanAwaitingTransferSource) {
-        if (table.status !== "Occupied") {
-          this.$toast.warning(this.$t("posFloorPlanPickOccupiedOnly"), {
-            position: "top-right",
-            timeout: 2500,
-            maxToasts: 1,
-          });
-          return;
-        }
-        await this.selectTable(table, null);
-        this.posFloorPlanAwaitingTransferSource = false;
-        this.$toast.success(this.$t("posFloorPlanTransferSourceSelected"), {
-          position: "top-right",
-          timeout: 3500,
-          maxToasts: 1,
-        });
-        return;
-      }
-
-      if (this.posFloorPlanMergeMode) {
-        await this.selectTable(table, { ctrlKey: true, metaKey: false });
-        return;
-      }
 
       await this.selectTable(table, event || null);
       this.posFloorPlanGateVisible = false;
@@ -2702,102 +2489,9 @@ export default {
       });
       }
     },
-    openMergeTablesModal() {
-      if (this.selectedTableIds.length < 2) {
-        this.$toast.warning(this.$i18n.t("selectAtLeastTwoTables") || "يرجى اختيار طاولتين على الأقل للدمج", {
-          position: "top-right",
-          timeout: 2000,
-          maxToasts: 1,
-        });
-        return;
-      }
-      this.$bvModal.show('modal-merge-tables');
-    },
-    closeMergeTablesModal() {
-      this.$bvModal.hide('modal-merge-tables');
-    },
-    removeTableFromSelection(tableId) {
-      this.selectedTableIds = this.selectedTableIds.filter(id => id !== tableId);
-      if (this.selectedTableIds.length === 0) {
-        this.closeMergeTablesModal();
-      }
-    },
     getTableNumberById(tableId) {
       const table = this.allTables.find(t => t.id === tableId);
       return table ? table.tableNumber : '';
-    },
-    async confirmMergeTables() {
-      if (this.selectedTableIds.length < 2) {
-        this.$toast.warning(this.$i18n.t("selectAtLeastTwoTables") || "يرجى اختيار طاولتين على الأقل للدمج", {
-          position: "top-right",
-          timeout: 2000,
-          maxToasts: 1,
-        });
-        return;
-      }
-
-      this.loadingMergeTables = true;
-      try {
-        const response = await HTTP.post('Admin/MergeTables', this.selectedTableIds);
-        
-        if (response.data && !response.data.errorStatus) {
-          this.$toast.success(response.data.message || this.$i18n.t("tablesMergedSuccess") || "تم دمج الطاولات بنجاح", {
-            position: "top-right",
-            timeout: 2500,
-            maxToasts: 1,
-          });
-          
-          // Refresh tables
-          await this.getTables();
-          
-          // Load the merged order if order ID is available
-          if (response.data.data && response.data.data.id) {
-            // Find the primary table (first table in selectedTableIds)
-            const primaryTableId = this.selectedTableIds[0];
-            
-            // Wait a bit for tables to refresh
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Refresh tables to get updated status
-            await this.getTables();
-            
-            const primaryTable = this.allTables.find(t => t.id === primaryTableId);
-            
-            if (primaryTable) {
-              // Select the primary table to load its order (this will load items into cart)
-              await this.selectTable(primaryTable);
-            }
-          } else {
-            // No order ID, just refresh tables
-            await this.getTables();
-          }
-          
-          // Reset multi-select
-          this.selectedTableIds = [];
-
-          this.resetPosFloorPlanGateTools();
-          if (this.posFloorPlanGateVisible) {
-            this.posFloorPlanGateVisible = false;
-          }
-
-          this.closeMergeTablesModal();
-        } else {
-          this.$toast.error(response.data?.message || this.$i18n.t("mergeTablesFailed") || "فشل دمج الطاولات", {
-            position: "top-right",
-            timeout: 2500,
-            maxToasts: 1,
-          });
-        }
-      } catch (error) {
-        console.error('Error merging tables:', error);
-        this.$toast.error(error.response?.data?.message || this.$i18n.t("mergeTablesError") || "حدث خطأ أثناء دمج الطاولات", {
-          position: "top-right",
-          timeout: 2500,
-          maxToasts: 1,
-        });
-      } finally {
-        this.loadingMergeTables = false;
-      }
     },
     clearTableFilters() {
       this.tableFilters = {
@@ -4942,142 +4636,7 @@ export default {
       this.posClearSuppressAndQuickSearch();
       this.Items = [];
     },
-    openTransferTableModal() {
-      this.transferMode = "table";
-      this.transferItemContext = null;
-      this.transferToTableId = null;
-      this.$root.$emit('bv::show::modal', 'modal-transfer-table');
-    },
-    canTransferCartItem(item) {
-      return Boolean(
-        this.selectedTableId &&
-        item &&
-        item.sourceOrderId &&
-        item.sourceOrderItemId
-      );
-    },
-    openTransferItemModal(item) {
-      if (!this.canTransferCartItem(item)) {
-        this.$toast.warning(this.$i18n.t('transferItemNotAvailable') || 'لا يمكن نقل هذه المادة', {
-          position: "top-right",
-          timeout: 2000,
-          maxToasts: 1,
-        });
-        return;
-      }
-
-      this.transferMode = "item";
-      this.transferItemContext = {
-        sourceOrderId: item.sourceOrderId,
-        sourceOrderItemId: item.sourceOrderItemId,
-        itemName: item.name,
-      };
-      this.transferToTableId = null;
-      this.$root.$emit('bv::show::modal', 'modal-transfer-table');
-    },
-    closeTransferTableModal() {
-      this.transferToTableId = null;
-      this.transferMode = "table";
-      this.transferItemContext = null;
-      this.$root.$emit('bv::hide::modal', 'modal-transfer-table');
-    },
-    async confirmTransferTable() {
-      if (!this.transferToTableId || this.transferToTableId === this.selectedTableId) {
-        this.$toast.warning(this.$i18n.t('pleaseSelectDifferentTable') || 'يرجى اختيار طاولة مختلفة', {
-          position: "top-right",
-          timeout: 2000,
-          maxToasts: 1,
-        });
-        return;
-      }
-
-      try {
-        this.loadingTransferTable = true;
-        const response = this.transferMode === "item"
-          ? await HTTP.post('Admin/TransferOrderItemToTable', {
-              sourceOrderId: this.transferItemContext?.sourceOrderId,
-              sourceOrderItemId: this.transferItemContext?.sourceOrderItemId,
-              sourceTableId: this.selectedTableId,
-              destinationTableId: this.transferToTableId,
-            })
-          : await HTTP.put(`Admin/TransferTable?fromTableId=${this.selectedTableId}&toTableId=${this.transferToTableId}`);
-        
-        if (response.data && !response.data.errorStatus) {
-          const successMessage = this.transferMode === "item"
-            ? (response.data.message || this.$i18n.t('transferItemSuccess') || 'تم نقل المادة بنجاح')
-            : (response.data.message || this.$i18n.t('tableTransferredSuccessfully') || 'تم تبديل الطاولة بنجاح');
-
-          this.$toast.success(successMessage, {
-            position: "top-right",
-            timeout: 3000,
-            maxToasts: 1,
-          });
-
-          if (this.transferMode === "item") {
-            const selectedTableIdBeforeRefresh = this.selectedTableId;
-            const movedOrderItemId = this.transferItemContext?.sourceOrderItemId;
-
-            // Remove moved row immediately from current cart for instant UI feedback.
-            if (movedOrderItemId) {
-              this.carditems = this.carditems.filter(
-                (cartItem) => cartItem.sourceOrderItemId !== movedOrderItemId
-              );
-            }
-
-            await this.getTables();
-
-            const refreshedCurrentTable = this.allTables.find(
-              (t) => t.id === selectedTableIdBeforeRefresh
-            );
-            if (refreshedCurrentTable) {
-              await this.selectTable(refreshedCurrentTable);
-            }
-          } else {
-            // Update selected table to new table
-            const newTable = this.allTables.find(t => t.id === this.transferToTableId);
-            if (newTable) {
-              this.selectedTableId = newTable.id;
-              this.orderForSend.tableId = newTable.id;
-              // Reload table orders
-              await this.selectTable(newTable);
-            }
-          }
-
-          // Refresh tables (already refreshed in item-transfer branch).
-          if (this.transferMode !== "item") {
-            await this.getTables();
-          }
-
-          this.resetPosFloorPlanGateTools();
-          if (this.posFloorPlanGateVisible) {
-            this.posFloorPlanGateVisible = false;
-          }
-
-          this.closeTransferTableModal();
-        } else {
-          const errorMessage = this.transferMode === "item"
-            ? (response.data?.message || this.$i18n.t('transferItemFailed') || 'حدث خطأ أثناء نقل المادة')
-            : (response.data?.message || this.$i18n.t('errorTransferringTable') || 'حدث خطأ أثناء تبديل الطاولة');
-          this.$toast.error(errorMessage, {
-            position: "top-right",
-            timeout: 3000,
-            maxToasts: 1,
-          });
-        }
-      } catch (error) {
-        console.error('Error transferring table:', error);
-        const errorMessage = this.transferMode === "item"
-          ? (this.$i18n.t('transferItemFailed') || 'حدث خطأ أثناء نقل المادة')
-          : (this.$i18n.t('errorTransferringTable') || 'حدث خطأ أثناء تبديل الطاولة');
-        this.$toast.error(errorMessage, {
-          position: "top-right",
-          timeout: 3000,
-          maxToasts: 1,
-        });
-      } finally {
-        this.loadingTransferTable = false;
-      }
-    },
+    
   },
 };
 </script>
@@ -6844,6 +6403,11 @@ export default {
     overflow: hidden;
   }
 
+  .pos-floor-plan-gate--page .pos-fp-gate-help-item {
+    font-size: 0.64rem;
+    padding: 0.28rem 0.36rem;
+  }
+
   .pos-floor-plan-gate--page .pos-fp-gate-tool-toggle,
   .pos-floor-plan-gate--page .pos-fp-gate-tool-btn {
     padding: 0.48rem 0.52rem;
@@ -6851,6 +6415,18 @@ export default {
     margin-bottom: 0.38rem;
     min-height: 2.55rem;
     border-radius: 0.5rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tool-copy strong {
+    font-size: 0.72rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tool-copy small {
+    font-size: 0.62rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tool-state {
+    font-size: 0.58rem;
   }
 
   .pos-floor-plan-gate--page .pos-fp-gate-tool-ic {
@@ -7142,6 +6718,13 @@ export default {
   outline-offset: 1px;
   box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.45), 0 2px 10px rgba(0, 0, 0, 0.35);
   z-index: 3;
+}
+
+.pos-floor-plan-gate-table-chip--transfer-source {
+  outline: 3px solid #22d3ee;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.45), 0 6px 16px rgba(14, 116, 144, 0.35);
+  z-index: 4;
 }
 
 .pos-floor-plan-gate-table-chip:disabled {
@@ -7781,6 +7364,33 @@ export default {
   margin: 0 0 0.45rem;
 }
 
+.pos-fp-gate-help-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  margin: 0 0 0.48rem;
+}
+
+.pos-fp-gate-help-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  font-size: 0.6rem;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  padding: 0.24rem 0.34rem;
+  border: 1px dashed rgba(129, 140, 248, 0.32);
+  border-radius: 0.4rem;
+  background: rgba(129, 140, 248, 0.06);
+}
+
+.pos-fp-gate-help-ic {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: var(--primary-color);
+  margin-top: 0.04rem;
+}
+
 .pos-fp-gate-tool-toggle,
 .pos-fp-gate-tool-btn {
   display: flex;
@@ -7800,6 +7410,60 @@ export default {
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
   box-sizing: border-box;
+}
+
+.pos-fp-gate-tool-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.06rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.pos-fp-gate-tool-copy strong {
+  font-size: 0.66rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.pos-fp-gate-tool-copy small {
+  font-size: 0.56rem;
+  line-height: 1.25;
+  color: var(--text-muted);
+}
+
+.pos-fp-gate-tool-state {
+  flex-shrink: 0;
+  font-size: 0.52rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.22rem 0.34rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-secondary);
+}
+
+.pos-fp-gate-tool-state--on {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.14);
+  color: #10b981;
+}
+
+.pos-fp-gate-tool-count {
+  flex-shrink: 0;
+  min-width: 1.28rem;
+  height: 1.28rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(129, 140, 248, 0.45);
+  background: rgba(129, 140, 248, 0.18);
+  color: var(--primary-color);
+  font-size: 0.58rem;
+  font-weight: 700;
 }
 
 .pos-fp-gate-tool-toggle:last-child,
@@ -7830,6 +7494,17 @@ export default {
 
 .pos-fp-gate-tool-btn--accent {
   background: linear-gradient(135deg, rgba(129, 140, 248, 0.12) 0%, rgba(167, 139, 250, 0.08) 100%);
+}
+
+.pos-fp-gate-tool-btn--on {
+  border-color: var(--primary-color);
+  background: linear-gradient(
+    135deg,
+    rgba(129, 140, 248, 0.18) 0%,
+    rgba(167, 139, 250, 0.14) 100%
+  );
+  color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.16);
 }
 
 .pos-fp-gate-tool-ic {

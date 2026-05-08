@@ -2,7 +2,6 @@ import Vue from 'vue';
 import App from './App.vue';
 import router from './router';
 import { BootstrapVue, IconsPlugin, BootstrapVueIcons } from 'bootstrap-vue';
-import 'vue-toast-notification/dist/theme-sugar.css';
 import 'bootstrap/dist/css/bootstrap.css';
 import 'bootstrap-vue/dist/bootstrap-vue.css';
 import './assets/css/main.css';
@@ -27,19 +26,23 @@ export const i18n = new VueI18n({
 });
 
 Vue.use(Toast, {
-  transition: "Vue-Toastification__slideBlurred",
+  transition: "Vue-Toastification__fade",
   maxToasts: 3,
   newestOnTop: true,
-  position: "top-right",
-  timeout: 3000,
+  position: "bottom-center",
+  timeout: 3500,
   closeOnClick: true,
   pauseOnFocusLoss: false,
   pauseOnHover: true,
-  draggable: false,
-  hideProgressBar: true,
+  draggable: true,
+  draggablePercent: 0.65,
+  hideProgressBar: false,
   icon: true,
   rtl: i18n.locale === 'ar',
-  closeButton: false,
+  closeButton: "button",
+  toastClassName: "app-toast",
+  bodyClassName: "app-toast-body",
+  containerClassName: "app-toast-container",
 });
 
 

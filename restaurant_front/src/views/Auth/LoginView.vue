@@ -3,49 +3,6 @@
         <div class="login-page-wrapper">
             <div class="login-background-decoration"></div>
             <div class="login-page-row">
-                <!-- Left Side - Branding Section -->
-                <div class="login-brand-panel">
-                    <div class="brand-content-wrapper">
-                        <div class="brand-logo-container">
-                            <img src="../../assets/logoarabicdark.png" alt="logo" class="brand-logo-image" />
-                        </div>
-                        <h1 class="brand-main-title">{{ $t('welcomeMessage') }}</h1>
-                        <p class="brand-secondary-text">{{ $t('loginSubtitle') || 'نظام إدارة نقاط البيع المتطور والاحترافي' }}</p>
-                        
-                        <div class="brand-features-list">
-                            <div class="brand-feature-card">
-                                <div class="feature-icon-container">
-                                    <b-icon icon="inbox-fill" class="feature-icon-element"></b-icon>
-                                </div>
-                                <div class="feature-text-container">
-                                    <h4 class="feature-card-title">إدارة المنتجات</h4>
-                                    <p class="feature-card-text">إدارة سهلة وسريعة للمنتجات والمخزون</p>
-                                </div>
-                            </div>
-                            
-                            <div class="brand-feature-card">
-                                <div class="feature-icon-container">
-                                    <b-icon icon="file-earmark-bar-graph-fill" class="feature-icon-element"></b-icon>
-                                </div>
-                                <div class="feature-text-container">
-                                    <h4 class="feature-card-title">تقارير مفصلة</h4>
-                                    <p class="feature-card-text">تقارير شاملة عن المبيعات والأرباح</p>
-                                </div>
-                            </div>
-                            
-                            <div class="brand-feature-card">
-                                <div class="feature-icon-container">
-                                    <b-icon icon="speedometer" class="feature-icon-element"></b-icon>
-                                </div>
-                                <div class="feature-text-container">
-                                    <h4 class="feature-card-title">واجهة عصرية</h4>
-                                    <p class="feature-card-text">تصميم عصري وسهل الاستخدام</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- Right Side - Login Form -->
                 <div class="login-form-panel">
                     <div class="form-content-wrapper">
@@ -121,14 +78,6 @@
                                 </span>
                             </button>
                             
-                            <div class="form-footer-section">
-                                <p class="footer-main-text">{{ $t('noAccountMessage') }}</p>
-                                <router-link to="/register" class="register-link-button">
-                                    <b-icon icon="person-plus-fill" class="link-icon-element"></b-icon>
-                                    <span>{{ $t('registerLink') }}</span>
-                                </router-link>
-                            </div>
-                            
                             <div class="form-developer-section">
                                 <p class="developer-main-text">
                                     {{ $t('developedBy') }}
@@ -169,13 +118,6 @@
                                     <span class="button-text-element">{{ $t('loginButton') }}</span>
                                 </span>
                             </button>
-                            <div class="form-footer-section">
-                                <p class="footer-main-text">{{ $t('noAccountMessage') }}</p>
-                                <router-link to="/register" class="register-link-button">
-                                    <b-icon icon="person-plus-fill" class="link-icon-element"></b-icon>
-                                    <span>{{ $t('registerLink') }}</span>
-                                </router-link>
-                            </div>
                             <div class="form-developer-section">
                                 <p class="developer-main-text">
                                     {{ $t('developedBy') }}
@@ -199,7 +141,7 @@ export default {
     data() {
         return {
             show: false,
-            loginMode: 'phone',
+            loginMode: 'code',
             form: {
                 phoneNumber: '',
                 password: '',
@@ -315,6 +257,10 @@ export default {
 </script>
 
 <style scoped>
+.login-form-panel {
+    width: 100% !important;
+}
+
 .login-mode-toggle {
     display: flex;
     gap: 0.5rem;
