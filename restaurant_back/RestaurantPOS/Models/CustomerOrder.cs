@@ -33,6 +33,8 @@ namespace RestaurantPOS.Models
 
         public string OrderType { get; set; } = "DineIn"; // DineIn, Takeaway, Delivery
 
+        public int? NumberOfGuests { get; set; } = 0;
+
         public string? Notes { get; set; } // ملاحظات الطلب
 
         public string? PagerNumber { get; set; } // رقم جهاز النداء

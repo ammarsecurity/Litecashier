@@ -75,8 +75,8 @@
                         {},
                       ]"
                       :style="posFloorChipStyle(t.id)"
-                      :disabled="t.status === 'OutOfService' || t.status === 'Reserved'"
-                      @click="onPosFloorPlanTableClick(t, $event)"
+                      :disabled="t.status === 'OutOfService'"
+                      @click="onPosFloorPlanTableClick(t, $event, posFloorTableStatusClass(t.status))"
                     >
                       {{ t.tableNumber }}
                     </button>
@@ -93,6 +93,41 @@
           </div>
         </b-overlay>
     </div>
+
+    <b-modal id="modal-floor-table-guests" hide-header hide-footer class="users-modal">
+      <div class="modal-content-wrapper">
+        <div class="delete-confirmation-content">
+          <div class="delete-icon-wrapper">
+            <b-icon icon="people-fill" class="delete-warning-icon"></b-icon>
+          </div>
+          <h3 class="delete-confirmation-title">{{ $t("numberOfGuests") || "عدد الزبائن" }}</h3>
+          <p class="delete-confirmation-text">
+            {{ ($t("enterGuestsForTable") || "حدد عدد الزبائن للطاولة") + " " + (floorPlanGuestModal.tableNumber || "") }}
+          </p>
+
+          <div class="users-input-group">
+            <label>{{ $t("numberOfGuests") || "عدد الزبائن" }}</label>
+            <input
+              v-model.number="floorPlanGuestModal.count"
+              type="number"
+              min="1"
+              class="users-form-input"
+            />
+          </div>
+
+          <div class="table-close-actions order-move-actions">
+            <button class="delete-cancel-button order-move-cancel-btn" @click="cancelFloorPlanGuestModal">
+              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+              {{ $t("cancelButton") || "إلغاء" }}
+            </button>
+            <button class="table-close-action-btn table-close-action-print order-move-confirm-btn" @click="confirmFloorPlanGuestModal">
+              <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+              {{ $t("save") || "حفظ" }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </b-modal>
 
     <b-overlay
       :show="show"
@@ -161,6 +196,31 @@
                   <div class="pos-tables-toolbar-end">
                     
                     <div v-if="selectedTableId" class="pos-table-actions-buttons pos-table-actions-buttons--inline">
+                      <template v-if="selectedTable && selectedTable.status === 'Occupied'">
+                        <div class="pos-table-action-transfer-group">
+                          <button
+                            class="pos-table-action-btn pos-table-action-transfer pos-table-action-transfer--item"
+                            @click="openOrderMoveModal('item')"
+                          >
+                            <b-icon icon="arrow-left-right"></b-icon>
+                            <span>{{ $t("transferOneItem") || "نقل عنصر" }}</span>
+                          </button>
+                          <button
+                            class="pos-table-action-btn pos-table-action-transfer pos-table-action-transfer--full"
+                            @click="openOrderMoveModal('full')"
+                          >
+                            <b-icon icon="arrow-left-right"></b-icon>
+                            <span>{{ $t("transferFullOrder") || "نقل الطلب كامل" }}</span>
+                          </button>
+                          <button
+                            class="pos-table-action-btn pos-table-action-transfer pos-table-action-transfer--merge"
+                            @click="openOrderMoveModal('merge')"
+                          >
+                            <b-icon icon="layers"></b-icon>
+                            <span>{{ $t("mergeTwoInvoices") || "دمج فاتورتين" }}</span>
+                          </button>
+                        </div>
+                      </template>
                       <template v-if="mergedTableIds.length > 1">
                         <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" @click="addOrder(false)">
                           <b-icon icon="check-circle-fill"></b-icon>
@@ -407,6 +467,13 @@
                           </div>
                           
                           <button
+                            class="pos-cart-item-transfer"
+                            @click.stop="openOrderMoveModal('item', item)"
+                            :title="$t('transferOneItem') || 'نقل عنصر'"
+                          >
+                            <b-icon icon="arrow-left-right"></b-icon>
+                          </button>
+                          <button
                             class="pos-cart-item-delete"
                             @click.stop="deleteItem(index)"
                             :title="$t('delete') || 'حذف'"
@@ -507,6 +574,87 @@
               </div>
             </b-modal>
 
+            <b-modal id="modal-order-move" :title="orderMoveTitle" hide-header hide-footer class="users-modal">
+              <div class="modal-content-wrapper">
+                <div class="delete-confirmation-content">
+                  <div class="delete-icon-wrapper">
+                    <b-icon icon="arrow-left-right" class="delete-warning-icon"></b-icon>
+                  </div>
+                  <h3 class="delete-confirmation-title">{{ orderMoveTitle }}</h3>
+                  <p class="delete-confirmation-text">{{ orderMoveMessage }}</p>
+
+                  <div class="users-form-grid" style="width:100%;">
+                    <div class="users-input-group">
+                      <label>{{ $t("sourceTable") || "الطاولة المصدر" }}</label>
+                      <select v-model.number="orderMove.sourceTableId" class="users-form-input" @change="onOrderMoveSourceChanged">
+                        <option :value="null">{{ $t("selectTable") || "اختر طاولة" }}</option>
+                        <option
+                          v-for="table in allTables.filter(t => t.status === 'Occupied')"
+                          :key="`src-${table.id}`"
+                          :value="table.id"
+                        >
+                          {{ table.tableNumber }} ({{ $t(table.status.toLowerCase()) || table.status }})
+                        </option>
+                      </select>
+                    </div>
+
+                    <div class="users-input-group">
+                      <label>{{ $t("destinationTable") || "الطاولة الهدف" }}</label>
+                      <select v-model.number="orderMove.destinationTableId" class="users-form-input">
+                        <option :value="null">{{ $t("selectTable") || "اختر طاولة" }}</option>
+                        <option
+                          v-for="table in orderMoveDestinationTables"
+                          :key="`dst-${table.id}`"
+                          :value="table.id"
+                        >
+                          {{ table.tableNumber }} ({{ $t(table.status.toLowerCase()) || table.status }})
+                        </option>
+                      </select>
+                    </div>
+
+                    <div v-if="orderMove.mode === 'item'" class="users-input-group">
+                      <label>{{ $t("orderItem") || "العنصر" }}</label>
+                      <select v-model.number="orderMove.sourceOrderItemId" class="users-form-input" @change="syncOrderMoveQuantityFromSelection">
+                        <option :value="null">{{ $t("selectItem") || "اختر عنصر" }}</option>
+                        <option
+                          v-for="opt in orderMove.sourceItems"
+                          :key="`item-${opt.sourceOrderItemId}`"
+                          :value="opt.sourceOrderItemId"
+                        >
+                          {{ opt.label }}
+                        </option>
+                      </select>
+                    </div>
+                    <div v-if="orderMove.mode === 'item' && orderMove.sourceOrderItemId" class="users-input-group">
+                      <label>{{ $t("quantity") || "الكمية" }}</label>
+                      <input
+                        v-model.number="orderMove.transferQuantity"
+                        type="number"
+                        class="users-form-input"
+                        min="1"
+                        :max="orderMoveSelectedItemMaxQuantity"
+                      />
+                      <small class="text-muted">
+                        {{ ($t("maxQuantity") || "الكمية القصوى") }}: {{ orderMoveSelectedItemMaxQuantity }}
+                      </small>
+                    </div>
+                  </div>
+
+                  <div class="table-close-actions order-move-actions">
+                    <button class="delete-cancel-button order-move-cancel-btn" @click="closeOrderMoveModal">
+                      <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                      {{ $t("cancelButton") || "إلغاء" }}
+                    </button>
+                    <button class="table-close-action-btn table-close-action-print order-move-confirm-btn" :disabled="!orderMoveCanConfirm || orderMove.submitting" @click="confirmOrderMove">
+                      <b-spinner small v-if="orderMove.submitting" class="me-2"></b-spinner>
+                      <b-icon v-else icon="check-circle-fill" class="me-2"></b-icon>
+                      {{ orderMoveConfirmLabel }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </b-modal>
+
             
 
             <!-- Order Notes Modal -->
@@ -597,7 +745,7 @@
                   <div class="order-notes-actions">
                     <button class="order-notes-confirm-button" @click="confirmAddOrder">
                       <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                      {{ $t("confirmButton") || "تأكيد" }}
+                      {{ $t("orderNotesComplete") || "اكمال" }}
                     </button>
                     <button class="order-notes-cancel-button" @click="closeModel('modal-order-notes')">
                       <b-icon icon="x-circle-fill" class="me-2"></b-icon>
@@ -791,11 +939,22 @@
                         <button
                           type="button"
                           class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn"
-                          @click="openOrderNotesModal"
+                          @click="openOrderNotesModal('pay')"
                           :disabled="totalCardItems <= 0"
+                          :title="$t('payNow') || 'دفع'"
                         >
                           <b-icon icon="check-circle-fill" class="me-1"></b-icon>
-                          {{ $t("saveAndPrint") || "حفظ وطباعة" }}
+                          {{ $t("payNow") || "دفع" }}
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn"
+                          @click="openOrderNotesModal('pay-print')"
+                          :disabled="totalCardItems <= 0"
+                          :title="$t('payAndPrint') || 'دفع وطباعة'"
+                        >
+                          <b-icon icon="receipt-cutoff" class="me-1"></b-icon>
+                          {{ $t("payAndPrint") || "دفع وطباعة" }}
                         </button>
                         <button
                           type="button"
@@ -1370,6 +1529,7 @@ export default {
         paymentMethod: "Cash",
         customerOrderItem: [],
         orderType: "Takeaway",
+        numberOfGuests: 0,
         tableId: null,
         reservationId: null,
         notes: "",
@@ -1442,6 +1602,11 @@ export default {
       posFloorPlanGateVisible: false,
       posFloorPlanLoading: false,
       posFloorPlanSelectedKey: "",
+      floorPlanGuestModal: {
+        table: null,
+        tableNumber: "",
+        count: 1,
+      },
       posFloorPlanAvailableKeys: [],
       posFloorPlanSettings: null,
       posFloorPlanPositions: {},
@@ -1449,6 +1614,16 @@ export default {
       posFloorPlanZoneRects: [],
 
       posFloorPlanForceDefaultTab: false,
+      orderMove: {
+        mode: "item", // item | full | merge
+        sourceTableId: null,
+        destinationTableId: null,
+        sourceOrderItemId: null,
+        transferQuantity: 1,
+        sourceItems: [],
+        submitting: false,
+      },
+      checkoutSubmitMode: "pay",
     };
   },
 
@@ -1669,6 +1844,72 @@ export default {
         return null;
       }
       return this.allTables.find(t => t.id === this.selectedTableId);
+    },
+    orderMoveTitle() {
+      if (this.orderMove.mode === "full") {
+        return this.$t("transferFullOrder") || "نقل الطلب كامل";
+      }
+      if (this.orderMove.mode === "merge") {
+        return this.$t("mergeTwoInvoices") || "دمج فاتورتين";
+      }
+      return this.$t("transferOneItem") || "نقل عنصر";
+    },
+    orderMoveMessage() {
+      if (this.orderMove.mode === "full") {
+        return this.$t("transferFullOrderMessage") || "اختر طاولة المصدر ثم الهدف لنقل الطلب بالكامل.";
+      }
+      if (this.orderMove.mode === "merge") {
+        return this.$t("mergeTwoInvoicesMessage") || "اختر طاولة المصدر (فاتورة ستُدمج) ثم الطاولة الهدف (فاتورة رئيسية).";
+      }
+      return this.$t("transferOneItemMessage") || "اختر عنصر من المصدر ثم الطاولة الهدف.";
+    },
+    orderMoveConfirmLabel() {
+      if (this.orderMove.submitting) {
+        return this.$t("processing") || "جاري التنفيذ...";
+      }
+      if (this.orderMove.mode === "full") {
+        return this.$t("confirmFullTransfer") || "تأكيد نقل الطلب";
+      }
+      if (this.orderMove.mode === "merge") {
+        return this.$t("confirmMergeInvoices") || "تأكيد الدمج";
+      }
+      return this.$t("confirmItemTransfer") || "تأكيد نقل العنصر";
+    },
+    orderMoveDestinationTables() {
+      return this.allTables
+        .filter(
+          (t) =>
+            (t.status === "Available" || t.status === "Occupied") &&
+            t.id !== this.orderMove.sourceTableId
+        )
+        .sort((a, b) => Number(a.tableNumber) - Number(b.tableNumber));
+    },
+    orderMoveCanConfirm() {
+      if (!this.orderMove.sourceTableId || !this.orderMove.destinationTableId) {
+        return false;
+      }
+      if (this.orderMove.sourceTableId === this.orderMove.destinationTableId) {
+        return false;
+      }
+      if (this.orderMove.mode === "item" && !this.orderMove.sourceOrderItemId) {
+        return false;
+      }
+      if (this.orderMove.mode === "item") {
+        if (!this.orderMove.transferQuantity || this.orderMove.transferQuantity <= 0) {
+          return false;
+        }
+        if (this.orderMove.transferQuantity > this.orderMoveSelectedItemMaxQuantity) {
+          return false;
+        }
+      }
+      return true;
+    },
+    orderMoveSelectedItem() {
+      if (!this.orderMove.sourceOrderItemId) return null;
+      return this.orderMove.sourceItems.find((i) => i.sourceOrderItemId === this.orderMove.sourceOrderItemId) || null;
+    },
+    orderMoveSelectedItemMaxQuantity() {
+      return this.orderMoveSelectedItem?.quantity || 1;
     },
     cardfields() {
       const lang = this.$i18n.locale;
@@ -2191,11 +2432,34 @@ export default {
     resetPosFloorPlanGateTools() {
       // merge/transfer tools removed
     },
-    async onPosFloorPlanTableClick(table, event) {
-      if (!table || (table.status !== "Available" && table.status !== "Occupied")) return;
+    async onPosFloorPlanTableClick(table, event, visualStatusClass = "") {
+      this.posFloorPlanGateVisible = false;
+      if (!table) return;
+      const tableStatus = String(table?.status || "").trim().toLowerCase();
+      const rawCurrentOrderId =
+        table.currentOrderId ??
+        table.currentorderid ??
+        table.current_order_id ??
+        null;
+      const normalizedCurrentOrderId = Number(rawCurrentOrderId || 0);
+      const hasActiveOrder = Number.isFinite(normalizedCurrentOrderId) && normalizedCurrentOrderId > 0;
+      const isOutOfService = tableStatus === "outofservice" || tableStatus === "out_of_service";
+      const isReserved = tableStatus === "reserved";
+      const isOccupied = tableStatus === "occupied" || isReserved || hasActiveOrder;
+      const isVisualAvailable = visualStatusClass === "pos-fp-chip-avail";
+      const isAvailable = isVisualAvailable || (!isOccupied && !isOutOfService);
+      if (isOutOfService) return;
+
+      if (isAvailable) {
+        this.floorPlanGuestModal.table = table;
+        this.floorPlanGuestModal.tableNumber = table.tableNumber || "";
+        this.floorPlanGuestModal.count = 1;
+        this.$bvModal.show("modal-floor-table-guests");
+        return;
+      }
 
       await this.selectTable(table, event || null);
-      this.posFloorPlanGateVisible = false;
+      // this.posFloorPlanGateVisible = false;
       this.resetPosFloorPlanGateTools();
       this.$nextTick(() => {
         if (this.$refs.posQuickSearchInput) {
@@ -2210,6 +2474,38 @@ export default {
         left: `${p.x * 100}%`,
         top: `${p.y * 100}%`,
       };
+    },
+    cancelFloorPlanGuestModal() {
+      this.$bvModal.hide("modal-floor-table-guests");
+      this.floorPlanGuestModal.table = null;
+      this.floorPlanGuestModal.tableNumber = "";
+      this.floorPlanGuestModal.count = 1;
+    },
+    async confirmFloorPlanGuestModal() {
+      const table = this.floorPlanGuestModal.table;
+      const guestCount = Number(this.floorPlanGuestModal.count || 0);
+      if (!table) {
+        this.cancelFloorPlanGuestModal();
+        return;
+      }
+      if (!guestCount || guestCount <= 0) {
+        this.$toast.error(this.$t("numberOfGuestsRequired") || "يرجى إدخال عدد زبائن صحيح", {
+          timeout: 2200,
+          maxToasts: 1,
+        });
+        return;
+      }
+
+      this.orderForSend.numberOfGuests = guestCount;
+      await this.selectTable(table, null);
+      this.posFloorPlanGateVisible = false;
+      this.resetPosFloorPlanGateTools();
+      this.cancelFloorPlanGuestModal();
+      this.$nextTick(() => {
+        if (this.$refs.posQuickSearchInput) {
+          this.$refs.posQuickSearchInput.focus();
+        }
+      });
     },
     posFloorZoneRectStyle(z) {
       return {
@@ -2262,9 +2558,20 @@ export default {
     async selectTableInModal(table, event) {
       const multi = event && (event.ctrlKey || event.metaKey);
       await this.selectTable(table, event);
+      const tableStatus = String(table?.status || "").trim().toLowerCase();
+      const rawCurrentOrderId =
+        table?.currentOrderId ??
+        table?.currentorderid ??
+        table?.current_order_id ??
+        null;
+      const normalizedCurrentOrderId = Number(rawCurrentOrderId || 0);
+      const hasActiveOrder = Number.isFinite(normalizedCurrentOrderId) && normalizedCurrentOrderId > 0;
+      const isReserved = tableStatus === "reserved";
+      const isOccupied = tableStatus === "occupied" || isReserved || hasActiveOrder;
+      const isAvailable = !isOccupied && tableStatus !== "outofservice" && tableStatus !== "out_of_service";
       if (
         !multi &&
-        (table.status === "Available" || table.status === "Occupied")
+        (isAvailable || isOccupied)
       ) {
         this.showTablesModal = false;
         if (this.posFloorPlanGateVisible) {
@@ -2273,10 +2580,21 @@ export default {
       }
     },
     async selectTable(table, event) {
+      const tableStatus = String(table?.status || "").trim().toLowerCase();
+      const rawCurrentOrderId =
+        table?.currentOrderId ??
+        table?.currentorderid ??
+        table?.current_order_id ??
+        null;
+      const normalizedCurrentOrderId = Number(rawCurrentOrderId || 0);
+      const hasActiveOrder = Number.isFinite(normalizedCurrentOrderId) && normalizedCurrentOrderId > 0;
+      const isReserved = tableStatus === "reserved";
+      const isOccupied = tableStatus === "occupied" || isReserved || hasActiveOrder;
+      const isAvailable = !isOccupied && tableStatus !== "outofservice" && tableStatus !== "out_of_service";
       // Check if Ctrl or Cmd key is pressed for multi-select
       const isMultiSelect = event && (event.ctrlKey || event.metaKey);
       
-      if (isMultiSelect && (table.status === 'Occupied' || table.status === 'Available')) {
+      if (isMultiSelect && (isOccupied || isAvailable)) {
         // Multi-select mode for merging tables
         if (!this.selectedTableIds.includes(table.id)) {
           this.selectedTableIds.push(table.id);
@@ -2287,19 +2605,21 @@ export default {
       }
       
       // Single select mode (existing behavior)
-      if (table.status === 'Occupied') {
+      if (isOccupied) {
         // Load table orders
         this.loadingTableOrders = true;
         try {
           const response = await HTTP.get(`Admin/GetTableOrders?tableId=${table.id}`);
           this.tableOrders = response.data.data || [];
+          const activeOrder = this.tableOrders[0] || null;
+          this.orderForSend.numberOfGuests = Number(activeOrder?.numberOfGuests || 0);
           
           // Load items from orders into cart
           this.carditems = [];
           this.tableOrders.forEach(order => {
             if (order.customerOrderItem) {
               order.customerOrderItem.forEach(orderItem => {
-                if (orderItem.item) {
+                if (orderItem.item && !orderItem.isDeleted) {
                   // Keep one UI line per order item to support "transfer single line item" accurately.
                   const sellingPrice = orderItem.sellingPrice || 0;
                   const discountPrice = orderItem.item.disCountPrice || 0;
@@ -2356,12 +2676,15 @@ export default {
         } finally {
           this.loadingTableOrders = false;
         }
-      } else if (table.status === 'Available') {
+      } else if (isAvailable) {
         // Start new order for available table
         this.selectedTableId = table.id;
         this.selectedTableIds = [table.id]; // Reset multi-select
         this.orderForSend.tableId = table.id;
         this.orderForSend.orderType = 'DineIn';
+        if (!this.orderForSend.numberOfGuests || this.orderForSend.numberOfGuests < 1) {
+          this.orderForSend.numberOfGuests = 1;
+        }
         this.carditems = [];
         this.tableOrders = [];
         
@@ -2431,6 +2754,7 @@ export default {
         this.orderForSend.tableId = null;
         this.orderForSend.tableIds = null;
         this.orderForSend.orderType = 'Takeaway'; // Reset to default when closing table
+        this.orderForSend.numberOfGuests = 0;
         if (clearCart) {
           this.carditems = [];
         }
@@ -2465,6 +2789,7 @@ export default {
       this.selectedTableId = null;
       this.orderForSend.tableId = null;
         this.orderForSend.orderType = 'Takeaway';
+        this.orderForSend.numberOfGuests = 0;
         this.carditems = [];
         this.tableOrders = [];
         
@@ -2479,6 +2804,7 @@ export default {
         this.selectedTableIds = [];
         this.orderForSend.tableId = null;
         this.orderForSend.orderType = 'Takeaway';
+        this.orderForSend.numberOfGuests = 0;
       this.carditems = [];
       this.tableOrders = [];
       
@@ -2653,6 +2979,12 @@ export default {
         this.orderForSend.newDriverVehicleType = null;
         this.orderForSend.newDriverVehicleNumber = null;
       }
+
+      if (this.orderForSend.orderType === "DineIn" && this.orderForSend.tableId) {
+        this.orderForSend.numberOfGuests = Math.max(1, Number(this.orderForSend.numberOfGuests || 1));
+      } else {
+        this.orderForSend.numberOfGuests = 0;
+      }
       
       const discountPayload = this.buildOrderDiscountPayload();
       Object.assign(this.orderForSend, discountPayload);
@@ -2665,46 +2997,37 @@ export default {
             const itemsForPrint = JSON.parse(JSON.stringify(this.carditems));
             // Save tableId before clearing
             const tableIdToUpdate = this.selectedTableId;
-            // Clear cart after successful save
-            this.carditems = [];
-            this.selectedTableId = null;
-            this.selectedTableIds = [];
-            this.orderForSend.tableId = null;
-            this.orderForSend.tableIds = null;
-            this.orderForSend.orderType = 'Takeaway'; // Reset to default when clearing
-            this.orderForSend.notes = ""; // Reset notes
-            this.orderForSend.pagerNumber = ""; // Reset pager number
-            this.clearOrderDiscount();
-            this.tableOrders = [];
-            
-            // Update table status to Available if table was selected
-            if (tableIdToUpdate) {
-              const tableToUpdate = this.allTables.find(t => t.id === tableIdToUpdate);
-              if (tableToUpdate) {
-                HTTP.put(`Tables/${tableIdToUpdate}`, {
-                  tableNumber: tableToUpdate.tableNumber,
-                  capacity: tableToUpdate.capacity,
-                  zone: tableToUpdate.zone,
-                  notes: tableToUpdate.notes,
-                  status: 'Available'
-                })
-                  .then(() => {
-                    // Refresh tables after status update
-                    this.getTables();
-                  })
-                  .catch((error) => {
-                    console.error('Error updating table status:', error);
-                    // Still refresh tables even if update fails
-                    this.getTables();
-                  });
-              } else {
-                this.getTables();
+            const isDineInTableOrder =
+              this.orderForSend.orderType === "DineIn" && !!this.orderForSend.tableId;
+            const refreshAfterSave = async () => {
+              await this.getTables();
+              if (isDineInTableOrder && tableIdToUpdate) {
+                const savedTable = this.allTables.find((t) => t.id === tableIdToUpdate);
+                if (savedTable) {
+                  await this.selectTable(savedTable, null);
+                }
+                return;
               }
-            } else {
-              this.getTables();
-            }
+
+              // Takeaway/Delivery: keep existing clear-cart behavior.
+              this.carditems = [];
+              this.selectedTableId = null;
+              this.selectedTableIds = [];
+              this.orderForSend.tableId = null;
+              this.orderForSend.tableIds = null;
+              this.orderForSend.orderType = "Takeaway";
+              this.orderForSend.numberOfGuests = 0;
+              this.orderForSend.notes = "";
+              this.orderForSend.pagerNumber = "";
+              this.clearOrderDiscount();
+              this.tableOrders = [];
+            };
+            refreshAfterSave();
             
-            this.$toast.success(this.$i18n.t("orderSavedAndCleared") || "تم حفظ الطلب وافراغ السلة بنجاح", {
+            const successMessage = isDineInTableOrder
+              ? (this.$t("addOrderSucsses") || "تم حفظ الطلب بنجاح")
+              : (this.$i18n.t("orderSavedAndCleared") || "تم حفظ الطلب وافراغ السلة بنجاح");
+            this.$toast.success(successMessage, {
               position: "top-right",
               timeout: 2000,
               maxToasts: 1,
@@ -2876,38 +3199,75 @@ export default {
       const discountPayload = this.buildOrderDiscountPayload();
       Object.assign(this.orderForSend, discountPayload);
 
+      // Stable snapshot before network call — Pay&Print must not race cart/DOM reset
+      const itemsForPrintSnapshot =
+        isPrint ? JSON.parse(JSON.stringify(this.carditems)) : null;
+
       HTTP.post(`Admin/AddOrder`, this.orderForSend)
-        .then((response) => {
+        .then(async (response) => {
           if (response) {
             this.show = false;
-            this.$toast.warning(this.$i18n.t("addOrderSucsses"), {
+            const tableIdToReload = this.selectedTableId;
+            const isDineInTableOrder =
+              this.orderForSend.orderType === "DineIn" && !!this.orderForSend.tableId;
+            const refreshAfterSave = async () => {
+              if (isDineInTableOrder && tableIdToReload) {
+                try {
+                  await HTTP.put(`Tables/${tableIdToReload}/status`, JSON.stringify("Available"), {
+                    headers: { "Content-Type": "application/json" },
+                  });
+                } catch (statusError) {
+                  console.error("Failed to set table Available after checkout:", statusError);
+                }
+              }
+              await this.getTables();
+              this.carditems = [];
+              this.selectedTableId = null;
+              this.selectedTableIds = [];
+              this.orderForSend.tableId = null;
+              this.orderForSend.tableIds = null;
+              this.orderForSend.orderType = "Takeaway";
+              this.orderForSend.numberOfGuests = 0;
+              this.orderForSend.notes = "";
+              this.orderForSend.pagerNumber = "";
+              this.clearOrderDiscount();
+              this.tableOrders = [];
+              if (this.$refs.posQuickSearchInput) {
+                this.$refs.posQuickSearchInput.focus();
+              }
+            };
+
+            // Print before reset so receipt HTML/items are never empty due to clearing state
+            if (isPrint && itemsForPrintSnapshot && itemsForPrintSnapshot.length > 0) {
+              await this.$nextTick();
+              try {
+                await this.printCard(itemsForPrintSnapshot, { raiseOnError: true });
+              } catch (printError) {
+                console.error("Print error:", printError);
+                const persisted =
+                  this.$i18n.t("addOrderSucsses") ||
+                  this.$i18n.t("orderSavedAndCleared") ||
+                  "";
+                const printErr = this.$i18n.t("printError") || "خطأ بالطباعة";
+                const warnText = persisted ? `${printErr}. ${persisted}` : printErr;
+                this.$toast.warning(warnText, {
+                  position: "top-right",
+                  timeout: 3500,
+                  maxToasts: 1,
+                });
+              }
+            }
+
+            await refreshAfterSave();
+
+            const successMessage = isPrint
+              ? this.$t("payAndPrint") || "دفع وطباعة"
+              : this.$t("payNow") || "دفع";
+            this.$toast.success(successMessage, {
               position: "top-right",
               timeout: 2000,
               maxToasts: 1,
             });
-            // Save a copy of carditems for printing before clearing
-            const itemsForPrint = JSON.parse(JSON.stringify(this.carditems));
-            this.carditems = [];
-            this.clearOrderDiscount();
-            if (this.$refs.posQuickSearchInput) {
-              this.$refs.posQuickSearchInput.focus();
-            }
-            
-            // Refresh tables after order is added
-            this.getTables();
-            
-            if (isPrint) {
-              // Use setTimeout to ensure print happens after UI updates
-              setTimeout(() => {
-                try {
-                  this.printCard(itemsForPrint);
-                } catch (printError) {
-                  console.error('Print error:', printError);
-                  // Don't show error to user, printing is optional
-                  // The order was saved successfully
-                }
-              }, 100);
-            }
           }
         })
         .catch((error) => {
@@ -3432,13 +3792,15 @@ export default {
         return false;
       }
     },
-    async printCard(itemsToPrint = null) {
+    async printCard(itemsToPrint = null, printOptions = {}) {
+      const raiseOnError = !!(printOptions && printOptions.raiseOnError);
+      let originalCarditems = null;
       try {
         // Use provided items or fallback to current carditems
         const printItems = itemsToPrint || this.carditems;
         
         // Temporarily replace carditems for printing if needed
-        const originalCarditems = this.carditems;
+        originalCarditems = this.carditems;
         if (itemsToPrint) {
           this.carditems = itemsToPrint;
         }
@@ -3451,8 +3813,11 @@ export default {
         if (!printElement) {
           console.error("Print element not found");
           // Restore original carditems if we changed it
-          if (itemsToPrint) {
+          if (itemsToPrint && originalCarditems !== null) {
             this.carditems = originalCarditems;
+          }
+          if (raiseOnError) {
+            throw new Error("Print element not found");
           }
           return;
         }
@@ -3901,10 +4266,13 @@ export default {
       } catch (error) {
         console.error('Print card error:', error);
         // Restore original carditems if we changed it
-        if (itemsToPrint) {
+        if (itemsToPrint && originalCarditems !== null) {
           this.carditems = originalCarditems;
         }
-        // Silently fail - order was saved successfully, printing is optional
+        if (raiseOnError) {
+          throw error;
+        }
+        // Else: silently fail (other callers treat printing as optional)
       }
     },
     async fallbackPrint(itemsToPrint = null) {
@@ -4248,7 +4616,7 @@ export default {
     closeModel(id) {
       this.$bvModal.hide(id);
     },
-    openOrderNotesModal() {
+    openOrderNotesModal(mode = "pay") {
       if (this.carditems.length <= 0) {
         this.$toast.error(this.$i18n.t("emptyCartMessage"), {
           position: "top-right",
@@ -4257,6 +4625,7 @@ export default {
         });
         return;
       }
+      this.checkoutSubmitMode = mode === "pay-print" ? "pay-print" : "pay";
       // Reset notes before opening modal
       this.orderForSend.notes = "";
       this.orderForSend.pagerNumber = "";
@@ -4275,14 +4644,41 @@ export default {
       }
       try {
         await this.printCard();
+        await this.markCurrentTableAsReservedAfterPrint();
       } catch (e) {
         console.error("printCartOnly:", e);
       }
     },
+    async markCurrentTableAsReservedAfterPrint() {
+      if (!this.selectedTableId) return;
+
+      const selected = this.allTables.find((t) => t.id === this.selectedTableId);
+      if (!selected) return;
+
+      const tableStatus = String(selected.status || "").trim().toLowerCase();
+      if (tableStatus !== "occupied") return;
+
+      try {
+        await HTTP.put(`Tables/${this.selectedTableId}/status`, JSON.stringify("Reserved"), {
+          headers: { "Content-Type": "application/json" },
+        });
+
+        selected.status = "Reserved";
+        this.$toast.info(this.$t("tableMarkedReservedAfterPrint") || "تم تعليم الطاولة كمعلقة للإغلاق", {
+          timeout: 1800,
+          maxToasts: 1,
+        });
+
+        if (this.posFloorPlanGateVisible) {
+          await this.loadPosFloorPlan();
+        }
+      } catch (error) {
+        console.error("markCurrentTableAsReservedAfterPrint:", error);
+      }
+    },
     confirmAddOrder() {
       this.$bvModal.hide('modal-order-notes');
-      // Call the actual add order function
-      this.addOrderAndClear();
+      this.addOrder(this.checkoutSubmitMode === "pay-print");
     },
     addToCartList(item) {
       try {
@@ -4504,27 +4900,31 @@ export default {
           signalRService.on('OrderTransferred', (data) => {
             console.log('Order transferred via SignalR:', data);
             if (!data) return;
-            // Refresh tables list
-            this.getTables();
-            // If the order was transferred from currently selected table, update selection
-            if (this.selectedTableId === data.FromTableId) {
-              const newTable = this.allTables.find(t => t.id === data.ToTableId);
-              if (newTable) {
-                this.selectedTableId = newTable.id;
-                this.orderForSend.tableId = newTable.id;
-                // Reload table orders
-                this.selectTable(newTable);
+            const sourceTableId = data.SourceTableId || data.FromTableId;
+            const destinationTableId = data.DestinationTableId || data.ToTableId;
+            const mode = data.Mode || "full";
+
+            this.getTables().then(() => {
+              if (this.selectedTableId === sourceTableId || this.selectedTableId === destinationTableId) {
+                const tableToReload = this.allTables.find((t) => t.id === destinationTableId)
+                  || this.allTables.find((t) => t.id === sourceTableId);
+                if (tableToReload) {
+                  this.selectTable(tableToReload);
+                }
               }
-            }
-            // Show notification
-            this.$toast.info(
-              `${this.$i18n.t('orderTransferred') || 'تم نقل الطلب'} من طاولة ${data.FromTableNumber} إلى طاولة ${data.ToTableNumber}`,
-              {
-                position: "top-right",
-                timeout: 3000,
-                maxToasts: 1,
-              }
-            );
+            });
+
+            const modeLabel =
+              mode === "item"
+                ? (this.$t("transferOneItem") || "نقل عنصر")
+                : mode === "merge"
+                ? (this.$t("mergeTwoInvoices") || "دمج فاتورتين")
+                : (this.$t("transferFullOrder") || "نقل الطلب كامل");
+
+            this.$toast.info(`${modeLabel} - ${this.$t("orderTransferred") || "تم نقل الطلب"}`, {
+              timeout: 2400,
+              maxToasts: 1,
+            });
           });
         })
         .catch(error => {
@@ -4557,6 +4957,176 @@ export default {
       if (!this.selectedTableId) return '';
       const table = this.allTables.find(t => t.id === this.selectedTableId);
       return table ? table.tableNumber : '';
+    },
+    resetOrderMove() {
+      this.orderMove.mode = "item";
+      this.orderMove.sourceTableId = null;
+      this.orderMove.destinationTableId = null;
+      this.orderMove.sourceOrderItemId = null;
+      this.orderMove.transferQuantity = 1;
+      this.orderMove.sourceItems = [];
+      this.orderMove.submitting = false;
+    },
+    async openOrderMoveModal(mode = "item", item = null) {
+      const safeMode = ["item", "full", "merge"].includes(mode) ? mode : "item";
+      this.resetOrderMove();
+      this.orderMove.mode = safeMode;
+      const preferredOrderItemId = safeMode === "item" && item?.sourceOrderItemId ? Number(item.sourceOrderItemId) : null;
+      const preferredQuantity = safeMode === "item" && item?.quantity ? Number(item.quantity) : null;
+
+      if (this.selectedTableId) {
+        this.orderMove.sourceTableId = Number(this.selectedTableId);
+      }
+
+      await this.onOrderMoveSourceChanged();
+      if (preferredOrderItemId) {
+        const target = this.orderMove.sourceItems.find((x) => x.sourceOrderItemId === preferredOrderItemId);
+        if (target) {
+          this.orderMove.sourceOrderItemId = preferredOrderItemId;
+          this.orderMove.transferQuantity = preferredQuantity && preferredQuantity > 0
+            ? Math.min(preferredQuantity, target.quantity || preferredQuantity)
+            : (target.quantity || 1);
+        }
+      }
+      this.$bvModal.show("modal-order-move");
+    },
+    closeOrderMoveModal() {
+      this.$bvModal.hide("modal-order-move");
+      this.resetOrderMove();
+    },
+    async onOrderMoveSourceChanged() {
+      this.orderMove.sourceOrderItemId = null;
+      this.orderMove.transferQuantity = 1;
+      this.orderMove.sourceItems = [];
+      if (this.orderMove.mode !== "item" || !this.orderMove.sourceTableId) {
+        return;
+      }
+      await this.loadOrderMoveSourceItems(this.orderMove.sourceTableId);
+    },
+    syncOrderMoveQuantityFromSelection() {
+      const selected = this.orderMove.sourceItems.find((x) => x.sourceOrderItemId === this.orderMove.sourceOrderItemId);
+      this.orderMove.transferQuantity = selected?.quantity || 1;
+    },
+    async loadOrderMoveSourceItems(sourceTableId) {
+      try {
+        const response = await HTTP.get(`Admin/GetTableOrders?tableId=${sourceTableId}`);
+        const orders = response?.data?.data || [];
+        const mapped = [];
+        orders.forEach((order) => {
+          (order.customerOrderItem || []).forEach((orderItem) => {
+            if (!orderItem?.item || orderItem?.isDeleted) return;
+            const itemName = orderItem.item.name || `#${orderItem.itemId}`;
+            mapped.push({
+              sourceOrderItemId: Number(orderItem.id),
+              quantity: Number(orderItem.quantity || 1),
+              label: `${itemName} × ${orderItem.quantity}`,
+            });
+          });
+        });
+        this.orderMove.sourceItems = mapped;
+      } catch (error) {
+        console.error("Error loading source order items:", error);
+        this.$toast.error(this.$t("errorLoadingTableOrders") || "خطأ في تحميل طلبات الطاولة", {
+          timeout: 2200,
+          maxToasts: 1,
+        });
+      }
+    },
+    async confirmOrderMove() {
+      if (!this.orderMoveCanConfirm || this.orderMove.submitting) return;
+
+      const sourceTableId = Number(this.orderMove.sourceTableId);
+      const destinationTableId = Number(this.orderMove.destinationTableId);
+      const mode = this.orderMove.mode;
+
+      try {
+        this.orderMove.submitting = true;
+        let response;
+        if (mode === "item") {
+          response = await HTTP.post("Admin/TransferOrderItem", {
+            sourceTableId,
+            destinationTableId,
+            sourceOrderItemId: Number(this.orderMove.sourceOrderItemId),
+            transferQuantity: Number(this.orderMove.transferQuantity || 0),
+          });
+        } else if (mode === "full") {
+          response = await HTTP.post("Admin/TransferFullOrder", {
+            sourceTableId,
+            destinationTableId,
+          });
+        } else {
+          response = await HTTP.post("Admin/MergeTableOrders", {
+            sourceTableId,
+            destinationTableId,
+          });
+        }
+
+        if (!response?.data || response.data.errorStatus) {
+          this.$toast.error(response?.data?.message || (this.$t("error") || "حدث خطأ"), {
+            timeout: 2500,
+            maxToasts: 1,
+          });
+          return;
+        }
+
+        this.$toast.success(response.data.message || (this.$t("done") || "تم التنفيذ بنجاح"), {
+          timeout: 2500,
+          maxToasts: 1,
+        });
+
+        await this.getTables();
+        if (mode === "item") {
+          await this.refreshSourceAfterItemMove(sourceTableId);
+        } else {
+          const focusTable = this.allTables.find((t) => t.id === destinationTableId);
+          if (focusTable) {
+            await this.selectTable(focusTable);
+          } else {
+            this.selectedTableId = null;
+            this.selectedTableIds = [];
+            this.carditems = [];
+            this.tableOrders = [];
+          }
+        }
+
+        if (this.posFloorPlanGateVisible) {
+          await this.loadPosFloorPlan();
+        }
+
+        this.closeOrderMoveModal();
+      } catch (error) {
+        console.error("Error confirming order move:", error);
+        this.$toast.error(error?.response?.data?.message || (this.$t("error") || "حدث خطأ"), {
+          timeout: 2500,
+          maxToasts: 1,
+        });
+      } finally {
+        this.orderMove.submitting = false;
+      }
+    },
+    async refreshSourceAfterItemMove(sourceTableId) {
+      const sourceTable = this.allTables.find((t) => t.id === sourceTableId);
+      if (!sourceTable) {
+        this.selectedTableId = null;
+        this.selectedTableIds = [];
+        this.carditems = [];
+        this.tableOrders = [];
+        return;
+      }
+
+      if (sourceTable.status === "Occupied") {
+        await this.selectTable(sourceTable);
+        return;
+      }
+
+      // Source table no longer has an active order after full transfer.
+      this.selectedTableId = sourceTable.id;
+      this.selectedTableIds = [sourceTable.id];
+      this.carditems = [];
+      this.tableOrders = [];
+      this.orderForSend.tableId = sourceTable.id;
+      this.orderForSend.tableIds = null;
+      this.orderForSend.orderType = "DineIn";
     },
 
     posClearSuppressAndQuickSearch() {
@@ -5384,6 +5954,83 @@ export default {
   text-align: center;
 }
 
+.pos-table-action-transfer-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.pos-table-action-transfer {
+  min-height: 2.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(30, 41, 59, 0.24);
+}
+
+.pos-table-action-transfer:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.pos-table-action-transfer--item {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.pos-table-action-transfer--item:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.pos-table-action-transfer--full {
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+}
+
+.pos-table-action-transfer--full:hover {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+}
+
+.pos-table-action-transfer--merge {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.pos-table-action-transfer--merge:hover {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+}
+
+.pos-table-action-transfer .b-icon {
+  font-size: 0.94rem;
+}
+
+.pos-table-action-transfer span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* Order move modal buttons: keep compact and consistent */
+#modal-order-move .order-move-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin-top: 0.95rem;
+}
+
+#modal-order-move .order-move-cancel-btn,
+#modal-order-move .order-move-confirm-btn {
+  width: 100%;
+  min-height: 2.65rem;
+  margin: 0;
+  padding: 0.62rem 0.9rem;
+  border-radius: 0.68rem;
+  justify-content: center;
+  font-size: 0.88rem;
+}
+
+#modal-order-move .order-move-cancel-btn {
+  border-width: 1px;
+}
+
 .pos-table-action-save {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: #ffffff;
@@ -5448,7 +6095,7 @@ export default {
     padding: 0.35rem 0.5rem !important;
   }
 
-  /* صف واحد: ثلاثة أعمدة متساوية — أقل ارتفاعاً من تكديس كامل العرض */
+  /* صف مرن للأوامر في المقاسات الصغيرة */
   .pos-table-actions-buttons.pos-table-actions-buttons--inline {
     display: grid !important;
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
@@ -5487,6 +6134,58 @@ export default {
 
   .pos-table-action-btn b-icon {
     font-size: 0.9rem;
+  }
+
+  .pos-table-action-transfer-group {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-column: 1 / -1;
+    gap: 0.3rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .pos-table-actions-buttons.pos-table-actions-buttons--inline {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.38rem !important;
+  }
+
+  .pos-table-action-btn {
+    min-height: 2.95rem !important;
+    padding: 0.45rem 0.35rem !important;
+    border-radius: 0.6rem !important;
+  }
+
+  .pos-table-action-btn span {
+    font-size: 0.72rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .pos-table-action-transfer-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.38rem;
+    grid-column: 1 / -1;
+  }
+
+  .pos-table-action-transfer-group .pos-table-action-transfer:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .pos-table-action-transfer span {
+    white-space: normal;
+    font-size: 0.7rem !important;
+  }
+
+  #modal-order-move .order-move-actions {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+  }
+
+  #modal-order-move .order-move-confirm-btn {
+    order: 1;
+  }
+
+  #modal-order-move .order-move-cancel-btn {
+    order: 2;
   }
 }
 
@@ -5901,6 +6600,7 @@ export default {
   justify-content: space-between;
   gap: 0.6rem;
   min-width: 0;
+  width: 100%;
 }
 
 .pos-cart-item-line-total {
@@ -5923,21 +6623,24 @@ export default {
 
 .pos-cart-item-bottom {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.45rem 0.65rem;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0.42rem;
   padding-top: 0.38rem;
   border-top: 1px solid rgba(148, 163, 184, 0.14);
+  width: 100%;
 }
 
 .pos-cart-item-unit-wrap {
-  display: inline-flex;
-  flex-wrap: wrap;
+  display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.35rem 0.45rem;
+  justify-content: space-between;
+  gap: 0.45rem;
   min-width: 0;
-  flex: 1 1 9rem;
+  flex: 0 0 auto;
+  width: 100%;
 }
 
 .pos-cart-item-unit-price {
@@ -5962,9 +6665,16 @@ export default {
 .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-controls {
   grid-column: unset !important;
   grid-row: unset !important;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 0.45rem;
 }
 
 .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-quantity {
+  margin-inline-start: auto;
   padding: 0.22rem;
   gap: 0.28rem;
 }
@@ -6054,7 +6764,7 @@ export default {
 
   .pos-cart-item-unit-wrap {
     order: 1;
-    flex: 1 1 100%;
+    flex: 0 0 auto;
   }
 
   .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-controls {
@@ -6063,6 +6773,7 @@ export default {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: nowrap;
     gap: 0.5rem;
   }
 
@@ -6093,12 +6804,42 @@ export default {
   .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-delete {
     width: 1.95rem;
     min-width: 1.95rem;
-    margin-inline-start: auto;
+    margin-inline-start: 0;
   }
 
   .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer {
     width: 1.95rem;
     min-width: 1.95rem;
+  }
+}
+
+@media (max-width: 575px) {
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-controls {
+    gap: 0.38rem !important;
+  }
+
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-quantity {
+    padding: 0.2rem !important;
+  }
+
+  .pos-route--v2 .pos-cart-item--v2 .pos-quantity-btn,
+  .pos-route--v2 .pos-cart-item--v2 .pos-quantity-input,
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer,
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-delete {
+    min-height: 2.1rem !important;
+    height: 2.1rem !important;
+  }
+
+  .pos-route--v2 .pos-cart-item--v2 .pos-quantity-btn,
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer,
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-delete {
+    min-width: 2.1rem !important;
+    width: 2.1rem !important;
+  }
+
+  .pos-route--v2 .pos-cart-item--v2 .pos-quantity-input {
+    width: 2.3rem !important;
+    font-size: 0.82rem !important;
   }
 }
 
@@ -6989,44 +7730,7 @@ export default {
   transform: translateY(-1px);
 }
 
-.pos-category-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  width: 100%;
-  min-height: 2.15rem;
-  padding: 0.38rem 0.5rem;
-  border-radius: 0.72rem;
-  font-weight: 700;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(148, 163, 184, 0.04) 100%);
-  color: var(--text-primary);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.pos-category-btn:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-  background: linear-gradient(180deg, rgba(99, 102, 241, 0.14) 0%, rgba(99, 102, 241, 0.08) 100%);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.16);
-}
-
-.pos-category-btn:active {
-  transform: translateY(0);
-}
-
-.pos-category-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.28);
-}
-
-.pos-category-btn-accent {
-  background: linear-gradient(180deg, rgba(99, 102, 241, 0.26) 0%, rgba(129, 140, 248, 0.18) 100%);
-  border-color: rgba(99, 102, 241, 0.7);
-  color: #e0e7ff;
-}
+/* أزرار الأقسام: الألوان والتدرّجات من main.css — تجنّب التكرار هنا إذ كان يطبّق لون نص غامق/فاتح خطأ على زر «الكل» */
 
 @media (max-width: 575px) {
   .pos-main-section--v2 .pos-categories-list {
@@ -8176,9 +8880,25 @@ export default {
     justify-content: stretch;
   }
 
+  .pos-cart-checkout-strip {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.42rem;
+  }
+
+  .pos-cart-checkout-segment {
+    min-height: 0 !important;
+    padding: 0.42rem 0.58rem !important;
+  }
+
+  .pos-cart-checkout-segment-label {
+    font-size: 0.62rem !important;
+  }
+
   .pos-cart-checkout-action-btn {
     flex: 1 1 auto;
     min-width: 0;
+    min-height: 2.25rem !important;
   }
 }
 

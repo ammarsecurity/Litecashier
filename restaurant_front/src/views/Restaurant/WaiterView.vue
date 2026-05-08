@@ -313,7 +313,7 @@
                   <div class="order-notes-actions">
                     <button class="order-notes-confirm-button" @click="confirmAddOrder">
                       <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                      {{ $t("confirmButton") || "تأكيد" }}
+                      {{ $t("orderNotesComplete") || "اكمال" }}
                     </button>
                     <button class="order-notes-cancel-button" @click="closeModel('modal-order-notes')">
                       <b-icon icon="x-circle-fill" class="me-2"></b-icon>

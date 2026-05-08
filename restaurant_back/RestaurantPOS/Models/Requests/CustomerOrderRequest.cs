@@ -11,6 +11,7 @@ namespace RestaurantPOS.Models.Requests
         public List<int>? TableIds { get; set; } // لدعم عدة طاولات
         public int? ReservationId { get; set; }
         public string OrderType { get; set; } = "DineIn"; // DineIn, Takeaway, Delivery
+        public int? NumberOfGuests { get; set; } // عدد الزبائن للطاولات
         public string? Notes { get; set; } // ملاحظات الطلب
         public string? PagerNumber { get; set; } // رقم جهاز النداء
 

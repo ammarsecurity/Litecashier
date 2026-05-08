@@ -16,6 +16,7 @@ namespace RestaurantPOS.Models.Dtos
         public DateTime InsertDate { get; set;}
         public string? PaymentMethod { get; set; }
         public string? OrderType { get; set; }
+        public int NumberOfGuests { get; set; }
         public string? OrderStatus { get; set; }
         public string? Notes { get; set; }
         public DateTime? CreatedAt { get; set; }
