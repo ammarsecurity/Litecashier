@@ -18,6 +18,7 @@ import PublicMenuView from '../views/PublicMenuView.vue'
 import OrderQueueView from '../views/OrderQueueView.vue'
 import DeliveryDriversView from '../views/DeliveryDriversView.vue'
 import EmployeesView from '../views/EmployeesView.vue'
+import CustomersView from '../views/CustomersView.vue'
 import ExpensesView from '../views/ExpensesView.vue'
 import InventoryView from '../views/InventoryView.vue'
 import AuditLogView from '../views/AuditLogView.vue'
@@ -250,6 +251,15 @@ const routes = [
     }
   },
   {
+    path: '/customers',
+    name: 'customers',
+    component: CustomersView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
+    }
+  },
+  {
     path: '/expenses',
     name: 'expenses',
     component: ExpensesView,
@@ -340,7 +350,7 @@ router.beforeEach((to, from, next) => {
     if (to.meta.requiresAuth === true && token && role) {
       if (to.meta.roles && Array.isArray(to.meta.roles) && to.meta.roles.includes(role)) {
         // If Admin tries to access any page other than /users, redirect to /users
-        if (role === 'Admin' && to.path !== '/users' && to.path !== '/logout' && to.path !== '/sections') {
+        if (role === 'Admin' && to.path !== '/users' && to.path !== '/logout' && to.path !== '/sections' && to.path !== '/customers') {
           return next('/users');
         }
         // If POS tries to access any page other than allowed paths, redirect to /pos

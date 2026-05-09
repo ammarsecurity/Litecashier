@@ -43,7 +43,7 @@ namespace RestaurantPOS.Controllers
             return commercialId;
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [Authorize(Roles = "Commercial,Admin,POS")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<List<Employee>>>> GetEmployees()
         {

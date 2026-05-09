@@ -37,5 +37,11 @@ namespace RestaurantPOS.Models.Requests
         public string? NewDriverAddress { get; set; }
         public string? NewDriverVehicleType { get; set; }
         public string? NewDriverVehicleNumber { get; set; }
+
+        /// <summary>عند PaymentMethod = Credit: تحديد موظف يُحسب الطلب على حسابه.</summary>
+        public int? CreditEmployeeId { get; set; }
+
+        /// <summary>عند PaymentMethod = Credit: تحديد عميل يُحسب الطلب على حسابه.</summary>
+        public int? CreditCustomerId { get; set; }
     }
 }

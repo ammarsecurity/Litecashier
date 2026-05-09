@@ -104,6 +104,12 @@ export function buildNavItems(t) {
       icon: "person-badge-fill",
     },
     {
+      name: "customers",
+      label: t("customersManagement") || "إدارة العملاء",
+      link: "/customers",
+      icon: "person-lines-fill",
+    },
+    {
       name: "auditLog",
       label: t("auditLog") || "سجل العمليات",
       link: "/audit-log",
@@ -126,7 +132,7 @@ export function buildNavItems(t) {
 
 export function filterNavByRole(role, items) {
   if (role === "Admin") {
-    return items.filter((item) => item.name === "users" || item.name === "logout");
+    return items.filter((item) => item.name === "users" || item.name === "logout" || item.name === "customers");
   }
   if (role === "POS") {
     return items.filter(

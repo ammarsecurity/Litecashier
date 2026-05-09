@@ -19,11 +19,18 @@
             <div class="pos-fp-launch">
               <div class="pos-fp-launch__intro">
                 <div class="pos-fp-launch__intro-main">
-                  <p class="pos-fp-launch__eyebrow">{{ $t("posFloorPlanEyebrow") }}</p>
-                  <h2 class="pos-floor-plan-gate-title">{{ $t("posFloorPlanGateTitle") }}</h2>
+                  <header class="pos-fp-launch__intro-head">
+                    <p class="pos-fp-launch__eyebrow">{{ $t("posFloorPlanEyebrow") }}</p>
+                    <h2 class="pos-floor-plan-gate-title">{{ $t("posFloorPlanGateTitle") }}</h2>
+                  </header>
 
                   <div v-if="posFloorPlanKeysForTabs.length" class="pos-fp-gate-tabs-card">
-                    <div class="pos-fp-gate-tabs-label">{{ $t("floorPlanFloorTabs") }}</div>
+                    <div class="pos-fp-gate-tabs-card__header">
+                      <div class="pos-fp-gate-tabs-card__icon-wrap" aria-hidden="true">
+                        <b-icon icon="geo-alt-fill" />
+                      </div>
+                      <span class="pos-fp-gate-tabs-label">{{ $t("floorPlanFloorTabs") }}</span>
+                    </div>
                     <div class="pos-fp-gate-tabs-scroll">
                       <div class="pos-floor-plan-gate-tabs" role="tablist">
                         <button
@@ -545,6 +552,112 @@
               </div>
             </b-modal>
 
+            <b-modal
+              id="modal-credit-payment"
+              modal-class="users-modal pos-delivery-modal"
+              hide-header
+              hide-footer
+              centered
+              size="lg"
+            >
+              <div class="modal-content-wrapper">
+                <div class="pos-modal-custom-header">
+                  <h3 class="delete-confirmation-title mb-0">
+                    {{ $t("creditPaymentModalTitle") }}
+                  </h3>
+                  <button type="button" class="pos-modal-close-btn" @click="cancelCreditPaymentModal">
+                    <b-icon icon="x-lg" class="me-2"></b-icon>
+                    {{ $t("close") || "إغلاق" }}
+                  </button>
+                </div>
+                <div class="delivery-info-section">
+                  <form class="users-form" @submit.prevent="confirmCreditPaymentSelection">
+                    <div class="users-form-group">
+                      <label class="users-form-label">
+                        <b-icon icon="person-lines-fill" class="form-label-icon"></b-icon>
+                        {{ $t("creditAccountTypeLabel") }}
+                      </label>
+                      <div class="delivery-radio-group">
+                        <label class="delivery-radio-label">
+                          <input
+                            type="radio"
+                            v-model="creditPaymentKind"
+                            value="employee"
+                            class="delivery-radio-input"
+                            @change="onCreditPaymentKindChange"
+                          />
+                          <span class="delivery-radio-text">{{ $t("creditOnEmployeeAccount") }}</span>
+                        </label>
+                        <label class="delivery-radio-label">
+                          <input
+                            type="radio"
+                            v-model="creditPaymentKind"
+                            value="customer"
+                            class="delivery-radio-input"
+                            @change="onCreditPaymentKindChange"
+                          />
+                          <span class="delivery-radio-text">{{ $t("creditOnCustomerAccount") }}</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div v-if="creditPaymentKind === 'employee'" class="users-form-group">
+                      <label class="users-form-label">
+                        <b-icon icon="person-badge-fill" class="form-label-icon"></b-icon>
+                        {{ $t("selectCreditEmployee") }}
+                      </label>
+                      <select
+                        v-model="orderForSend.creditEmployeeId"
+                        class="users-form-select"
+                        :disabled="loadingCreditEmployees"
+                      >
+                        <option value="">{{ $t("selectCreditEmployee") }}</option>
+                        <option
+                          v-for="e in creditEmployees.filter((x) => !x.isDeleted)"
+                          :key="'ce-' + e.id"
+                          :value="e.id"
+                        >
+                          {{ e.name }} — {{ e.phoneNumber }}
+                        </option>
+                      </select>
+                    </div>
+
+                    <div v-else class="users-form-group">
+                      <label class="users-form-label">
+                        <b-icon icon="people-fill" class="form-label-icon"></b-icon>
+                        {{ $t("selectCreditCustomer") }}
+                      </label>
+                      <select
+                        v-model="orderForSend.creditCustomerId"
+                        class="users-form-select"
+                        :disabled="loadingDeliveryCustomers"
+                      >
+                        <option value="">{{ $t("selectCreditCustomer") }}</option>
+                        <option
+                          v-for="c in deliveryCustomers.filter((x) => x.isActive !== false)"
+                          :key="'cc-' + c.id"
+                          :value="c.id"
+                        >
+                          {{ c.name }} — {{ c.phoneNumber }}
+                        </option>
+                      </select>
+                    </div>
+
+                    <div class="order-notes-actions mt-3">
+                      <button type="submit" class="order-notes-confirm-button">
+                        <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                        {{ $t("confirm") || "تأكيد" }}
+                      </button>
+                      <button type="button" class="order-notes-cancel-button" @click="cancelCreditPaymentModal">
+                        <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                        {{ $t("cancelButton") }}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </b-modal>
+
             <!-- Close Table Order Modal -->
             <b-modal id="modal-close-table" :title="$t('confirmCloseTableOrder')" hide-header hide-footer class="users-modal">
               <div class="modal-content-wrapper">
@@ -585,19 +698,41 @@
 
                   <div class="users-form-grid" style="width:100%;">
                     <div class="users-input-group">
+                      <label>{{ $t("sourceZoneFilterLabel") || "موقع المصدر" }}</label>
+                      <select
+                        v-model="orderMove.sourceZoneFilter"
+                        class="users-form-input"
+                        @change="onOrderMoveSourceZoneFilterChanged"
+                      >
+                        <option value="">{{ $t("allZones") || "جميع المواقع" }}</option>
+                        <option v-for="zone in uniqueZones" :key="'om-src-zone-' + zone" :value="zone">{{ zone }}</option>
+                      </select>
+                    </div>
+                    <div class="users-input-group">
                       <label>{{ $t("sourceTable") || "الطاولة المصدر" }}</label>
                       <select v-model.number="orderMove.sourceTableId" class="users-form-input" @change="onOrderMoveSourceChanged">
                         <option :value="null">{{ $t("selectTable") || "اختر طاولة" }}</option>
                         <option
-                          v-for="table in allTables.filter(t => t.status === 'Occupied')"
+                          v-for="table in orderMoveSourceTables"
                           :key="`src-${table.id}`"
                           :value="table.id"
                         >
-                          {{ table.tableNumber }} ({{ $t(table.status.toLowerCase()) || table.status }})
+                          {{ formatOrderMoveTableOption(table) }}
                         </option>
                       </select>
                     </div>
 
+                    <div class="users-input-group">
+                      <label>{{ $t("destinationZoneFilterLabel") || "موقع الهدف" }}</label>
+                      <select
+                        v-model="orderMove.destinationZoneFilter"
+                        class="users-form-input"
+                        @change="onOrderMoveDestinationZoneFilterChanged"
+                      >
+                        <option value="">{{ $t("allZones") || "جميع المواقع" }}</option>
+                        <option v-for="zone in uniqueZones" :key="'om-dst-zone-' + zone" :value="zone">{{ zone }}</option>
+                      </select>
+                    </div>
                     <div class="users-input-group">
                       <label>{{ $t("destinationTable") || "الطاولة الهدف" }}</label>
                       <select v-model.number="orderMove.destinationTableId" class="users-form-input">
@@ -607,7 +742,7 @@
                           :key="`dst-${table.id}`"
                           :value="table.id"
                         >
-                          {{ table.tableNumber }} ({{ $t(table.status.toLowerCase()) || table.status }})
+                          {{ formatOrderMoveTableOption(table) }}
                         </option>
                       </select>
                     </div>
@@ -779,6 +914,66 @@
                 <form class="users-form">
                   <div class="users-form-group">
                     <label class="users-form-label">
+                      <b-icon icon="person-lines-fill" class="form-label-icon"></b-icon>
+                      {{ $t("customerRecipientSelection") || "المستلم" }}
+                    </label>
+                    <div class="delivery-radio-group">
+                      <label class="delivery-radio-label">
+                        <input
+                          type="radio"
+                          v-model="useExistingCustomer"
+                          :value="true"
+                          class="delivery-radio-input"
+                        />
+                        <span class="delivery-radio-text">{{ $t("useExistingCustomer") || "استخدام عميل موجود" }}</span>
+                      </label>
+                      <label class="delivery-radio-label">
+                        <input
+                          type="radio"
+                          v-model="useExistingCustomer"
+                          :value="false"
+                          class="delivery-radio-input"
+                        />
+                        <span class="delivery-radio-text">{{ $t("addNewCustomerDelivery") || "إضافة عميل جديد" }}</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div v-if="useExistingCustomer" class="users-form-group">
+                    <label class="users-form-label">
+                      <b-icon icon="people-fill" class="form-label-icon"></b-icon>
+                      {{ $t("selectCustomer") || "اختر العميل" }}
+                    </label>
+                    <select
+                      v-model="selectedDeliveryCustomerId"
+                      class="users-form-select"
+                      :disabled="loadingDeliveryCustomers"
+                      @change="applySelectedDeliveryCustomer"
+                    >
+                      <option value="">{{ $t("selectCustomer") || "اختر العميل" }}</option>
+                      <option
+                        v-for="c in deliveryCustomers.filter((x) => x.isActive !== false)"
+                        :key="'dc-' + c.id"
+                        :value="c.id"
+                      >
+                        {{ c.name }} — {{ c.phoneNumber }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div v-else class="users-form-group">
+                    <button
+                      type="button"
+                      class="delivery-add-btn"
+                      @click="showAddCustomerModal = true"
+                    >
+                      <b-icon icon="person-plus-fill" class="me-2"></b-icon>
+                      {{ $t("addNewCustomerDelivery") || "إضافة عميل جديد" }}
+                    </button>
+                  </div>
+
+                  <div class="users-form-group">
+                    <label class="users-form-label">
                       <b-icon icon="person-badge-fill" class="form-label-icon"></b-icon>
                       {{ $t("customerName") || "اسم المستلم" }} <span class="required">*</span>
                     </label>
@@ -787,6 +982,7 @@
                       type="text"
                       class="users-form-input"
                       :placeholder="$t('enterCustomerName') || 'أدخل اسم المستلم'"
+                      :disabled="useExistingCustomer"
                       required
                     />
                   </div>
@@ -801,6 +997,7 @@
                       type="text"
                       class="users-form-input"
                       :placeholder="$t('enterPhoneNumber') || 'أدخل رقم الهاتف'"
+                      :disabled="useExistingCustomer"
                       required
                     />
                   </div>
@@ -900,7 +1097,7 @@
                       @click="$bvModal.hide('modal-delivery-info')"
                     >
                       <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                      {{ $t("confirmButton") || "تأكيد" }}
+                      {{ $t("save") || "حفظ" }}
                     </button>
                   </div>
                 </form>
@@ -1012,7 +1209,7 @@
                           type="button"
                           class="pos-payment-method-btn"
                           :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Cash' }"
-                          @click="orderForSend.paymentMethod = 'Cash'"
+                          @click="setPosPaymentMethod('Cash')"
                         >
                           <b-icon icon="cash-stack" class="pos-payment-icon"></b-icon>
                           <span class="pos-payment-label">{{ $t("cash") || "نقد" }}</span>
@@ -1021,7 +1218,7 @@
                           type="button"
                           class="pos-payment-method-btn"
                           :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Card' }"
-                          @click="orderForSend.paymentMethod = 'Card'"
+                          @click="setPosPaymentMethod('Card')"
                         >
                           <b-icon icon="credit-card" class="pos-payment-icon"></b-icon>
                           <span class="pos-payment-label">{{ $t("card") || "بطاقة" }}</span>
@@ -1030,7 +1227,7 @@
                           type="button"
                           class="pos-payment-method-btn"
                           :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Credit' }"
-                          @click="orderForSend.paymentMethod = 'Credit'"
+                          @click="openCreditPaymentModal"
                         >
                           <b-icon icon="clock-history" class="pos-payment-icon"></b-icon>
                           <span class="pos-payment-label">{{ $t("credit") || "دفع لاحق" }}</span>
@@ -1466,6 +1663,84 @@
       </div>
     </b-modal>
 
+    <!-- إضافة عميل من نافذة التوصيل (مثل إضافة السائق) -->
+    <b-modal
+      v-model="showAddCustomerModal"
+      hide-header
+      hide-footer
+      class="users-modal"
+      centered
+      size="lg"
+      @hidden="resetNewCustomerForm"
+    >
+      <div class="modal-content-wrapper">
+        <h2 class="modal-title">{{ $t("addNewCustomerDeliveryModal") || "إضافة عميل جديد" }}</h2>
+        <form class="users-form" @submit.prevent="saveNewCustomerFromDelivery">
+          <div class="modal-form-grid">
+            <div class="users-form-group">
+              <label class="users-form-label">
+                <b-icon icon="person-fill" class="form-label-icon"></b-icon>
+                {{ $t("customerNameField") || "اسم العميل" }} <span class="required">*</span>
+              </label>
+              <input
+                v-model="newCustomerForm.name"
+                type="text"
+                class="users-form-input"
+                :placeholder="$t('enterCustomerNamePlaceholder') || 'أدخل الاسم'"
+                required
+              />
+            </div>
+            <div class="users-form-group">
+              <label class="users-form-label">
+                <b-icon icon="telephone-fill" class="form-label-icon"></b-icon>
+                {{ $t("phoneNumber") }} <span class="required">*</span>
+              </label>
+              <input
+                v-model="newCustomerForm.phoneNumber"
+                type="text"
+                class="users-form-input"
+                :placeholder="$t('enterPhoneNumber') || 'أدخل رقم الهاتف'"
+                required
+              />
+            </div>
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="geo-alt-fill" class="form-label-icon"></b-icon>
+              {{ $t("address") }}
+            </label>
+            <input
+              v-model="newCustomerForm.address"
+              type="text"
+              class="users-form-input"
+              :placeholder="$t('enterAddress') || 'العنوان (اختياري)'"
+            />
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="chat-left-text-fill" class="form-label-icon"></b-icon>
+              {{ $t("notes") }}
+            </label>
+            <textarea
+              v-model="newCustomerForm.notes"
+              class="users-form-input"
+              rows="2"
+              :placeholder="$t('customerNotesPlaceholder') || ''"
+            ></textarea>
+          </div>
+          <div class="users-form-actions">
+            <button type="button" class="users-form-cancel-button" :disabled="savingDeliveryCustomer" @click="showAddCustomerModal = false">
+              {{ $t("cancel") }}
+            </button>
+            <button type="submit" class="users-form-submit-button" :disabled="savingDeliveryCustomer">
+              <b-spinner v-if="savingDeliveryCustomer" small class="me-2"></b-spinner>
+              {{ savingDeliveryCustomer ? ($t("adding") || "جاري الإضافة...") : ($t("add") || "إضافة") }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </b-modal>
+
   </div>
 </template>
 
@@ -1527,6 +1802,8 @@ export default {
       orderForSend: {
         orderCode: "",
         paymentMethod: "Cash",
+        creditEmployeeId: null,
+        creditCustomerId: null,
         customerOrderItem: [],
         orderType: "Takeaway",
         numberOfGuests: 0,
@@ -1564,6 +1841,21 @@ export default {
       ],
       deliveryDrivers: [],
       loadingDeliveryDrivers: false,
+      deliveryCustomers: [],
+      loadingDeliveryCustomers: false,
+      creditEmployees: [],
+      loadingCreditEmployees: false,
+      creditPaymentKind: "employee",
+      useExistingCustomer: true,
+      selectedDeliveryCustomerId: "",
+      showAddCustomerModal: false,
+      savingDeliveryCustomer: false,
+      newCustomerForm: {
+        name: "",
+        phoneNumber: "",
+        address: "",
+        notes: "",
+      },
       useExistingDriver: true,
       showAddDriverModal: false,
       savingDriver: false,
@@ -1622,6 +1914,8 @@ export default {
         transferQuantity: 1,
         sourceItems: [],
         submitting: false,
+        sourceZoneFilter: "",
+        destinationZoneFilter: "",
       },
       checkoutSubmitMode: "pay",
     };
@@ -1875,14 +2169,27 @@ export default {
       }
       return this.$t("confirmItemTransfer") || "تأكيد نقل العنصر";
     },
+    orderMoveSourceTables() {
+      if (!Array.isArray(this.allTables)) return [];
+      let list = this.allTables.filter((t) => t.status === "Occupied");
+      const z = (this.orderMove.sourceZoneFilter ?? "").trim();
+      if (z) {
+        list = list.filter((t) => (t.zone && String(t.zone).trim()) === z);
+      }
+      return list.sort((a, b) => Number(a.tableNumber) - Number(b.tableNumber));
+    },
     orderMoveDestinationTables() {
-      return this.allTables
-        .filter(
-          (t) =>
-            (t.status === "Available" || t.status === "Occupied") &&
-            t.id !== this.orderMove.sourceTableId
-        )
-        .sort((a, b) => Number(a.tableNumber) - Number(b.tableNumber));
+      if (!Array.isArray(this.allTables)) return [];
+      let list = this.allTables.filter(
+        (t) =>
+          (t.status === "Available" || t.status === "Occupied") &&
+          t.id !== this.orderMove.sourceTableId
+      );
+      const z = (this.orderMove.destinationZoneFilter ?? "").trim();
+      if (z) {
+        list = list.filter((t) => (t.zone && String(t.zone).trim()) === z);
+      }
+      return list.sort((a, b) => Number(a.tableNumber) - Number(b.tableNumber));
     },
     orderMoveCanConfirm() {
       if (!this.orderMove.sourceTableId || !this.orderMove.destinationTableId) {
@@ -2015,12 +2322,16 @@ export default {
           this.orderForSend.newDriverVehicleType = "";
           this.orderForSend.newDriverVehicleNumber = "";
           this.useExistingDriver = true;
+          this.useExistingCustomer = true;
+          this.selectedDeliveryCustomerId = "";
+          this.showAddCustomerModal = false;
           this.$bvModal.hide('modal-delivery-info');
         } else {
           // Set default delivery status when switching to Delivery
           if (!this.orderForSend.deliveryStatus) {
             this.orderForSend.deliveryStatus = "Pending";
           }
+          this.loadDeliveryCustomers();
           this.$nextTick(() => {
             this.$bvModal.show('modal-delivery-info');
           });
@@ -2046,6 +2357,12 @@ export default {
         typeof window !== "undefined" &&
         window.matchMedia("(max-width: 1200px)").matches;
       document.body.style.overflow = val && isNarrowViewport ? "hidden" : "";
+    },
+
+    useExistingCustomer(val) {
+      if (val === false) {
+        this.selectedDeliveryCustomerId = "";
+      }
     },
 
   },
@@ -2087,8 +2404,9 @@ export default {
       // Load managed printers to get main printer
       this.loadManagedPrinters();
       
-      // Load delivery drivers
+      // Load delivery drivers & customers (delivery)
       this.loadDeliveryDrivers();
+      this.loadDeliveryCustomers();
       
       // Add keyboard shortcut listener
       this.handleKeyup = (e) => {
@@ -2165,6 +2483,7 @@ export default {
       };
     },
     openDeliveryInfoModal() {
+      this.loadDeliveryCustomers();
       this.$bvModal.show('modal-delivery-info');
     },
     openPosMobileCart() {
@@ -2258,6 +2577,196 @@ export default {
       } finally {
         this.loadingDeliveryDrivers = false;
       }
+    },
+    async loadDeliveryCustomers() {
+      try {
+        this.loadingDeliveryCustomers = true;
+        const response = await HTTP.get("Customers");
+        if (response.data && !response.data.errorStatus) {
+          this.deliveryCustomers = response.data.data || [];
+        } else {
+          this.deliveryCustomers = [];
+        }
+      } catch (error) {
+        console.error("Error loading customers:", error);
+        this.deliveryCustomers = [];
+      } finally {
+        this.loadingDeliveryCustomers = false;
+      }
+    },
+    async loadCreditEmployees() {
+      try {
+        this.loadingCreditEmployees = true;
+        const response = await HTTP.get("Employees");
+        if (response.data && !response.data.errorStatus) {
+          this.creditEmployees = response.data.data || [];
+        } else {
+          this.creditEmployees = [];
+        }
+      } catch (error) {
+        console.error("Error loading employees for credit:", error);
+        this.creditEmployees = [];
+      } finally {
+        this.loadingCreditEmployees = false;
+      }
+    },
+    setPosPaymentMethod(method) {
+      this.orderForSend.paymentMethod = method;
+      if (method !== "Credit") {
+        this.orderForSend.creditEmployeeId = null;
+        this.orderForSend.creditCustomerId = null;
+      }
+    },
+    onCreditPaymentKindChange() {
+      if (this.creditPaymentKind === "employee") {
+        this.orderForSend.creditCustomerId = null;
+      } else {
+        this.orderForSend.creditEmployeeId = null;
+      }
+    },
+    async openCreditPaymentModal() {
+      await Promise.all([this.loadCreditEmployees(), this.loadDeliveryCustomers()]);
+      if (this.orderForSend.creditEmployeeId) {
+        this.creditPaymentKind = "employee";
+      } else if (this.orderForSend.creditCustomerId) {
+        this.creditPaymentKind = "customer";
+      } else {
+        this.creditPaymentKind = "employee";
+      }
+      this.$bvModal.show("modal-credit-payment");
+    },
+    confirmCreditPaymentSelection() {
+      const textDirection = document.documentElement.dir;
+      const toastPosition = textDirection === "rtl" ? "top-right" : "top-left";
+      if (this.creditPaymentKind === "employee") {
+        if (
+          this.orderForSend.creditEmployeeId == null ||
+          this.orderForSend.creditEmployeeId === ""
+        ) {
+          this.$toast.error(this.$i18n.t("selectCreditEmployee") || "اختر الموظف", {
+            position: toastPosition,
+            timeout: 2500,
+            maxToasts: 1,
+          });
+          return;
+        }
+        this.orderForSend.creditCustomerId = null;
+      } else {
+        if (
+          this.orderForSend.creditCustomerId == null ||
+          this.orderForSend.creditCustomerId === ""
+        ) {
+          this.$toast.error(this.$i18n.t("selectCreditCustomer") || "اختر العميل", {
+            position: toastPosition,
+            timeout: 2500,
+            maxToasts: 1,
+          });
+          return;
+        }
+        this.orderForSend.creditEmployeeId = null;
+      }
+      this.orderForSend.paymentMethod = "Credit";
+      this.$bvModal.hide("modal-credit-payment");
+    },
+    cancelCreditPaymentModal() {
+      this.$bvModal.hide("modal-credit-payment");
+    },
+    validateCreditForOrder(toastPosition) {
+      if (this.orderForSend.paymentMethod !== "Credit") return true;
+      const e = this.orderForSend.creditEmployeeId;
+      const c = this.orderForSend.creditCustomerId;
+      const hasE = e != null && e !== "";
+      const hasC = c != null && c !== "";
+      if ((hasE && !hasC) || (!hasE && hasC)) return true;
+      this.$toast.error(
+        this.$i18n.t("pleaseSelectCreditAccount") || "اختر حساباً للدفع الآجل",
+        {
+          position: toastPosition,
+          timeout: 2500,
+          maxToasts: 1,
+        }
+      );
+      return false;
+    },
+    applySelectedDeliveryCustomer() {
+      const id = this.selectedDeliveryCustomerId;
+      if (id === "" || id === null || id === undefined) {
+        return;
+      }
+      const numId = Number(id);
+      const c = this.deliveryCustomers.find((x) => Number(x.id) === numId);
+      if (c) {
+        this.orderForSend.deliveryCustomerName = c.name || "";
+        this.orderForSend.deliveryPhoneNumber = c.phoneNumber || "";
+        this.orderForSend.deliveryAddress = c.address || "";
+      }
+    },
+    async saveNewCustomerFromDelivery() {
+      if (!this.newCustomerForm.name || !this.newCustomerForm.name.trim()) {
+        this.$toast.error(this.$i18n.t("pleaseEnterCustomerName") || "يرجى إدخال اسم العميل", {
+          position: "top-right",
+          timeout: 2500,
+          rtl: this.$i18n.locale === "ar",
+        });
+        return;
+      }
+      if (!this.newCustomerForm.phoneNumber || !this.newCustomerForm.phoneNumber.trim()) {
+        this.$toast.error(this.$i18n.t("pleaseEnterPhoneNumber") || "يرجى إدخال رقم الهاتف", {
+          position: "top-right",
+          timeout: 2500,
+          rtl: this.$i18n.locale === "ar",
+        });
+        return;
+      }
+      try {
+        this.savingDeliveryCustomer = true;
+        const response = await HTTP.post("Customers", {
+          name: this.newCustomerForm.name.trim(),
+          phoneNumber: this.newCustomerForm.phoneNumber.trim(),
+          address: this.newCustomerForm.address ? this.newCustomerForm.address.trim() : null,
+          notes: this.newCustomerForm.notes ? this.newCustomerForm.notes.trim() : null,
+          isActive: true,
+        });
+        if (response.data && !response.data.errorStatus) {
+          this.$toast.success(this.$i18n.t("customerAddedSuccess") || "تم إضافة العميل بنجاح", {
+            position: "top-right",
+            timeout: 2500,
+            rtl: this.$i18n.locale === "ar",
+          });
+          await this.loadDeliveryCustomers();
+          const newId = response.data.data && response.data.data.id;
+          if (newId) {
+            this.selectedDeliveryCustomerId = newId;
+            this.applySelectedDeliveryCustomer();
+            this.useExistingCustomer = true;
+          }
+          this.showAddCustomerModal = false;
+          this.resetNewCustomerForm();
+        } else {
+          this.$toast.error(response.data?.message || this.$i18n.t("customerSaveFailed") || "فشل حفظ العميل", {
+            position: "top-right",
+            timeout: 2500,
+            rtl: this.$i18n.locale === "ar",
+          });
+        }
+      } catch (error) {
+        console.error("Error saving customer from POS:", error);
+        this.$toast.error(error.response?.data?.message || this.$i18n.t("customerSaveFailed") || "حدث خطأ", {
+          position: "top-right",
+          timeout: 2500,
+          rtl: this.$i18n.locale === "ar",
+        });
+      } finally {
+        this.savingDeliveryCustomer = false;
+      }
+    },
+    resetNewCustomerForm() {
+      this.newCustomerForm = {
+        name: "",
+        phoneNumber: "",
+        address: "",
+        notes: "",
+      };
     },
     async saveNewDriver() {
       try {
@@ -2835,6 +3344,16 @@ export default {
       };
       return statusTexts[status] || status;
     },
+    formatOrderMoveTableOption(table) {
+      if (!table) return "";
+      const num = table.tableNumber ?? "";
+      const statusText = this.getTableStatusText(table.status);
+      const zone = table.zone != null ? String(table.zone).trim() : "";
+      if (zone) {
+        return `${zone} - ${num} - ${statusText}`;
+      }
+      return `${num} - ${statusText}`;
+    },
     formatPrice(price) {
       if (price !== null && price !== undefined && !isNaN(price)) {
         const numPrice = typeof price === 'string' ? parseFloat(price) : price;
@@ -2867,9 +3386,21 @@ export default {
         });
         return;
       }
+
+      if (!this.validateCreditForOrder(toastPosition)) {
+        return;
+      }
       
       // Validate Delivery information if order type is Delivery
       if (this.orderForSend.orderType === 'Delivery') {
+        if (this.useExistingCustomer && !this.selectedDeliveryCustomerId) {
+          this.$toast.error(this.$i18n.t("pleaseSelectCustomer") || "يرجى اختيار عميل من القائمة", {
+            position: toastPosition,
+            timeout: 2500,
+            maxToasts: 1,
+          });
+          return;
+        }
         if (!this.orderForSend.deliveryCustomerName || !this.orderForSend.deliveryCustomerName.trim()) {
           this.$toast.error(this.$i18n.t("pleaseEnterCustomerName") || "يرجى إدخال اسم المستلم", {
             position: toastPosition,
@@ -3000,6 +3531,8 @@ export default {
             const isDineInTableOrder =
               this.orderForSend.orderType === "DineIn" && !!this.orderForSend.tableId;
             const refreshAfterSave = async () => {
+              this.orderForSend.creditEmployeeId = null;
+              this.orderForSend.creditCustomerId = null;
               await this.getTables();
               if (isDineInTableOrder && tableIdToUpdate) {
                 const savedTable = this.allTables.find((t) => t.id === tableIdToUpdate);
@@ -3083,9 +3616,21 @@ export default {
         });
         return;
       }
+
+      if (!this.validateCreditForOrder(toastPosition)) {
+        return;
+      }
       
       // Validate Delivery information if order type is Delivery
       if (this.orderForSend.orderType === 'Delivery') {
+        if (this.useExistingCustomer && !this.selectedDeliveryCustomerId) {
+          this.$toast.error(this.$i18n.t("pleaseSelectCustomer") || "يرجى اختيار عميل من القائمة", {
+            position: toastPosition,
+            timeout: 2500,
+            maxToasts: 1,
+          });
+          return;
+        }
         if (!this.orderForSend.deliveryCustomerName || !this.orderForSend.deliveryCustomerName.trim()) {
           this.$toast.error(this.$i18n.t("pleaseEnterCustomerName") || "يرجى إدخال اسم المستلم", {
             position: toastPosition,
@@ -3211,6 +3756,8 @@ export default {
             const isDineInTableOrder =
               this.orderForSend.orderType === "DineIn" && !!this.orderForSend.tableId;
             const refreshAfterSave = async () => {
+              this.orderForSend.creditEmployeeId = null;
+              this.orderForSend.creditCustomerId = null;
               if (isDineInTableOrder && tableIdToReload) {
                 try {
                   await HTTP.put(`Tables/${tableIdToReload}/status`, JSON.stringify("Available"), {
@@ -4603,6 +5150,7 @@ export default {
     EmptycardList(id) {
       this.carditems = [];
       this.$bvModal.hide(id);
+      this.setPosPaymentMethod("Cash");
       // Reset table selection and order type when clearing cart
       if (this.selectedTableId) {
         this.selectedTableId = null;
@@ -4966,6 +5514,21 @@ export default {
       this.orderMove.transferQuantity = 1;
       this.orderMove.sourceItems = [];
       this.orderMove.submitting = false;
+      this.orderMove.sourceZoneFilter = "";
+      this.orderMove.destinationZoneFilter = "";
+    },
+    onOrderMoveSourceZoneFilterChanged() {
+      const ok = this.orderMoveSourceTables.some((t) => t.id === this.orderMove.sourceTableId);
+      if (!ok) {
+        this.orderMove.sourceTableId = null;
+        this.onOrderMoveSourceChanged();
+      }
+    },
+    onOrderMoveDestinationZoneFilterChanged() {
+      const ok = this.orderMoveDestinationTables.some((t) => t.id === this.orderMove.destinationTableId);
+      if (!ok) {
+        this.orderMove.destinationTableId = null;
+      }
     },
     async openOrderMoveModal(mode = "item", item = null) {
       const safeMode = ["item", "full", "merge"].includes(mode) ? mode : "item";
@@ -4999,9 +5562,20 @@ export default {
       this.orderMove.transferQuantity = 1;
       this.orderMove.sourceItems = [];
       if (this.orderMove.mode !== "item" || !this.orderMove.sourceTableId) {
+        this.syncOrderMoveDestinationAfterSourceChange();
         return;
       }
       await this.loadOrderMoveSourceItems(this.orderMove.sourceTableId);
+      this.syncOrderMoveDestinationAfterSourceChange();
+    },
+    syncOrderMoveDestinationAfterSourceChange() {
+      if (this.orderMove.destinationTableId === this.orderMove.sourceTableId) {
+        this.orderMove.destinationTableId = null;
+      }
+      const ok = this.orderMoveDestinationTables.some((t) => t.id === this.orderMove.destinationTableId);
+      if (!ok) {
+        this.orderMove.destinationTableId = null;
+      }
     },
     syncOrderMoveQuantityFromSelection() {
       const selected = this.orderMove.sourceItems.find((x) => x.sourceOrderItemId === this.orderMove.sourceOrderItemId);
@@ -7031,8 +7605,8 @@ export default {
   }
 
   .pos-floor-plan-gate--page .pos-fp-launch__intro {
-    flex: 0 0 clamp(156px, 12vw, 210px);
-    max-width: min(100%, 220px);
+    flex: 0 0 clamp(172px, 13vw, 228px);
+    max-width: min(100%, 248px);
     align-self: stretch;
     padding: 0.5rem 0.55rem 0.5rem;
     border-inline-end: 1px solid var(--border-color);
@@ -7082,8 +7656,8 @@ export default {
  */
 @media (min-width: 900px) and (max-width: 1439px) {
   .pos-floor-plan-gate--page .pos-fp-launch__intro {
-    flex: 0 0 clamp(188px, 22vw, 268px);
-    max-width: min(100%, 280px);
+    flex: 0 0 clamp(200px, 22vw, 276px);
+    max-width: min(100%, 288px);
     padding: 0.55rem 0.65rem 0.5rem;
   }
 
@@ -7107,9 +7681,8 @@ export default {
     border-radius: 0.7rem;
   }
 
-  .pos-floor-plan-gate--page .pos-fp-gate-tabs-label {
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-card__header .pos-fp-gate-tabs-label {
     font-size: 0.75rem;
-    margin-bottom: 0.35rem;
   }
 
   .pos-floor-plan-gate--page .pos-floor-plan-gate-tab {
@@ -7240,11 +7813,55 @@ export default {
 /* بطاقة اختيار الموقع — سطح المكتب: لف متعدد الأسطر */
 .pos-fp-gate-tabs-card {
   margin-bottom: 0;
-  padding: 1rem 1.15rem;
-  background: var(--bg-tertiary);
+  margin-top: 0.15rem;
+  padding: 0.85rem 1rem 1rem;
+  background: linear-gradient(
+    155deg,
+    rgba(129, 140, 248, 0.09) 0%,
+    var(--bg-tertiary) 42%,
+    var(--bg-tertiary) 100%
+  );
   border-radius: 1rem;
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(129, 140, 248, 0.22);
+  box-shadow:
+    0 6px 22px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.pos-fp-gate-tabs-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin-bottom: 0.7rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid rgba(129, 140, 248, 0.18);
+}
+
+.pos-fp-gate-tabs-card__icon-wrap {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    145deg,
+    rgba(129, 140, 248, 0.35) 0%,
+    rgba(167, 139, 250, 0.22) 100%
+  );
+  color: var(--primary-color);
+  font-size: 1.05rem;
+  box-shadow: 0 2px 10px rgba(129, 140, 248, 0.25);
+}
+
+.pos-fp-gate-tabs-card__header .pos-fp-gate-tabs-label {
+  margin-bottom: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.35;
+  letter-spacing: 0.01em;
 }
 
 .pos-fp-gate-tabs-label {
@@ -7271,31 +7888,58 @@ export default {
   padding: 0.5rem 1rem;
   border-radius: 0.75rem;
   border: 2px solid var(--border-color);
+  border-inline-start: 3px solid transparent;
   background: var(--bg-primary);
   color: var(--text-primary);
   font-weight: 600;
   font-size: 0.9375rem;
   cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    border-inline-start-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.15s ease,
+    background 0.2s ease;
 }
 
 .pos-floor-plan-gate-tab:hover {
   border-color: var(--primary-color);
+  border-inline-start-color: rgba(129, 140, 248, 0.45);
   color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(129, 140, 248, 0.18);
+}
+
+.pos-floor-plan-gate-tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.35);
 }
 
 .pos-floor-plan-gate-tab--active {
-  border-color: var(--primary-color);
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.18) 0%, rgba(167, 139, 250, 0.14) 100%);
+  border-color: rgba(129, 140, 248, 0.55);
+  border-inline-start-color: var(--primary-color);
+  background: linear-gradient(
+    118deg,
+    rgba(129, 140, 248, 0.22) 0%,
+    rgba(167, 139, 250, 0.12) 55%,
+    var(--bg-primary) 100%
+  );
   color: var(--primary-color);
-  box-shadow: 0 2px 10px rgba(129, 140, 248, 0.22);
+  box-shadow:
+    0 3px 14px rgba(129, 140, 248, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* شاشات اللمس والتابلت: لا تمرير أفقي — قائمة عمودية، أزرار بعرض كامل */
 @media (max-width: 1023px) {
   .pos-fp-gate-tabs-card {
     padding: 1rem 0.85rem;
-    background: var(--bg-primary);
+    background: linear-gradient(
+      165deg,
+      rgba(129, 140, 248, 0.08) 0%,
+      var(--bg-primary) 48%
+    );
   }
 
   .pos-fp-gate-tabs-scroll {
@@ -7344,9 +7988,8 @@ export default {
     -webkit-tap-highlight-color: rgba(129, 140, 248, 0.2);
   }
 
-  .pos-floor-plan-gate--page .pos-fp-gate-tabs-label {
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-card__header .pos-fp-gate-tabs-label {
     font-size: 0.8125rem;
-    margin-bottom: 0.5rem;
   }
 
   .pos-floor-plan-gate--page .pos-fp-gate-tabs-card {
@@ -7601,6 +8244,29 @@ export default {
     background: var(--bg-primary);
     border-inline-end-color: var(--border-color);
   }
+}
+
+:root.light-theme .pos-fp-gate-tabs-card {
+  border-color: rgba(99, 102, 241, 0.22);
+  background: linear-gradient(
+    155deg,
+    rgba(99, 102, 241, 0.06) 0%,
+    var(--bg-tertiary, #f3f4f6) 45%
+  );
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+}
+
+:root.light-theme .pos-fp-gate-tabs-card__header {
+  border-bottom-color: rgba(99, 102, 241, 0.14);
+}
+
+:root.light-theme .pos-floor-plan-gate--page .pos-fp-launch__eyebrow {
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.12) 0%,
+    rgba(139, 92, 246, 0.08) 100%
+  );
+  border-color: rgba(99, 102, 241, 0.28);
 }
 
 /* ——— POS v2: هيكل، سلة جانبية، أرضية ——— */
@@ -8216,6 +8882,10 @@ export default {
   font-size: 0.85rem;
 }
 
+.pos-fp-launch__intro-head {
+  margin-bottom: 0.65rem;
+}
+
 .pos-fp-launch__eyebrow {
   font-size: 0.875rem;
   font-weight: 700;
@@ -8236,29 +8906,65 @@ export default {
 }
 
 /* عمود البوابة (صفحة POS) — عرض أضيق ونصوص وأزرار أصغر (مساحة أكبر للمخطط) */
+.pos-floor-plan-gate--page .pos-fp-launch__intro-head {
+  margin-bottom: 0.45rem;
+}
+
 .pos-floor-plan-gate--page .pos-fp-launch__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.625rem;
-  margin-bottom: 0.28rem;
+  margin: 0 0 0.38rem;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--primary-color);
+  background: linear-gradient(
+    135deg,
+    rgba(129, 140, 248, 0.16) 0%,
+    rgba(167, 139, 250, 0.1) 100%
+  );
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.12);
 }
 
 .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-title {
   font-size: clamp(0.9rem, 1.15vw, 1.12rem);
-  line-height: 1.2;
-  margin-bottom: 0.32rem;
+  line-height: 1.28;
+  margin-bottom: 0;
 }
 
 .pos-floor-plan-gate--page .pos-fp-gate-tabs-card {
-  padding: 0.4rem 0.5rem;
-  border-radius: 0.65rem;
+  padding: 0.55rem 0.58rem 0.62rem;
+  border-radius: 0.75rem;
+  margin-top: 0.35rem;
 }
 
-.pos-floor-plan-gate--page .pos-fp-gate-tabs-label {
+.pos-floor-plan-gate--page .pos-fp-gate-tabs-card__header {
+  gap: 0.42rem;
+  margin-bottom: 0.48rem;
+  padding-bottom: 0.42rem;
+}
+
+.pos-floor-plan-gate--page .pos-fp-gate-tabs-card__icon-wrap {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 0.55rem;
+  font-size: 0.92rem;
+}
+
+.pos-floor-plan-gate--page .pos-fp-gate-tabs-card__header .pos-fp-gate-tabs-label {
   font-size: 0.6875rem;
-  margin-bottom: 0.28rem;
-  line-height: 1.15;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 
 .pos-floor-plan-gate--page .pos-floor-plan-gate-tab {

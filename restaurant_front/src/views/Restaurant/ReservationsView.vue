@@ -249,6 +249,19 @@
                   <b-icon icon="table" class="form-label-icon"></b-icon>
                   {{ $t("table") || "الطاولة (اختياري)" }}
                 </label>
+                <label class="users-form-label" style="margin-bottom: 0.35rem;">
+                  <b-icon icon="geo-alt-fill" class="form-label-icon"></b-icon>
+                  {{ $t("zone") || "الموقع" }}
+                </label>
+                <select
+                  v-model="tableZoneFilter"
+                  class="users-form-input"
+                  style="margin-bottom: 0.5rem;"
+                  @change="onReservationTableZoneFilterChanged"
+                >
+                  <option value="">{{ $t("allZones") || "جميع المواقع" }}</option>
+                  <option v-for="zone in uniqueZones" :key="'add-z-' + zone" :value="zone">{{ zone }}</option>
+                </select>
                 <div class="table-search-wrapper">
                   <div class="table-search-input-wrapper">
                     <b-icon icon="search" class="table-search-icon"></b-icon>
@@ -364,6 +377,19 @@
                   <b-icon icon="table" class="form-label-icon"></b-icon>
                   {{ $t("table") || "الطاولة" }}
                 </label>
+                <label class="users-form-label" style="margin-bottom: 0.35rem;">
+                  <b-icon icon="geo-alt-fill" class="form-label-icon"></b-icon>
+                  {{ $t("zone") || "الموقع" }}
+                </label>
+                <select
+                  v-model="tableZoneFilter"
+                  class="users-form-input"
+                  style="margin-bottom: 0.5rem;"
+                  @change="onReservationTableZoneFilterChanged"
+                >
+                  <option value="">{{ $t("allZones") || "جميع المواقع" }}</option>
+                  <option v-for="zone in uniqueZones" :key="'edit-z-' + zone" :value="zone">{{ zone }}</option>
+                </select>
                 <div class="table-search-wrapper">
                   <div class="table-search-input-wrapper">
                     <b-icon icon="search" class="table-search-icon"></b-icon>
@@ -432,6 +458,7 @@ export default {
       availableTables: [],
       allTables: [],
       tableSearchQuery: "",
+      tableZoneFilter: "",
       fromDate: "",
       toDate: "",
       statusFilter: "",
@@ -461,18 +488,32 @@ export default {
     };
   },
   computed: {
+    uniqueZones() {
+      if (!Array.isArray(this.allTables)) return [];
+      const zones = this.allTables
+        .map((table) => table.zone)
+        .filter((zone) => zone && String(zone).trim() !== "");
+      return [...new Set(zones)].sort();
+    },
     filteredTables() {
+      let tables = Array.isArray(this.allTables) ? [...this.allTables] : [];
+      const zf = (this.tableZoneFilter ?? "").trim();
+      if (zf) {
+        tables = tables.filter((t) => (t.zone && String(t.zone).trim()) === zf);
+      }
       if (!this.tableSearchQuery) {
-        return this.allTables;
+        return tables;
       }
       const query = this.tableSearchQuery.toLowerCase().trim();
-      return this.allTables.filter(table => {
-        const tableNumber = String(table.tableNumber || '').toLowerCase();
-        const zone = (table.zone || '').toLowerCase();
-        const status = (table.status || '').toLowerCase();
-        return tableNumber.includes(query) || 
-               zone.includes(query) || 
-               status.includes(query);
+      return tables.filter((table) => {
+        const tableNumber = String(table.tableNumber || "").toLowerCase();
+        const zone = (table.zone || "").toLowerCase();
+        const status = (table.status || "").toLowerCase();
+        return (
+          tableNumber.includes(query) ||
+          zone.includes(query) ||
+          status.includes(query)
+        );
       });
     },
     reservationFields() {
@@ -744,11 +785,21 @@ export default {
       };
       return statusTexts[status] || status;
     },
+    onReservationTableZoneFilterChanged() {
+      const ids = new Set(this.filteredTables.map((t) => t.id));
+      if (this.addForm.tableId != null && !ids.has(this.addForm.tableId)) {
+        this.addForm.tableId = null;
+      }
+      if (this.editForm.tableId != null && !ids.has(this.editForm.tableId)) {
+        this.editForm.tableId = null;
+      }
+    },
     closeModel(modalId) {
       this.$bvModal.hide(modalId);
       // Reset table search when closing modal
       if (modalId === 'modal-addReservation' || modalId === 'modal-editReservation') {
         this.tableSearchQuery = "";
+        this.tableZoneFilter = "";
       }
     }
   },

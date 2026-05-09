@@ -76,6 +76,7 @@ namespace RestaurantPOS.Db
         public DbSet<Employee> Employees { get; set; }
         public DbSet<StockMovement> StockMovements { get; set; }
         public DbSet<Supplier> Suppliers { get; set; }
+        public DbSet<Customer> Customers { get; set; }
 
 
 
@@ -116,10 +117,13 @@ namespace RestaurantPOS.Db
             modelBuilder.Entity<Expense>().HasOne(r => r.Tag).WithMany().HasForeignKey(x => x.TagId).OnDelete(DeleteBehavior.SetNull);
             modelBuilder.Entity<ExpenseCategory>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<CustomerOrder>().HasOne(r => r.DeliveryDriver).WithMany().HasForeignKey(x => x.DeliveryDriverId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<CustomerOrder>().HasOne(r => r.CreditEmployee).WithMany().HasForeignKey(x => x.CreditEmployeeId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<CustomerOrder>().HasOne(r => r.CreditCustomer).WithMany().HasForeignKey(x => x.CreditCustomerId).OnDelete(DeleteBehavior.SetNull);
             modelBuilder.Entity<AuditLog>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<AuditLog>().HasOne(r => r.CommercialUser).WithMany().HasForeignKey(x => x.CommercialUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<StockMovement>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<Supplier>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Customer>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
 
             // OrderTable relationships (many-to-many between Orders and Tables)
             modelBuilder.Entity<OrderTable>().HasOne(r => r.Order).WithMany(r => r.OrderTables).HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Cascade);

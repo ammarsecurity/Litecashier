@@ -1923,10 +1923,69 @@ namespace RestaurantPOS.Controllers
                     }
                 }
 
+                int? creditEmployeeId = null;
+                int? creditCustomerId = null;
+                var paymentMethod = request.PaymentMethod ?? "Cash";
+                if (string.Equals(paymentMethod, "Credit", StringComparison.OrdinalIgnoreCase))
+                {
+                    var commercialUserIdForCredit = GetCommercialUserId();
+                    var hasEmp = request.CreditEmployeeId.HasValue;
+                    var hasCust = request.CreditCustomerId.HasValue;
+                    if (hasEmp == hasCust)
+                    {
+                        return BadRequest(new GlobalResponse<CustomerOrder>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "Credit orders require exactly one of employee or customer account."
+                        });
+                    }
+
+                    if (hasEmp)
+                    {
+                        var emp = await _dbConfig.Employees
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(e => e.Id == request.CreditEmployeeId!.Value
+                                && !e.IsDeleted
+                                && e.InsertByUserId == commercialUserIdForCredit);
+                        if (emp == null)
+                        {
+                            return BadRequest(new GlobalResponse<CustomerOrder>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = "Invalid credit employee."
+                            });
+                        }
+
+                        creditEmployeeId = emp.Id;
+                    }
+
+                    if (hasCust)
+                    {
+                        var cust = await _dbConfig.Customers
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(c => c.Id == request.CreditCustomerId!.Value
+                                && !c.IsDeleted
+                                && c.InsertByUserId == commercialUserIdForCredit);
+                        if (cust == null)
+                        {
+                            return BadRequest(new GlobalResponse<CustomerOrder>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = "Invalid credit customer."
+                            });
+                        }
+
+                        creditCustomerId = cust.Id;
+                    }
+                }
+
                 var newOrder = new CustomerOrder
                 {
                     OrderCode = orderCode,
-                    PaymentMethod = request.PaymentMethod ?? "Cash",
+                    PaymentMethod = paymentMethod,
                     InsertByUserId = userId,
                     TableId = request.TableId,
                     ReservationId = request.ReservationId,
@@ -1943,6 +2002,8 @@ namespace RestaurantPOS.Controllers
                     DeliveryPhoneNumber = request.DeliveryPhoneNumber,
                     DeliveryCustomerName = request.DeliveryCustomerName,
                     DeliveryFee = request.DeliveryFee,
+                    CreditEmployeeId = creditEmployeeId,
+                    CreditCustomerId = creditCustomerId,
                     DiscountType = request.DiscountType,
                     DiscountValue = request.DiscountValue,
                     DiscountAmount = request.DiscountAmount,

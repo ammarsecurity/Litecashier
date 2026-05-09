@@ -73,6 +73,18 @@ namespace RestaurantPOS.Models
 
         public DateTime? DeliveryCompletedAt { get; set; } // وقت اكتمال التوصيل
 
+        /// <summary>دفع لاحق — حساب موظف (أحد الخيارين مع CreditCustomerId).</summary>
+        public int? CreditEmployeeId { get; set; }
+
+        [ForeignKey("CreditEmployeeId")]
+        public Employee? CreditEmployee { get; set; }
+
+        /// <summary>دفع لاحق — حساب عميل مسجل.</summary>
+        public int? CreditCustomerId { get; set; }
+
+        [ForeignKey("CreditCustomerId")]
+        public Customer? CreditCustomer { get; set; }
+
         // علاقة many-to-many مع الطاولات
         public List<Restaurant.OrderTable>? OrderTables { get; set; }
 
