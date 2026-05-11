@@ -745,6 +745,15 @@
                                     <span class="bill-info-value" v-if="order">{{ order.createdByUsername || userInfo.name }}</span>
                                 </div>
                             </div>
+                            <div v-if="orderDetailRows.length" class="bill-extra-details">
+                                <h4 class="bill-extra-title">{{ $t('additionalDetails') || 'تفاصيل إضافية' }}</h4>
+                                <div class="bill-extra-grid">
+                                    <div v-for="detail in orderDetailRows" :key="detail.key" class="bill-extra-card">
+                                        <span class="bill-extra-label">{{ detail.label }}</span>
+                                        <span class="bill-extra-value" :class="{ 'bill-extra-value--emphasis': detail.emphasis }">{{ detail.value }}</span>
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- Divider -->
                             <div class="bill-divider"></div>
@@ -1139,6 +1148,59 @@ export default {
             if (type === 'percentage') return `${Math.min(value, 100)}%`;
             return `${this.formatPrice(value)} ${this.$t('currency')}`;
         },
+        orderDetailRows() {
+            if (!this.order) return [];
+
+            const details = [];
+            const pushDetail = (key, label, value, emphasis = false) => {
+                if (!this.isMeaningfulValue(value)) return;
+                details.push({ key, label, value, emphasis });
+            };
+
+            pushDetail('order-status', this.$t('status') || 'الحالة', this.getOrderStatusText(this.order.orderStatus));
+            pushDetail('daily-sequence', this.$t('orderNumber') || 'رقم الطلب اليومي', this.order.dailySequenceNumber ? `#${this.order.dailySequenceNumber}` : '');
+            pushDetail('tables', this.$t('table') || 'الطاولة', this.getOrderTablesText(this.order));
+
+            const peopleCount = this.getOrderPeopleCount(this.order);
+            pushDetail('people-count', this.$t('peopleCount') || 'عدد الأشخاص', peopleCount);
+
+            pushDetail('delivery-customer', this.$t('customerName') || 'اسم العميل', this.order.deliveryCustomerName);
+            pushDetail('delivery-phone', this.$t('phoneNumber') || 'رقم الهاتف', this.order.deliveryPhoneNumber);
+            pushDetail('delivery-address', this.$t('address') || 'العنوان', this.order.deliveryAddress);
+            pushDetail('delivery-driver', this.$t('driverName') || 'اسم السائق', this.order.deliveryDriver?.name || this.order.deliveryDriver?.username);
+            pushDetail('delivery-status', this.$t('deliveryStatus') || 'حالة التوصيل', this.getDeliveryStatusText(this.order.deliveryStatus));
+
+            if (this.order.paymentMethod === 'Credit') {
+                const creditEmployeeName = this.order.creditEmployeeName;
+                const creditCustomerName = this.order.creditCustomerName;
+                const creditAccountName = creditEmployeeName || creditCustomerName || '-';
+                const creditAccountLabel = creditEmployeeName
+                    ? (this.$t('creditAccountEmployee') || 'حساب الموظف')
+                    : (this.$t('creditAccountCustomer') || 'حساب العميل');
+                pushDetail('credit-account', creditAccountLabel, creditAccountName, true);
+            }
+
+            if (Number(this.order.deliveryFee || 0) > 0) {
+                pushDetail(
+                    'delivery-fee',
+                    this.$t('deliveryFee') || 'رسوم التوصيل',
+                    `${this.formatPrice(Number(this.order.deliveryFee || 0))} ${this.$t('currency')}`,
+                    true
+                );
+            }
+
+            if (this.orderModalDiscountAmount > 0) {
+                pushDetail(
+                    'discount',
+                    `${this.$t('discountLabel') || 'الخصم'} (${this.orderModalDiscountLabel})`,
+                    `- ${this.formatPrice(this.orderModalDiscountAmount)} ${this.$t('currency')}`,
+                    true
+                );
+            }
+
+            pushDetail('notes', this.$t('orderNotes') || 'ملاحظات الطلب', this.order.notes);
+            return details;
+        },
         editOrderTotal() {
             return this.editOrderForm.items.reduce((sum, item) => {
                 return sum + (item.price * item.quantity);
@@ -1510,6 +1572,69 @@ export default {
             };
             return icons[type] || 'house-door';
         },
+        getOrderStatusText(status) {
+            if (!status) return '';
+            const statuses = {
+                Pending: this.$t('pending') || 'قيد الانتظار',
+                InProgress: this.$t('inProgress') || 'قيد التحضير',
+                Completed: this.$t('completed') || 'مكتمل',
+                Cancelled: this.$t('cancelled') || 'ملغي'
+            };
+            return statuses[status] || status;
+        },
+        getDeliveryStatusText(status) {
+            if (!status) return '';
+            const statuses = {
+                Pending: this.$t('pending') || 'قيد الانتظار',
+                OnTheWay: this.$t('onTheWay') || 'في الطريق',
+                Delivered: this.$t('delivered') || 'تم التسليم',
+                Failed: this.$t('failed') || 'فشل التسليم'
+            };
+            return statuses[status] || status;
+        },
+        getOrderTablesText(order) {
+            if (!order) return '';
+            if (order.mergedTableNumbers) return order.mergedTableNumbers;
+
+            if (Array.isArray(order.tables) && order.tables.length > 0) {
+                return order.tables
+                    .map((table) => table?.tableNumber)
+                    .filter((tableNumber) => this.isMeaningfulValue(tableNumber))
+                    .join(' - ');
+            }
+
+            return '';
+        },
+        getOrderPeopleCount(order) {
+            if (!order) return '';
+
+            const directCount =
+                order.peopleCount ??
+                order.personCount ??
+                order.guestCount ??
+                order.customerCount;
+
+            if (this.isMeaningfulValue(directCount)) {
+                return directCount;
+            }
+
+            if (Array.isArray(order.tables) && order.tables.length > 0) {
+                const totalCapacity = order.tables.reduce((sum, table) => {
+                    const tableCapacity = Number(table?.capacity || 0);
+                    return sum + (Number.isFinite(tableCapacity) ? tableCapacity : 0);
+                }, 0);
+                if (totalCapacity > 0) {
+                    return totalCapacity;
+                }
+            }
+
+            return '';
+        },
+        isMeaningfulValue(value) {
+            if (value === null || value === undefined) return false;
+            if (typeof value === 'string') return value.trim().length > 0;
+            return true;
+        },
         formatDate(dateTime) {
             if (dateTime) {
                 const [date, time] = dateTime.split("T");
@@ -1602,6 +1727,46 @@ export default {
                     
                     .bill-info-value {
                         font-weight: 400;
+                    }
+
+                    .bill-extra-details {
+                        margin-top: 8px;
+                        padding-top: 6px;
+                        border-top: 1px dashed #000;
+                    }
+
+                    .bill-extra-title {
+                        font-size: 10px;
+                        font-weight: 700;
+                        margin-bottom: 6px;
+                    }
+
+                    .bill-extra-grid {
+                        display: grid;
+                        grid-template-columns: 1fr;
+                        gap: 4px;
+                    }
+
+                    .bill-extra-card {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        gap: 6px;
+                    }
+
+                    .bill-extra-label {
+                        font-size: 9px;
+                        font-weight: 600;
+                    }
+
+                    .bill-extra-value {
+                        font-size: 9px;
+                        text-align: left;
+                        word-break: break-word;
+                    }
+
+                    .bill-extra-value--emphasis {
+                        font-weight: 700;
                     }
                     
                     .bill-divider {
@@ -2603,6 +2768,56 @@ export default {
     border: 1px solid var(--border-color);
     border-radius: 0.625rem;
     padding: 0.75rem;
+}
+
+.bill-extra-details {
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    border: 1px dashed var(--border-color);
+    border-radius: 0.625rem;
+    background: color-mix(in srgb, var(--bg-secondary) 65%, transparent);
+}
+
+.bill-extra-title {
+    margin: 0 0 0.625rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.bill-extra-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.5rem;
+}
+
+.bill-extra-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem 0.625rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    background: var(--bg-primary);
+}
+
+.bill-extra-label {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.bill-extra-value {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    font-weight: 600;
+    text-align: left;
+    word-break: break-word;
+}
+
+.bill-extra-value--emphasis {
+    color: var(--primary-color);
 }
 
 .edit-order-items-search-results {

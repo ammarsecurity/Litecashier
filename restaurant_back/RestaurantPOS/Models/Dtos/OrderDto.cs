@@ -15,6 +15,8 @@ namespace RestaurantPOS.Models.Dtos
         public int? DailySequenceNumber { get; set; }
         public DateTime InsertDate { get; set;}
         public string? PaymentMethod { get; set; }
+        public string? CreditEmployeeName { get; set; }
+        public string? CreditCustomerName { get; set; }
         public string? OrderType { get; set; }
         public int NumberOfGuests { get; set; }
         public string? OrderStatus { get; set; }

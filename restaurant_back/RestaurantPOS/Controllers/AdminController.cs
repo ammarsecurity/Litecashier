@@ -699,6 +699,53 @@ namespace RestaurantPOS.Controllers
             }
         }
 
+        [Authorize(Roles = "Commercial,POS,Waiter")]
+        [HttpPost("VerifySensitiveActionPassword")]
+        public async Task<ActionResult<GlobalResponse<object>>> VerifySensitiveActionPassword([FromBody] SensitiveActionPasswordRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "كلمة المرور مطلوبة"
+                });
+            }
+
+            var commercialUserId = GetCommercialUserId();
+            var commercialUser = await _dbConfig.Users
+                .FirstOrDefaultAsync(u => u.Id == commercialUserId && !u.IsDeleted);
+
+            if (commercialUser == null)
+            {
+                return Unauthorized(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "المستخدم غير موجود"
+                });
+            }
+
+            var isValid = BCrypt.Net.BCrypt.Verify(request.Password, commercialUser.Password);
+            if (!isValid)
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "كلمة المرور غير صحيحة"
+                });
+            }
+
+            return Ok(new GlobalResponse<object>
+            {
+                Data = new { action = request.ActionKey ?? "general", verified = true },
+                ErrorStatus = false,
+                Message = "تم التحقق بنجاح"
+            });
+        }
+
         // updata tag
         // Update User 
         [Authorize(Roles = "Commercial")]
@@ -3371,6 +3418,8 @@ namespace RestaurantPOS.Controllers
                     .Include(x => x.CustomerOrderItem)
                     .ThenInclude(x => x.Item)
                     .Include(x => x.DeliveryDriver)
+                    .Include(x => x.CreditEmployee)
+                    .Include(x => x.CreditCustomer)
                     .Include(x => x.OrderTables)
                     .ThenInclude(ot => ot.Table)
                     .AsQueryable();
@@ -3458,6 +3507,8 @@ namespace RestaurantPOS.Controllers
                     CreatedByUserId = x.User != null ? x.User.Id : null,
                     CreatedByUsername = x.User != null ? x.User.Username : null,
                     PaymentMethod = x.PaymentMethod,
+                    CreditEmployeeName = x.CreditEmployee != null ? x.CreditEmployee.Name : null,
+                    CreditCustomerName = x.CreditCustomer != null ? x.CreditCustomer.Name : null,
                     OrderType = x.OrderType,
                     OrderStatus = x.OrderStatus,
                     Notes = x.Notes,

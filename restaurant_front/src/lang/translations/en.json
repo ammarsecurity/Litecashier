@@ -1137,5 +1137,22 @@
   "reportsPrintTemplate": "Reports Print Template",
   "waiterPrintTemplate": "Waiter Print Template",
   "applyFilter": "Apply Filter",
-  "viewDriverInvoices": "View Driver Invoices"
+  "viewDriverInvoices": "View Driver Invoices",
+  "peopleCount": "People Count",
+  "additionalDetails": "Additional Details",
+  "sensitiveActionPasswordTitle": "Password Confirmation",
+  "sensitiveActionLabel": "Action",
+  "enterManagerPassword": "Enter manager password",
+  "verifyPasswordAction": "Verify Password",
+  "managerPasswordRequired": "Please enter manager password",
+  "invalidManagerPassword": "Invalid password",
+  "sensitiveActionTransferItem": "Transfer Item",
+  "sensitiveActionTransferFullOrder": "Transfer Full Order",
+  "sensitiveActionMergeInvoices": "Merge Invoices",
+  "sensitiveActionOrderDiscount": "Apply Discount",
+  "sensitiveActionGeneral": "Sensitive Action",
+  "sourceZoneFilterLabel": "Source Zone",
+  "destinationZoneFilterLabel": "Destination Zone",
+  "creditAccountEmployee": "Employee Account",
+  "creditAccountCustomer": "Customer Account"
 }

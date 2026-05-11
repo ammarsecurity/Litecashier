@@ -891,6 +891,51 @@
               </div>
             </b-modal>
 
+            <b-modal
+              id="modal-sensitive-action-password"
+              :title="$t('sensitiveActionPasswordTitle') || 'تأكيد الباسورد'"
+              hide-header
+              hide-footer
+              class="users-modal"
+              @hidden="onSensitiveActionPasswordModalHidden"
+            >
+              <div class="modal-content-wrapper">
+                <div class="order-notes-content">
+                  <div class="order-notes-header">
+                    <b-icon icon="shield-lock" class="me-2"></b-icon>
+                    <h3 class="order-notes-title">{{ $t("sensitiveActionPasswordTitle") || "تأكيد الباسورد" }}</h3>
+                  </div>
+                  <div class="order-notes-input-wrapper">
+                    <label class="order-notes-label">
+                      {{ $t("sensitiveActionLabel") || "الإجراء" }}:
+                      {{ sensitiveActionLabel }}
+                    </label>
+                  </div>
+                  <div class="order-notes-input-wrapper">
+                    <label class="order-notes-label">{{ $t("password") || "كلمة المرور" }}</label>
+                    <input
+                      v-model="sensitiveActionAuth.password"
+                      type="password"
+                      class="order-notes-input"
+                      :placeholder="$t('enterManagerPassword') || 'أدخل باسورد المدير'"
+                      @keyup.enter="confirmSensitiveActionPassword"
+                    />
+                  </div>
+                  <div class="order-notes-actions">
+                    <button class="order-notes-confirm-button" :disabled="sensitiveActionAuth.verifying" @click="confirmSensitiveActionPassword">
+                      <b-spinner small v-if="sensitiveActionAuth.verifying" class="me-2"></b-spinner>
+                      <b-icon v-else icon="check-circle-fill" class="me-2"></b-icon>
+                      {{ $t("verifyPasswordAction") || "تأكيد الباسورد" }}
+                    </button>
+                    <button class="order-notes-cancel-button" :disabled="sensitiveActionAuth.verifying" @click="closeSensitiveActionPasswordModal">
+                      <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                      {{ $t("cancelButton") || "إلغاء" }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </b-modal>
+
             <!-- Delivery Information Modal -->
             <b-modal
               id="modal-delivery-info"
@@ -1917,6 +1962,12 @@ export default {
         sourceZoneFilter: "",
         destinationZoneFilter: "",
       },
+      sensitiveActionAuth: {
+        actionKey: "",
+        password: "",
+        verifying: false,
+        resolver: null,
+      },
       checkoutSubmitMode: "pay",
     };
   },
@@ -2217,6 +2268,16 @@ export default {
     },
     orderMoveSelectedItemMaxQuantity() {
       return this.orderMoveSelectedItem?.quantity || 1;
+    },
+    sensitiveActionLabel() {
+      const key = this.sensitiveActionAuth.actionKey;
+      const labels = {
+        transfer_item: this.$t("sensitiveActionTransferItem") || "نقل عنصر",
+        transfer_full: this.$t("sensitiveActionTransferFullOrder") || "نقل الطلب كامل",
+        merge_invoices: this.$t("sensitiveActionMergeInvoices") || "دمج فاتورتين",
+        order_discount: this.$t("sensitiveActionOrderDiscount") || "تطبيق الخصم",
+      };
+      return labels[key] || (this.$t("sensitiveActionGeneral") || "إجراء حساس");
     },
     cardfields() {
       const lang = this.$i18n.locale;
@@ -2934,7 +2995,10 @@ export default {
       this.posFloorPlanGateVisible = false;
       this.$nextTick(() => {
         if (this.$refs.posQuickSearchInput) {
-          this.$refs.posQuickSearchInput.focus();
+          const scrollX = window.scrollX;
+          const scrollY = window.scrollY;
+          this.$refs.posQuickSearchInput.focus({ preventScroll: true });
+          window.scrollTo(scrollX, scrollY);
         }
       });
     },
@@ -5164,6 +5228,70 @@ export default {
     closeModel(id) {
       this.$bvModal.hide(id);
     },
+    requestSensitiveActionPassword(actionKey) {
+      if (this.sensitiveActionAuth.resolver) {
+        this.sensitiveActionAuth.resolver(false);
+      }
+      this.sensitiveActionAuth.actionKey = actionKey || "general";
+      this.sensitiveActionAuth.password = "";
+      this.sensitiveActionAuth.verifying = false;
+      this.$bvModal.show("modal-sensitive-action-password");
+      return new Promise((resolve) => {
+        this.sensitiveActionAuth.resolver = resolve;
+      });
+    },
+    resolveSensitiveActionPassword(result) {
+      if (this.sensitiveActionAuth.resolver) {
+        this.sensitiveActionAuth.resolver(result);
+        this.sensitiveActionAuth.resolver = null;
+      }
+      this.sensitiveActionAuth.password = "";
+      this.sensitiveActionAuth.verifying = false;
+      this.sensitiveActionAuth.actionKey = "";
+    },
+    closeSensitiveActionPasswordModal() {
+      if (this.sensitiveActionAuth.verifying) return;
+      this.$bvModal.hide("modal-sensitive-action-password");
+    },
+    onSensitiveActionPasswordModalHidden() {
+      this.resolveSensitiveActionPassword(false);
+    },
+    async confirmSensitiveActionPassword() {
+      if (this.sensitiveActionAuth.verifying) return;
+      if (!this.sensitiveActionAuth.password || !this.sensitiveActionAuth.password.trim()) {
+        this.$toast.error(this.$t("managerPasswordRequired") || "يرجى إدخال باسورد المدير", {
+          timeout: 2500,
+          maxToasts: 1,
+        });
+        return;
+      }
+
+      try {
+        this.sensitiveActionAuth.verifying = true;
+        const response = await HTTP.post("Admin/VerifySensitiveActionPassword", {
+          password: this.sensitiveActionAuth.password,
+          actionKey: this.sensitiveActionAuth.actionKey,
+        });
+
+        if (!response?.data || response.data.errorStatus) {
+          this.$toast.error(response?.data?.message || (this.$t("invalidManagerPassword") || "كلمة المرور غير صحيحة"), {
+            timeout: 2500,
+            maxToasts: 1,
+          });
+          return;
+        }
+
+        this.resolveSensitiveActionPassword(true);
+        this.$bvModal.hide("modal-sensitive-action-password");
+      } catch (error) {
+        this.$toast.error(error?.response?.data?.message || (this.$t("invalidManagerPassword") || "كلمة المرور غير صحيحة"), {
+          timeout: 2500,
+          maxToasts: 1,
+        });
+      } finally {
+        this.sensitiveActionAuth.verifying = false;
+      }
+    },
     openOrderNotesModal(mode = "pay") {
       if (this.carditems.length <= 0) {
         this.$toast.error(this.$i18n.t("emptyCartMessage"), {
@@ -5224,7 +5352,11 @@ export default {
         console.error("markCurrentTableAsReservedAfterPrint:", error);
       }
     },
-    confirmAddOrder() {
+    async confirmAddOrder() {
+      if (this.orderDiscountAmount > 0) {
+        const canApplyDiscount = await this.requestSensitiveActionPassword("order_discount");
+        if (!canApplyDiscount) return;
+      }
       this.$bvModal.hide('modal-order-notes');
       this.addOrder(this.checkoutSubmitMode === "pay-print");
     },
@@ -5612,6 +5744,13 @@ export default {
       const sourceTableId = Number(this.orderMove.sourceTableId);
       const destinationTableId = Number(this.orderMove.destinationTableId);
       const mode = this.orderMove.mode;
+      const actionMap = {
+        item: "transfer_item",
+        full: "transfer_full",
+        merge: "merge_invoices",
+      };
+      const canProceed = await this.requestSensitiveActionPassword(actionMap[mode] || "general");
+      if (!canProceed) return;
 
       try {
         this.orderMove.submitting = true;
@@ -7765,24 +7904,26 @@ export default {
  */
 .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas-wrap {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: 560px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   justify-content: stretch;
   width: 100%;
+  height: 560px;
+  max-height: 560px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas {
   position: relative;
-  flex: 1 1 auto;
   width: 100%;
-  min-height: 0;
-  height: auto;
+  min-height: 1000px;
+  height: 1000px;
+  max-height: none;
   align-self: stretch;
   aspect-ratio: unset;
-  max-height: none;
-  max-width: none;
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -8078,14 +8219,13 @@ export default {
 .pos-floor-plan-gate-table-chip {
   position: absolute;
   transform: translate(-50%, -50%);
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  height: auto;
-  padding: 0.2rem 0.5rem;
+  min-width: 2.5rem;
+  height: 2.25rem;
+  padding: 0 0.5rem;
   border-radius: 0.5rem;
   border: 2px solid #fff;
-  font-weight: 800;
-  font-size: 0.8rem;
+  font-weight: 700;
+  font-size: 0.8125rem;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   z-index: 2;
@@ -9037,16 +9177,24 @@ export default {
 
 .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-canvas {
   max-height: none;
+  min-height: 1000px;
+  height: 1000px;
   aspect-ratio: unset;
-  flex: 1 1 auto;
-  min-height: 0;
+  width: 100%;
 }
 
 /* ارتفاع دنيا للّوحة على الشاشات الصغيرة قبل تكديس العمودين */
 @media (max-width: 899px) {
+  .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas-wrap {
+    min-height: 420px;
+    height: 420px;
+    max-height: 420px;
+  }
+
   .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas {
-    min-height: min(52vh, 520px);
-    flex: 1 1 auto;
+    min-height: 760px;
+    height: 760px;
+    max-height: none;
   }
 }
 

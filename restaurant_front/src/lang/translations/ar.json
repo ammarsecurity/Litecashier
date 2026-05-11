@@ -1134,5 +1134,22 @@
   "reportsPrintTemplate": "نموذج طباعة التقارير",
   "waiterPrintTemplate": "نموذج طباعة الويتر",
   "applyFilter": "تطبيق الفلتر",
-  "viewDriverInvoices": "عرض فواتير السائق"
+  "viewDriverInvoices": "عرض فواتير السائق",
+  "peopleCount": "عدد الأشخاص",
+  "additionalDetails": "تفاصيل إضافية",
+  "sensitiveActionPasswordTitle": "تأكيد الباسورد",
+  "sensitiveActionLabel": "الإجراء",
+  "enterManagerPassword": "أدخل باسورد المدير",
+  "verifyPasswordAction": "تأكيد الباسورد",
+  "managerPasswordRequired": "يرجى إدخال باسورد المدير",
+  "invalidManagerPassword": "كلمة المرور غير صحيحة",
+  "sensitiveActionTransferItem": "نقل عنصر",
+  "sensitiveActionTransferFullOrder": "نقل الطلب كامل",
+  "sensitiveActionMergeInvoices": "دمج فاتورتين",
+  "sensitiveActionOrderDiscount": "تطبيق الخصم",
+  "sensitiveActionGeneral": "إجراء حساس",
+  "sourceZoneFilterLabel": "موقع المصدر",
+  "destinationZoneFilterLabel": "موقع الهدف",
+  "creditAccountEmployee": "حساب الموظف",
+  "creditAccountCustomer": "حساب العميل"
 }
