@@ -62,6 +62,14 @@
                                 <b-icon icon="people-fill" class="me-2"></b-icon>
                                 {{ $t('salesByEmployee') || 'المبيعات حسب الموظف' }}
                             </button>
+                            <button
+                                class="report-tab"
+                                :class="{ 'report-tab-active': activeTab === 'returnedItems' }"
+                                @click="activeTab = 'returnedItems'; loadReturnedItems()"
+                            >
+                                <b-icon icon="arrow-counterclockwise" class="me-2"></b-icon>
+                                {{ $t('returnedItemsReport') || 'المواد المسترجعة' }}
+                            </button>
                             <button 
                                 class="report-tab" 
                                 :class="{ 'report-tab-active': activeTab === 'delivery' }"
@@ -494,6 +502,50 @@
                                         <span class="stat-value">{{ row.item.totalOrders > 0 ? (row.item.totalItemsSold / row.item.totalOrders).toFixed(2) : 0 }}</span>
                                     </template>
                                 </b-table>
+                            </div>
+                        </div>
+
+                        <!-- Returned Items -->
+                        <div v-if="activeTab === 'returnedItems'" class="report-section">
+                            <div class="report-section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                                <div class="report-info-banner" v-if="returnedItems.length > 0" style="margin: 0;">
+                                    <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
+                                    <span>{{ $t('returnedItemsDescription') || 'المواد المحذوفة من الفواتير المحفوظة في POS' }}</span>
+                                </div>
+                                <button class="export-excel-btn" @click="exportCurrentReportExcel()" :disabled="!returnedItems.length || exportingExcel">
+                                    <b-spinner small v-if="exportingExcel" class="me-2"></b-spinner>
+                                    <b-icon v-else icon="file-earmark-excel" class="me-2"></b-icon>
+                                    {{ $t('downloadExcel') || 'تحميل Excel' }}
+                                </button>
+                            </div>
+                            <div class="report-table-container">
+                                <b-table
+                                    :items="returnedItems"
+                                    :fields="returnedItemsFields"
+                                    striped
+                                    hover
+                                    responsive
+                                    class="reports-table"
+                                    :empty-text="$t('noReturnedItems') || 'لا توجد مواد مسترجعة'"
+                                >
+                                    <template #cell(lineTotal)="row">
+                                        <span class="stat-amount">{{ formatPrice(row.item.lineTotal || 0) }} {{ $t('currency') }}</span>
+                                    </template>
+                                    <template #cell(unitPrice)="row">
+                                        <span class="stat-amount">{{ formatPrice(row.item.unitPrice || 0) }} {{ $t('currency') }}</span>
+                                    </template>
+                                    <template #cell(tableDisplay)="row">
+                                        <span>{{ row.item.mergedTableNumbers || row.item.tableNumber || '-' }}</span>
+                                    </template>
+                                </b-table>
+                            </div>
+                            <div class="users-pagination-container mt-3" v-if="totalReturnedItems > returnedItemsPageSize">
+                                <b-pagination
+                                    v-model="returnedItemsPageNumber"
+                                    :total-rows="totalReturnedItems"
+                                    :per-page="returnedItemsPageSize"
+                                    class="users-pagination"
+                                ></b-pagination>
                             </div>
                         </div>
 
@@ -1101,6 +1153,10 @@ export default {
             topSellingItems: [],
             salesByCategory: [],
             salesByEmployee: [],
+            returnedItems: [],
+            totalReturnedItems: 0,
+            returnedItemsPageNumber: 1,
+            returnedItemsPageSize: 15,
             deliveryStatistics: null,
             loadingDeliveryStatistics: false,
             expensesReport: null,
@@ -1262,6 +1318,55 @@ export default {
                     totalPrice: item.quantity * sellingPrice,
                 };
             });
+        },
+        returnedItemsFields() {
+            return [
+                {
+                    key: 'itemName',
+                    label: this.$t('itemName') || 'اسم المنتج',
+                    sortable: true
+                },
+                {
+                    key: 'quantity',
+                    label: this.$t('quantity') || 'الكمية',
+                    sortable: true
+                },
+                {
+                    key: 'unitPrice',
+                    label: this.$t('unitPrice') || 'سعر الوحدة',
+                    sortable: true
+                },
+                {
+                    key: 'lineTotal',
+                    label: this.$t('lineTotal') || 'المجموع',
+                    sortable: true
+                },
+                {
+                    key: 'orderCode',
+                    label: this.$t('invoiceNumber') || 'رقم الفاتورة',
+                    sortable: true
+                },
+                {
+                    key: 'tableDisplay',
+                    label: this.$t('table') || 'الطاولة',
+                    sortable: false
+                },
+                {
+                    key: 'orderType',
+                    label: this.$t('orderType') || 'نوع الطلب',
+                    sortable: true
+                },
+                {
+                    key: 'deletedByUsername',
+                    label: this.$t('deletedBy') || 'حذف بواسطة',
+                    sortable: true
+                },
+                {
+                    key: 'insertDate',
+                    label: this.$t('deletedAt') || 'وقت الحذف',
+                    sortable: true
+                }
+            ];
         },
         driversStatisticsFields() {
             return [
@@ -1493,6 +1598,11 @@ export default {
 
         pageNumber() {
             this.GetAllOrders();
+        },
+        returnedItemsPageNumber() {
+            if (this.activeTab === 'returnedItems') {
+                this.loadReturnedItems();
+            }
         },
     },
 
@@ -2196,6 +2306,9 @@ export default {
                 this.loadSalesByCategory();
             } else if (this.activeTab === 'byEmployee') {
                 this.loadSalesByEmployee();
+            } else if (this.activeTab === 'returnedItems') {
+                this.returnedItemsPageNumber = 1;
+                this.loadReturnedItems();
             } else if (this.activeTab === 'delivery') {
                 this.loadDeliveryStatistics();
             }
@@ -2275,6 +2388,30 @@ export default {
                 .catch((error) => {
                     this.show = false;
                     console.error('Error loading sales by employee:', error);
+                });
+        },
+
+        loadReturnedItems() {
+            this.show = true;
+            const params = new URLSearchParams();
+            params.append('pageNumber', (this.returnedItemsPageNumber - 1).toString());
+            params.append('pageSize', this.returnedItemsPageSize.toString());
+            if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
+            if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
+            if (this.search.info) params.append('info', this.search.info);
+
+            HTTP.get(`Admin/GetReturnedOrderItems?${params.toString()}`)
+                .then((response) => {
+                    const payload = response?.data?.data;
+                    this.returnedItems = payload?.items || [];
+                    this.totalReturnedItems = payload?.totalItems || 0;
+                    this.show = false;
+                })
+                .catch((error) => {
+                    this.show = false;
+                    this.returnedItems = [];
+                    this.totalReturnedItems = 0;
+                    console.error('Error loading returned items:', error);
                 });
         },
 
@@ -2433,6 +2570,45 @@ export default {
                             csv += [item.employeeName, item.totalOrders ?? '', item.totalSales ?? '', item.totalItemsSold ?? '', avg, perOrder].map(this.csvEscape).join(',') + '\r\n';
                         });
                         this.downloadCsv(csv, `sales_by_employee_${dateStr}.csv`);
+                    }
+                } else if (this.activeTab === 'returnedItems') {
+                    const params = new URLSearchParams();
+                    params.append('pageNumber', '0');
+                    params.append('pageSize', '5000');
+                    if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
+                    if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
+                    if (this.search.info) params.append('info', this.search.info);
+                    const res = await HTTP.get(`Admin/GetReturnedOrderItems?${params.toString()}`);
+                    const list = res.data?.data?.items || [];
+                    if (!list.length) {
+                        this.$toast.info(this.$t('noDataToExport') || 'لا توجد بيانات للتصدير', { position: 'top-right', timeout: 3000 });
+                    } else {
+                        const headers = [
+                            this.$t('itemName') || 'اسم المنتج',
+                            this.$t('quantity') || 'الكمية',
+                            this.$t('unitPrice') || 'سعر الوحدة',
+                            this.$t('lineTotal') || 'المجموع',
+                            this.$t('invoiceNumber') || 'رقم الفاتورة',
+                            this.$t('table') || 'الطاولة',
+                            this.$t('orderType') || 'نوع الطلب',
+                            this.$t('deletedBy') || 'حذف بواسطة',
+                            this.$t('deletedAt') || 'وقت الحذف'
+                        ];
+                        let csv = headers.map(this.csvEscape).join(',') + '\r\n';
+                        list.forEach(item => {
+                            csv += [
+                                item.itemName || '',
+                                item.quantity ?? '',
+                                item.unitPrice ?? '',
+                                item.lineTotal ?? '',
+                                item.orderCode || '',
+                                item.mergedTableNumbers || item.tableNumber || '',
+                                item.orderType || '',
+                                item.deletedByUsername || '',
+                                item.insertDate || ''
+                            ].map(this.csvEscape).join(',') + '\r\n';
+                        });
+                        this.downloadCsv(csv, `returned_items_${dateStr}.csv`);
                     }
                 } else if (this.activeTab === 'delivery') {
                     const res = await HTTP.get('DeliveryDrivers/Statistics/All');

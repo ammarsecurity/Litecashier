@@ -78,6 +78,31 @@ namespace RestaurantPOS.Controllers
             return item.SellingPrice;
         }
 
+        private static ReturnedOrderItemDto MapReturnedOrderItemDto(ReturnedOrderItem entity)
+        {
+            return new ReturnedOrderItemDto
+            {
+                Id = entity.Id,
+                CustomerOrderId = entity.CustomerOrderId,
+                CustomerOrderItemId = entity.CustomerOrderItemId,
+                TableId = entity.TableId,
+                TableNumber = entity.TableNumber,
+                MergedTableNumbers = entity.MergedTableNumbers,
+                OrderCode = entity.OrderCode,
+                OrderType = entity.OrderType,
+                PaymentMethod = entity.PaymentMethod,
+                ItemId = entity.ItemId,
+                ItemName = entity.ItemName,
+                Quantity = entity.Quantity,
+                UnitPrice = entity.UnitPrice,
+                LineTotal = entity.LineTotal,
+                Reason = entity.Reason,
+                DeletedByUserId = entity.DeletedByUserId,
+                DeletedByUsername = entity.DeletedByUsername,
+                InsertDate = entity.InsertDate
+            };
+        }
+
         private async Task EmitTableUpdatedAsync(Table table)
         {
             await _hubContext.Clients.All.SendAsync("TableUpdated", new
@@ -2784,6 +2809,201 @@ namespace RestaurantPOS.Controllers
                     Message = "حدث خطأ أثناء جلب طلبات الطاولة"
                 });
             }
+        }
+
+        [Authorize(Roles = "Commercial,POS,Waiter")]
+        [HttpPost("LogReturnedOrderItem")]
+        public async Task<ActionResult<GlobalResponse<ReturnedOrderItemDto>>> LogReturnedOrderItem([FromBody] LogReturnedOrderItemRequest request)
+        {
+            try
+            {
+                if (request == null || request.SourceOrderItemId <= 0)
+                {
+                    return BadRequest(new GlobalResponse<ReturnedOrderItemDto>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "بيانات غير صحيحة"
+                    });
+                }
+
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == userId);
+                if (user == null)
+                {
+                    return Unauthorized(new GlobalResponse<ReturnedOrderItemDto>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "User not found"
+                    });
+                }
+
+                var commercialUserId = GetCommercialUserId();
+                var sourceOrderItem = await _dbConfig.CustomerOrderItems
+                    .Include(x => x.Item)
+                    .Include(x => x.CustomerOrder)
+                    .ThenInclude(o => o!.OrderTables)
+                    .ThenInclude(ot => ot.Table)
+                    .FirstOrDefaultAsync(x => x.Id == request.SourceOrderItemId && !x.IsDeleted);
+
+                if (sourceOrderItem == null || sourceOrderItem.CustomerOrder == null || sourceOrderItem.Item == null)
+                {
+                    return NotFound(new GlobalResponse<ReturnedOrderItemDto>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "عنصر الفاتورة غير موجود"
+                    });
+                }
+
+                var sourceOrder = sourceOrderItem.CustomerOrder;
+                var orderBelongsToCommercial =
+                    sourceOrder.InsertByUserId == commercialUserId ||
+                    _dbConfig.Users.Any(u => u.Id == sourceOrder.InsertByUserId && u.InsertByUserId == commercialUserId);
+                if (!orderBelongsToCommercial)
+                {
+                    return Forbid();
+                }
+
+                var requestedQty = request.DeletedQuantity ?? sourceOrderItem.Quantity;
+                var deletedQty = Math.Max(1, Math.Min(sourceOrderItem.Quantity, requestedQty));
+
+                var linkedTables = sourceOrder.OrderTables?
+                    .Where(ot => !ot.IsDeleted && ot.Table != null && !ot.Table.IsDeleted)
+                    .Select(ot => ot.Table!)
+                    .OrderBy(t => t.TableNumber)
+                    .ToList() ?? new List<Table>();
+
+                Table? primaryTable = linkedTables.FirstOrDefault();
+                if (primaryTable == null && sourceOrder.TableId.HasValue)
+                {
+                    primaryTable = await _dbConfig.Tables
+                        .FirstOrDefaultAsync(t => t.Id == sourceOrder.TableId.Value && !t.IsDeleted);
+                }
+
+                var mergedTableNumbers = linkedTables.Count > 1
+                    ? string.Join("و", linkedTables.Select(t => t.TableNumber))
+                    : (linkedTables.Count == 1 ? linkedTables[0].TableNumber : primaryTable?.TableNumber);
+                var unitPrice = sourceOrderItem.SellingPrice;
+
+                var returnedItem = new ReturnedOrderItem
+                {
+                    CustomerOrderId = sourceOrder.Id,
+                    CustomerOrderItemId = sourceOrderItem.Id,
+                    TableId = primaryTable?.Id ?? sourceOrder.TableId,
+                    TableNumber = primaryTable?.TableNumber,
+                    MergedTableNumbers = mergedTableNumbers,
+                    OrderCode = sourceOrder.OrderCode,
+                    OrderType = sourceOrder.OrderType,
+                    PaymentMethod = sourceOrder.PaymentMethod,
+                    ItemId = sourceOrderItem.ItemId,
+                    ItemName = sourceOrderItem.Item.Name ?? string.Empty,
+                    Quantity = deletedQty,
+                    UnitPrice = unitPrice,
+                    LineTotal = unitPrice * deletedQty,
+                    Reason = "DeletedFromPOS",
+                    DeletedByUserId = userId,
+                    DeletedByUsername = user.Username,
+                    InsertByUserId = commercialUserId
+                };
+
+                _dbConfig.ReturnedOrderItems.Add(returnedItem);
+                await _dbConfig.SaveChangesAsync();
+
+                return Ok(new GlobalResponse<ReturnedOrderItemDto>
+                {
+                    Data = MapReturnedOrderItemDto(returnedItem),
+                    ErrorStatus = false,
+                    Message = "تم تسجيل المادة المسترجعة بنجاح"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error logging returned order item");
+                return StatusCode(500, new GlobalResponse<ReturnedOrderItemDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "حدث خطأ أثناء تسجيل المادة المسترجعة"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial")]
+        [HttpGet("GetReturnedOrderItems")]
+        public ActionResult<GlobalResponse<PagedList<ReturnedOrderItemDto>>> GetReturnedOrderItems(
+            int pageNumber,
+            int pageSize,
+            DateTime? startDate,
+            DateTime? endDate,
+            int? tableId,
+            int? itemId,
+            string? info)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+            var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+            if (user == null)
+            {
+                return BadRequest(new GlobalResponse<PagedList<ReturnedOrderItemDto>>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "User not found"
+                });
+            }
+
+            var commercialUserId = GetCommercialUserId();
+            var query = _dbConfig.ReturnedOrderItems
+                .Where(x => !x.IsDeleted && x.InsertByUserId == commercialUserId)
+                .AsQueryable();
+
+            if (startDate.HasValue && endDate.HasValue)
+            {
+                var endInclusive = endDate.Value.AddDays(1);
+                query = query.Where(x => x.InsertDate >= startDate.Value && x.InsertDate < endInclusive);
+            }
+            else if (startDate.HasValue)
+            {
+                query = query.Where(x => x.InsertDate.Date == startDate.Value.Date);
+            }
+
+            if (tableId.HasValue)
+            {
+                query = query.Where(x => x.TableId == tableId.Value);
+            }
+
+            if (itemId.HasValue)
+            {
+                query = query.Where(x => x.ItemId == itemId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(info))
+            {
+                var term = info.Trim();
+                query = query.Where(x =>
+                    x.OrderCode.Contains(term) ||
+                    x.ItemName.Contains(term) ||
+                    (x.TableNumber != null && x.TableNumber.Contains(term)) ||
+                    (x.MergedTableNumbers != null && x.MergedTableNumbers.Contains(term)));
+            }
+
+            var totalItems = query.Count();
+            var list = query
+                .OrderByDescending(x => x.InsertDate)
+                .Skip(pageNumber * pageSize)
+                .Take(pageSize)
+                .ToList()
+                .Select(MapReturnedOrderItemDto)
+                .ToList();
+
+            var paged = new PagedList<ReturnedOrderItemDto>(list, totalItems, pageNumber, pageSize);
+            return Ok(new GlobalResponse<PagedList<ReturnedOrderItemDto>>
+            {
+                Data = paged,
+                ErrorStatus = false,
+                Message = "Success"
+            });
         }
 
         [Authorize(Roles = "Commercial,POS,Waiter")]

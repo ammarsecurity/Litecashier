@@ -77,6 +77,7 @@ namespace RestaurantPOS.Db
         public DbSet<StockMovement> StockMovements { get; set; }
         public DbSet<Supplier> Suppliers { get; set; }
         public DbSet<Customer> Customers { get; set; }
+        public DbSet<ReturnedOrderItem> ReturnedOrderItems { get; set; }
 
 
 
@@ -135,6 +136,42 @@ namespace RestaurantPOS.Db
                    .WithMany(r => r.CustomerOrderItems)
                    .HasForeignKey(x => x.ItemId)
                    .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<ReturnedOrderItem>()
+                .HasOne(r => r.CustomerOrder)
+                .WithMany()
+                .HasForeignKey(x => x.CustomerOrderId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<ReturnedOrderItem>()
+                .HasOne(r => r.CustomerOrderItem)
+                .WithMany()
+                .HasForeignKey(x => x.CustomerOrderItemId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<ReturnedOrderItem>()
+                .HasOne(r => r.Item)
+                .WithMany()
+                .HasForeignKey(x => x.ItemId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<ReturnedOrderItem>()
+                .HasOne(r => r.Table)
+                .WithMany()
+                .HasForeignKey(x => x.TableId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<ReturnedOrderItem>()
+                .HasOne(r => r.DeletedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.DeletedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<ReturnedOrderItem>()
+                .HasOne(r => r.InsertByUser)
+                .WithMany()
+                .HasForeignKey(x => x.InsertByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.LoginCode)

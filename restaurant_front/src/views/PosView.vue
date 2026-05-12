@@ -229,7 +229,7 @@
                         </div>
                       </template>
                       <template v-if="mergedTableIds.length > 1">
-                        <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" @click="addOrder(false)">
+                        <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" @click="addOrderAndClear(true)">
                           <b-icon icon="check-circle-fill"></b-icon>
                           <span>{{ $t("saveForAllMergedTables") || "حفظ لجميع الطاولات" }}</span>
                         </button>
@@ -243,7 +243,7 @@
                         </button>
                       </template>
                       <template v-else>
-                        <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" @click="addOrder(false)">
+                        <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" @click="addOrderAndClear(true)">
                           <b-icon icon="check-circle-fill"></b-icon>
                           <span>{{ $t("save") || "حفظ" }}</span>
                         </button>
@@ -3438,7 +3438,7 @@ export default {
         minute: '2-digit'
       });
     },
-    addOrderAndClear() {
+    addOrderAndClear(skipPrint = false) {
       const textDirection = document.documentElement.dir;
       const toastPosition = textDirection === "rtl" ? "top-right" : "top-left";
 
@@ -3630,16 +3630,18 @@ export default {
               maxToasts: 1,
             });
             
-            // Print automatically after saving
-            setTimeout(() => {
-              try {
-                this.printCard(itemsForPrint);
-              } catch (printError) {
-                console.error('Print error:', printError);
-                // Don't show error to user, printing is optional
-                // The order was saved successfully
-              }
-            }, 100);
+            if (!skipPrint) {
+              // Print automatically after saving
+              setTimeout(() => {
+                try {
+                  this.printCard(itemsForPrint);
+                } catch (printError) {
+                  console.error('Print error:', printError);
+                  // Don't show error to user, printing is optional
+                  // The order was saved successfully
+                }
+              }, 100);
+            }
           }
         })
         .catch((error) => {
@@ -5428,7 +5430,35 @@ export default {
       }
     },
 
-    deleteItem(index) {
+    async deleteItem(index) {
+      const targetItem = this.carditems[index];
+      if (!targetItem) return;
+
+      const sourceOrderItemId = Number(targetItem.sourceOrderItemId || 0);
+      const deletedQuantity = Math.max(1, Number(targetItem.quantity || 1));
+
+      if (sourceOrderItemId > 0) {
+        try {
+          await HTTP.post(`Admin/LogReturnedOrderItem`, {
+            sourceOrderItemId,
+            deletedQuantity,
+          });
+        } catch (error) {
+          console.error("Failed to log returned item:", error);
+          this.$toast.error(
+            error?.response?.data?.message ||
+              this.$i18n.t("returnedItemLogFailed") ||
+              "تعذر تسجيل المادة المسترجعة",
+            {
+              position: "top-right",
+              timeout: 2500,
+              maxToasts: 1,
+            }
+          );
+          return;
+        }
+      }
+
       this.carditems.splice(index, 1);
       this.$toast.error(this.$i18n.t("deleteItemFromOrderSucsses"), {
         position: "top-right",
