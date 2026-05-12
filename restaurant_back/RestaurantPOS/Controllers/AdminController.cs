@@ -13,6 +13,7 @@ using RestaurantPOS.Models.Dtos;
 using RestaurantPOS.Models.Requests;
 using RestaurantPOS.Models.Restaurant;
 using RestaurantPOS.Models.Response;
+using ClosedXML.Excel;
 using System;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -101,6 +102,203 @@ namespace RestaurantPOS.Controllers
                 DeletedByUsername = entity.DeletedByUsername,
                 InsertDate = entity.InsertDate
             };
+        }
+
+        private static string CsvEscape(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            var needsQuotes = value.Contains(",") || value.Contains("\"") || value.Contains("\n") || value.Contains("\r");
+            var escaped = value.Replace("\"", "\"\"");
+            return needsQuotes ? $"\"{escaped}\"" : escaped;
+        }
+
+        private async Task<(bool IsBlocked, string? BlockMessage, EndOfDayReportDto? Data)> BuildEndOfDayReportAsync(int commercialUserId)
+        {
+            var dayStart = DateTime.UtcNow.Date;
+            var dayEnd = dayStart.AddDays(1);
+
+            var allTables = await _dbConfig.Tables
+                .Where(t => !t.IsDeleted && t.InsertByUserId == commercialUserId)
+                .ToListAsync();
+
+            var occupiedTables = allTables
+                .Where(t => string.Equals((t.Status ?? "").Trim(), "Occupied", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (occupiedTables.Any())
+            {
+                return (true, "لا يمكن استخراج تقرير نهاية اليوم قبل إغلاق كل الطاولات المشغولة", null);
+            }
+
+            var orders = await _dbConfig.CustomerOrders
+                .Where(o =>
+                    !o.IsDeleted &&
+                    (o.InsertByUserId == commercialUserId || o.User.InsertByUserId == commercialUserId) &&
+                    o.InsertDate >= dayStart &&
+                    o.InsertDate < dayEnd)
+                .ToListAsync();
+
+            var orderIds = orders.Select(o => o.Id).ToList();
+            var orderItems = orderIds.Any()
+                ? await _dbConfig.CustomerOrderItems
+                    .Include(oi => oi.Item)
+                    .Where(oi => !oi.IsDeleted && orderIds.Contains(oi.CustomerOrderId))
+                    .ToListAsync()
+                : new List<CustomerOrderItem>();
+
+            var orderTables = orderIds.Any()
+                ? await _dbConfig.OrderTables
+                    .Include(ot => ot.Table)
+                    .Where(ot => !ot.IsDeleted && orderIds.Contains(ot.OrderId))
+                    .ToListAsync()
+                : new List<OrderTable>();
+
+            var tableDict = allTables.ToDictionary(t => t.Id, t => t);
+            var orderTablesMap = orderTables
+                .GroupBy(x => x.OrderId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g
+                        .Where(x => x.Table != null && !x.Table.IsDeleted)
+                        .Select(x => x.Table!)
+                        .Distinct()
+                        .ToList());
+
+            var itemsCount = orderItems.Count;
+            var itemsQuantity = orderItems.Sum(x => x.Quantity);
+            var grossSales = orderItems.Sum(x => x.SellingPrice * x.Quantity);
+            var discountAmount = orders.Sum(x => x.DiscountAmount ?? 0m);
+            var netSales = Math.Max(0m, grossSales - discountAmount);
+            var totalCost = orderItems.Sum(x => x.PurchasingPrice * x.Quantity);
+            var profit = netSales - totalCost;
+
+            var paymentBreakdown = orders
+                .GroupBy(x => string.IsNullOrWhiteSpace(x.PaymentMethod) ? "Cash" : x.PaymentMethod)
+                .Select(g =>
+                {
+                    var groupOrderIds = g.Select(x => x.Id).ToHashSet();
+                    var amount = orderItems
+                        .Where(oi => groupOrderIds.Contains(oi.CustomerOrderId))
+                        .Sum(oi => oi.SellingPrice * oi.Quantity);
+                    return new EndOfDayPaymentDto
+                    {
+                        Method = g.Key,
+                        OrdersCount = g.Count(),
+                        Amount = amount
+                    };
+                })
+                .OrderByDescending(x => x.Amount)
+                .ToList();
+
+            var invoiceTableRows = new List<(int? TableId, string TableNumber, decimal Amount)>();
+            foreach (var order in orders)
+            {
+                var amount = orderItems
+                    .Where(oi => oi.CustomerOrderId == order.Id)
+                    .Sum(oi => oi.SellingPrice * oi.Quantity);
+
+                if (orderTablesMap.TryGetValue(order.Id, out var linkedTables) && linkedTables.Any())
+                {
+                    foreach (var linkedTable in linkedTables)
+                    {
+                        invoiceTableRows.Add((linkedTable.Id, linkedTable.TableNumber, amount));
+                    }
+                }
+                else if (order.TableId.HasValue && tableDict.TryGetValue(order.TableId.Value, out var fallbackTable))
+                {
+                    invoiceTableRows.Add((fallbackTable.Id, fallbackTable.TableNumber, amount));
+                }
+                else
+                {
+                    invoiceTableRows.Add((null, "-", amount));
+                }
+            }
+
+            var invoicesByTable = invoiceTableRows
+                .GroupBy(x => new { x.TableId, x.TableNumber })
+                .Select(g => new EndOfDayTableInvoicesDto
+                {
+                    TableId = g.Key.TableId,
+                    TableNumber = g.Key.TableNumber,
+                    InvoicesCount = g.Count(),
+                    TotalAmount = g.Sum(x => x.Amount)
+                })
+                .OrderBy(x => x.TableId ?? int.MaxValue)
+                .ThenBy(x => x.TableNumber)
+                .ToList();
+
+            var topItems = orderItems
+                .GroupBy(x => new { x.ItemId, ItemName = x.Item != null ? x.Item.Name : $"#{x.ItemId}" })
+                .Select(g => new EndOfDayTopItemDto
+                {
+                    ItemId = g.Key.ItemId,
+                    ItemName = g.Key.ItemName,
+                    Quantity = g.Sum(x => x.Quantity),
+                    SalesAmount = g.Sum(x => x.SellingPrice * x.Quantity)
+                })
+                .OrderByDescending(x => x.Quantity)
+                .ThenByDescending(x => x.SalesAmount)
+                .Take(10)
+                .ToList();
+
+            var returnedItems = await _dbConfig.ReturnedOrderItems
+                .Where(x =>
+                    !x.IsDeleted &&
+                    x.InsertByUserId == commercialUserId &&
+                    x.InsertDate >= dayStart &&
+                    x.InsertDate < dayEnd)
+                .OrderByDescending(x => x.InsertDate)
+                .Select(x => new EndOfDayReturnedItemDto
+                {
+                    Id = x.Id,
+                    OrderCode = x.OrderCode,
+                    ItemName = x.ItemName,
+                    TableNumber = x.TableNumber,
+                    MergedTableNumbers = x.MergedTableNumbers,
+                    Quantity = x.Quantity,
+                    UnitPrice = x.UnitPrice,
+                    LineTotal = x.LineTotal,
+                    DeletedByUsername = x.DeletedByUsername,
+                    InsertDate = x.InsertDate
+                })
+                .ToListAsync();
+
+            var tableStatus = new EndOfDayTableStatusDto
+            {
+                TotalTables = allTables.Count,
+                AvailableTables = allTables.Count(t => string.Equals((t.Status ?? "").Trim(), "Available", StringComparison.OrdinalIgnoreCase)),
+                OccupiedTables = occupiedTables.Count,
+                ReservedTables = allTables.Count(t => string.Equals((t.Status ?? "").Trim(), "Reserved", StringComparison.OrdinalIgnoreCase)),
+                OutOfServiceTables = allTables.Count(t =>
+                    string.Equals((t.Status ?? "").Trim(), "OutOfService", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals((t.Status ?? "").Trim(), "Out_Of_Service", StringComparison.OrdinalIgnoreCase))
+            };
+
+            var report = new EndOfDayReportDto
+            {
+                DayStart = dayStart,
+                DayEnd = dayEnd.AddSeconds(-1),
+                Totals = new EndOfDayTotalsDto
+                {
+                    OrdersCount = orders.Count,
+                    ItemsCount = itemsCount,
+                    ItemsQuantity = itemsQuantity,
+                    GrossSales = grossSales,
+                    DiscountAmount = discountAmount,
+                    NetSales = netSales,
+                    TotalCost = totalCost,
+                    Profit = profit,
+                    ReturnedAmount = returnedItems.Sum(x => x.LineTotal),
+                    ReturnedCount = returnedItems.Count
+                },
+                TableStatus = tableStatus,
+                PaymentBreakdown = paymentBreakdown,
+                InvoicesByTable = invoicesByTable,
+                TopItems = topItems,
+                ReturnedItems = returnedItems
+            };
+
+            return (false, null, report);
         }
 
         private async Task EmitTableUpdatedAsync(Table table)
@@ -4368,6 +4566,191 @@ namespace RestaurantPOS.Controllers
                     Data = null,
                     ErrorStatus = true,
                     Message = $"??? ???: {ex.Message}"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial")]
+        [HttpGet("GetEndOfDaySummary")]
+        public async Task<ActionResult<GlobalResponse<EndOfDayReportDto>>> GetEndOfDaySummary()
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var reportResult = await BuildEndOfDayReportAsync(commercialUserId);
+                if (reportResult.IsBlocked)
+                {
+                    return BadRequest(new GlobalResponse<EndOfDayReportDto>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = reportResult.BlockMessage
+                    });
+                }
+
+                return Ok(new GlobalResponse<EndOfDayReportDto>
+                {
+                    Data = reportResult.Data,
+                    ErrorStatus = false,
+                    Message = "Success"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting end of day summary");
+                return StatusCode(500, new GlobalResponse<EndOfDayReportDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "حدث خطأ أثناء استخراج تقرير نهاية اليوم"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial")]
+        [HttpGet("ExportEndOfDaySummary")]
+        public async Task<IActionResult> ExportEndOfDaySummary()
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var reportResult = await BuildEndOfDayReportAsync(commercialUserId);
+                if (reportResult.IsBlocked || reportResult.Data == null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = reportResult.BlockMessage ?? "لا يمكن استخراج التقرير"
+                    });
+                }
+
+                var r = reportResult.Data;
+                using var workbook = new XLWorkbook();
+
+                var summarySheet = workbook.Worksheets.Add("Summary");
+                summarySheet.Cell(1, 1).Value = "Key";
+                summarySheet.Cell(1, 2).Value = "Value";
+                summarySheet.Cell(2, 1).Value = "DayStart";
+                summarySheet.Cell(2, 2).Value = r.DayStart;
+                summarySheet.Cell(3, 1).Value = "DayEnd";
+                summarySheet.Cell(3, 2).Value = r.DayEnd;
+                summarySheet.Cell(4, 1).Value = "OrdersCount";
+                summarySheet.Cell(4, 2).Value = r.Totals.OrdersCount;
+                summarySheet.Cell(5, 1).Value = "ItemsCount";
+                summarySheet.Cell(5, 2).Value = r.Totals.ItemsCount;
+                summarySheet.Cell(6, 1).Value = "ItemsQuantity";
+                summarySheet.Cell(6, 2).Value = r.Totals.ItemsQuantity;
+                summarySheet.Cell(7, 1).Value = "GrossSales";
+                summarySheet.Cell(7, 2).Value = r.Totals.GrossSales;
+                summarySheet.Cell(8, 1).Value = "DiscountAmount";
+                summarySheet.Cell(8, 2).Value = r.Totals.DiscountAmount;
+                summarySheet.Cell(9, 1).Value = "NetSales";
+                summarySheet.Cell(9, 2).Value = r.Totals.NetSales;
+                summarySheet.Cell(10, 1).Value = "TotalCost";
+                summarySheet.Cell(10, 2).Value = r.Totals.TotalCost;
+                summarySheet.Cell(11, 1).Value = "Profit";
+                summarySheet.Cell(11, 2).Value = r.Totals.Profit;
+                summarySheet.Cell(12, 1).Value = "ReturnedAmount";
+                summarySheet.Cell(12, 2).Value = r.Totals.ReturnedAmount;
+                summarySheet.Cell(13, 1).Value = "ReturnedCount";
+                summarySheet.Cell(13, 2).Value = r.Totals.ReturnedCount;
+                summarySheet.Cell(14, 1).Value = "TotalTables";
+                summarySheet.Cell(14, 2).Value = r.TableStatus.TotalTables;
+                summarySheet.Cell(15, 1).Value = "AvailableTables";
+                summarySheet.Cell(15, 2).Value = r.TableStatus.AvailableTables;
+                summarySheet.Cell(16, 1).Value = "OccupiedTables";
+                summarySheet.Cell(16, 2).Value = r.TableStatus.OccupiedTables;
+                summarySheet.Cell(17, 1).Value = "ReservedTables";
+                summarySheet.Cell(17, 2).Value = r.TableStatus.ReservedTables;
+                summarySheet.Cell(18, 1).Value = "OutOfServiceTables";
+                summarySheet.Cell(18, 2).Value = r.TableStatus.OutOfServiceTables;
+
+                var paymentsSheet = workbook.Worksheets.Add("PaymentBreakdown");
+                paymentsSheet.Cell(1, 1).Value = "Method";
+                paymentsSheet.Cell(1, 2).Value = "OrdersCount";
+                paymentsSheet.Cell(1, 3).Value = "Amount";
+                var paymentRow = 2;
+                foreach (var p in r.PaymentBreakdown)
+                {
+                    paymentsSheet.Cell(paymentRow, 1).Value = p.Method ?? string.Empty;
+                    paymentsSheet.Cell(paymentRow, 2).Value = p.OrdersCount;
+                    paymentsSheet.Cell(paymentRow, 3).Value = p.Amount;
+                    paymentRow++;
+                }
+
+                var invoicesSheet = workbook.Worksheets.Add("InvoicesByTable");
+                invoicesSheet.Cell(1, 1).Value = "TableNumber";
+                invoicesSheet.Cell(1, 2).Value = "InvoicesCount";
+                invoicesSheet.Cell(1, 3).Value = "TotalAmount";
+                var invoiceRow = 2;
+                foreach (var t in r.InvoicesByTable)
+                {
+                    invoicesSheet.Cell(invoiceRow, 1).Value = t.TableNumber ?? string.Empty;
+                    invoicesSheet.Cell(invoiceRow, 2).Value = t.InvoicesCount;
+                    invoicesSheet.Cell(invoiceRow, 3).Value = t.TotalAmount;
+                    invoiceRow++;
+                }
+
+                var topItemsSheet = workbook.Worksheets.Add("TopItems");
+                topItemsSheet.Cell(1, 1).Value = "ItemName";
+                topItemsSheet.Cell(1, 2).Value = "Quantity";
+                topItemsSheet.Cell(1, 3).Value = "SalesAmount";
+                var topItemsRow = 2;
+                foreach (var i in r.TopItems)
+                {
+                    topItemsSheet.Cell(topItemsRow, 1).Value = i.ItemName ?? string.Empty;
+                    topItemsSheet.Cell(topItemsRow, 2).Value = i.Quantity;
+                    topItemsSheet.Cell(topItemsRow, 3).Value = i.SalesAmount;
+                    topItemsRow++;
+                }
+
+                var returnedItemsSheet = workbook.Worksheets.Add("ReturnedItems");
+                returnedItemsSheet.Cell(1, 1).Value = "OrderCode";
+                returnedItemsSheet.Cell(1, 2).Value = "ItemName";
+                returnedItemsSheet.Cell(1, 3).Value = "Table";
+                returnedItemsSheet.Cell(1, 4).Value = "Quantity";
+                returnedItemsSheet.Cell(1, 5).Value = "UnitPrice";
+                returnedItemsSheet.Cell(1, 6).Value = "LineTotal";
+                returnedItemsSheet.Cell(1, 7).Value = "DeletedBy";
+                returnedItemsSheet.Cell(1, 8).Value = "DeletedAt";
+                var returnedRow = 2;
+                foreach (var item in r.ReturnedItems)
+                {
+                    returnedItemsSheet.Cell(returnedRow, 1).Value = item.OrderCode ?? string.Empty;
+                    returnedItemsSheet.Cell(returnedRow, 2).Value = item.ItemName ?? string.Empty;
+                    returnedItemsSheet.Cell(returnedRow, 3).Value = item.MergedTableNumbers ?? item.TableNumber ?? "-";
+                    returnedItemsSheet.Cell(returnedRow, 4).Value = item.Quantity;
+                    returnedItemsSheet.Cell(returnedRow, 5).Value = item.UnitPrice;
+                    returnedItemsSheet.Cell(returnedRow, 6).Value = item.LineTotal;
+                    returnedItemsSheet.Cell(returnedRow, 7).Value = item.DeletedByUsername ?? string.Empty;
+                    returnedItemsSheet.Cell(returnedRow, 8).Value = item.InsertDate;
+                    returnedRow++;
+                }
+
+                foreach (var sheet in workbook.Worksheets)
+                {
+                    var headerRange = sheet.Range(1, 1, 1, sheet.LastColumnUsed()?.ColumnNumber() ?? 1);
+                    headerRange.Style.Font.Bold = true;
+                    sheet.Columns().AdjustToContents();
+                }
+
+                using var stream = new MemoryStream();
+                workbook.SaveAs(stream);
+                var fileName = $"end_of_day_{DateTime.UtcNow:yyyyMMdd}.xlsx";
+                return File(
+                    stream.ToArray(),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting end of day summary");
+                return StatusCode(500, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "حدث خطأ أثناء تنزيل تقرير نهاية اليوم"
                 });
             }
         }

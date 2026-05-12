@@ -62,6 +62,12 @@ export function buildNavItems(t) {
       icon: "file-earmark-bar-graph-fill",
     },
     {
+      name: "endOfDayReport",
+      label: t("endOfDayReportTitle") || "تقرير نهاية اليوم",
+      link: "/end-of-day-report",
+      icon: "calendar2-check-fill",
+    },
+    {
       name: "publicOrders",
       label: t("publicOrders") || "الطلبات العامة",
       link: "/public-orders",

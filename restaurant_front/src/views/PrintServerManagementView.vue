@@ -6,7 +6,15 @@
         <!-- Header Section -->
         <div class="users-header-section">
           <div class="users-header-content">
-            <h1 class="users-page-title">{{ $t("printServerManagement") || "إدارة خادم الطباعة" }}</h1>
+            <div class="header-title-wrapper">
+              <div class="header-icon-wrapper">
+                <b-icon icon="server" class="header-icon"></b-icon>
+              </div>
+              <div>
+                <h1 class="users-page-title">{{ $t("printServerManagement") || "إدارة خادم الطباعة" }}</h1>
+                <p class="header-subtitle">{{ $t("printServerManagementDescription") || "إدارة حالة الخادم والطابعات وربط الأقسام بالطابعات" }}</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1455,6 +1463,45 @@ export default {
 /* Using users-page-container and users-page-content from main.css */
 /* Using printers-management-card styles from below */
 
+.users-page-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.users-header-section {
+  margin-bottom: 0.25rem;
+}
+
+.header-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.header-icon-wrapper {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--primary-color) 16%, var(--bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--primary-color) 34%, var(--border-color));
+  flex-shrink: 0;
+}
+
+.header-icon {
+  font-size: 1.3rem;
+  color: var(--primary-color);
+}
+
+.header-subtitle {
+  margin: 0.2rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+}
+
 .spinning {
   animation: spin 1s linear infinite;
 }
@@ -1867,20 +1914,23 @@ export default {
   display: flex;
   align-items: center;
   gap: 1rem;
+  width: 100%;
 }
 
 [dir="rtl"] .status-item {
-  flex-direction: row-reverse;
+  flex-direction: row;
+  justify-content: flex-end;
 }
 
 [dir="ltr"] .status-item {
   flex-direction: row;
+  justify-content: flex-start;
 }
 
 .status-label {
   font-weight: 500;
   color: var(--text-secondary);
-  min-width: 150px;
+  min-width: 0;
 }
 
 [dir="rtl"] .status-label {
@@ -2213,17 +2263,18 @@ select.form-control:focus {
 
 /* Printers Management Styles */
 .printers-management-card {
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   border-radius: var(--radius-lg);
-  padding: 2rem;
-  margin-bottom: 2rem;
-  box-shadow: var(--shadow-md);
+  padding: 1.2rem;
+  margin-bottom: 0;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
 }
 
 .printers-management-header {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 2px solid var(--border-color);
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .printers-management-header-content {
@@ -2235,7 +2286,7 @@ select.form-control:focus {
 }
 
 [dir="rtl"] .printers-management-header-content {
-  flex-direction: row-reverse;
+  flex-direction: row;
 }
 
 [dir="ltr"] .printers-management-header-content {
@@ -2243,14 +2294,15 @@ select.form-control:focus {
 }
 
 .printers-management-title {
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-size: 1.15rem;
+  font-weight: 700;
   color: var(--text-primary);
   margin: 0;
-  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  text-align: start;
+}
+
+[dir="rtl"] .printers-management-title {
+  text-align: right;
 }
 
 /* Using users-add-button styles from main.css */
@@ -2381,18 +2433,20 @@ select.form-control:focus {
 .tag-printers-management-card {
   background: var(--bg-primary);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  margin-bottom: 2rem;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 0;
   overflow: hidden;
+  border: 1px solid var(--border-color);
 }
 
 .tag-printers-management-header {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-dark) 100%);
-  padding: 1.5rem;
+  background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-secondary));
+  padding: 1rem 1.2rem;
   display: flex;
   align-items: center;
   gap: 1rem;
-  color: white;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
 }
 
 [dir="rtl"] .tag-printers-management-header {
@@ -2406,16 +2460,16 @@ select.form-control:focus {
 .tag-printers-management-title {
   flex: 1;
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: white;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .btn-add-tag-printer {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  padding: 0.5rem 1rem;
+  background: var(--bg-primary);
+  color: var(--primary-color);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
+  padding: 0.42rem 0.85rem;
   border-radius: var(--radius-md);
   cursor: pointer;
   display: flex;
@@ -2426,7 +2480,7 @@ select.form-control:focus {
 }
 
 .btn-add-tag-printer:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: color-mix(in srgb, var(--primary-color) 12%, var(--bg-primary));
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
@@ -2625,6 +2679,22 @@ select.form-control:focus {
   background: var(--primary-dark);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  min-height: 140px;
+  gap: 0.75rem;
+}
+
+.empty-state p {
+  margin: 0;
+  text-align: center;
 }
 
 .printer-form,

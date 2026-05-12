@@ -6,6 +6,7 @@ import ItemsView from '../views/ItemsView.vue'
 import UsersView from '../views/UsersView.vue'
 import CategoryView from '../views/CategoryView.vue'
 import ReporstView from '../views/ReporstView.vue'
+import EndOfDayReportView from '../views/EndOfDayReportView.vue'
 import PosView from '../views/PosView.vue'
 import RegisterView from '../views/Auth/RegisterView.vue'
 import PrintServerManagementView from '../views/PrintServerManagementView.vue'
@@ -137,6 +138,15 @@ const routes = [
     path: '/reports',
     name: 'reports',
     component: ReporstView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial']
+    }
+  },
+  {
+    path: '/end-of-day-report',
+    name: 'endOfDayReport',
+    component: EndOfDayReportView,
     meta: {
       requiresAuth: true,
       roles: ['Commercial']
