@@ -151,7 +151,8 @@
       <template #pos-actions>
         <button
           type="button"
-          class="app-top-header-icon-btn"
+          class="app-top-header-icon-btn app-top-header-icon-btn--table-plan"
+          :class="{ 'app-top-header-icon-btn--table-plan-active': posFloorPlanGateVisible }"
           @click="initPosFloorPlanGate"
           :title="$t('posFloorPlanGateTitle')"
         >
@@ -482,7 +483,7 @@
                           </button>
                           <button
                             class="pos-cart-item-delete"
-                            @click.stop="deleteItem(index)"
+                            @click.stop="openDeleteItemConfirm(index)"
                             :title="$t('delete') || 'حذف'"
                           >
                             <b-icon icon="x-lg"></b-icon>
@@ -544,6 +545,30 @@
                       {{ $t("confirmButton") }}
                     </button>
                     <button class="delete-cancel-button" @click="closeModel('modal-empty')">
+                      <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                      {{ $t("cancelButton") }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </b-modal>
+
+            <b-modal id="modal-delete-cart-item" :title="$t('deleteConfirmationModalTitle')" hide-header hide-footer class="users-modal">
+              <div class="modal-content-wrapper">
+                <div class="delete-confirmation-content">
+                  <div class="delete-icon-wrapper">
+                    <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
+                  </div>
+                  <h3 class="delete-confirmation-title">{{ $t("deleteConfirmationModalTitle") || "تأكيد عملية المسح" }}</h3>
+                  <p class="delete-confirmation-text">
+                    {{ $t("confirmDeleteCartItemMessage") || "هل أنت متأكد من حذف هذا العنصر من السلة؟" }}
+                  </p>
+                  <div class="delete-confirmation-actions">
+                    <button class="delete-confirm-button" @click="confirmDeleteCartItem">
+                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                      {{ $t("confirmButton") }}
+                    </button>
+                    <button class="delete-cancel-button" @click="closeModel('modal-delete-cart-item')">
                       <b-icon icon="x-circle-fill" class="me-2"></b-icon>
                       {{ $t("cancelButton") }}
                     </button>
@@ -1201,7 +1226,7 @@
                         <button
                           type="button"
                           class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
-                          @click="printCartOnly"
+                          @click="openPrintOnlyConfirm"
                           :disabled="totalCardItems <= 0"
                           :title="$t('printOnly')"
                         >
@@ -1615,6 +1640,30 @@
       </div>
     </b-modal>
 
+            <b-modal id="modal-print-only-confirm" :title="$t('printOnly')" hide-header hide-footer class="users-modal">
+              <div class="modal-content-wrapper">
+                <div class="delete-confirmation-content">
+                  <div class="delete-icon-wrapper">
+                    <b-icon icon="printer-fill" class="delete-warning-icon"></b-icon>
+                  </div>
+                  <h3 class="delete-confirmation-title">{{ $t("printOnly") || "طباعة فقط" }}</h3>
+                  <p class="delete-confirmation-text">
+                    {{ $t("confirmPrintOnlyMessage") || "هل أنت متأكد من تنفيذ الطباعة فقط؟" }}
+                  </p>
+                  <div class="delete-confirmation-actions">
+                    <button class="delete-confirm-button" @click="confirmPrintCartOnly">
+                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                      {{ $t("confirmButton") }}
+                    </button>
+                    <button class="delete-cancel-button" @click="closeModel('modal-print-only-confirm')">
+                      <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                      {{ $t("cancelButton") }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </b-modal>
+
     <!-- Add New Driver Modal -->
     <b-modal 
       v-model="showAddDriverModal" 
@@ -1969,6 +2018,7 @@ export default {
         resolver: null,
       },
       checkoutSubmitMode: "pay",
+      pendingDeleteItemIndex: null,
     };
   },
 
@@ -5309,6 +5359,21 @@ export default {
       this.orderForSend.pagerNumber = "";
       this.$bvModal.show('modal-order-notes');
     },
+    openPrintOnlyConfirm() {
+      if (this.carditems.length <= 0) {
+        this.$toast.error(this.$i18n.t("emptyCartMessage"), {
+          position: "top-right",
+          timeout: 2500,
+          maxToasts: 1,
+        });
+        return;
+      }
+      this.$bvModal.show("modal-print-only-confirm");
+    },
+    async confirmPrintCartOnly() {
+      this.$bvModal.hide("modal-print-only-confirm");
+      await this.printCartOnly();
+    },
     async printCartOnly() {
       const textDirection = document.documentElement.dir;
       const toastPosition = textDirection === "rtl" ? "top-right" : "top-left";
@@ -5430,6 +5495,36 @@ export default {
       }
     },
 
+    openDeleteItemConfirm(index) {
+      if (index === null || index === undefined || index < 0 || index >= this.carditems.length) return;
+      this.pendingDeleteItemIndex = index;
+      this.$bvModal.show("modal-delete-cart-item");
+    },
+    async confirmDeleteCartItem() {
+      if (this.pendingDeleteItemIndex === null || this.pendingDeleteItemIndex === undefined) {
+        this.$bvModal.hide("modal-delete-cart-item");
+        return;
+      }
+      const index = this.pendingDeleteItemIndex;
+      this.pendingDeleteItemIndex = null;
+      this.$bvModal.hide("modal-delete-cart-item");
+      await this.deleteItem(index);
+    },
+    openDeleteItemConfirm(index) {
+      if (index === null || index === undefined || index < 0 || index >= this.carditems.length) return;
+      this.pendingDeleteItemIndex = index;
+      this.$bvModal.show("modal-delete-cart-item");
+    },
+    async confirmDeleteCartItem() {
+      if (this.pendingDeleteItemIndex === null || this.pendingDeleteItemIndex === undefined) {
+        this.$bvModal.hide("modal-delete-cart-item");
+        return;
+      }
+      const index = this.pendingDeleteItemIndex;
+      this.pendingDeleteItemIndex = null;
+      this.$bvModal.hide("modal-delete-cart-item");
+      await this.deleteItem(index);
+    },
     async deleteItem(index) {
       const targetItem = this.carditems[index];
       if (!targetItem) return;
@@ -5956,6 +6051,29 @@ export default {
 
 <style scoped>
 /* Avoid double frame: main.css styles .pos-tables-section-compact; inner .pos-tables-block is the real card */
+.app-top-header-icon-btn--table-plan {
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+  background: color-mix(in srgb, var(--primary-color) 14%, var(--bg-tertiary));
+  color: var(--primary-color);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-color) 20%, transparent),
+    0 6px 16px color-mix(in srgb, var(--primary-color) 20%, transparent);
+}
+
+.app-top-header-icon-btn--table-plan:hover {
+  background: color-mix(in srgb, var(--primary-color) 22%, var(--bg-tertiary));
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-color) 32%, transparent),
+    0 8px 18px color-mix(in srgb, var(--primary-color) 30%, transparent);
+}
+
+.app-top-header-icon-btn--table-plan-active {
+  border-color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 28%, var(--bg-tertiary));
+  color: var(--text-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 42%, transparent),
+    0 10px 22px color-mix(in srgb, var(--primary-color) 35%, transparent);
+}
+
 .pos-tables-section-compact {
   background: transparent;
   border: none;
@@ -8486,7 +8604,7 @@ export default {
 .pos-main-section--v2 {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.55rem;
 }
 
 .pos-quick-search-input {
@@ -8517,13 +8635,14 @@ export default {
 
 /* واجهة v2 — شريط التصنيفات والأدوات أقل ارتفاعاً (يتغلب على شبكة main.css الكبيرة على الشاشات الواسعة) */
 .pos-main-section--v2 .pos-categories-scroll {
-  padding: 0.12rem 0 0.08rem;
+  padding: 0.04rem 0 0.02rem;
 }
 
 .pos-main-section--v2 .pos-browse-toolbar {
-  margin-bottom: 0.35rem;
+  margin-top: 0;
+  margin-bottom: 0.16rem;
   gap: 0.5rem;
-  padding: 0.08rem 0;
+  padding: 0.02rem 0;
 }
 
 .pos-main-section--v2 .pos-browse-back-btn {
@@ -9744,13 +9863,13 @@ export default {
 
 @media (max-width: 991px) {
   .pos-cart-checkout-bar-inner {
-    padding-left: 0.6rem;
-    padding-right: 0.6rem;
+    padding: 0.45rem 0.55rem calc(0.45rem + env(safe-area-inset-bottom, 0px));
   }
 
   .pos-cart-checkout-segment {
-    min-height: 72px;
-    padding: 0.4rem 0.7rem;
+    min-height: 60px;
+    padding: 0.36rem 0.58rem;
+    gap: 0.26rem;
   }
 
   .pos-cart-checkout-segment--summary {
@@ -9759,30 +9878,90 @@ export default {
 }
 
 @media (max-width: 767px) {
+  .pos-cart-checkout-bar-inner {
+    padding: 0.38rem 0.45rem calc(0.38rem + env(safe-area-inset-bottom, 0px));
+  }
+
   .pos-cart-checkout-summary-actions {
     width: 100%;
     justify-content: stretch;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
   }
 
   .pos-cart-checkout-strip {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 0.42rem;
+    gap: 0.35rem;
   }
 
   .pos-cart-checkout-segment {
     min-height: 0 !important;
-    padding: 0.42rem 0.58rem !important;
+    padding: 0.35rem 0.48rem !important;
+    border-radius: 0.58rem;
+  }
+
+  .pos-cart-checkout-segment--summary > .pos-cart-checkout-btn-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.3rem;
+  }
+
+  .pos-cart-checkout-segment--summary .pos-cart-checkout-stat--pill {
+    width: 100%;
+    justify-content: center;
+    min-height: 1.9rem;
+    padding: 0.2rem 0.38rem;
+    font-size: 0.66rem;
+  }
+
+  .pos-cart-checkout-segment--summary .pos-cart-checkout-stat--pill strong {
+    font-size: 0.8rem;
   }
 
   .pos-cart-checkout-segment-label {
-    font-size: 0.62rem !important;
+    font-size: 0.58rem !important;
+    letter-spacing: 0.02em;
   }
 
   .pos-cart-checkout-action-btn {
-    flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
-    min-height: 2.25rem !important;
+    min-height: 2rem !important;
+    font-size: 0.66rem !important;
+    padding: 0.2rem 0.34rem !important;
+    line-height: 1.05 !important;
+  }
+
+  .pos-cart-checkout-segment--types .pos-cart-checkout-btn-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.3rem;
+  }
+
+  .pos-cart-checkout-segment--pay .pos-cart-checkout-btn-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.3rem;
+  }
+
+  .pos-cart-checkout-bar .pos-order-type-btn,
+  .pos-cart-checkout-bar .pos-payment-method-btn {
+    width: 100%;
+    min-height: 1.95rem;
+    padding: 0.18rem 0.22rem;
+  }
+
+  .pos-cart-checkout-bar .pos-order-type-label,
+  .pos-cart-checkout-bar .pos-payment-label {
+    font-size: 0.62rem;
+  }
+
+  .pos-cart-checkout-printer-select {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
   }
 }
 
