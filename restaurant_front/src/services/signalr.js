@@ -9,14 +9,13 @@ class SignalRService {
   }
 
   getBaseUrl() {
-    // Use relative URL for portable deployment
-    // If running in development, use the configured URL
-    // Otherwise, use relative path (empty string) to use same origin
+    const raw = process.env.VUE_APP_API_URL;
+    if (raw != null && String(raw).trim() !== '') {
+      return String(raw).trim().replace(/\/+$/, '');
+    }
     if (process.env.NODE_ENV === 'development') {
       return 'https://localhost:7216';
     }
-    // In production/portable mode, use relative URL (empty string)
-    // This will make requests to the same server serving the frontend
     return '';
   }
 

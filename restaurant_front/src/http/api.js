@@ -1,22 +1,19 @@
 import axios from "axios";
 
-// Use relative URL for portable deployment
-// If running in development, use the configured URL
-// Otherwise, use relative path (empty string) to use same origin
-const getBaseURL = () => {
-    // Check if we're in development mode
-    if (process.env.NODE_ENV === 'development') {
-        return `https://localhost:7216/`;
-        // return `https://restbackend.alufiq.com/`;
-        // return `https://res-pos.safqasoft.com/`;
+/** Base URL from `.env` (`VUE_APP_API_URL`). Trailing slash normalized. */
+const resolveApiBaseUrl = () => {
+    const raw = process.env.VUE_APP_API_URL;
+    if (raw != null && String(raw).trim() !== "") {
+        const base = String(raw).trim();
+        return base.endsWith("/") ? base : `${base}/`;
     }
-    // In production/portable mode, use relative URL (empty string)
-    // This will make requests to the same server serving the frontend
-    // return 'https://restbackend.alufiq.com/';
-    // return 'https://res-pos.safqasoft.com/';
-    return `https://localhost:7216/`;
-
+    if (process.env.NODE_ENV === "development") {
+        return "https://localhost:7216/";
+    }
+    return "";
 };
+
+const getBaseURL = () => resolveApiBaseUrl();
 
 export const HTTP = axios.create({
     baseURL: getBaseURL(),

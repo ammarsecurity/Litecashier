@@ -1,5 +1,20 @@
 const { defineConfig } = require('@vue/cli-service')
 
+/** Same origin as `VUE_APP_API_URL` in `.env` (used by devServer proxy). */
+function parseApiTargets() {
+  const raw = (process.env.VUE_APP_API_URL || 'https://localhost:7216/').trim()
+  try {
+    const u = new URL(raw.endsWith('/') ? raw : `${raw}/`)
+    const httpOrigin = `${u.protocol}//${u.host}`
+    const wsOrigin = `${u.protocol === 'https:' ? 'wss:' : 'ws:'}//${u.host}`
+    return { httpOrigin, wsOrigin }
+  } catch {
+    return { httpOrigin: 'https://localhost:7216', wsOrigin: 'wss://localhost:7216' }
+  }
+}
+
+const { httpOrigin: apiTarget, wsOrigin: wsTarget } = parseApiTargets()
+
 module.exports = defineConfig({
   transpileDependencies: true,
 
@@ -24,42 +39,42 @@ module.exports = defineConfig({
     https: false,
     proxy: {
       '/Admin': {
-        target: 'https://localhost:7216',
+        target: apiTarget,
         changeOrigin: true,
         secure: false,
       },
       '/Auth': {
-        target: 'https://localhost:7216',
+        target: apiTarget,
         changeOrigin: true,
         secure: false,
       },
       '/Tables': {
-        target: 'https://localhost:7216',
+        target: apiTarget,
         changeOrigin: true,
         secure: false,
       },
       '/Reservations': {
-        target: 'https://localhost:7216',
+        target: apiTarget,
         changeOrigin: true,
         secure: false,
       },
       '/Kitchen': {
-        target: 'https://localhost:7216',
+        target: apiTarget,
         changeOrigin: true,
         secure: false,
       },
       '/Loyalty': {
-        target: 'https://localhost:7216',
+        target: apiTarget,
         changeOrigin: true,
         secure: false,
       },
       '/PublicMenu': {
-        target: 'https://localhost:7216',
+        target: apiTarget,
         changeOrigin: true,
         secure: false,
       },
       '/orderHub': {
-        target: 'wss://localhost:7216',
+        target: wsTarget,
         ws: true,
         changeOrigin: true,
         secure: false,
