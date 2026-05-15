@@ -645,7 +645,8 @@ namespace RestaurantPOS.Controllers
                     floorPlanImageUrl = fullImageUrl,
                     floorPlanImageFileName = settings.FloorPlanImageFileName,
                     backgroundColor = settings.BackgroundColor,
-                    zonesJson = settings.ZonesJson
+                    zonesJson = settings.ZonesJson,
+                    tableChipSizePx = settings.TableChipSizePx
                 };
             }
 
@@ -680,38 +681,28 @@ namespace RestaurantPOS.Controllers
                 };
             }).ToList();
 
-            var keysFromZones = tables
-                .Where(t => !string.IsNullOrWhiteSpace(t.Zone))
-                .Select(t => t.Zone!.Trim())
-                .Distinct()
-                .ToList();
+            // مواقع تظهر فقط إن وُجدت لها طاولة: إما Zone على الطاولة أو سجل موضع على ذلك المخطط (PlanKey).
+            // لا نُرجع مفاتيح من RestaurantLayoutSettings وحدها (مخطط بدون أي طاولة مرتبطة).
+            var keySet = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var t in tables)
+                keySet.Add(NormalizeFloorPlanKey(t.Zone));
 
-            var keysFromSettings = await _dbConfig.RestaurantLayoutSettings
-                .AsNoTracking()
-                .Where(x => x.InsertByUserId == commercialUserId && !x.IsDeleted)
-                .Select(x => x.PlanKey)
-                .ToListAsync();
-
-            var keysFromPlacements = tableIds.Count == 0
-                ? new List<string>()
-                : await _dbConfig.TableLayoutPlacements
+            if (tableIds.Count > 0)
+            {
+                var placementPlanKeys = await _dbConfig.TableLayoutPlacements
                     .AsNoTracking()
                     .Where(p => tableIds.Contains(p.TableId) && !p.IsDeleted)
                     .Select(p => p.PlanKey)
                     .Distinct()
                     .ToListAsync();
+                foreach (var k in placementPlanKeys)
+                    keySet.Add(NormalizeFloorPlanKey(k));
+            }
 
-            var availablePlanKeys = keysFromZones
-                .Concat(keysFromSettings)
-                .Concat(keysFromPlacements)
-                .Select(NormalizeFloorPlanKey)
-                .Distinct()
-                .OrderBy(x => x, StringComparer.Ordinal)
-                .ToList();
+            var availablePlanKeys = keySet.OrderBy(x => x, StringComparer.Ordinal).ToList();
 
             if (availablePlanKeys.Count == 0)
                 availablePlanKeys.Add("");
-
             return Ok(new GlobalResponse<object>
             {
                 Data = new
@@ -765,6 +756,9 @@ namespace RestaurantPOS.Controllers
             if (request.ZonesJson != null)
                 settings.ZonesJson = string.IsNullOrWhiteSpace(request.ZonesJson) ? null : request.ZonesJson;
 
+            if (request.TableChipSizePx.HasValue)
+                settings.TableChipSizePx = ClampFloorPlanChipSize(request.TableChipSizePx.Value);
+
             if (request.ClearFloorPlanImage)
             {
                 settings.FloorPlanImageFileName = null;
@@ -786,12 +780,16 @@ namespace RestaurantPOS.Controllers
                     floorPlanImageUrl = fullImageUrl,
                     floorPlanImageFileName = settings.FloorPlanImageFileName,
                     backgroundColor = settings.BackgroundColor,
-                    zonesJson = settings.ZonesJson
+                    zonesJson = settings.ZonesJson,
+                    tableChipSizePx = settings.TableChipSizePx
                 },
                 ErrorStatus = false,
                 Message = "تم حفظ إعدادات المخطط"
             });
         }
+
+        private static int ClampFloorPlanChipSize(int sizePx) =>
+            Math.Max(32, Math.Min(96, sizePx));
 
         [Authorize(Roles = "Commercial,Admin,TablesManager")]
         [HttpPost("floor-plan/image")]

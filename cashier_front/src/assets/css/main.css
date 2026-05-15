@@ -11662,3 +11662,10 @@ table .b-icon,
     left: auto;
   }
 }
+
+/* App-wide: no text shadows */
+*,
+*::before,
+*::after {
+  text-shadow: none !important;
+}

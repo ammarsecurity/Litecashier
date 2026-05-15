@@ -65,6 +65,24 @@
                 </div>
                 <div class="floor-plan-toolbar-item">
                   <label class="floor-plan-field-label">
+                    <b-icon icon="aspect-ratio" class="floor-plan-field-icon" />
+                    {{ $t("floorPlanTableChipSize") }}
+                  </label>
+                  <div class="floor-plan-chip-size-row">
+                    <input
+                      v-model.number="tableChipSizePx"
+                      type="range"
+                      class="floor-plan-chip-size-range"
+                      min="32"
+                      max="96"
+                      step="2"
+                      @input="onTableChipSizeChange"
+                    />
+                    <span class="floor-plan-chip-size-value">{{ clampTableChipSize(tableChipSizePx) }}px</span>
+                  </div>
+                </div>
+                <div class="floor-plan-toolbar-item">
+                  <label class="floor-plan-field-label">
                     <b-icon icon="palette" class="floor-plan-field-icon" />
                     {{ $t("floorPlanBackgroundColor") }}
                   </label>
@@ -151,7 +169,7 @@
                 <div
                   ref="floorCanvas"
                   class="floor-canvas"
-                  :style="canvasBgStyle"
+                  :style="[canvasBgStyle, floorTableChipVarsStyle]"
                   @mousedown.self="onCanvasMouseDown"
                 >
                   <div
@@ -206,6 +224,7 @@ export default {
       settings: null,
       positions: {},
       backgroundColor: "#f1f5f9",
+      tableChipSizePx: 56,
       zoneRects: [],
       editZonesMode: false,
       drawingRect: null,
@@ -237,6 +256,13 @@ export default {
       }
       return {
         backgroundColor: this.backgroundColor || "#f1f5f9",
+      };
+    },
+    floorTableChipVarsStyle() {
+      const px = this.clampTableChipSize(this.tableChipSizePx);
+      return {
+        "--floor-table-chip-size": `${px}px`,
+        "--floor-table-chip-font": `${Math.max(11, Math.round(px * 0.32))}px`,
       };
     },
     tablesForCurrentPlan() {
@@ -295,6 +321,15 @@ export default {
     tableId(t) {
       return t.id ?? t.Id;
     },
+    clampTableChipSize(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return 56;
+      return Math.round(Math.max(32, Math.min(96, n)));
+    },
+    onTableChipSizeChange() {
+      this.tableChipSizePx = this.clampTableChipSize(this.tableChipSizePx);
+      this.debouncedSaveSettings();
+    },
     selectPlanKey(key) {
       if (key === this.selectedPlanKey) return;
       this.selectedPlanKey = key;
@@ -331,6 +366,9 @@ export default {
         if (this.settings && this.settings.backgroundColor) {
           this.backgroundColor = this.settings.backgroundColor;
         }
+        const rawChip =
+          (this.settings && (this.settings.tableChipSizePx ?? this.settings.TableChipSizePx)) ?? null;
+        this.tableChipSizePx = rawChip != null ? this.clampTableChipSize(rawChip) : 56;
         this.zoneRects = [];
         if (this.settings && this.settings.zonesJson) {
           try {
@@ -484,6 +522,7 @@ export default {
           planKey: this.selectedPlanKey,
           backgroundColor: this.backgroundColor || null,
           zonesJson: JSON.stringify(this.zoneRects),
+          tableChipSizePx: this.clampTableChipSize(this.tableChipSizePx),
           clearFloorPlanImage: false,
         });
       } catch (_) {}
@@ -494,6 +533,7 @@ export default {
           planKey: this.selectedPlanKey,
           backgroundColor: this.backgroundColor || null,
           zonesJson: JSON.stringify(this.zoneRects),
+          tableChipSizePx: this.clampTableChipSize(this.tableChipSizePx),
           clearFloorPlanImage: false,
         });
       } catch (e) {
@@ -578,6 +618,7 @@ export default {
           planKey: this.selectedPlanKey,
           backgroundColor: this.backgroundColor || null,
           zonesJson: JSON.stringify(this.zoneRects),
+          tableChipSizePx: this.clampTableChipSize(this.tableChipSizePx),
           clearFloorPlanImage: false,
         });
         this.$toast.success(this.$t("floorPlanSaved") || "تم الحفظ", { position: "top-right", timeout: 4000 });
@@ -948,16 +989,41 @@ export default {
   pointer-events: none;
   border-radius: 4px;
 }
+.floor-plan-chip-size-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+}
+.floor-plan-chip-size-range {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: #6366f1;
+}
+.floor-plan-chip-size-value {
+  flex: 0 0 auto;
+  min-width: 3rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  text-align: end;
+}
 .floor-table-chip {
   position: absolute;
   transform: translate(-50%, -50%);
-  min-width: 2.5rem;
-  height: 2.25rem;
-  padding: 0 0.5rem;
+  box-sizing: border-box;
+  min-width: var(--floor-table-chip-size, 3.5rem);
+  width: var(--floor-table-chip-size, 3.5rem);
+  height: var(--floor-table-chip-size, 3.5rem);
+  padding: 0;
   border-radius: 0.5rem;
   border: 2px solid #fff;
   font-weight: 700;
-  font-size: 0.8125rem;
+  font-size: var(--floor-table-chip-font, 0.9375rem);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: grab;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   z-index: 2;

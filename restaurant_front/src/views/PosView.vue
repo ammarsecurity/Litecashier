@@ -17,33 +17,41 @@
         >
           <div class="pos-floor-plan-gate-card pos-floor-plan-gate-card--v2 pos-fp-page-root">
             <div class="pos-fp-launch">
-              <div class="pos-fp-launch__intro">
+              <div class="pos-fp-launch__intro pos-fp-launch__intro--navbar">
                 <div class="pos-fp-launch__intro-main">
                   <header class="pos-fp-launch__intro-head">
                     <p class="pos-fp-launch__eyebrow">{{ $t("posFloorPlanEyebrow") }}</p>
                     <h2 class="pos-floor-plan-gate-title">{{ $t("posFloorPlanGateTitle") }}</h2>
                   </header>
 
-                  <div v-if="posFloorPlanKeysForTabs.length" class="pos-fp-gate-tabs-card">
+                  <div
+                    v-if="posFloorPlanKeysForTabs.length"
+                    class="pos-fp-gate-tabs-card pos-fp-gate-tabs-card--navbar"
+                  >
                     <div class="pos-fp-gate-tabs-card__header">
                       <div class="pos-fp-gate-tabs-card__icon-wrap" aria-hidden="true">
                         <b-icon icon="geo-alt-fill" />
                       </div>
-                      <span class="pos-fp-gate-tabs-label">{{ $t("floorPlanFloorTabs") }}</span>
+                      <label class="pos-fp-gate-tabs-label pos-fp-gate-plan-select-label" for="pos-fp-gate-plan-select">
+                        {{ $t("floorPlanFloorTabs") }}
+                      </label>
                     </div>
-                    <div class="pos-fp-gate-tabs-scroll">
-                      <div class="pos-floor-plan-gate-tabs" role="tablist">
-                        <button
-                          v-for="k in posFloorPlanKeysForTabs"
-                          :key="'pos-fp-tab-' + k"
-                          type="button"
-                          class="pos-floor-plan-gate-tab"
-                          :class="{ 'pos-floor-plan-gate-tab--active': posFloorPlanSelectedKey === k }"
-                          @click="selectPosFloorPlanKey(k)"
+                    <div class="pos-fp-gate-plan-select-wrap">
+                      <select
+                        id="pos-fp-gate-plan-select"
+                        class="pos-fp-gate-plan-select form-control"
+                        :value="posFloorPlanSelectedKey"
+                        :aria-label="$t('floorPlanFloorTabs')"
+                        @change="selectPosFloorPlanKey($event.target.value)"
+                      >
+                        <option
+                          v-for="k in posFloorPlanKeysForTabsSorted"
+                          :key="'fp-opt-' + k"
+                          :value="k"
                         >
                           {{ k }}
-                        </button>
-                      </div>
+                        </option>
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -63,7 +71,7 @@
 
               <div class="pos-floor-plan-gate-canvas-outer">
                 <div class="pos-floor-plan-gate-canvas-wrap" dir="ltr">
-                  <div class="pos-floor-plan-gate-canvas" :style="posFloorCanvasBgStyle">
+                  <div class="pos-floor-plan-gate-canvas" :style="[posFloorCanvasBgStyle, posFloorTableChipVarsStyle]">
                     <div
                       v-for="(z, zi) in posFloorPlanZoneRects"
                       :key="'pos-fpz-' + zi"
@@ -89,12 +97,6 @@
                     </button>
                   </div>
                 </div>
-                <p
-                  v-if="!posFloorPlanPlacedTables.length && !posFloorPlanLoading"
-                  class="pos-floor-plan-gate-empty"
-                >
-                  {{ $t("posFloorPlanNoPlaced") }}
-                </p>
               </div>
             </div>
           </div>
@@ -1997,6 +1999,7 @@ export default {
       posFloorPlanSettings: null,
       posFloorPlanPositions: {},
       posFloorPlanBackgroundColor: "#f1f5f9",
+      posFloorTableChipSizePx: 56,
       posFloorPlanZoneRects: [],
 
       posFloorPlanForceDefaultTab: false,
@@ -2121,8 +2124,23 @@ export default {
         backgroundColor: this.posFloorPlanBackgroundColor || "#f1f5f9",
       };
     },
+    posFloorTableChipVarsStyle() {
+      const px = this.clampPosTableChipSize(this.posFloorTableChipSizePx);
+      return {
+        "--floor-table-chip-size": `${px}px`,
+        "--floor-table-chip-font": `${Math.max(11, Math.round(px * 0.32))}px`,
+      };
+    },
     posFloorPlanKeysForTabs() {
       return this.posFloorPlanAvailableKeys.filter((k) => String(k ?? "").trim() !== "");
+    },
+    posFloorPlanKeysForTabsSorted() {
+      return [...this.posFloorPlanKeysForTabs].sort((a, b) =>
+        String(a ?? "").localeCompare(String(b ?? ""), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        })
+      );
     },
     posFloorPlanPlacedTables() {
       if (!Array.isArray(this.allTables)) return [];
@@ -3009,6 +3027,11 @@ export default {
         if (this.posFloorPlanSettings && this.posFloorPlanSettings.backgroundColor) {
           this.posFloorPlanBackgroundColor = this.posFloorPlanSettings.backgroundColor;
         }
+        const rawChip =
+          (this.posFloorPlanSettings &&
+            (this.posFloorPlanSettings.tableChipSizePx ?? this.posFloorPlanSettings.TableChipSizePx)) ??
+          null;
+        this.posFloorTableChipSizePx = rawChip != null ? this.clampPosTableChipSize(rawChip) : 56;
         this.posFloorPlanZoneRects = [];
         const zj = this.posFloorPlanSettings && this.posFloorPlanSettings.zonesJson;
         if (zj) {
@@ -3089,6 +3112,11 @@ export default {
           this.$refs.posQuickSearchInput.focus();
         }
       });
+    },
+    clampPosTableChipSize(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return 56;
+      return Math.round(Math.max(32, Math.min(96, n)));
     },
     posFloorChipStyle(id) {
       const p = this.posFloorPlanPositions[String(id)];
@@ -7885,21 +7913,27 @@ export default {
 
 @media (min-width: 900px) {
   .pos-floor-plan-gate--page .pos-fp-launch {
-    flex-direction: row;
+    flex-direction: column;
     align-items: stretch;
     gap: 0;
     padding: 0;
   }
 
-  .pos-floor-plan-gate--page .pos-fp-launch__intro {
-    flex: 0 0 clamp(172px, 13vw, 228px);
-    max-width: min(100%, 248px);
+  .pos-floor-plan-gate--page .pos-fp-launch__intro.pos-fp-launch__intro--navbar {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: none;
     align-self: stretch;
-    padding: 0.5rem 0.55rem 0.5rem;
-    border-inline-end: 1px solid var(--border-color);
-    overflow: hidden;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 0.5rem 0.85rem;
+    padding: 0.45rem 0.75rem;
+    border-inline-end: none;
+    border-bottom: 1px solid var(--border-color);
+    overflow: visible;
     background: var(--bg-primary);
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 2px 14px rgba(15, 23, 42, 0.07);
   }
 
   .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas-outer {
@@ -7916,18 +7950,24 @@ export default {
 }
 
 @media (max-width: 899px) {
-  .pos-floor-plan-gate--page .pos-fp-launch__intro {
+  .pos-floor-plan-gate--page .pos-fp-launch__intro.pos-fp-launch__intro--navbar {
     flex-shrink: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 0.45rem 0.65rem;
     max-width: none;
-    padding: 0.65rem 0.75rem 0.55rem;
-    overflow: hidden;
+    width: 100%;
+    padding: 0.55rem 0.65rem;
+    overflow: visible;
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
   }
 
   .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas-outer {
     flex: 1 1 auto;
+    min-width: 0;
     min-height: 0;
     margin: 0;
     padding: 0.5rem 0.75rem 0.75rem;
@@ -7942,10 +7982,9 @@ export default {
  * تخطيط متوسط (تابلت أفقي / لاب صغير): عمود أوضح للعربية، أزرار أسهل، وهوامش أوضح للمخطط
  */
 @media (min-width: 900px) and (max-width: 1439px) {
-  .pos-floor-plan-gate--page .pos-fp-launch__intro {
-    flex: 0 0 clamp(200px, 22vw, 276px);
-    max-width: min(100%, 288px);
-    padding: 0.55rem 0.65rem 0.5rem;
+  .pos-floor-plan-gate--page .pos-fp-launch__intro.pos-fp-launch__intro--navbar {
+    padding: 0.42rem 0.65rem;
+    gap: 0.45rem 0.65rem;
   }
 
   .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas-outer {
@@ -8047,30 +8086,31 @@ export default {
 }
 
 /*
- * بوابة الصفحة: اللوحة تمتد لكامل ارتفاع العمود المتاح (بدون تقييد 16:10 هنا).
- * الإحداثيات المحفوظة 0–1 تبقى نسبية لمستطيل اللوحة الحالي.
+ * بوابة الصفحة (ملء الشاشة): اللوحة تمتد لباقي ارتفاع وعرض المنطقة المتاحة تحت شريط الـ navbar.
+ * الإحداثيات 0–1 تبقى نسبية لأبعاد اللوحة الفعلية.
  */
+.pos-floor-plan-gate--page .pos-floor-plan-gate-canvas-outer {
+  width: 100%;
+  max-width: 100%;
+}
+
 .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas-wrap {
-  flex: 1 1 auto;
-  min-height: 560px;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: stretch;
-  width: 100%;
-  height: 560px;
-  max-height: 560px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas {
   position: relative;
+  flex: 1 1 0;
+  min-height: 0;
   width: 100%;
-  min-height: 1000px;
-  height: 1000px;
-  max-height: none;
-  align-self: stretch;
+  max-width: 100%;
   aspect-ratio: unset;
   box-sizing: border-box;
   overflow: hidden;
@@ -8222,7 +8262,7 @@ export default {
 
 /* شاشات اللمس والتابلت: لا تمرير أفقي — قائمة عمودية، أزرار بعرض كامل */
 @media (max-width: 1023px) {
-  .pos-fp-gate-tabs-card {
+  .pos-fp-gate-tabs-card:not(.pos-fp-gate-tabs-card--navbar) {
     padding: 1rem 0.85rem;
     background: linear-gradient(
       165deg,
@@ -8231,18 +8271,18 @@ export default {
     );
   }
 
-  .pos-fp-gate-tabs-scroll {
+  .pos-fp-gate-tabs-card:not(.pos-fp-gate-tabs-card--navbar) .pos-fp-gate-tabs-scroll {
     overflow: visible;
   }
 
-  .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tabs {
+  .pos-fp-gate-tabs-card:not(.pos-fp-gate-tabs-card--navbar) .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tabs {
     flex-direction: column;
     flex-wrap: nowrap;
     width: 100%;
     gap: 0.65rem;
   }
 
-  .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tab {
+  .pos-fp-gate-tabs-card:not(.pos-fp-gate-tabs-card--navbar) .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tab {
     width: 100%;
     min-height: 54px;
     padding: 0.85rem 1rem;
@@ -8260,11 +8300,11 @@ export default {
   }
 
   /* بوابة الصفحة على اللمس: أزرار أوضح من دون استهلاك كامل 52px */
-  .pos-floor-plan-gate--page .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tabs {
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-card:not(.pos-fp-gate-tabs-card--navbar) .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tabs {
     gap: 0.42rem;
   }
 
-  .pos-floor-plan-gate--page .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tab {
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-card:not(.pos-fp-gate-tabs-card--navbar) .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tab {
     min-height: 44px;
     padding: 0.48rem 0.72rem;
     font-size: 0.9rem;
@@ -8277,18 +8317,28 @@ export default {
     -webkit-tap-highlight-color: rgba(129, 140, 248, 0.2);
   }
 
-  .pos-floor-plan-gate--page .pos-fp-gate-tabs-card__header .pos-fp-gate-tabs-label {
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-card:not(.pos-fp-gate-tabs-card--navbar) .pos-fp-gate-tabs-card__header .pos-fp-gate-tabs-label {
     font-size: 0.8125rem;
   }
 
-  .pos-floor-plan-gate--page .pos-fp-gate-tabs-card {
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-card:not(.pos-fp-gate-tabs-card--navbar) {
     padding: 0.65rem 0.6rem;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-gate-tabs-card--navbar .pos-fp-gate-plan-select {
+    min-height: 2.65rem;
+    font-size: 0.9375rem;
   }
 
   .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip {
     padding: 0.55rem 0.8rem;
     font-size: 0.9375rem;
     min-height: 48px;
+  }
+
+  .pos-floor-plan-gate--page .pos-fp-launch__intro--navbar > .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip {
+    padding: 0.45rem 0.95rem !important;
+    font-size: 0.9375rem !important;
   }
 
   .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip .button-icon {
@@ -8305,24 +8355,6 @@ export default {
   .pos-floor-plan-gate-tab {
     width: auto;
     min-height: unset;
-  }
-
-  /* عمود البوابة ضيق: صف أفقي يضيق الأزرار ويلف النص — عمود كامل العرض، سطر واحد */
-  .pos-floor-plan-gate--page .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tabs {
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: stretch;
-    width: 100%;
-    gap: 0.35rem;
-  }
-
-  .pos-floor-plan-gate--page .pos-fp-gate-tabs-scroll .pos-floor-plan-gate-tab {
-    width: 100%;
-    max-width: none;
-    min-height: 2.1rem;
-    justify-content: center;
-    text-align: center;
-    box-sizing: border-box;
   }
 }
 
@@ -8367,13 +8399,16 @@ export default {
 .pos-floor-plan-gate-table-chip {
   position: absolute;
   transform: translate(-50%, -50%);
-  min-width: 2.5rem;
-  height: 2.25rem;
-  padding: 0 0.5rem;
+  box-sizing: border-box;
+  min-width: var(--floor-table-chip-size, 3.5rem);
+  width: var(--floor-table-chip-size, 3.5rem);
+  height: var(--floor-table-chip-size, 3.5rem);
+  padding: 0;
   border-radius: 0.5rem;
   border: 2px solid #fff;
   font-weight: 700;
-  font-size: 0.8125rem;
+  font-size: var(--floor-table-chip-font, 0.9375rem);
+  line-height: 1;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   z-index: 2;
@@ -8382,7 +8417,6 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-sizing: border-box;
 }
 
 .pos-floor-plan-gate-table-chip--picked {
@@ -8459,6 +8493,11 @@ export default {
   .pos-floor-plan-gate--page .pos-floor-plan-gate-actions--footer.pos-floor-plan-gate-actions--intro-foot .users-add-button.pos-fp-gate-btn-skip {
     width: 100%;
   }
+
+  .pos-floor-plan-gate--page .pos-fp-launch__intro--navbar > .pos-floor-plan-gate-actions--footer.pos-floor-plan-gate-actions--intro-foot .users-add-button.pos-fp-gate-btn-skip {
+    width: auto !important;
+    align-self: center;
+  }
 }
 
 .pos-floor-plan-gate-btn {
@@ -8528,9 +8567,9 @@ export default {
 }
 
 @media (min-width: 900px) {
-  :root.light-theme .pos-floor-plan-gate--page .pos-fp-launch__intro {
+  :root.light-theme .pos-floor-plan-gate--page .pos-fp-launch__intro.pos-fp-launch__intro--navbar {
     background: var(--bg-primary);
-    border-inline-end-color: var(--border-color);
+    border-bottom-color: var(--border-color);
   }
 }
 
@@ -8996,9 +9035,133 @@ export default {
   -webkit-overflow-scrolling: touch;
 }
 
-.pos-floor-plan-gate--page .pos-floor-plan-gate-actions--intro-foot {
+/* شريط علوي (navbar): عنوان + مواقع + تمرير أفقي للتبويبات */
+.pos-floor-plan-gate--page .pos-fp-launch__intro--navbar {
+  flex-direction: row;
+}
+
+.pos-floor-plan-gate--page .pos-fp-launch__intro--navbar .pos-fp-launch__intro-main {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.45rem 0.85rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: visible;
+  overflow-y: visible;
+}
+
+.pos-floor-plan-gate--page .pos-fp-launch__intro--navbar .pos-fp-launch__intro-head {
+  margin-bottom: 0;
+  flex: 0 1 auto;
+  min-width: min(100%, 11rem);
+  align-self: center;
+}
+
+.pos-floor-plan-gate--page .pos-fp-gate-tabs-card--navbar {
+  flex: 1 1 240px;
+  min-width: 0;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 0.45rem 0.65rem;
+  padding: 0.35rem 0.5rem !important;
+}
+
+.pos-floor-plan-gate--page .pos-fp-gate-tabs-card--navbar .pos-fp-gate-tabs-card__header {
+  flex-shrink: 0;
+  flex-direction: row;
+  align-items: center;
+  align-self: center;
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+  border-inline-end: 1px solid rgba(129, 140, 248, 0.22);
+  padding-inline-end: 0.5rem;
+}
+
+.pos-floor-plan-gate--page .pos-fp-gate-tabs-card--navbar .pos-fp-gate-tabs-card__icon-wrap {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 0.45rem;
+  font-size: 0.82rem;
+}
+
+.pos-floor-plan-gate--page .pos-fp-gate-tabs-card--navbar .pos-fp-gate-tabs-card__header .pos-fp-gate-tabs-label {
+  display: block;
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  line-height: 1.25;
+  max-width: 6.5rem;
+}
+
+.pos-floor-plan-gate--page .pos-fp-gate-plan-select-wrap {
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 100%;
+  align-self: stretch;
+  display: flex;
+  align-items: stretch;
+}
+
+.pos-floor-plan-gate--page .pos-fp-gate-plan-select {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 2.45rem;
+  height: 100%;
+  padding: 0.4rem 2.25rem 0.4rem 0.65rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  border-radius: 0.55rem;
+  border: 2px solid rgba(129, 140, 248, 0.35);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  appearance: auto;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.pos-floor-plan-gate--page .pos-fp-gate-plan-select:hover {
+  border-color: rgba(129, 140, 248, 0.55);
+}
+
+.pos-floor-plan-gate--page .pos-fp-gate-plan-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.28);
+}
+
+[dir="rtl"] .pos-floor-plan-gate--page .pos-fp-gate-plan-select {
+  padding: 0.4rem 0.65rem 0.4rem 2.25rem;
+}
+
+.pos-floor-plan-gate--page .pos-fp-launch__intro:not(.pos-fp-launch__intro--navbar) .pos-floor-plan-gate-actions--intro-foot {
   flex-shrink: 0;
   margin-top: auto;
+}
+
+.pos-floor-plan-gate--page .pos-fp-launch__intro--navbar .pos-floor-plan-gate-actions--intro-foot {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  margin-top: 0 !important;
+  margin-inline-start: auto;
+  width: auto;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: stretch;
+  align-items: stretch;
+  min-height: 0;
 }
 
 /* أدوات دمج / نقل من بوابة المخطط */
@@ -9288,6 +9451,17 @@ export default {
   padding-top: 0.55rem;
 }
 
+.pos-floor-plan-gate--page .pos-fp-launch__intro--navbar > .pos-floor-plan-gate-actions--footer.pos-floor-plan-gate-actions--intro-foot {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  border-top: none !important;
+}
+
+.pos-floor-plan-gate--page .pos-fp-launch__intro--navbar > .pos-floor-plan-gate-actions--footer.pos-floor-plan-gate-actions--intro-foot.pos-floor-plan-gate-actions--after-tabs {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
 .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip {
   padding: 0.32rem 0.5rem;
   font-size: 0.75rem;
@@ -9310,6 +9484,27 @@ export default {
   font-size: 0.875rem !important;
 }
 
+/* صف الـ navbar: زر التخطي يمتد لنفس ارتفاع بطاقة المواقع (stretch) */
+.pos-floor-plan-gate--page .pos-fp-launch__intro--navbar > .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip {
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  height: auto;
+  padding: 0.35rem 0.85rem !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25 !important;
+  border-radius: 0.55rem !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: auto !important;
+  max-width: 100%;
+}
+
+.pos-floor-plan-gate--page .pos-fp-launch__intro--navbar > .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip .button-icon {
+  font-size: 1rem !important;
+}
+
 .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer {
   margin-top: 1rem;
 }
@@ -9324,33 +9519,9 @@ export default {
   max-height: min(52vh, 520px);
 }
 
+/* ملء الصفحة: إلغاء سقف الارتفاع حتى تمتد اللوحة مع سلسلة الـ flex أعلاه */
 .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-canvas {
   max-height: none;
-  min-height: 1000px;
-  height: 1000px;
-  aspect-ratio: unset;
-  width: 100%;
-}
-
-/* ارتفاع دنيا للّوحة على الشاشات الصغيرة قبل تكديس العمودين */
-@media (max-width: 899px) {
-  .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas-wrap {
-    min-height: 420px;
-    height: 420px;
-    max-height: 420px;
-  }
-
-  .pos-floor-plan-gate--page .pos-floor-plan-gate-canvas {
-    min-height: 760px;
-    height: 760px;
-    max-height: none;
-  }
-}
-
-.pos-floor-plan-gate-empty {
-  margin-top: 0.65rem;
-  font-size: 0.88rem;
-  color: rgba(148, 163, 184, 0.95);
 }
 
 .pos-mobile-cart-fab {

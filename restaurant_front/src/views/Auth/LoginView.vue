@@ -12,7 +12,7 @@
                         
                         <div class="form-header-section">
                             <h1 class="form-main-title">{{ $t('loginTitle') }}</h1>
-                            <p class="form-secondary-text">مرحباً بك، يرجى تسجيل الدخول للمتابعة</p>
+                            <p class="form-secondary-text">{{ $t('loginWelcomeSubtitle') }}</p>
                         </div>
 
                         <div class="login-mode-toggle" role="group" :aria-label="$t('loginModeToggleAria') || 'طريقة الدخول'">
@@ -151,6 +151,13 @@ export default {
     },
 
     methods: {
+        resolveLoginApiMessage(raw) {
+            const s = raw != null ? String(raw).trim() : "";
+            if (!s) return this.$i18n.t("errorInLoginInfo");
+            if (this.$te(s)) return this.$i18n.t(s);
+            if (/^error in login info$/i.test(s)) return this.$i18n.t("errorInLoginInfo");
+            return s;
+        },
         redirectAfterLogin(role) {
             if (role === 'Admin') {
                 this.$router.push('/users');
@@ -192,10 +199,9 @@ export default {
                 })
                 .catch(error => {
                     this.show = false;
-                    const errorMessage = error.response?.data?.message ||
-                        error.response?.data?.error ||
-                        this.$i18n.t('errorInLoginInfo') ||
-                        'Error in login information';
+                    const errorMessage = this.resolveLoginApiMessage(
+                        error.response?.data?.message || error.response?.data?.error
+                    );
                     this.$toast.error(errorMessage, {
                         position: 'top-right',
                         timeout: 5000,
@@ -231,11 +237,10 @@ export default {
                 })
                 .catch(error => {
                     this.show = false;
-                    const errorMessage = error.response?.data?.message || 
-                                       error.response?.data?.error || 
-                                       this.$i18n.t('errorInLoginInfo') || 
-                                       'Error in login information';
-                    
+                    const errorMessage = this.resolveLoginApiMessage(
+                        error.response?.data?.message || error.response?.data?.error
+                    );
+
                     this.$toast.error(errorMessage, {
                         position: "top-right",
                         timeout: 5000,

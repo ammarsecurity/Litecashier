@@ -75,7 +75,7 @@ namespace POS.Controllers
                 {
                     Data = null,
                     ErrorStatus = true,
-                    Message = "error in login info"
+                    Message = "errorInLoginInfo"
 
                 });
             }
@@ -85,7 +85,7 @@ namespace POS.Controllers
                 {
                     Data = null,
                     ErrorStatus = true,
-                    Message = "error in login info"
+                    Message = "errorInLoginInfo"
 
                 });
             }

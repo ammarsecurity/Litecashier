@@ -61,6 +61,55 @@ namespace RestaurantPOS.Controllers
             return user?.InsertByUserId ?? userId;
         }
 
+        /// <summary>
+        /// تحويل تاريخ البداية/النهاية من الواجهة (يوم تقويمي) إلى نطاق UTC [from, to) لمقارنة <see cref="CustomerOrder.InsertDate"/> المخزَّنة بـ UtcNow.
+        /// يدعم start فقط (يوم واحد) أو start+end.
+        /// </summary>
+        private bool TryGetOrderInsertUtcRange(DateTime? startDate, DateTime? endDate, out DateTime fromUtc, out DateTime toUtcExclusive)
+        {
+            fromUtc = default;
+            toUtcExclusive = default;
+
+            if (!startDate.HasValue && !endDate.HasValue)
+                return false;
+
+            DateTime startDay;
+            DateTime endDay;
+
+            if (startDate.HasValue && endDate.HasValue)
+            {
+                startDay = startDate.Value.Date;
+                endDay = endDate.Value.Date;
+                if (endDay < startDay)
+                    (startDay, endDay) = (endDay, startDay);
+            }
+            else if (startDate.HasValue)
+            {
+                startDay = endDay = startDate.Value.Date;
+            }
+            else
+                return false;
+
+            var tzId = (_configuration["BusinessSettings:TimeZoneId"] ?? "").Trim();
+            TimeZoneInfo tz;
+            try
+            {
+                tz = !string.IsNullOrEmpty(tzId)
+                    ? TimeZoneInfo.FindSystemTimeZoneById(tzId)
+                    : TimeZoneInfo.Local;
+            }
+            catch
+            {
+                tz = TimeZoneInfo.Local;
+            }
+
+            var localStart = DateTime.SpecifyKind(startDay, DateTimeKind.Unspecified);
+            var localEndExclusive = DateTime.SpecifyKind(endDay.AddDays(1), DateTimeKind.Unspecified);
+            fromUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, tz);
+            toUtcExclusive = TimeZoneInfo.ConvertTimeToUtc(localEndExclusive, tz);
+            return true;
+        }
+
         /// <summary>رمز دخول رقمي 4–12 خانة؛ فارغ = لا يُستخدم</summary>
         private static string? NormalizeLoginCode(string? raw)
         {
@@ -3158,12 +3207,13 @@ namespace RestaurantPOS.Controllers
 
             if (startDate.HasValue && endDate.HasValue)
             {
-                var endInclusive = endDate.Value.AddDays(1);
-                query = query.Where(x => x.InsertDate >= startDate.Value && x.InsertDate < endInclusive);
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
+                    query = query.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
             }
             else if (startDate.HasValue)
             {
-                query = query.Where(x => x.InsertDate.Date == startDate.Value.Date);
+                if (TryGetOrderInsertUtcRange(startDate, startDate, out var fromUtc, out var toUtcEx))
+                    query = query.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
             }
 
             if (tableId.HasValue)
@@ -3851,16 +3901,9 @@ namespace RestaurantPOS.Controllers
                 items = items.Where(x => x.OrderCode == info);
             }
 
-            // Filter by Date Range
-            if (startDate.HasValue && endDate.HasValue)
+            if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
             {
-                endDate = endDate.Value.AddDays(1); // Include the end date in the search
-                items = items.Where(x => x.InsertDate >= startDate && x.InsertDate < endDate);
-            }
-
-            if (startDate.HasValue && !endDate.HasValue)
-            {
-                items = items.Where(x => x.InsertDate.Date == startDate.Value.Date);
+                items = items.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
             }
 
             // Filter by OrderType
@@ -3985,13 +4028,10 @@ namespace RestaurantPOS.Controllers
 
             if (!string.IsNullOrEmpty(info))
                 items = items.Where(x => x.OrderCode == info);
-            if (startDate.HasValue && endDate.HasValue)
+            if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
             {
-                endDate = endDate.Value.AddDays(1);
-                items = items.Where(x => x.InsertDate >= startDate && x.InsertDate < endDate);
+                items = items.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
             }
-            if (startDate.HasValue && !endDate.HasValue)
-                items = items.Where(x => x.InsertDate.Date == startDate.Value.Date);
             if (!string.IsNullOrEmpty(orderType))
                 items = items.Where(x => x.OrderType == orderType);
             if (!string.IsNullOrEmpty(paymentMethod))
@@ -4513,8 +4553,53 @@ namespace RestaurantPOS.Controllers
         }
 
         [Authorize(Roles = "Commercial,Admin")]
+        [HttpGet("GetSalesReportStaff")]
+        public ActionResult<GlobalResponse<object>> GetSalesReportStaff()
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var staff = _dbConfig.Users
+                    .AsNoTracking()
+                    .Where(u => u.InsertByUserId == commercialUserId &&
+                                (u.Role == "POS" || u.Role == "Waiter"))
+                    .OrderBy(u => u.Name)
+                    .ThenBy(u => u.Username)
+                    .Select(u => new
+                    {
+                        id = u.Id,
+                        name = u.Name,
+                        username = u.Username,
+                        role = u.Role
+                    })
+                    .ToList();
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = staff,
+                    ErrorStatus = false,
+                    Message = "Success"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting sales report staff list");
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"??? ???: {ex.Message}"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial,Admin")]
         [HttpGet("GetSalesByEmployee")]
-        public ActionResult<GlobalResponse<object>> GetSalesByEmployee(DateTime? startDate = null, DateTime? endDate = null)
+        public ActionResult<GlobalResponse<object>> GetSalesByEmployee(
+            DateTime? startDate = null,
+            DateTime? endDate = null,
+            string? roleFilter = null,
+            int? createdByUserId = null)
         {
             try
             {
@@ -4524,22 +4609,43 @@ namespace RestaurantPOS.Controllers
                 var ordersQuery = _dbConfig.CustomerOrders
                     .Include(x => x.User)
                     .Include(x => x.CustomerOrderItem)
-                    .Where(x => x.IsDeleted == false && 
+                    .Where(x => x.IsDeleted == false &&
                                 (x.InsertByUserId == userId || x.User.InsertByUserId == userId));
 
-                if (startDate.HasValue)
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
                 {
-                    ordersQuery = ordersQuery.Where(x => x.InsertDate.Date >= startDate.Value.Date);
+                    ordersQuery = ordersQuery.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
                 }
 
-                if (endDate.HasValue)
+                if (createdByUserId is int staffId && staffId > 0)
                 {
-                    endDate = endDate.Value.AddDays(1);
-                    ordersQuery = ordersQuery.Where(x => x.InsertDate.Date < endDate.Value.Date);
+                    var commercialUserId = GetCommercialUserId();
+                    var staffOk = _dbConfig.Users.AsNoTracking().Any(u =>
+                        u.Id == staffId &&
+                        u.InsertByUserId == commercialUserId &&
+                        (u.Role == "POS" || u.Role == "Waiter"));
+                    if (!staffOk)
+                    {
+                        return BadRequest(new GlobalResponse<object>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "Invalid or unauthorized employee."
+                        });
+                    }
+
+                    ordersQuery = ordersQuery.Where(x => x.InsertByUserId == staffId);
+                }
+
+                var roles = ParseSalesStaffRoleFilter(roleFilter);
+                if (roles != null && roles.Count > 0)
+                {
+                    ordersQuery = ordersQuery.Where(x => x.User != null && roles.Contains(x.User.Role));
                 }
 
                 var salesByEmployee = ordersQuery
-                    .GroupBy(x => new { x.InsertByUserId, x.User.Username })
+                    .Where(x => x.User != null)
+                    .GroupBy(x => new { x.InsertByUserId, x.User!.Username })
                     .Select(g => new
                     {
                         employeeId = g.Key.InsertByUserId,
@@ -4568,6 +4674,32 @@ namespace RestaurantPOS.Controllers
                     Message = $"??? ???: {ex.Message}"
                 });
             }
+        }
+
+        /// <summary>فلتر أدوار موظفي البيع: فراغ = الكل؛ POS؛ Waiter؛ SalesStaff = POS + Waiter.</summary>
+        private static List<string>? ParseSalesStaffRoleFilter(string? roleFilter)
+        {
+            var raw = (roleFilter ?? "").Trim();
+            if (string.IsNullOrEmpty(raw))
+                return null;
+
+            if (raw.Equals("SalesStaff", StringComparison.OrdinalIgnoreCase)
+                || raw.Equals("POS,Waiter", StringComparison.OrdinalIgnoreCase)
+                || raw.Equals("POS_WAITER", StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<string> { "POS", "Waiter" };
+            }
+
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (part.Equals("POS", StringComparison.OrdinalIgnoreCase))
+                    set.Add("POS");
+                else if (part.Equals("Waiter", StringComparison.OrdinalIgnoreCase))
+                    set.Add("Waiter");
+            }
+
+            return set.Count > 0 ? set.ToList() : null;
         }
 
         [Authorize(Roles = "Commercial")]

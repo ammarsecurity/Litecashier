@@ -14127,3 +14127,10 @@ table .b-icon,
     align-self: stretch !important;
   }
 }
+
+/* App-wide: no text shadows */
+*,
+*::before,
+*::after {
+  text-shadow: none !important;
+}

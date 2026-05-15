@@ -1,6 +1,7 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using RestaurantPOS.Db;
@@ -156,6 +157,26 @@ builder.Services.AddSignalR();
 
 
 var app = builder.Build();
+
+// تطبيق ترحيلات EF تلقائياً (مثل TableChipSizePx) عند التشغيل؛ عطّل عبر DatabaseSettings:ApplyMigrationsOnStartup = false
+var applyMigrations = app.Configuration.GetValue("DatabaseSettings:ApplyMigrationsOnStartup", true);
+if (applyMigrations)
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<DbConfig>();
+        var migrateLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        try
+        {
+            db.Database.Migrate();
+        }
+        catch (Exception ex)
+        {
+            migrateLogger.LogError(ex, "تعذر تطبيق ترحيلات قاعدة البيانات (EF Migrate). تحقق من سلسلة الاتصال والصلاحيات.");
+            throw;
+        }
+    }
+}
 
 // Seed database on startup
 //using (var scope = app.Services.CreateScope())

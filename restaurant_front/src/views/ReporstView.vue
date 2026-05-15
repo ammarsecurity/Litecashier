@@ -57,7 +57,7 @@
                             <button 
                                 class="report-tab" 
                                 :class="{ 'report-tab-active': activeTab === 'byEmployee' }"
-                                @click="activeTab = 'byEmployee'; loadSalesByEmployee()"
+                                @click="activeTab = 'byEmployee'; loadSalesReportStaff(); loadSalesByEmployee()"
                             >
                                 <b-icon icon="people-fill" class="me-2"></b-icon>
                                 {{ $t('salesByEmployee') || 'المبيعات حسب الموظف' }}
@@ -138,6 +138,38 @@
                                     <option value="Cash">{{ $t('cash') || 'نقد' }}</option>
                                     <option value="Card">{{ $t('card') || 'بطاقة' }}</option>
                                     <option value="Credit">{{ $t('credit') || 'دفع لاحق' }}</option>
+                                </select>
+                            </div>
+                            <div class="users-search-container" v-show="activeTab === 'byEmployee'">
+                                <b-icon icon="person-badge" class="search-icon"></b-icon>
+                                <select
+                                    v-model="reportFilters.staffRoleFilter"
+                                    class="users-search-input"
+                                    style="padding-right: 2.5rem;"
+                                    @change="loadAdvancedReport()"
+                                >
+                                    <option value="">{{ $t('salesByEmployeeAllStaff') || 'كل الحسابات' }}</option>
+                                    <option value="SalesStaff">{{ $t('salesByEmployeePosAndWaiter') || 'كاشير ونادل فقط' }}</option>
+                                    <option value="POS">{{ $t('rolePOS') || 'كاشير (POS)' }}</option>
+                                    <option value="Waiter">{{ $t('roleWaiter') || 'نادل' }}</option>
+                                </select>
+                            </div>
+                            <div class="users-search-container" v-show="activeTab === 'byEmployee'">
+                                <b-icon icon="people" class="search-icon"></b-icon>
+                                <select
+                                    v-model="reportFilters.salesByEmployeeUserId"
+                                    class="users-search-input"
+                                    style="padding-right: 2.5rem;"
+                                    @change="loadAdvancedReport()"
+                                >
+                                    <option value="">{{ $t('salesByEmployeeAllEmployees') || 'كل الموظفين' }}</option>
+                                    <option
+                                        v-for="s in salesReportStaffList"
+                                        :key="s.id"
+                                        :value="String(s.id)"
+                                    >
+                                        {{ s.name }} — {{ salesReportStaffRoleLabel(s.role) }}
+                                    </option>
                                 </select>
                             </div>
                             <div class="users-search-container" v-if="hasAdvancedFilters">
@@ -250,7 +282,7 @@
                         <div class="report-table-container">
                             <b-table
                                 id="orders-table"
-                                :items="Orders"
+                                :items="ordersForTable"
                                 :fields="ordersTableFields"
                                 striped
                                 hover
@@ -258,6 +290,9 @@
                                 class="reports-table"
                                 :empty-text="$t('noInvoicesFound') || 'لا توجد فواتير'"
                             >
+                                <template #cell(reportPeriod)="row">
+                                    <span class="stat-value text-muted small">{{ row.item.reportPeriod }}</span>
+                                </template>
                                 <template #cell(orderCode)="row">
                                     <span class="item-name-text">{{ row.item.orderCode }}</span>
                                 </template>
@@ -394,7 +429,7 @@
                             </div>
                             <div class="report-table-container">
                                 <b-table
-                                    :items="topSellingItems"
+                                    :items="topSellingItemsForTable"
                                     :fields="topSellingItemsFields"
                                     striped
                                     hover
@@ -402,6 +437,9 @@
                                     class="reports-table"
                                     :empty-text="$t('noTopSellingItems') || 'لا توجد منتجات'"
                                 >
+                                    <template #cell(reportPeriod)="row">
+                                        <span class="stat-value text-muted small">{{ row.item.reportPeriod }}</span>
+                                    </template>
                                     <template #cell(rank)="row">
                                         <span class="rank-badge" :class="getRankClass(row.index)">{{ row.index + 1 }}</span>
                                     </template>
@@ -436,7 +474,7 @@
                             </div>
                             <div class="report-table-container">
                                 <b-table
-                                    :items="salesByCategory"
+                                    :items="salesByCategoryForTable"
                                     :fields="salesByCategoryFields"
                                     striped
                                     hover
@@ -444,6 +482,9 @@
                                     class="reports-table"
                                     :empty-text="$t('noSalesByCategory') || 'لا توجد مبيعات حسب الفئة'"
                                 >
+                                    <template #cell(reportPeriod)="row">
+                                        <span class="stat-value text-muted small">{{ row.item.reportPeriod }}</span>
+                                    </template>
                                     <template #cell(category)="row">
                                         <div class="category-cell">
                                             <b-icon icon="tags-fill" class="category-icon"></b-icon>
@@ -478,7 +519,7 @@
                             </div>
                             <div class="report-table-container">
                                 <b-table
-                                    :items="salesByEmployee"
+                                    :items="salesByEmployeeForTable"
                                     :fields="salesByEmployeeFields"
                                     striped
                                     hover
@@ -486,6 +527,9 @@
                                     class="reports-table"
                                     :empty-text="$t('noSalesByEmployee') || 'لا توجد مبيعات حسب الموظف'"
                                 >
+                                    <template #cell(reportPeriod)="row">
+                                        <span class="stat-value text-muted small">{{ row.item.reportPeriod }}</span>
+                                    </template>
                                     <template #cell(employeeName)="row">
                                         <div class="employee-cell">
                                             <b-icon icon="person-fill" class="employee-icon"></b-icon>
@@ -520,7 +564,7 @@
                             </div>
                             <div class="report-table-container">
                                 <b-table
-                                    :items="returnedItems"
+                                    :items="returnedItemsForTable"
                                     :fields="returnedItemsFields"
                                     striped
                                     hover
@@ -528,11 +572,17 @@
                                     class="reports-table"
                                     :empty-text="$t('noReturnedItems') || 'لا توجد مواد مسترجعة'"
                                 >
+                                    <template #cell(reportPeriod)="row">
+                                        <span class="stat-value text-muted small">{{ row.item.reportPeriod }}</span>
+                                    </template>
                                     <template #cell(lineTotal)="row">
                                         <span class="stat-amount">{{ formatPrice(row.item.lineTotal || 0) }} {{ $t('currency') }}</span>
                                     </template>
                                     <template #cell(unitPrice)="row">
                                         <span class="stat-amount">{{ formatPrice(row.item.unitPrice || 0) }} {{ $t('currency') }}</span>
+                                    </template>
+                                    <template #cell(insertDate)="row">
+                                        <span class="stat-value">{{ formatDate(row.item.insertDate) }}</span>
                                     </template>
                                     <template #cell(tableDisplay)="row">
                                         <span>{{ row.item.mergedTableNumbers || row.item.tableNumber || '-' }}</span>
@@ -618,7 +668,7 @@
                             <div class="report-table-container" v-if="deliveryStatistics && deliveryStatistics.drivers">
                                 <h4 class="report-section-title">{{ $t('driversStatistics') || 'إحصائيات السائقين' }}</h4>
                                 <b-table
-                                    :items="deliveryStatistics.drivers"
+                                    :items="deliveryDriversForTable"
                                     :fields="driversStatisticsFields"
                                     striped
                                     hover
@@ -626,6 +676,9 @@
                                     class="drivers-statistics-table"
                                     :empty-text="$t('noDeliveryStatistics') || 'لا توجد إحصائيات توصيل متاحة'"
                                 >
+                                    <template #cell(reportPeriod)="row">
+                                        <span class="stat-value text-muted small">{{ row.item.reportPeriod }}</span>
+                                    </template>
                                     <template #cell(driverName)="row">
                                         <div class="driver-name-cell">
                                             <b-icon icon="truck" class="driver-icon"></b-icon>
@@ -725,7 +778,7 @@
                                 <div class="report-table-container">
                                     <h4 class="report-section-title">{{ $t('expensesByCategory') || 'الصرفيات حسب الفئة' }}</h4>
                                     <b-table
-                                        :items="expensesReport.expensesByCategory || []"
+                                        :items="expensesByCategoryForTable"
                                         :fields="expensesReportFields"
                                         striped
                                         hover
@@ -733,6 +786,9 @@
                                         class="reports-table"
                                         :empty-text="$t('noExpensesByCategory') || 'لا توجد صرفيات حسب الفئة'"
                                     >
+                                        <template #cell(reportPeriod)="row">
+                                            <span class="stat-value text-muted small">{{ row.item.reportPeriod }}</span>
+                                        </template>
                                         <template #cell(category)="row">
                                             <span>{{ row.item.category || '-' }}</span>
                                         </template>
@@ -1137,7 +1193,10 @@ export default {
                 endDate: "",
                 orderType: "",
                 paymentMethod: "",
+                staffRoleFilter: "",
+                salesByEmployeeUserId: "",
             },
+            salesReportStaffList: [],
             deliveryDrivers: [],
             loadingDeliveryDrivers: false,
             totalCardOrders: 0,
@@ -1183,6 +1242,42 @@ export default {
         };
     },
     computed: {
+        ordersReportPeriodColumn() {
+            return this.formatReportPeriod(this.search.startDate, this.search.endDate);
+        },
+        advancedReportsPeriodColumn() {
+            return this.formatReportPeriod(this.reportFilters.startDate, this.reportFilters.endDate);
+        },
+        ordersForTable() {
+            const p = this.ordersReportPeriodColumn;
+            return (this.Orders || []).map((row) => ({ ...row, reportPeriod: p }));
+        },
+        topSellingItemsForTable() {
+            const p = this.advancedReportsPeriodColumn;
+            return (this.topSellingItems || []).map((row) => ({ ...row, reportPeriod: p }));
+        },
+        salesByCategoryForTable() {
+            const p = this.advancedReportsPeriodColumn;
+            return (this.salesByCategory || []).map((row) => ({ ...row, reportPeriod: p }));
+        },
+        salesByEmployeeForTable() {
+            const p = this.advancedReportsPeriodColumn;
+            return (this.salesByEmployee || []).map((row) => ({ ...row, reportPeriod: p }));
+        },
+        returnedItemsForTable() {
+            const p = this.advancedReportsPeriodColumn;
+            return (this.returnedItems || []).map((row) => ({ ...row, reportPeriod: p }));
+        },
+        deliveryDriversForTable() {
+            const p = this.$t("reportPeriodCumulative") || "كل الفترات (تراكمي)";
+            const drivers = this.deliveryStatistics?.drivers || [];
+            return drivers.map((d) => ({ ...d, reportPeriod: p }));
+        },
+        expensesByCategoryForTable() {
+            const p = this.formatReportPeriod(this.reportFilters.startDate, this.reportFilters.endDate);
+            const rows = this.expensesReport?.expensesByCategory || [];
+            return rows.map((row) => ({ ...row, reportPeriod: p }));
+        },
         formattedNumber() {
             return this.totaPrice.toLocaleString()
         },
@@ -1322,6 +1417,11 @@ export default {
         returnedItemsFields() {
             return [
                 {
+                    key: 'reportPeriod',
+                    label: this.$t('reportDateRange') || 'فترة التقرير',
+                    sortable: false
+                },
+                {
                     key: 'itemName',
                     label: this.$t('itemName') || 'اسم المنتج',
                     sortable: true
@@ -1370,6 +1470,11 @@ export default {
         },
         driversStatisticsFields() {
             return [
+                {
+                    key: 'reportPeriod',
+                    label: this.$t('reportDateRange') || 'فترة التقرير',
+                    sortable: false,
+                },
                 {
                     key: 'driverName',
                     label: this.$t('driverName') || 'اسم السائق',
@@ -1425,6 +1530,11 @@ export default {
         topSellingItemsFields() {
             return [
                 {
+                    key: 'reportPeriod',
+                    label: this.$t('reportDateRange') || 'فترة التقرير',
+                    sortable: false,
+                },
+                {
                     key: 'rank',
                     label: this.$t('rank') || 'الترتيب',
                     sortable: false
@@ -1464,6 +1574,11 @@ export default {
         salesByCategoryFields() {
             return [
                 {
+                    key: 'reportPeriod',
+                    label: this.$t('reportDateRange') || 'فترة التقرير',
+                    sortable: false,
+                },
+                {
                     key: 'category',
                     label: this.$t('category') || 'الفئة',
                     sortable: true
@@ -1502,6 +1617,7 @@ export default {
         },
         expensesReportFields() {
             return [
+                { key: 'reportPeriod', label: this.$t('reportDateRange') || 'فترة التقرير', sortable: false },
                 { key: 'category', label: this.$t('category') || 'الفئة', sortable: true },
                 { key: 'totalAmount', label: this.$t('totalExpenses') || 'إجمالي الصرفيات', sortable: true },
                 { key: 'count', label: this.$t('count') || 'العدد', sortable: true }
@@ -1509,6 +1625,11 @@ export default {
         },
         salesByEmployeeFields() {
             return [
+                {
+                    key: 'reportPeriod',
+                    label: this.$t('reportDateRange') || 'فترة التقرير',
+                    sortable: false,
+                },
                 {
                     key: 'employeeName',
                     label: this.$t('employeeName') || 'اسم الموظف',
@@ -1543,6 +1664,7 @@ export default {
         },
         ordersTableFields() {
             return [
+                { key: 'reportPeriod', label: this.$t('reportDateRange') || 'فترة التقرير', sortable: false },
                 { key: 'orderCode', label: this.$t('invoice_number') || 'رقم الفاتورة', sortable: true },
                 { key: 'insertDate', label: this.$t('date') || 'التاريخ', sortable: true },
                 { key: 'dailySequenceNumber', label: this.$t('orderNumber') || 'الرقم اليومي', sortable: true },
@@ -1567,7 +1689,9 @@ export default {
             return this.reportFilters.orderType || 
                    this.reportFilters.paymentMethod || 
                    this.reportFilters.startDate || 
-                   this.reportFilters.endDate;
+                   this.reportFilters.endDate ||
+                   this.reportFilters.staffRoleFilter ||
+                   this.reportFilters.salesByEmployeeUserId;
         },
     },
     watch: {
@@ -1618,6 +1742,7 @@ export default {
         this.GetAllOrders();
         this.userInfo = JSON.parse(localStorage.getItem('info'));
         this.loadDeliveryDrivers();
+        this.loadSalesReportStaff();
     },
     
     beforeDestroy() {
@@ -1746,11 +1871,48 @@ export default {
             return true;
         },
         formatDate(dateTime) {
-            if (dateTime) {
-                const [date, time] = dateTime.split("T");
-                return date + " " + time.split(".")[0];
+            if (dateTime == null || dateTime === "") return "";
+            const s = String(dateTime);
+            if (!s.includes("T")) {
+                return (s.split(" ")[0] || s).trim();
             }
-            return "";
+            const [date, timePart] = s.split("T");
+            const time = timePart ? timePart.split(".")[0] : "";
+            return time ? `${date} ${time}` : date;
+        },
+        /** عرض نطاق التواريخ المختار في تقارير الجداول */
+        formatReportPeriod(startStr, endStr) {
+            if (!startStr && !endStr) {
+                return this.$t("allDatesRange") || "كل التواريخ";
+            }
+            const fmt = (d) => (d ? this.formatDate(`${d}T12:00:00`) : "");
+            if (startStr && endStr) {
+                return `${fmt(startStr)} – ${fmt(endStr)}`;
+            }
+            if (startStr) {
+                return `${this.$t("from_date") || "من"} ${fmt(startStr)}`;
+            }
+            return `${this.$t("to_date") || "إلى"} ${fmt(endStr)}`;
+        },
+        staffRoleFilterLabel() {
+            const v = this.reportFilters.staffRoleFilter;
+            if (!v) return this.$t("salesByEmployeeAllStaff") || "كل الحسابات";
+            if (v === "SalesStaff") return this.$t("salesByEmployeePosAndWaiter") || "كاشير ونادل فقط";
+            if (v === "POS") return this.$t("rolePOS") || "كاشير (POS)";
+            if (v === "Waiter") return this.$t("roleWaiter") || "نادل";
+            return v;
+        },
+        salesReportStaffRoleLabel(role) {
+            if (role === "POS") return this.$t("rolePOS") || "كاشير (POS)";
+            if (role === "Waiter") return this.$t("roleWaiter") || "نادل";
+            return role || "";
+        },
+        salesByEmployeeStaffFilterLabel() {
+            const id = this.reportFilters.salesByEmployeeUserId;
+            if (!id) return this.$t("salesByEmployeeAllEmployees") || "كل الموظفين";
+            const s = (this.salesReportStaffList || []).find((x) => String(x.id) === String(id));
+            if (!s) return String(id);
+            return `${s.name} (${this.salesReportStaffRoleLabel(s.role)})`;
         },
         formatPrice(price) {
             if (price) {
@@ -2292,6 +2454,8 @@ export default {
                 endDate: "",
                 orderType: "",
                 paymentMethod: "",
+                staffRoleFilter: "",
+                salesByEmployeeUserId: "",
             };
             this.loadAdvancedReport();
         },
@@ -2372,6 +2536,17 @@ export default {
                 });
         },
 
+        loadSalesReportStaff() {
+            HTTP.get("Admin/GetSalesReportStaff")
+                .then((response) => {
+                    this.salesReportStaffList = response.data.data || [];
+                })
+                .catch((error) => {
+                    this.salesReportStaffList = [];
+                    console.error("Error loading sales report staff:", error);
+                });
+        },
+
         loadSalesByEmployee() {
             this.show = true;
             const params = new URLSearchParams();
@@ -2379,6 +2554,8 @@ export default {
             if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
             if (this.reportFilters.orderType) params.append('orderType', this.reportFilters.orderType);
             if (this.reportFilters.paymentMethod) params.append('paymentMethod', this.reportFilters.paymentMethod);
+            if (this.reportFilters.staffRoleFilter) params.append('roleFilter', this.reportFilters.staffRoleFilter);
+            if (this.reportFilters.salesByEmployeeUserId) params.append('createdByUserId', this.reportFilters.salesByEmployeeUserId);
             
             HTTP.get(`Admin/GetSalesByEmployee?${params.toString()}`)
                 .then((response) => {
@@ -2387,7 +2564,18 @@ export default {
                 })
                 .catch((error) => {
                     this.show = false;
-                    console.error('Error loading sales by employee:', error);
+                    this.salesByEmployee = [];
+                    const status = error?.response?.status;
+                    const apiMsg = error?.response?.data?.message;
+                    if (status === 400 && apiMsg) {
+                        this.$toast.error(apiMsg, {
+                            position: 'top-right',
+                            timeout: 4000,
+                            rtl: this.$i18n.locale === 'ar',
+                        });
+                    } else {
+                        console.error('Error loading sales by employee:', error);
+                    }
                 });
         },
 
@@ -2526,10 +2714,11 @@ export default {
                     if (!list.length) {
                         this.$toast.info(this.$t('noDataToExport') || 'لا توجد بيانات للتصدير', { position: 'top-right', timeout: 3000 });
                     } else {
-                        const headers = [this.$t('rank') || 'الترتيب', this.$t('itemName') || 'اسم المنتج', this.$t('itemCode') || 'الكود', this.$t('quantitySold') || 'الكمية المباعة', this.$t('totalSales') || 'إجمالي المبيعات', this.$t('orderCount') || 'عدد الطلبات', this.$t('averagePrice') || 'متوسط السعر'];
+                        const period = this.formatReportPeriod(this.reportFilters.startDate, this.reportFilters.endDate);
+                        const headers = [this.$t('reportDateRange') || 'فترة التقرير', this.$t('rank') || 'الترتيب', this.$t('itemName') || 'اسم المنتج', this.$t('itemCode') || 'الكود', this.$t('quantitySold') || 'الكمية المباعة', this.$t('totalSales') || 'إجمالي المبيعات', this.$t('orderCount') || 'عدد الطلبات', this.$t('averagePrice') || 'متوسط السعر'];
                         let csv = headers.map(this.csvEscape).join(',') + '\r\n';
                         list.forEach((item, i) => {
-                            csv += [i + 1, item.itemName || '', item.itemCode || '', item.totalQuantitySold ?? '', item.totalSales ?? '', item.orderCount ?? '', item.totalQuantitySold ? (item.totalSales / item.totalQuantitySold) : ''].map(this.csvEscape).join(',') + '\r\n';
+                            csv += [period, i + 1, item.itemName || '', item.itemCode || '', item.totalQuantitySold ?? '', item.totalSales ?? '', item.orderCount ?? '', item.totalQuantitySold ? (item.totalSales / item.totalQuantitySold) : ''].map(this.csvEscape).join(',') + '\r\n';
                         });
                         this.downloadCsv(csv, `top_selling_items_${dateStr}.csv`);
                     }
@@ -2544,10 +2733,11 @@ export default {
                     if (!list.length) {
                         this.$toast.info(this.$t('noDataToExport') || 'لا توجد بيانات للتصدير', { position: 'top-right', timeout: 3000 });
                     } else {
-                        const headers = [this.$t('category') || 'الفئة', this.$t('totalSales') || 'إجمالي المبيعات', this.$t('categoryExpensesLabel') || 'صرفيات الفئة', this.$t('totalQuantity') || 'إجمالي الكمية', this.$t('itemCount') || 'عدد المنتجات', this.$t('orderCount') || 'عدد الطلبات'];
+                        const period = this.formatReportPeriod(this.reportFilters.startDate, this.reportFilters.endDate);
+                        const headers = [this.$t('reportDateRange') || 'فترة التقرير', this.$t('category') || 'الفئة', this.$t('totalSales') || 'إجمالي المبيعات', this.$t('categoryExpensesLabel') || 'صرفيات الفئة', this.$t('totalQuantity') || 'إجمالي الكمية', this.$t('itemCount') || 'عدد المنتجات', this.$t('orderCount') || 'عدد الطلبات'];
                         let csv = headers.map(this.csvEscape).join(',') + '\r\n';
                         list.forEach(item => {
-                            csv += [item.category, item.totalSales ?? '', item.totalExpenses ?? '', item.totalQuantity ?? '', item.itemCount ?? '', item.orderCount ?? ''].map(this.csvEscape).join(',') + '\r\n';
+                            csv += [period, item.category, item.totalSales ?? '', item.totalExpenses ?? '', item.totalQuantity ?? '', item.itemCount ?? '', item.orderCount ?? ''].map(this.csvEscape).join(',') + '\r\n';
                         });
                         this.downloadCsv(csv, `sales_by_category_${dateStr}.csv`);
                     }
@@ -2557,17 +2747,22 @@ export default {
                     if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
                     if (this.reportFilters.orderType) params.append('orderType', this.reportFilters.orderType);
                     if (this.reportFilters.paymentMethod) params.append('paymentMethod', this.reportFilters.paymentMethod);
+                    if (this.reportFilters.staffRoleFilter) params.append('roleFilter', this.reportFilters.staffRoleFilter);
+                    if (this.reportFilters.salesByEmployeeUserId) params.append('createdByUserId', this.reportFilters.salesByEmployeeUserId);
                     const res = await HTTP.get(`Admin/GetSalesByEmployee?${params.toString()}`);
                     const list = res.data?.data || [];
                     if (!list.length) {
                         this.$toast.info(this.$t('noDataToExport') || 'لا توجد بيانات للتصدير', { position: 'top-right', timeout: 3000 });
                     } else {
-                        const headers = [this.$t('employeeName') || 'اسم الموظف', this.$t('totalOrders') || 'إجمالي الطلبات', this.$t('totalSales') || 'إجمالي المبيعات', this.$t('totalItemsSold') || 'إجمالي المواد المباعة', this.$t('averageOrderValue') || 'متوسط قيمة الطلب', this.$t('itemsPerOrder') || 'مواد لكل طلب'];
+                        const period = this.formatReportPeriod(this.reportFilters.startDate, this.reportFilters.endDate);
+                        const roleCol = this.staffRoleFilterLabel();
+                        const staffCol = this.salesByEmployeeStaffFilterLabel();
+                        const headers = [this.$t('reportDateRange') || 'فترة التقرير', this.$t('reportStaffRoleFilter') || 'تصفية الدور', this.$t('reportSelectedEmployee') || 'الموظف المحدد', this.$t('employeeName') || 'اسم الموظف', this.$t('totalOrders') || 'إجمالي الطلبات', this.$t('totalSales') || 'إجمالي المبيعات', this.$t('totalItemsSold') || 'إجمالي المواد المباعة', this.$t('averageOrderValue') || 'متوسط قيمة الطلب', this.$t('itemsPerOrder') || 'مواد لكل طلب'];
                         let csv = headers.map(this.csvEscape).join(',') + '\r\n';
                         list.forEach(item => {
                             const avg = item.totalOrders > 0 ? item.totalSales / item.totalOrders : 0;
                             const perOrder = item.totalOrders > 0 ? (item.totalItemsSold / item.totalOrders) : 0;
-                            csv += [item.employeeName, item.totalOrders ?? '', item.totalSales ?? '', item.totalItemsSold ?? '', avg, perOrder].map(this.csvEscape).join(',') + '\r\n';
+                            csv += [period, roleCol, staffCol, item.employeeName, item.totalOrders ?? '', item.totalSales ?? '', item.totalItemsSold ?? '', avg, perOrder].map(this.csvEscape).join(',') + '\r\n';
                         });
                         this.downloadCsv(csv, `sales_by_employee_${dateStr}.csv`);
                     }
@@ -2583,7 +2778,9 @@ export default {
                     if (!list.length) {
                         this.$toast.info(this.$t('noDataToExport') || 'لا توجد بيانات للتصدير', { position: 'top-right', timeout: 3000 });
                     } else {
+                        const period = this.formatReportPeriod(this.reportFilters.startDate, this.reportFilters.endDate);
                         const headers = [
+                            this.$t('reportDateRange') || 'فترة التقرير',
                             this.$t('itemName') || 'اسم المنتج',
                             this.$t('quantity') || 'الكمية',
                             this.$t('unitPrice') || 'سعر الوحدة',
@@ -2597,6 +2794,7 @@ export default {
                         let csv = headers.map(this.csvEscape).join(',') + '\r\n';
                         list.forEach(item => {
                             csv += [
+                                period,
                                 item.itemName || '',
                                 item.quantity ?? '',
                                 item.unitPrice ?? '',
@@ -2605,7 +2803,7 @@ export default {
                                 item.mergedTableNumbers || item.tableNumber || '',
                                 item.orderType || '',
                                 item.deletedByUsername || '',
-                                item.insertDate || ''
+                                this.formatDate(item.insertDate)
                             ].map(this.csvEscape).join(',') + '\r\n';
                         });
                         this.downloadCsv(csv, `returned_items_${dateStr}.csv`);
@@ -2617,10 +2815,11 @@ export default {
                     if (!drivers.length) {
                         this.$toast.info(this.$t('noDataToExport') || 'لا توجد بيانات للتصدير', { position: 'top-right', timeout: 3000 });
                     } else {
-                        const headers = [this.$t('driverName') || 'اسم السائق', this.$t('phoneNumber') || 'رقم الهاتف', this.$t('status') || 'الحالة', this.$t('totalOrders') || 'إجمالي الطلبات', this.$t('deliveredOrders') || 'واصلة', this.$t('pendingDeliveries') || 'معلقة', this.$t('failedDeliveries') || 'فاشلة', this.$t('totalAmount') || 'إجمالي المبلغ', this.$t('paidAmount') || 'مدفوع', this.$t('remainingAmount') || 'متبقي'];
+                        const period = this.$t('reportPeriodCumulative') || 'كل الفترات (تراكمي)';
+                        const headers = [this.$t('reportDateRange') || 'فترة التقرير', this.$t('driverName') || 'اسم السائق', this.$t('phoneNumber') || 'رقم الهاتف', this.$t('status') || 'الحالة', this.$t('totalOrders') || 'إجمالي الطلبات', this.$t('deliveredOrders') || 'واصلة', this.$t('pendingDeliveries') || 'معلقة', this.$t('failedDeliveries') || 'فاشلة', this.$t('totalAmount') || 'إجمالي المبلغ', this.$t('paidAmount') || 'مدفوع', this.$t('remainingAmount') || 'متبقي'];
                         let csv = headers.map(this.csvEscape).join(',') + '\r\n';
                         drivers.forEach(d => {
-                            csv += [d.driverName || '', d.phoneNumber || '', d.isActive ? (this.$t('active') || 'نشط') : (this.$t('inactive') || 'غير نشط'), d.totalOrders ?? '', d.deliveredOrders ?? '', d.pendingOrders ?? '', d.failedOrders ?? '', d.totalAmount ?? '', d.paidAmount ?? '', d.remainingAmount ?? ''].map(this.csvEscape).join(',') + '\r\n';
+                            csv += [period, d.driverName || '', d.phoneNumber || '', d.isActive ? (this.$t('active') || 'نشط') : (this.$t('inactive') || 'غير نشط'), d.totalOrders ?? '', d.deliveredOrders ?? '', d.pendingOrders ?? '', d.failedOrders ?? '', d.totalAmount ?? '', d.paidAmount ?? '', d.remainingAmount ?? ''].map(this.csvEscape).join(',') + '\r\n';
                         });
                         this.downloadCsv(csv, `delivery_statistics_${dateStr}.csv`);
                     }
@@ -2634,10 +2833,11 @@ export default {
                         this.$toast.info(this.$t('noDataToExport') || 'لا توجد بيانات للتصدير', { position: 'top-right', timeout: 3000 });
                     } else {
                         const summary = [ [this.$t('totalExpenses') || 'إجمالي الصرفيات', this.$t('thisMonthExpenses') || 'صرفيات هذا الشهر', this.$t('thisWeekExpenses') || 'صرفيات هذا الأسبوع', this.$t('totalCount') || 'العدد'].map(this.csvEscape).join(','), [r.totalExpenses ?? '', r.thisMonthExpenses ?? '', r.thisWeekExpenses ?? '', r.totalCount ?? ''].map(this.csvEscape).join(',') ].join('\r\n') + '\r\n';
-                        const catHeaders = [this.$t('category') || 'الفئة', this.$t('totalExpenses') || 'إجمالي الصرفيات', this.$t('count') || 'العدد'];
+                        const expPeriod = this.formatReportPeriod(this.reportFilters.startDate, this.reportFilters.endDate);
+                        const catHeaders = [this.$t('reportDateRange') || 'فترة التقرير', this.$t('category') || 'الفئة', this.$t('totalExpenses') || 'إجمالي الصرفيات', this.$t('count') || 'العدد'];
                         let csv = summary + catHeaders.map(this.csvEscape).join(',') + '\r\n';
                         (r.expensesByCategory || []).forEach(item => {
-                            csv += [item.category ?? item.Category ?? '', item.totalAmount ?? item.TotalAmount ?? '', item.count ?? item.Count ?? ''].map(this.csvEscape).join(',') + '\r\n';
+                            csv += [expPeriod, item.category ?? item.Category ?? '', item.totalAmount ?? item.TotalAmount ?? '', item.count ?? item.Count ?? ''].map(this.csvEscape).join(',') + '\r\n';
                         });
                         this.downloadCsv(csv, `expenses_report_${dateStr}.csv`);
                     }

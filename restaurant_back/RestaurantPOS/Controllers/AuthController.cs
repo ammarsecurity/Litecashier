@@ -157,7 +157,7 @@ namespace RestaurantPOS.Controllers
                 {
                     Data = null,
                     ErrorStatus = false,
-                    Message = "error in login info"
+                    Message = "errorInLoginInfo"
 
                 });
             }
@@ -167,7 +167,7 @@ namespace RestaurantPOS.Controllers
                 {
                     Data = null,
                     ErrorStatus = false,
-                    Message = "error in login info"
+                    Message = "errorInLoginInfo"
 
                 });
             }
@@ -186,7 +186,7 @@ namespace RestaurantPOS.Controllers
                 {
                     Data = null,
                     ErrorStatus = true,
-                    Message = "رمز الدخول غير صالح"
+                    Message = "invalidAccountCode"
                 });
             }
 
@@ -199,7 +199,7 @@ namespace RestaurantPOS.Controllers
                 {
                     Data = null,
                     ErrorStatus = false,
-                    Message = "error in login info"
+                    Message = "errorInLoginInfo"
                 });
             }
 

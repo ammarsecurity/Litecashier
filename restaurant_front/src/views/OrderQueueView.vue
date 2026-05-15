@@ -1,37 +1,53 @@
 <template>
-  <div>
+  <b-overlay
+    :show="loading"
+    spinner-variant="primary"
+    spinner-type="grow"
+    spinner-large
+    rounded="sm"
+  >
     <AppHeader />
     <div class="main-content-wrapper">
       <div class="users-page-container">
+        <div class="users-page-content order-queue-page">
           <!-- Header Section -->
           <div class="users-header-section">
             <div class="users-header-content">
               <div class="header-title-wrapper">
                 <div class="header-icon-wrapper">
-                  <b-icon icon="list-ul" class="header-icon"></b-icon>
+                  <b-icon icon="list-task" class="header-icon"></b-icon>
                 </div>
                 <div>
                   <h1 class="users-page-title">{{ $t("orderQueue") || "طابور الطلبات" }}</h1>
                   <p class="header-subtitle">{{ $t("orderQueueDescription") || "إدارة ومتابعة الطلبات حسب الحالة" }}</p>
                 </div>
               </div>
-              <div class="queue-controls">
-                <select v-model="orderTypeFilter" class="users-search-input" @change="loadOrders" style="min-width: 200px;">
-                  <option value="">{{ $t("allOrderTypes") || "جميع الأنواع" }}</option>
-                  <option value="DineIn">{{ $t("dineIn") || "داخل المطعم" }}</option>
-                  <option value="Takeaway">{{ $t("takeaway") || "خارجي" }}</option>
-                  <option value="Delivery">{{ $t("delivery") || "توصيل" }}</option>
-                </select>
-                <button class="users-add-button" @click="loadOrders">
-                  <b-icon icon="arrow-clockwise" class="button-icon"></b-icon>
-                  <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
-                </button>
-              </div>
+              <button type="button" class="users-add-button" @click="loadOrders({ silent: false })">
+                <b-icon icon="arrow-clockwise" class="button-icon"></b-icon>
+                <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="users-search-section">
+            <div class="users-search-container order-queue-filter-wrap">
+              <b-icon icon="filter" class="search-icon"></b-icon>
+              <select
+                v-model="orderTypeFilter"
+                class="users-search-input"
+                @change="loadOrders({ silent: true })"
+                style="padding-inline-start: 2.5rem; min-width: 220px; max-width: 100%;"
+              >
+                <option value="">{{ $t("allOrderTypes") || "جميع الأنواع" }}</option>
+                <option value="DineIn">{{ $t("dineIn") || "داخل المطعم" }}</option>
+                <option value="Takeaway">{{ $t("takeaway") || "خارجي" }}</option>
+                <option value="Delivery">{{ $t("delivery") || "توصيل" }}</option>
+              </select>
             </div>
           </div>
 
           <!-- Queue Board -->
-          <div class="queue-board">
+          <div class="queue-board order-queue-board">
             <!-- Pending Column -->
             <div class="queue-column">
               <div class="queue-column-header pending">
@@ -65,7 +81,7 @@
                     </div>
                     <div class="order-info-item">
                       <b-icon icon="currency-dollar" class="info-icon"></b-icon>
-                      <span>{{ formatPrice(order.orderTotalAfterDiscount ?? order.orderPrice ?? 0) }} د.ع</span>
+                      <span>{{ formatPrice(order.orderTotalAfterDiscount ?? order.orderPrice ?? 0) }} {{ $t("currency") }}</span>
                     </div>
                     <div v-if="order.deliveryDriver" class="order-info-item">
                       <b-icon icon="truck" class="info-icon"></b-icon>
@@ -126,7 +142,7 @@
                     </div>
                     <div class="order-info-item">
                       <b-icon icon="currency-dollar" class="info-icon"></b-icon>
-                      <span>{{ formatPrice(order.orderTotalAfterDiscount ?? order.orderPrice ?? 0) }} د.ع</span>
+                      <span>{{ formatPrice(order.orderTotalAfterDiscount ?? order.orderPrice ?? 0) }} {{ $t("currency") }}</span>
                     </div>
                     <div v-if="order.deliveryDriver" class="order-info-item">
                       <b-icon icon="truck" class="info-icon"></b-icon>
@@ -187,7 +203,7 @@
                     </div>
                     <div class="order-info-item">
                       <b-icon icon="currency-dollar" class="info-icon"></b-icon>
-                      <span>{{ formatPrice(order.orderTotalAfterDiscount ?? order.orderPrice ?? 0) }} د.ع</span>
+                      <span>{{ formatPrice(order.orderTotalAfterDiscount ?? order.orderPrice ?? 0) }} {{ $t("currency") }}</span>
                     </div>
                     <div v-if="order.deliveryDriver" class="order-info-item">
                       <b-icon icon="truck" class="info-icon"></b-icon>
@@ -248,7 +264,7 @@
                     </div>
                     <div class="order-info-item">
                       <b-icon icon="currency-dollar" class="info-icon"></b-icon>
-                      <span>{{ formatPrice(order.orderTotalAfterDiscount ?? order.orderPrice ?? 0) }} د.ع</span>
+                      <span>{{ formatPrice(order.orderTotalAfterDiscount ?? order.orderPrice ?? 0) }} {{ $t("currency") }}</span>
                     </div>
                     <div v-if="order.deliveryDriver" class="order-info-item">
                       <b-icon icon="truck" class="info-icon"></b-icon>
@@ -263,6 +279,7 @@
               </div>
             </div>
           </div>
+        </div>
       </div>
     </div>
 
@@ -273,6 +290,8 @@
       size="lg"
       centered
       hide-footer
+      content-class="order-queue-modal-content"
+      header-class="order-queue-modal-header"
     >
       <div v-if="selectedOrder" class="order-details-modal">
         <div class="order-details-section">
@@ -308,11 +327,11 @@
             </div>
             <div class="detail-item">
               <span class="detail-label">{{ $t("total") || "المجموع" }}:</span>
-              <span class="detail-value">{{ formatPrice(selectedOrder.orderTotalAfterDiscount ?? selectedOrder.orderPrice ?? 0) }} د.ع</span>
+              <span class="detail-value">{{ formatPrice(selectedOrder.orderTotalAfterDiscount ?? selectedOrder.orderPrice ?? 0) }} {{ $t("currency") }}</span>
             </div>
             <div class="detail-item" v-if="Number(selectedOrder.discountAmount || 0) > 0">
               <span class="detail-label">{{ $t("discountLabel") || "الخصم" }}:</span>
-              <span class="detail-value">- {{ formatPrice(selectedOrder.discountAmount || 0) }} د.ع</span>
+              <span class="detail-value">- {{ formatPrice(selectedOrder.discountAmount || 0) }} {{ $t("currency") }}</span>
             </div>
             <div v-if="selectedOrder.notes" class="detail-item full-width">
               <span class="detail-label">{{ $t("notes") || "ملاحظات" }}:</span>
@@ -356,7 +375,7 @@
                 <span class="item-quantity">x{{ item.quantity }}</span>
               </div>
               <div class="item-price">
-                {{ formatPrice(item.sellingPrice * item.quantity) }} د.ع
+                {{ formatPrice(item.sellingPrice * item.quantity) }} {{ $t("currency") }}
               </div>
             </div>
           </div>
@@ -365,7 +384,8 @@
         <div class="order-details-actions">
           <button 
             v-if="selectedOrder.orderStatus === 'Pending'" 
-            class="btn btn-primary" 
+            type="button"
+            class="users-add-button order-queue-modal-action order-queue-modal-action--processing"
             @click="updateOrderStatus(selectedOrder.id, 'Processing')"
           >
             <b-icon icon="play-circle" class="me-2"></b-icon>
@@ -373,7 +393,8 @@
           </button>
           <button 
             v-if="selectedOrder.orderStatus === 'Processing'" 
-            class="btn btn-success" 
+            type="button"
+            class="users-add-button order-queue-modal-action order-queue-modal-action--ready"
             @click="updateOrderStatus(selectedOrder.id, 'Ready')"
           >
             <b-icon icon="check-circle" class="me-2"></b-icon>
@@ -381,20 +402,21 @@
           </button>
           <button 
             v-if="selectedOrder.orderStatus === 'Ready'" 
-            class="btn btn-success" 
+            type="button"
+            class="users-add-button order-queue-modal-action order-queue-modal-action--done"
             @click="updateOrderStatus(selectedOrder.id, 'Completed')"
           >
             <b-icon icon="check2-circle" class="me-2"></b-icon>
             {{ $t("markCompleted") || "تحديد كمكتمل" }}
           </button>
-          <button class="btn btn-secondary" @click="showOrderModal = false">
+          <button type="button" class="users-form-cancel-button" @click="showOrderModal = false">
+            <b-icon icon="x-circle-fill" class="me-2"></b-icon>
             {{ $t("close") || "إغلاق" }}
           </button>
         </div>
       </div>
     </b-modal>
-    </div>
-  </div>
+  </b-overlay>
 </template>
 
 <script>
@@ -414,7 +436,8 @@ export default {
       showOrderModal: false,
       selectedOrder: null,
       commercialUserId: null,
-      refreshInterval: null
+      refreshInterval: null,
+      loading: false
     };
   },
   computed: {
@@ -444,12 +467,12 @@ export default {
       return;
     }
 
-    this.loadOrders();
+    this.loadOrders({ silent: false });
     this.initializeSignalR();
     
     // Auto refresh every 10 seconds
     this.refreshInterval = setInterval(() => {
-      this.loadOrders();
+      this.loadOrders({ silent: true });
     }, 10000);
   },
   beforeDestroy() {
@@ -459,7 +482,10 @@ export default {
     }
   },
   methods: {
-    async loadOrders() {
+    async loadOrders(options = {}) {
+      const silent = options.silent === true;
+      if (!this.commercialUserId) return;
+      if (!silent) this.loading = true;
       try {
         const params = new URLSearchParams({
           pageNumber: '0',
@@ -501,6 +527,8 @@ export default {
           variant: 'danger',
           solid: true
         });
+      } finally {
+        if (!silent) this.loading = false;
       }
     },
     async updateOrderStatus(orderId, status) {
@@ -612,7 +640,7 @@ export default {
       signalRService.startConnection().then(() => {
         signalRService.on('PublicOrderUpdated', (data) => {
           // Reload orders when an order is updated
-          this.loadOrders();
+          this.loadOrders({ silent: true });
         });
       });
     },
@@ -624,49 +652,65 @@ export default {
 </script>
 
 <style scoped>
-.queue-controls {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
+.order-queue-filter-wrap {
+  max-width: 360px;
 }
 
-.queue-board {
+.order-queue-board {
+  margin-top: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-top: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
 }
 
 .queue-column {
   background: var(--bg-primary);
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
+  box-shadow: none;
 }
 
 .queue-column-header {
-  padding: 1rem 1.5rem;
-  color: white;
-  font-weight: 600;
+  padding: 0.875rem 1rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: 700;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .queue-column-header.pending {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-bottom: 3px solid #f59e0b;
+}
+
+.queue-column-header.pending .column-icon {
+  color: #d97706;
 }
 
 .queue-column-header.processing {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-bottom: 3px solid #3b82f6;
+}
+
+.queue-column-header.processing .column-icon {
+  color: #2563eb;
 }
 
 .queue-column-header.ready {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-bottom: 3px solid #10b981;
+}
+
+.queue-column-header.ready .column-icon {
+  color: #059669;
 }
 
 .queue-column-header.completed {
-  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  border-bottom: 3px solid #64748b;
+}
+
+.queue-column-header.completed .column-icon {
+  color: #64748b;
 }
 
 .column-header-content {
@@ -676,104 +720,118 @@ export default {
 }
 
 .column-icon {
-  font-size: 1.5rem;
+  font-size: 1.35rem;
+  flex-shrink: 0;
 }
 
 .column-title {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
   flex: 1;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .column-count {
-  background: rgba(255, 255, 255, 0.3);
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.9rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
 }
 
 .queue-column-body {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem;
+  max-height: min(62vh, 720px);
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.875rem;
+  background: var(--bg-primary);
 }
 
 .queue-card {
   background: var(--bg-secondary);
-  border-radius: 0.75rem;
-  padding: 1rem;
+  border-radius: 0.65rem;
+  padding: 0.875rem 1rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  border: 2px solid var(--border-color);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid var(--border-color);
 }
 
 .queue-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--primary-color);
+  border-color: rgba(129, 140, 248, 0.45);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
 }
 
 .queue-card.completed-card {
-  opacity: 0.8;
+  opacity: 0.92;
 }
 
 .queue-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.65rem;
+  gap: 0.5rem;
 }
 
 .order-code-badge {
-  background: var(--text-primary);
-  color: white;
-  padding: 0.375rem 0.75rem;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 0.35rem 0.65rem;
   border-radius: 0.5rem;
-  font-weight: 700;
-  font-size: 0.8125rem;
+  font-weight: 800;
+  font-size: 0.75rem;
+  border: 1px solid var(--border-color);
 }
 
 .order-type-badge {
-  padding: 0.25rem 0.75rem;
+  padding: 0.2rem 0.55rem;
   border-radius: 0.375rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .dinein-badge {
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(99, 102, 241, 0.12);
   color: var(--primary-color);
+  border: 1px solid rgba(99, 102, 241, 0.22);
 }
 
 .takeaway-badge {
   background: rgba(34, 197, 94, 0.1);
   color: var(--success-color);
+  border: 1px solid rgba(34, 197, 94, 0.22);
 }
 
 .delivery-badge {
   background: rgba(249, 115, 22, 0.1);
-  color: #f97316;
+  color: #ea580c;
+  border: 1px solid rgba(249, 115, 22, 0.25);
 }
 
 .queue-card-body {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.65rem;
 }
 
 .order-info-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
 }
 
 .info-icon {
   color: var(--primary-color);
   font-size: 0.9rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
 }
 
 .order-notes {
@@ -784,97 +842,91 @@ export default {
 .queue-card-footer {
   display: flex;
   gap: 0.5rem;
+  padding-top: 0.25rem;
 }
 
 .queue-action-btn {
   flex: 1;
-  padding: 0.625rem;
+  padding: 0.5rem 0.65rem;
   border: none;
-  border-radius: 0.5rem;
-  color: white;
-  font-size: 0.875rem;
-  font-weight: 600;
+  border-radius: 0.65rem;
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  transition: all 0.3s ease;
-  font-family: 'Cairo', sans-serif;
+  gap: 0.35rem;
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
+  font-family: inherit;
+}
+
+.queue-action-btn:hover {
+  filter: brightness(1.05);
 }
 
 .processing-btn {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-}
-
-.processing-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
 }
 
 .ready-btn {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-}
-
-.ready-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.22);
 }
 
 .completed-btn {
-  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
-}
-
-.completed-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(107, 114, 128, 0.3);
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  box-shadow: 0 4px 12px rgba(71, 85, 105, 0.2);
 }
 
 .queue-empty-state {
   text-align: center;
-  padding: 3rem 2rem;
+  padding: 2.25rem 1rem;
   color: var(--text-secondary);
 }
 
 .empty-icon {
-  font-size: 3rem;
-  color: rgba(129, 140, 248, 0.4);
-  margin-bottom: 1rem;
+  font-size: 2.25rem;
+  color: var(--text-secondary);
+  opacity: 0.35;
+  margin-bottom: 0.75rem;
 }
 
 .empty-text {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: var(--text-secondary);
 }
 
 .order-details-modal {
-  padding: 1rem 0;
+  padding: 0.25rem 0;
 }
 
 .order-details-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .details-section-title {
-  font-size: 1.125rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 800;
   color: var(--text-primary);
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .details-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
+  gap: 0.875rem;
 }
 
 .detail-item {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
 }
 
 .detail-item.full-width {
@@ -882,31 +934,31 @@ export default {
 }
 
 .detail-label {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
   font-weight: 600;
 }
 
 .detail-value {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-primary);
   font-weight: 600;
 }
 
 .status-pending {
-  color: #f59e0b;
+  color: #d97706;
 }
 
 .status-processing {
-  color: #3b82f6;
+  color: #2563eb;
 }
 
 .status-ready {
-  color: #10b981;
+  color: #059669;
 }
 
 .status-completed {
-  color: #6b7280;
+  color: #64748b;
 }
 
 .status-paid {
@@ -920,63 +972,114 @@ export default {
 .order-items-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .order-item-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  background: var(--bg-tertiary);
-  border-radius: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  background: var(--bg-secondary);
+  border-radius: 0.65rem;
   border: 1px solid var(--border-color);
 }
 
 .item-info {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
+  min-width: 0;
 }
 
 .item-name {
   font-weight: 700;
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: 0.9375rem;
 }
 
 .item-quantity {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
 }
 
 .item-price {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--primary-color);
+  flex-shrink: 0;
 }
 
 .order-details-actions {
   display: flex;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.65rem;
   justify-content: flex-end;
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
   padding-top: 1rem;
-  border-top: 2px solid var(--border-color);
+  border-top: 1px solid var(--border-color);
+}
+
+.order-queue-modal-action {
+  padding: 0.65rem 1.15rem;
+  font-size: 0.9rem;
+}
+
+.order-queue-modal-action--processing {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.28);
+}
+
+.order-queue-modal-action--ready,
+.order-queue-modal-action--done {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
 }
 
 @media (max-width: 768px) {
-  .queue-board {
+  .order-queue-board {
     grid-template-columns: 1fr;
   }
-  
-  .queue-header-content {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
+
   .details-grid {
     grid-template-columns: 1fr;
   }
+
+  .order-details-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .order-details-actions .users-add-button,
+  .order-details-actions .users-form-cancel-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+</style>
+
+<style>
+/* مربوط بنافذة b-modal (تُعرض خارج شجرة المكوّن) */
+.order-queue-modal-content.modal-content {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+}
+
+.order-queue-modal-header.modal-header {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.order-queue-modal-header.modal-header .close {
+  color: var(--text-primary);
+  opacity: 0.75;
+  text-shadow: none;
+}
+
+.order-queue-modal-header .modal-title {
+  font-weight: 800;
 }
 </style>
 

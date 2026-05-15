@@ -12,5 +12,8 @@ namespace RestaurantPOS.Models.Requests.Restaurant
 
         /// <summary>عند true يُزال ملف صورة الخلفية المحفوظ.</summary>
         public bool ClearFloorPlanImage { get; set; }
+
+        /// <summary>حجم رقاقة الطاولة بالبكسل (32–96); null = لا تغيير.</summary>
+        public int? TableChipSizePx { get; set; }
     }
 }

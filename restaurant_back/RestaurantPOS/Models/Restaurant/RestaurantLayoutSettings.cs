@@ -26,5 +26,8 @@ namespace RestaurantPOS.Models.Restaurant
 
         /// <summary>JSON: مصفوفة مناطق مستطيلة [{ "name","x","y","w","h","color" }] بإحداثيات معيّرة 0–1.</summary>
         public string? ZonesJson { get; set; }
+
+        /// <summary>عرض/ارتفاع رقاقة الطاولة على المخطط بالبكسل (32–96).</summary>
+        public int? TableChipSizePx { get; set; }
     }
 }
