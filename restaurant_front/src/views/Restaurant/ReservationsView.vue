@@ -244,21 +244,21 @@
                   class="users-form-input"
                 />
               </div>
-              <div class="users-form-group">
+              <div class="users-form-group users-form-group--full">
                 <label class="users-form-label">
                   <b-icon icon="table" class="form-label-icon"></b-icon>
                   {{ $t("table") || "الطاولة (اختياري)" }}
                 </label>
-                <label class="users-form-label" style="margin-bottom: 0.35rem;">
-                  <b-icon icon="geo-alt-fill" class="form-label-icon"></b-icon>
-                  {{ $t("zone") || "الموقع" }}
-                </label>
-                <select
-                  v-model="tableZoneFilter"
-                  class="users-form-input"
-                  style="margin-bottom: 0.5rem;"
-                  @change="onReservationTableZoneFilterChanged"
-                >
+                <div class="reservation-table-picker">
+                  <div class="users-form-sublabel">
+                    <b-icon icon="geo-alt-fill" class="form-label-icon"></b-icon>
+                    {{ $t("zone") || "الموقع" }}
+                  </div>
+                  <select
+                    v-model="tableZoneFilter"
+                    class="users-form-input reservation-zone-select"
+                    @change="onReservationTableZoneFilterChanged"
+                  >
                   <option value="">{{ $t("allZones") || "جميع المواقع" }}</option>
                   <option v-for="zone in uniqueZones" :key="'add-z-' + zone" :value="zone">{{ zone }}</option>
                 </select>
@@ -270,10 +270,11 @@
                       type="text"
                       :placeholder="$t('searchTable') || 'ابحث عن طاولة...'"
                       class="table-search-input"
+                      autocomplete="off"
                     />
                   </div>
                 </div>
-                <select v-model="addForm.tableId" class="users-form-input" size="8" style="margin-top: 0.5rem;">
+                <select v-model="addForm.tableId" class="users-form-input reservation-table-select" size="8">
                   <option :value="null">{{ $t("selectTable") || "اختر طاولة" }}</option>
                   <option v-for="table in filteredTables" :key="table.id" :value="table.id">
                     {{ table.tableNumber }} 
@@ -282,6 +283,7 @@
                     - {{ getTableStatusText(table.status) }}
                   </option>
                 </select>
+                </div>
               </div>
             </div>
             <div class="users-form-group">
@@ -372,21 +374,21 @@
                   class="users-form-input"
                 />
               </div>
-              <div class="users-form-group">
+              <div class="users-form-group users-form-group--full">
                 <label class="users-form-label">
                   <b-icon icon="table" class="form-label-icon"></b-icon>
                   {{ $t("table") || "الطاولة" }}
                 </label>
-                <label class="users-form-label" style="margin-bottom: 0.35rem;">
-                  <b-icon icon="geo-alt-fill" class="form-label-icon"></b-icon>
-                  {{ $t("zone") || "الموقع" }}
-                </label>
-                <select
-                  v-model="tableZoneFilter"
-                  class="users-form-input"
-                  style="margin-bottom: 0.5rem;"
-                  @change="onReservationTableZoneFilterChanged"
-                >
+                <div class="reservation-table-picker">
+                  <div class="users-form-sublabel">
+                    <b-icon icon="geo-alt-fill" class="form-label-icon"></b-icon>
+                    {{ $t("zone") || "الموقع" }}
+                  </div>
+                  <select
+                    v-model="tableZoneFilter"
+                    class="users-form-input reservation-zone-select"
+                    @change="onReservationTableZoneFilterChanged"
+                  >
                   <option value="">{{ $t("allZones") || "جميع المواقع" }}</option>
                   <option v-for="zone in uniqueZones" :key="'edit-z-' + zone" :value="zone">{{ zone }}</option>
                 </select>
@@ -398,10 +400,11 @@
                       type="text"
                       :placeholder="$t('searchTable') || 'ابحث عن طاولة...'"
                       class="table-search-input"
+                      autocomplete="off"
                     />
                   </div>
                 </div>
-                <select v-model="editForm.tableId" class="users-form-input" size="8" style="margin-top: 0.5rem;">
+                <select v-model="editForm.tableId" class="users-form-input reservation-table-select" size="8">
                   <option :value="null">{{ $t("selectTable") || "اختر طاولة" }}</option>
                   <option v-for="table in filteredTables" :key="table.id" :value="table.id">
                     {{ table.tableNumber }} 
@@ -410,6 +413,7 @@
                     - {{ getTableStatusText(table.status) }}
                   </option>
                 </select>
+                </div>
               </div>
             </div>
             <div class="users-form-group">
@@ -1293,42 +1297,116 @@ export default {
   font-style: italic;
 }
 
-/* Table Search Styles */
+/* اختيار الطاولة في نموذج الحجز */
+.reservation-table-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 1rem 1.1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-secondary) 92%, var(--border-color) 8%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.users-form-sublabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: var(--text-secondary);
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+.users-form-sublabel .form-label-icon {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.reservation-zone-select {
+  margin: 0 !important;
+}
+
+/* Table Search */
 .table-search-wrapper {
-  margin-bottom: 0.5rem;
+  margin: 0;
+  width: 100%;
 }
 
 .table-search-input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .table-search-icon {
   position: absolute;
-  right: 1rem;
+  inset-inline-end: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--text-muted);
-  font-size: 1rem;
+  font-size: 1.05rem;
   pointer-events: none;
-  z-index: 1;
+  z-index: 2;
+  opacity: 0.88;
 }
 
 .table-search-input {
   width: 100%;
-  padding: 0.75rem 1rem 0.75rem 3rem;
+  box-sizing: border-box;
+  min-height: 2.875rem;
+  padding-block: 0.65rem;
+  padding-inline: 1rem 2.75rem;
   border: 2px solid var(--border-color);
-  border-radius: 0.5rem;
+  border-radius: 0.65rem;
   font-size: 0.9375rem;
-  transition: all 0.3s ease;
-  background: var(--bg-tertiary);
+  line-height: 1.35;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  background: var(--bg-primary);
   color: var(--text-primary);
+}
+
+.table-search-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.table-search-input:hover {
+  border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
 }
 
 .table-search-input:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 22%, transparent);
   outline: none;
-  background: var(--bg-tertiary);
+  background: var(--bg-primary);
+}
+
+.reservation-table-select {
+  margin: 0 !important;
+  width: 100%;
+  min-height: 11.5rem;
+  max-height: min(42vh, 280px);
+  padding: 0.4rem;
+  border-radius: 0.65rem;
+  border: 2px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.reservation-table-select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 18%, transparent);
+  outline: none;
 }
 
 .users-form-input[multiple] {
@@ -1352,6 +1430,23 @@ export default {
 .users-form-input[multiple] option:checked {
   background-color: var(--primary-color);
   color: white;
+}
+
+@media (max-width: 576px) {
+  .reservation-table-picker {
+    padding: 0.85rem;
+    gap: 0.55rem;
+  }
+
+  .reservation-table-select {
+    max-height: min(38vh, 220px);
+    font-size: 0.8125rem;
+  }
+
+  .table-search-input {
+    min-height: 2.75rem;
+    font-size: 0.875rem;
+  }
 }
 </style>
 

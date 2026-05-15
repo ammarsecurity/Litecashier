@@ -150,7 +150,7 @@
       :pos-fullscreen-active="isFullscreen"
       @toggle-pos-fullscreen="toggleFullscreen"
     >
-      <template #pos-actions>
+      <template #header-start>
         <button
           type="button"
           class="app-top-header-icon-btn app-top-header-icon-btn--table-plan"
@@ -204,9 +204,12 @@
                     </div>
                   </div>
                   <div class="pos-tables-toolbar-end">
-                    
-                    <div v-if="selectedTableId" class="pos-table-actions-buttons pos-table-actions-buttons--inline">
-                      <template v-if="selectedTable && selectedTable.status === 'Occupied'">
+                    <!-- حفظ / طباعة: طاولة مختارة أو سلة مع طلب خارجي/توصيل (دون طاولة) -->
+                    <div
+                      v-if="selectedTableId || (carditems.length > 0 && orderForSend.orderType !== 'DineIn')"
+                      class="pos-table-actions-buttons pos-table-actions-buttons--inline"
+                    >
+                      <template v-if="selectedTableId && selectedTable && selectedTable.status === 'Occupied'">
                         <div class="pos-table-action-transfer-group">
                           <button
                             class="pos-table-action-btn pos-table-action-transfer pos-table-action-transfer--item"
@@ -236,13 +239,13 @@
                           <b-icon icon="check-circle-fill"></b-icon>
                           <span>{{ $t("saveForAllMergedTables") || "حفظ لجميع الطاولات" }}</span>
                         </button>
+                        <button class="pos-table-action-btn pos-table-action-save-print" v-if="carditems.length > 0" @click="addOrderAndClear(false)">
+                          <b-icon icon="printer-fill"></b-icon>
+                          <span>{{ $t("saveAndPrint") || "حفظ وطباعة" }}</span>
+                        </button>
                         <button class="pos-table-action-btn pos-table-action-close" v-if="selectedTable && selectedTable.status === 'Occupied'" @click="closeTableOrder(selectedTableId)">
                           <b-icon icon="x-circle-fill"></b-icon>
                           <span>{{ $t("closeAndPrint") || "إغلاق وطباعة" }}</span>
-                        </button>
-                        <button class="pos-table-action-btn pos-table-action-deselect" @click="deselectTable">
-                          <b-icon icon="x-circle-fill"></b-icon>
-                          <span>{{ $t("deselectAllMergedTables") || "إلغاء جميع الطاولات" }}</span>
                         </button>
                       </template>
                       <template v-else>
@@ -250,13 +253,13 @@
                           <b-icon icon="check-circle-fill"></b-icon>
                           <span>{{ $t("save") || "حفظ" }}</span>
                         </button>
+                        <button class="pos-table-action-btn pos-table-action-save-print" v-if="carditems.length > 0" @click="addOrderAndClear(false)">
+                          <b-icon icon="printer-fill"></b-icon>
+                          <span>{{ $t("saveAndPrint") || "حفظ وطباعة" }}</span>
+                        </button>
                         <button class="pos-table-action-btn pos-table-action-close" v-if="selectedTable && selectedTable.status === 'Occupied'" @click="closeTableOrder(selectedTableId)">
                           <b-icon icon="x-circle-fill"></b-icon>
                           <span>{{ $t("closeAndPrint") || "إغلاق وطباعة" }}</span>
-                        </button>
-                        <button class="pos-table-action-btn pos-table-action-deselect" @click="deselectTable">
-                          <b-icon icon="x-circle-fill"></b-icon>
-                          <span>{{ $t("deselectTable") || "إلغاء" }}</span>
                         </button>
                       </template>
                     </div>
@@ -3432,40 +3435,6 @@ export default {
         });
       }
     },
-    async deselectTable() {
-      // If we have merged tables selected, deselect all of them
-      if (this.selectedTableIds.length > 1) {
-        // Clear all merged tables
-        this.selectedTableIds = [];
-      this.selectedTableId = null;
-      this.orderForSend.tableId = null;
-        this.orderForSend.orderType = 'Takeaway';
-        this.orderForSend.numberOfGuests = 0;
-        this.carditems = [];
-        this.tableOrders = [];
-        
-        this.$toast.info(this.$i18n.t("allMergedTablesDeselected") || "تم إلغاء اختيار جميع الطاولات المدمجة", {
-          position: "top-right",
-          timeout: 1500,
-          maxToasts: 1,
-        });
-      } else {
-        // Single table deselection
-        this.selectedTableId = null;
-        this.selectedTableIds = [];
-        this.orderForSend.tableId = null;
-        this.orderForSend.orderType = 'Takeaway';
-        this.orderForSend.numberOfGuests = 0;
-      this.carditems = [];
-      this.tableOrders = [];
-      
-      this.$toast.info(this.$i18n.t("tableDeselected") || "تم إلغاء اختيار الطاولة", {
-        position: "top-right",
-        timeout: 1500,
-        maxToasts: 1,
-      });
-      }
-    },
     getTableNumberById(tableId) {
       const table = this.allTables.find(t => t.id === tableId);
       return table ? table.tableNumber : '';
@@ -3932,7 +3901,10 @@ export default {
             if (isPrint && itemsForPrintSnapshot && itemsForPrintSnapshot.length > 0) {
               await this.$nextTick();
               try {
-                await this.printCard(itemsForPrintSnapshot, { raiseOnError: true });
+                await this.printCard(itemsForPrintSnapshot, {
+                  raiseOnError: true,
+                  cashierReceiptOnly: true,
+                });
               } catch (printError) {
                 console.error("Print error:", printError);
                 const persisted =
@@ -4485,6 +4457,8 @@ export default {
     },
     async printCard(itemsToPrint = null, printOptions = {}) {
       const raiseOnError = !!(printOptions && printOptions.raiseOnError);
+      /** إيصال كاشير واحد فقط (الطابعة الرئيسية أو الاحتياطي الموحّد) — بدون تقسيم حسب وسوم/طابعات المطبخ */
+      const cashierReceiptOnly = !!(printOptions && printOptions.cashierReceiptOnly);
       let originalCarditems = null;
       try {
         // Use provided items or fallback to current carditems
@@ -4837,52 +4811,69 @@ export default {
             console.warn('Error printing to main printer:', mainPrinterError);
           }
         }
+
+        if (cashierReceiptOnly) {
+          if (this.mainPrinter) {
+            if (itemsToPrint) {
+              this.carditems = originalCarditems;
+            }
+            this.$toast.success(this.$i18n.t("printSuccess") || "تم الطباعة بنجاح", {
+              position: "top-right",
+              timeout: 2000,
+              maxToasts: 1,
+            });
+            return;
+          }
+          /* لا توجد طابعة رئيسية: يكمل المسار أدناه لإيصال واحد (Python / Web / المتصفح) */
+        }
         
         // Step 2: Try tag-based printing for specific items
-        try {
-          // Group items by tags
-          const groupedItems = this.groupItemsByTag(printItems);
-          const tagGroups = Object.keys(groupedItems);
-          
-          if (tagGroups.length > 0) {
-            let allPrintSuccess = true;
-            let hasTagPrinters = false;
+        if (!cashierReceiptOnly) {
+          try {
+            // Group items by tags
+            const groupedItems = this.groupItemsByTag(printItems);
+            const tagGroups = Object.keys(groupedItems);
             
-            // Print each group to its assigned printer
-            for (const tagName of tagGroups) {
-              const group = groupedItems[tagName];
+            if (tagGroups.length > 0) {
+              let allPrintSuccess = true;
+              let hasTagPrinters = false;
               
-              if (group.items.length > 0) {
-                if (group.printerId) {
-                  // Print to specific printer for this tag
-                  hasTagPrinters = true;
-                  const printSuccess = await this.printItemsByTag(tagName, group.items, group.printerId);
-                  if (!printSuccess) {
-                    allPrintSuccess = false;
+              // Print each group to its assigned printer
+              for (const tagName of tagGroups) {
+                const group = groupedItems[tagName];
+                
+                if (group.items.length > 0) {
+                  if (group.printerId) {
+                    // Print to specific printer for this tag
+                    hasTagPrinters = true;
+                    const printSuccess = await this.printItemsByTag(tagName, group.items, group.printerId);
+                    if (!printSuccess) {
+                      allPrintSuccess = false;
+                    }
+                  } else {
+                    // No printer assigned - skip (already printed to main printer)
+                    console.log(`No printer assigned for tag "${tagName}", skipping (already printed to main printer)`);
                   }
-                } else {
-                  // No printer assigned - skip (already printed to main printer)
-                  console.log(`No printer assigned for tag "${tagName}", skipping (already printed to main printer)`);
                 }
               }
-            }
-            
-            if (hasTagPrinters || this.mainPrinter) {
-              // Restore original carditems if we changed it
-              if (itemsToPrint) {
-                this.carditems = originalCarditems;
+              
+              if (hasTagPrinters || this.mainPrinter) {
+                // Restore original carditems if we changed it
+                if (itemsToPrint) {
+                  this.carditems = originalCarditems;
+                }
+                this.$toast.success(this.$i18n.t("printSuccess") || 'تم الطباعة بنجاح', {
+                  position: "top-right",
+                  timeout: 2000,
+                  maxToasts: 1,
+                });
+                return; // Success - exit early
               }
-              this.$toast.success(this.$i18n.t("printSuccess") || 'تم الطباعة بنجاح', {
-                position: "top-right",
-                timeout: 2000,
-                maxToasts: 1,
-              });
-              return; // Success - exit early
             }
+          } catch (tagPrintError) {
+            console.warn('Tag-based printing error, trying fallback methods:', tagPrintError);
+            // Fall through to other print methods
           }
-        } catch (tagPrintError) {
-          console.warn('Tag-based printing error, trying fallback methods:', tagPrintError);
-          // Fall through to other print methods
         }
         
         // Try Python print server as fallback (if available)
@@ -5414,7 +5405,7 @@ export default {
         return;
       }
       try {
-        await this.printCard();
+        await this.printCard(null, { cashierReceiptOnly: true });
         await this.markCurrentTableAsReservedAfterPrint();
       } catch (e) {
         console.error("printCartOnly:", e);
@@ -6218,7 +6209,7 @@ export default {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.35rem;
+  gap: 0.5rem;
   flex: 0 1 auto;
   min-width: 0;
 }
@@ -6819,6 +6810,14 @@ export default {
   flex: 0 1 auto;
 }
 
+.pos-table-actions-buttons:dir(rtl) {
+  justify-content: flex-start;
+}
+
+.pos-table-actions-buttons.pos-table-actions-buttons--inline {
+  gap: 0.65rem;
+}
+
 .pos-table-action-btn {
   display: inline-flex;
   align-items: center;
@@ -6921,39 +6920,80 @@ export default {
 }
 
 .pos-table-action-save {
+  min-height: 2.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  box-sizing: border-box;
+  padding: 0.52rem 1.1rem;
+  gap: 0.5rem;
+  border-radius: 0.55rem;
 }
 
 .pos-table-action-save:hover {
+  border-color: rgba(255, 255, 255, 0.3);
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
+.pos-table-action-save .b-icon {
+  font-size: 0.94rem;
+}
+
+.pos-table-action-save span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.pos-table-action-save-print {
+  min-height: 2.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+  box-sizing: border-box;
+  padding: 0.52rem 1.1rem;
+  gap: 0.5rem;
+  border-radius: 0.55rem;
+}
+
+.pos-table-action-save-print:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4);
+}
+
+.pos-table-action-save-print .b-icon {
+  font-size: 0.94rem;
+}
+
+.pos-table-action-save-print span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
 .pos-table-action-close {
+  min-height: 2.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  box-sizing: border-box;
+  padding: 0.52rem 1.1rem;
+  gap: 0.5rem;
+  border-radius: 0.55rem;
 }
 
 .pos-table-action-close:hover {
+  border-color: rgba(255, 255, 255, 0.3);
   background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
-}
-
-.pos-table-action-deselect {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
-}
-
-.pos-table-action-deselect:hover {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
 @media (max-width: 991px) {
@@ -7088,6 +7128,20 @@ export default {
 
   .pos-tables-toolbar-end {
     justify-content: flex-end;
+  }
+
+  .pos-tables-toolbar-end:dir(rtl) {
+    justify-content: flex-start;
+  }
+
+  /* صف موحّد: توزيع متساوٍ مع مسافة أوضح بين الأزرار */
+  .pos-table-actions-buttons--inline > .pos-table-action-save,
+  .pos-table-actions-buttons--inline > .pos-table-action-save-print,
+  .pos-table-actions-buttons--inline > .pos-table-action-close {
+    flex: 1 1 0;
+    min-width: 7.5rem;
+    width: auto;
+    max-width: none;
   }
 }
 

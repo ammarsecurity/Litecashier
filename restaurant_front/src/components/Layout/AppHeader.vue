@@ -1,13 +1,17 @@
 <template>
   <header class="app-top-header">
     <div class="app-top-header-inner">
-      <router-link
-        to="/sections"
-        class="app-top-header-sections-link"
-        :title="$t('systemModules') || 'أقسام النظام'"
-      >
-        <b-icon icon="grid-3x3-gap-fill" class="app-top-header-sections-icon"></b-icon>
-      </router-link>
+      <div class="app-top-header-start">
+        <slot name="header-start">
+          <router-link
+            to="/sections"
+            class="app-top-header-sections-link"
+            :title="$t('systemModules') || 'أقسام النظام'"
+          >
+            <b-icon icon="grid-3x3-gap-fill" class="app-top-header-sections-icon"></b-icon>
+          </router-link>
+        </slot>
+      </div>
 
       <div v-if="$slots['pos-center']" class="app-top-header-center">
         <slot name="pos-center"></slot>
