@@ -153,3 +153,5 @@ temp/
 # أرشيفات كبيرة (GitHub يرفض الملفات > 100 ميجابايت)
 docker-compose.tar
 **/docker-compose.tar
+restaurant_back/restaurant_back.zip
+**/*.zip
