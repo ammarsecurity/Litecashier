@@ -38,8 +38,11 @@ public class PrintController : ControllerBase
             var jsonString = System.Text.Json.JsonSerializer.Serialize(requestData);
             var options = new System.Text.Json.JsonSerializerOptions
             {
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
             };
+            options.Converters.Add(new Models.FlexibleDecimalJsonConverter());
+            options.Converters.Add(new Models.FlexibleNullableDecimalJsonConverter());
             
             var data = System.Text.Json.JsonSerializer.Deserialize<PrintRequest>(jsonString, options);
             
@@ -69,7 +72,7 @@ public class PrintController : ControllerBase
             else
             {
                 _logger.LogInformation("No HTML content, formatting receipt from JSON data as HTML");
-                var receiptHtml = _printService.FormatReceipt(data);
+                var receiptHtml = ReceiptPrintStyles.EnsureFullDocument(_printService.FormatReceipt(data));
                 _logger.LogInformation($"Formatted receipt HTML length: {receiptHtml.Length} characters");
                 success = _printService.PrintHtmlContent(receiptHtml, printerName);
             }

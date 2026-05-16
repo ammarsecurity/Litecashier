@@ -39,7 +39,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/TagPrinters
-        [Authorize(Roles = "Commercial,Admin")]
+        [Authorize(Roles = "Commercial,Admin,POS,Waiter")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<List<TagPrinter>>>> GetTagPrinters()
         {

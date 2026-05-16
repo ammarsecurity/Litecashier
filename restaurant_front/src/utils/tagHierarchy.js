@@ -108,3 +108,73 @@ export function resolveItemTagsToCategoryIds(tagsStr, allTags) {
   }
   return { rootId: null, subId: null };
 }
+
+/**
+ * يحدد طابعة القسم لصنف من نص Item.Tags (يدعم القسم الرئيسي › فرعي)
+ */
+export function resolvePrinterIdForItemTags(itemTagsStr, tagPrinters, allTags) {
+  if (!tagPrinters || !tagPrinters.length) return null;
+  const trimmed = String(itemTagsStr || "").trim();
+  if (!trimmed) return null;
+
+  const byTagId = {};
+  const byTagName = {};
+  for (const tp of tagPrinters) {
+    const tag = tp.tag ?? tp.Tag;
+    const printer = tp.printer ?? tp.Printer;
+    if (!tag && !printer && !tp.tagId && !tp.TagId) continue;
+    const tagId = tag?.id ?? tag?.Id ?? tp.tagId ?? tp.TagId;
+    const printerId =
+      printer?.id ?? printer?.Id ?? tp.printerId ?? tp.PrinterId;
+    if (tagId != null && printerId != null) {
+      byTagId[String(tagId)] = printerId;
+    }
+    const name = String(tag?.name ?? tag?.Name ?? "").trim();
+    if (name && printerId != null) byTagName[name] = printerId;
+  }
+
+  if (byTagName[trimmed]) return byTagName[trimmed];
+
+  const { rootId, subId } = resolveItemTagsToCategoryIds(trimmed, allTags);
+  if (subId != null && byTagId[String(subId)] != null) return byTagId[String(subId)];
+  if (rootId != null && byTagId[String(rootId)] != null) return byTagId[String(rootId)];
+
+  const rootPart = trimmed.split(TAG_SUB_SEPARATOR)[0].trim();
+  if (rootPart && byTagName[rootPart]) return byTagName[rootPart];
+
+  return null;
+}
+
+/**
+ * تجميع أصناف الطلب حسب طابعة القسم؛ الأصناف بلا طابعة في مجموعة unmapped
+ */
+export function groupItemsForDepartmentPrinting(items, tagPrinters, allTags) {
+  const grouped = {};
+  for (const item of items || []) {
+    const tagName = item.tags || "مواد اخرى";
+    const printerId = resolvePrinterIdForItemTags(tagName, tagPrinters, allTags);
+    if (printerId) {
+      const key = `printer_${printerId}`;
+      if (!grouped[key]) {
+        const displayTag =
+          tagName.split(TAG_SUB_SEPARATOR)[0].trim() || tagName;
+        grouped[key] = {
+          items: [],
+          printerId,
+          tagName: displayTag,
+        };
+      }
+      grouped[key].items.push(item);
+    } else {
+      if (!grouped.unmapped) {
+        grouped.unmapped = {
+          items: [],
+          printerId: null,
+          tagName: "unmapped",
+        };
+      }
+      grouped.unmapped.items.push(item);
+    }
+  }
+  return grouped;
+}

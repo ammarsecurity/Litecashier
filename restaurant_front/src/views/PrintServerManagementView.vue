@@ -334,60 +334,103 @@
     </div>
 
     <!-- Add Tag Printer Modal -->
-    <b-modal 
-      v-model="showAddTagPrinterModal" 
-      :title="selectedTagPrinter ? ($t('editTagPrinter') || 'تعديل ربط قسم بطابعة') : ($t('addTagPrinter') || 'إضافة ربط قسم بطابعة')" 
+    <b-modal
+      v-model="showAddTagPrinterModal"
       @hidden="resetTagPrinterForm"
+      hide-header
+      hide-footer
+      class="users-modal"
       centered
       size="lg"
     >
-      <div class="tag-printer-form">
-        <div class="form-group">
-          <label>القسم <span class="required">*</span></label>
-          <select 
-            v-model="tagPrinterForm.tagId" 
-            class="form-control"
-            :disabled="loadingTags"
-          >
-            <option value="">{{ $t("selectTag") || "اختر القسم" }}</option>
-            <option v-for="tag in tags" :key="tag.id" :value="tag.id">
-              {{ tag.name }}
+      <div class="modal-content-wrapper">
+        <h2 class="modal-title">
+          {{
+            selectedTagPrinter
+              ? $t("editTagPrinter") || "تعديل ربط قسم بطابعة"
+              : $t("addTagPrinter") || "إضافة ربط قسم بطابعة"
+          }}
+        </h2>
+        <form @submit.prevent="saveTagPrinter" class="users-form">
+          <div class="modal-form-grid">
+            <div class="users-form-group">
+              <label class="users-form-label">
+                <b-icon icon="tags-fill" class="form-label-icon"></b-icon>
+                {{ $t("mainCategory") || $t("tag") || "القسم الرئيسي" }}
+                <span class="required">*</span>
+              </label>
+              <select
+                v-model="tagPrinterForm.tagId"
+                class="users-form-select"
+                :disabled="loadingTags"
+                required
+              >
+            <option value="">{{ $t("selectMainCategory") || $t("selectTag") || "اختر القسم الرئيسي" }}</option>
+            <option
+              v-for="tag in rootTagsForSelect"
+              :key="tag.id ?? tag.Id"
+              :value="tag.id ?? tag.Id"
+            >
+              {{ tag.name ?? tag.Name }}
             </option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>الطابعة <span class="required">*</span></label>
-          <select 
-            v-model="tagPrinterForm.printerId" 
-            class="form-control"
-            :disabled="loadingPrinters"
-          >
-            <option value="">{{ $t("selectPrinter") || "اختر الطابعة" }}</option>
-            <option v-for="printer in managedPrinters" :key="printer.id" :value="printer.id">
-              {{ printer.name }}
-            </option>
-          </select>
-        </div>
+              </select>
+            </div>
+            <div class="users-form-group">
+              <label class="users-form-label">
+                <b-icon icon="printer-fill" class="form-label-icon"></b-icon>
+                {{ $t("printer") || "الطابعة" }}
+                <span class="required">*</span>
+              </label>
+              <select
+                v-model="tagPrinterForm.printerId"
+                class="users-form-select"
+                :disabled="loadingPrinters"
+                required
+              >
+                <option value="">{{ $t("selectPrinter") || "اختر الطابعة" }}</option>
+                <option
+                  v-for="printer in managedPrinters"
+                  :key="printer.id"
+                  :value="printer.id"
+                >
+                  {{ printer.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="users-form-actions">
+            <button
+              type="button"
+              class="users-form-cancel-button"
+              @click="showAddTagPrinterModal = false"
+              :disabled="savingTagPrinter"
+            >
+              {{ $t("cancel") || "إلغاء" }}
+            </button>
+            <button
+              type="submit"
+              class="users-form-submit-button"
+              :disabled="!tagPrinterForm.tagId || !tagPrinterForm.printerId || savingTagPrinter"
+            >
+              <b-spinner small v-if="savingTagPrinter" class="me-2"></b-spinner>
+              {{
+                savingTagPrinter
+                  ? selectedTagPrinter
+                    ? $t("updating") || "جاري التحديث..."
+                    : $t("adding") || "جاري الإضافة..."
+                  : selectedTagPrinter
+                    ? $t("update") || "تحديث"
+                    : $t("add") || "إضافة"
+              }}
+            </button>
+          </div>
+        </form>
       </div>
-      <template #modal-footer>
-        <button class="btn btn-secondary" @click="showAddTagPrinterModal = false" :disabled="savingTagPrinter">
-          {{ $t("cancel") || "إلغاء" }}
-        </button>
-        <button 
-          class="btn btn-primary" 
-          @click="saveTagPrinter"
-          :disabled="!tagPrinterForm.tagId || !tagPrinterForm.printerId || savingTagPrinter"
-        >
-          <b-spinner small v-if="savingTagPrinter" class="me-2"></b-spinner>
-          {{ savingTagPrinter ? (selectedTagPrinter ? ($t("updating") || "جاري التحديث...") : ($t("adding") || "جاري الإضافة...")) : (selectedTagPrinter ? ($t("update") || "تحديث") : ($t("add") || "إضافة")) }}
-        </button>
-      </template>
     </b-modal>
 
     <!-- Add Printer Modal -->
     <b-modal 
       v-model="showAddPrinterModal" 
-      title="إضافة طابعة" 
       @hidden="resetPrinterForm"
       hide-header 
       hide-footer 
@@ -518,145 +561,255 @@
     </b-modal>
 
     <!-- Edit Printer Modal -->
-    <b-modal 
-      v-model="showEditPrinterModal" 
-      title="تعديل طابعة" 
+    <b-modal
+      v-model="showEditPrinterModal"
       @hidden="resetPrinterForm"
+      hide-header 
+      hide-footer 
+      class="users-modal" 
       centered
       size="lg"
     >
-      <div class="printer-form">
-        <div class="form-group">
-          <label>اسم الطابعة <span class="required">*</span></label>
-          <input 
-            v-model="printerForm.name" 
-            type="text" 
-            class="form-control"
-            placeholder="مثال: طابعة الكاشير الرئيسية"
-          />
-        </div>
-        <div class="form-group">
-          <label>الوصف</label>
-          <textarea 
-            v-model="printerForm.description" 
-            class="form-control"
-            rows="2"
-            placeholder="وصف الطابعة..."
-          ></textarea>
-        </div>
-        <div class="form-group">
-          <label>اسم الطابعة في النظام <span class="required">*</span></label>
-          <select 
-            v-model="printerForm.printerName" 
-            class="form-control"
-            @change="printerForm.printerName = $event.target.value"
-          >
-            <option value="">{{ $t("selectPrinter") || "اختر الطابعة" }}</option>
-            <option v-for="printer in printers" :key="printer.name" :value="printer.name">
-              {{ printer.name }} ({{ printer.type }})
-            </option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>نوع الطابعة <span class="required">*</span></label>
-          <select v-model="printerForm.printerType" class="form-control">
-            <option value="windows">Windows</option>
-            <option value="usb">USB</option>
-            <option value="serial">Serial</option>
-            <option value="network">Network</option>
-            <option value="file">File</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>فئة الطباعة</label>
-          <select v-model="printerForm.printCategory" class="form-control">
-            <option value="">{{ $t("selectCategory") || "اختر الفئة" }}</option>
-            <option v-for="cat in availablePrintCategories" :key="cat.value" :value="cat.value">
-              {{ cat.label }}
-            </option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>
-            <input 
-              type="checkbox" 
-              v-model="printerForm.isActive"
-              class="checkbox-input"
-            />
-            {{ $t("active") || "مفعل" }}
-          </label>
-        </div>
-        <div class="form-group">
-          <label>
-            <input 
-              type="checkbox" 
-              v-model="printerForm.isMain"
-              class="checkbox-input"
-            />
-            {{ $t("mainPrinter") || "طابعة رئيسية" }}
-            <small class="form-help-text">(تطبع كل الفواتير)</small>
-          </label>
-        </div>
+      <div class="modal-content-wrapper">
+        <h2 class="modal-title">{{ $t("editPrinter") || "تعديل طابعة" }}</h2>
+        <form @submit.prevent="updatePrinter" class="users-form">
+          <div class="modal-form-grid">
+            <div class="users-form-group">
+              <label class="users-form-label">
+                <b-icon icon="printer-fill" class="form-label-icon"></b-icon>
+                {{ $t("printerName") || "اسم الطابعة" }} <span class="required">*</span>
+              </label>
+              <input 
+                v-model="printerForm.name" 
+                type="text" 
+                class="users-form-input"
+                placeholder="مثال: طابعة الكاشير الرئيسية"
+                required
+              />
+            </div>
+            <div class="users-form-group">
+              <label class="users-form-label">
+                <b-icon icon="list-ul" class="form-label-icon"></b-icon>
+                {{ $t("printerType") || "نوع الطابعة" }} <span class="required">*</span>
+              </label>
+              <select v-model="printerForm.printerType" class="users-form-select" required>
+                <option value="windows">Windows</option>
+                <option value="usb">USB</option>
+                <option value="serial">Serial</option>
+                <option value="network">Network</option>
+                <option value="file">File</option>
+              </select>
+            </div>
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="file-text-fill" class="form-label-icon"></b-icon>
+              {{ $t("description") || "الوصف" }}
+            </label>
+            <textarea 
+              v-model="printerForm.description" 
+              class="users-form-input"
+              rows="2"
+              placeholder="وصف الطابعة..."
+            ></textarea>
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="printer" class="form-label-icon"></b-icon>
+              {{ $t("systemPrinterName") || "اسم الطابعة في النظام" }} <span class="required">*</span>
+            </label>
+            <select 
+              v-model="printerForm.printerName" 
+              class="users-form-select"
+              @change="printerForm.printerName = $event.target.value"
+              required
+            >
+              <option value="">{{ $t("selectPrinter") || "اختر الطابعة" }}</option>
+              <option v-for="printer in printers" :key="printer.name" :value="printer.name">
+                {{ printer.name }} ({{ printer.type }})
+              </option>
+            </select>
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="tags-fill" class="form-label-icon"></b-icon>
+              {{ $t("printCategory") || "فئة الطباعة" }}
+            </label>
+            <select v-model="printerForm.printCategory" class="users-form-select">
+              <option value="">{{ $t("selectCategory") || "اختر الفئة" }}</option>
+              <option v-for="cat in availablePrintCategories" :key="cat.value" :value="cat.value">
+                {{ cat.label }}
+              </option>
+            </select>
+          </div>
+          <div class="modal-form-grid">
+            <div class="users-form-group">
+              <label class="users-form-label">
+                <b-icon icon="check-circle-fill" class="form-label-icon"></b-icon>
+                {{ $t("active") || "مفعل" }}
+              </label>
+              <div class="users-form-checkbox">
+                <input 
+                  type="checkbox" 
+                  v-model="printerForm.isActive"
+                  id="edit-printer-active"
+                  class="users-form-checkbox-input"
+                />
+                <label for="edit-printer-active" class="users-form-checkbox-label">
+                  {{ $t("active") || "مفعل" }}
+                </label>
+              </div>
+            </div>
+            <div class="users-form-group">
+              <label class="users-form-label">
+                <b-icon icon="star-fill" class="form-label-icon"></b-icon>
+                {{ $t("mainPrinter") || "طابعة رئيسية" }}
+              </label>
+              <div class="users-form-checkbox">
+                <input 
+                  type="checkbox" 
+                  v-model="printerForm.isMain"
+                  id="edit-printer-main"
+                  class="users-form-checkbox-input"
+                />
+                <label for="edit-printer-main" class="users-form-checkbox-label">
+                  {{ $t("mainPrinter") || "طابعة رئيسية" }}
+                  <small class="form-help-text">(تطبع كل الفواتير)</small>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="users-form-actions">
+            <button type="button" class="users-form-cancel-button" @click="showEditPrinterModal = false" :disabled="savingPrinter">
+              {{ $t("cancel") || "إلغاء" }}
+            </button>
+            <button type="submit" class="users-form-submit-button" :disabled="savingPrinter">
+              <b-spinner small v-if="savingPrinter" class="me-2"></b-spinner>
+              {{ savingPrinter ? ($t("updating") || "جاري التحديث...") : ($t("update") || "تحديث") }}
+            </button>
+          </div>
+        </form>
       </div>
-      <template #modal-footer>
-        <b-button variant="secondary" @click="showEditPrinterModal = false" :disabled="savingPrinter">
-          {{ $t("cancel") || "إلغاء" }}
-        </b-button>
-        <b-button variant="primary" @click="updatePrinter" :disabled="savingPrinter">
-          <b-spinner small v-if="savingPrinter" class="me-2"></b-spinner>
-          {{ savingPrinter ? ($t("updating") || "جاري التحديث...") : ($t("update") || "تحديث") }}
-        </b-button>
-      </template>
     </b-modal>
 
+
     <!-- Print Modal -->
-    <b-modal 
-      v-model="showPrintModal" 
-      title="إرسال أمر طباعة" 
+    <b-modal
+      v-model="showPrintModal"
+      hide-header
+      hide-footer
+      class="users-modal"
       centered
       size="lg"
     >
-      <div class="print-form">
-        <div class="form-group">
-          <label>عدد النسخ <span class="required">*</span></label>
-          <input 
-            v-model.number="printForm.copies" 
-            type="number" 
-            min="1"
-            max="10"
-            class="form-control"
-          />
-        </div>
-        <div class="form-group">
-          <label>محتوى الطباعة</label>
-          <textarea 
-            v-model="printForm.htmlContent" 
-            class="form-control"
-            rows="10"
-            placeholder="أدخل محتوى HTML للطباعة..."
-          ></textarea>
+      <div class="modal-content-wrapper">
+        <h2 class="modal-title">{{ $t("sendPrintCommand") || "إرسال أمر طباعة" }}</h2>
+        <form @submit.prevent="sendPrint" class="users-form">
+          <div class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="files" class="form-label-icon"></b-icon>
+              {{ $t("copies") || "عدد النسخ" }}
+              <span class="required">*</span>
+            </label>
+            <input
+              v-model.number="printForm.copies"
+              type="number"
+              min="1"
+              max="10"
+              class="users-form-input"
+              required
+            />
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="code-slash" class="form-label-icon"></b-icon>
+              {{ $t("printContent") || "محتوى الطباعة" }}
+            </label>
+            <textarea
+              v-model="printForm.htmlContent"
+              class="users-form-input"
+              rows="10"
+              placeholder="أدخل محتوى HTML للطباعة..."
+            ></textarea>
+          </div>
+          <div class="users-form-actions">
+            <button type="button" class="users-form-cancel-button" @click="showPrintModal = false">
+              {{ $t("cancel") || "إلغاء" }}
+            </button>
+            <button type="submit" class="users-form-submit-button" :disabled="testingPrint">
+              <b-spinner small v-if="testingPrint" class="me-2"></b-spinner>
+              {{ testingPrint ? ($t("printing") || "جاري الطباعة...") : ($t("print") || "طباعة") }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </b-modal>
+
+    <!-- Delete Printer Modal -->
+    <b-modal
+      v-model="showDeletePrinterModal"
+      hide-header
+      hide-footer
+      class="users-modal"
+      centered
+    >
+      <div class="modal-content-wrapper">
+        <div class="delete-confirmation-content">
+          <div class="delete-icon-wrapper">
+            <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
+          </div>
+          <h3 class="delete-confirmation-title">{{ $t("confirm_delete") || "تأكيد الحذف" }}</h3>
+          <p class="delete-confirmation-text">{{ deletePrinterMessage }}</p>
+          <div class="delete-confirmation-actions">
+            <button type="button" class="delete-confirm-button" @click="executeDeletePrinter">
+              <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+              {{ $t("delete") || "حذف" }}
+            </button>
+            <button type="button" class="delete-cancel-button" @click="showDeletePrinterModal = false">
+              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+              {{ $t("cancel") || "إلغاء" }}
+            </button>
+          </div>
         </div>
       </div>
-      <template #modal-footer>
-        <b-button variant="secondary" @click="showPrintModal = false">
-          {{ $t("cancel") || "إلغاء" }}
-        </b-button>
-        <b-button 
-          variant="primary" 
-          @click="sendPrint"
-          :disabled="testingPrint"
-        >
-          <b-spinner small v-if="testingPrint" class="me-2"></b-spinner>
-          {{ testingPrint ? ($t("printing") || "جاري الطباعة...") : ($t("print") || "طباعة") }}
-        </b-button>
-      </template>
     </b-modal>
+
+    <!-- Delete Tag Printer Modal -->
+    <b-modal
+      v-model="showDeleteTagPrinterModal"
+      hide-header
+      hide-footer
+      class="users-modal"
+      centered
+    >
+      <div class="modal-content-wrapper">
+        <div class="delete-confirmation-content">
+          <div class="delete-icon-wrapper">
+            <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
+          </div>
+          <h3 class="delete-confirmation-title">{{ $t("confirm_delete") || "تأكيد الحذف" }}</h3>
+          <p class="delete-confirmation-text">{{ deleteTagPrinterMessage }}</p>
+          <div class="delete-confirmation-actions">
+            <button type="button" class="delete-confirm-button" @click="executeDeleteTagPrinter">
+              <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+              {{ $t("delete") || "حذف" }}
+            </button>
+            <button type="button" class="delete-cancel-button" @click="showDeleteTagPrinterModal = false">
+              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+              {{ $t("cancel") || "إلغاء" }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </b-modal>
+
   </div>
 </template>
 
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
-import { HTTP } from '../http/api.js';
+import { HTTP } from "../http/api.js";
+import { rootTags } from "@/utils/tagHierarchy.js";
 
 const PRINT_SERVER_URL = 'http://localhost:5000';
 
@@ -686,6 +839,10 @@ export default {
       loadingTags: false,
       showAddTagPrinterModal: false,
       selectedTagPrinter: null,
+      showDeletePrinterModal: false,
+      printerToDelete: null,
+      showDeleteTagPrinterModal: false,
+      tagPrinterToDelete: null,
       savingPrinter: false,
       savingTagPrinter: false,
       tagPrinterForm: {
@@ -719,8 +876,35 @@ export default {
   },
   computed: {
     direction() {
-      return this.$i18n.locale === 'ar' ? 'rtl' : 'ltr';
-    }
+      return this.$i18n.locale === "ar" ? "rtl" : "ltr";
+    },
+    /** أقسام رئيسية فقط (بدون الأقسام الفرعية) لربط الطابعات */
+    rootTagsForSelect() {
+      return rootTags(this.tags);
+    },
+    deletePrinterMessage() {
+      if (!this.printerToDelete) return "";
+      const name = this.printerToDelete.name || "";
+      return (
+        this.$t("confirmDeletePrinter") ||
+        `هل أنت متأكد من حذف الطابعة "${name}"؟`
+      );
+    },
+    deleteTagPrinterMessage() {
+      if (!this.tagPrinterToDelete) return "";
+      const tagName =
+        this.tagPrinterToDelete.tag?.name ||
+        this.tagPrinterToDelete.Tag?.name ||
+        "";
+      const printerName =
+        this.tagPrinterToDelete.printer?.name ||
+        this.tagPrinterToDelete.Printer?.name ||
+        "";
+      return (
+        this.$t("confirmDeleteTagPrinter") ||
+        `هل أنت متأكد من حذف ربط القسم "${tagName}" بالطابعة "${printerName}"؟`
+      );
+    },
   },
   mounted() {
     this.checkServerHealth();
@@ -1088,20 +1272,15 @@ export default {
       }
     },
     confirmDeletePrinter(printer) {
-      this.$bvModal.msgBoxConfirm(
-        `هل أنت متأكد من حذف الطابعة "${printer.name}"؟`,
-        {
-          title: 'تأكيد الحذف',
-          okVariant: 'danger',
-          okTitle: 'حذف',
-          cancelTitle: 'إلغاء',
-          centered: true
-        }
-      ).then(value => {
-        if (value) {
-          this.deletePrinter(printer.id);
-        }
-      });
+      this.printerToDelete = printer;
+      this.showDeletePrinterModal = true;
+    },
+    async executeDeletePrinter() {
+      if (!this.printerToDelete) return;
+      const id = this.printerToDelete.id;
+      this.showDeletePrinterModal = false;
+      this.printerToDelete = null;
+      await this.deletePrinter(id);
     },
     async deletePrinter(id) {
       try {
@@ -1376,9 +1555,15 @@ export default {
       this.showAddTagPrinterModal = true;
     },
     confirmDeleteTagPrinter(tagPrinter) {
-      if (confirm(this.$i18n.t("confirmDeleteTagPrinter") || `هل أنت متأكد من حذف ربط القسم "${tagPrinter.tag?.name}" بالطابعة "${tagPrinter.printer?.name}"؟`)) {
-        this.deleteTagPrinter(tagPrinter.id);
-      }
+      this.tagPrinterToDelete = tagPrinter;
+      this.showDeleteTagPrinterModal = true;
+    },
+    async executeDeleteTagPrinter() {
+      if (!this.tagPrinterToDelete) return;
+      const id = this.tagPrinterToDelete.id;
+      this.showDeleteTagPrinterModal = false;
+      this.tagPrinterToDelete = null;
+      await this.deleteTagPrinter(id);
     },
     async deleteTagPrinter(id) {
       try {
@@ -2734,120 +2919,6 @@ select.form-control:focus {
   box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.1);
 }
 
-/* ============================================
-   Modal Headers - Enhanced Design
-   ============================================ */
-::v-deep .modal-content {
-  border: none;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-xl);
-  background: var(--bg-primary);
-}
-
-::v-deep .modal-header {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-  color: #ffffff;
-  border-bottom: none;
-  padding: 1.5rem;
-  position: relative;
-  overflow: hidden;
-  font-family: 'Cairo', sans-serif;
-}
-
-::v-deep .modal-header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  animation: shimmerHeader 3s infinite;
-}
-
-@keyframes shimmerHeader {
-  0% {
-    left: -100%;
-  }
-  100% {
-    left: 100%;
-  }
-}
-
-::v-deep .modal-header .modal-title {
-  font-family: 'Cairo', sans-serif;
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #ffffff;
-  margin: 0;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  position: relative;
-  z-index: 1;
-}
-
-::v-deep .modal-header .close {
-  display: none !important;
-}
-
-::v-deep .modal-body {
-  padding: 1.5rem;
-  background: var(--bg-primary);
-  font-family: 'Cairo', sans-serif;
-  color: var(--text-primary);
-}
-
-::v-deep .modal-footer {
-  border-top: 1px solid var(--border-color);
-  padding: 1rem 1.5rem;
-  background: var(--bg-secondary);
-  display: flex;
-  gap: 0.75rem;
-}
-
-[dir="rtl"] ::v-deep .modal-footer {
-  flex-direction: row-reverse;
-}
-
-[dir="ltr"] ::v-deep .modal-footer {
-  flex-direction: row;
-}
-
-::v-deep .modal-footer .btn {
-  font-family: 'Cairo', sans-serif;
-  font-weight: 600;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
-  box-shadow: var(--shadow-sm);
-}
-
-::v-deep .modal-footer .btn-primary {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: #ffffff;
-}
-
-::v-deep .modal-footer .btn-primary:hover:not(:disabled) {
-  background: var(--primary-dark);
-  border-color: var(--primary-dark);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-::v-deep .modal-footer .btn-secondary {
-  background: var(--bg-tertiary);
-  border-color: var(--border-color);
-  color: var(--text-primary);
-}
-
-::v-deep .modal-footer .btn-secondary:hover:not(:disabled) {
-  background: var(--bg-primary);
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
 </style>
 
 

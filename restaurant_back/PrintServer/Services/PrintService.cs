@@ -31,39 +31,37 @@ public class PrintService
             }
 
             var config = _configService.GetConfig();
-            if (config.Type == "windows")
+            if (config.Type != "windows")
+                return false;
+
+            htmlContent = ReceiptPrintStyles.EnsureFullDocument(htmlContent);
+            Console.WriteLine($"Prepared receipt HTML document. Length: {htmlContent.Length} characters");
+
+            if (OperatingSystem.IsWindows())
             {
-                // Try printing HTML directly first (for modern printers)
-                Console.WriteLine("Attempting to print HTML directly...");
-                var htmlPrintSuccess = PrintHtmlDirect(htmlContent, printerName);
-                if (htmlPrintSuccess)
+                Console.WriteLine("Attempting WebView2 styled HTML print...");
+                if (HtmlWebViewPrinter.TryPrint(htmlContent, printerName))
                 {
-                    Console.WriteLine("HTML printed successfully via direct method");
+                    Console.WriteLine("HTML printed successfully via WebView2");
                     return true;
                 }
-                
-                // Fallback: Convert HTML to text for thermal printers
-                Console.WriteLine("Direct HTML print failed, converting HTML to text for thermal printer...");
-                var textContent = HtmlToText(htmlContent);
-                Console.WriteLine($"Converted HTML to text. Length: {textContent?.Length ?? 0} characters");
 
-                if (!string.IsNullOrWhiteSpace(textContent))
+                Console.WriteLine("WebView2 print failed, trying legacy WebBrowser...");
+                if (WebBrowserReceiptPrinter.TryPrint(htmlContent, printerName))
                 {
-                    Console.WriteLine("Calling PrintWithWindows with converted text...");
-                    var result = PrintWithWindows(textContent, printerName);
-                    if (result)
-                    {
-                        Console.WriteLine("Print completed successfully via text conversion");
-                    }
-                    return result;
+                    Console.WriteLine("HTML printed successfully via WebBrowser");
+                    return true;
                 }
-                else
+
+                Console.WriteLine("WebBrowser print failed, trying Edge print...");
+                if (PrintHtmlViaEdge(htmlContent, printerName))
                 {
-                    Console.WriteLine("ERROR: Failed to convert HTML to text or text is empty");
-                    return false;
+                    Console.WriteLine("HTML printed successfully via Edge");
+                    return true;
                 }
             }
 
+            Console.WriteLine("ERROR: Could not print styled receipt HTML. Install WebView2 Runtime if missing.");
             return false;
         }
         catch (Exception ex)
@@ -75,87 +73,67 @@ public class PrintService
     }
 
     [SupportedOSPlatform("windows")]
-    private bool PrintHtmlDirect(string htmlContent, string? printerName = null)
+    private bool PrintHtmlViaEdge(string htmlContent, string? printerName = null)
     {
         try
         {
-            var config = _configService.GetConfig();
-            var targetPrinter = printerName ?? config.WindowsPrinterName;
-
-            if (string.IsNullOrEmpty(targetPrinter))
+            var edgePaths = new[]
             {
-                try
-                {
-                    targetPrinter = GetDefaultPrinter();
-                }
-                catch
-                {
-                    var printers = GetAvailablePrinters();
-                    if (printers.Any())
-                    {
-                        targetPrinter = printers.First();
-                    }
-                    else
-                    {
-                        return false;
-                    }
-                }
-            }
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                    "Microsoft", "Edge", "Application", "msedge.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                    "Microsoft", "Edge", "Application", "msedge.exe"),
+            };
 
-            // Create temporary HTML file
-            var tempFile = Path.Combine(Path.GetTempPath(), $"receipt_{Guid.NewGuid()}.html");
-            File.WriteAllText(tempFile, htmlContent, Encoding.UTF8);
-
-            try
+            var edgeExe = edgePaths.FirstOrDefault(File.Exists);
+            if (edgeExe == null)
             {
-                // Use mshtml to print HTML (Windows only)
-                var process = new Process
-                {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = tempFile,
-                        UseShellExecute = true,
-                        Verb = "print",
-                        CreateNoWindow = true,
-                        WindowStyle = ProcessWindowStyle.Hidden
-                    }
-                };
-
-                process.Start();
-                
-                // Wait a bit for the print dialog
-                Thread.Sleep(2000);
-                
-                // Clean up temp file after a delay
-                Task.Run(async () =>
-                {
-                    await Task.Delay(5000);
-                    try
-                    {
-                        if (File.Exists(tempFile))
-                            File.Delete(tempFile);
-                    }
-                    catch { }
-                });
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error printing HTML via Process.Start: {ex.Message}");
-                // Clean up temp file on error
-                try
-                {
-                    if (File.Exists(tempFile))
-                        File.Delete(tempFile);
-                }
-                catch { }
+                Console.WriteLine("Edge not found for HTML print fallback");
                 return false;
             }
+
+            var tempFile = Path.Combine(Path.GetTempPath(), $"receipt_{Guid.NewGuid():N}.html");
+            File.WriteAllText(tempFile, htmlContent, Encoding.UTF8);
+
+            var args = $"--headless --disable-gpu --no-pdf-header-footer --print \"{tempFile}\"";
+            if (!string.IsNullOrWhiteSpace(printerName))
+                args += $" --printer=\"{printerName}\"";
+
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = edgeExe,
+                    Arguments = args,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                }
+            };
+
+            process.Start();
+            if (!process.WaitForExit(60000))
+            {
+                try { process.Kill(true); } catch { }
+                Console.WriteLine("Edge headless print timed out");
+                return false;
+            }
+
+            Task.Run(async () =>
+            {
+                await Task.Delay(8000);
+                try { if (File.Exists(tempFile)) File.Delete(tempFile); } catch { }
+            });
+
+            var ok = process.ExitCode == 0;
+            if (!ok)
+                Console.WriteLine($"Edge print exit code: {process.ExitCode}");
+
+            return ok;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error printing HTML directly: {ex.Message}");
+            Console.WriteLine($"Edge HTML print error: {ex.Message}");
             return false;
         }
     }

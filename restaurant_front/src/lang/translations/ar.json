@@ -87,6 +87,7 @@
   "saveAndPrint": "حفظ وطباعة",
   "printOnly": "طباعة فقط",
   "printSuccess": "تم الطباعة بنجاح",
+  "itemsWithoutDepartmentPrinter": "بعض الأصناف ليس لها طابعة قسم ولم تُطبع",
   "orderSavedAndCleared": "تم حفظ الطلب والطباعة وإفراغ السلة بنجاح",
   "confirmClearCartMessage": "هل انت متأكد من افراغ السلة",
   "cancelButton": "تراجع",

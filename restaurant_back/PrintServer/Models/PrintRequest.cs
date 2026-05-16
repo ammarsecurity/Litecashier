@@ -71,12 +71,15 @@ public class PrintItem
     public int Quantity { get; set; }
 
     [JsonPropertyName("price")]
+    [JsonConverter(typeof(FlexibleDecimalJsonConverter))]
     public decimal Price { get; set; }
 
     [JsonPropertyName("total")]
+    [JsonConverter(typeof(FlexibleDecimalJsonConverter))]
     public decimal Total { get; set; }
 
     [JsonPropertyName("discount")]
+    [JsonConverter(typeof(FlexibleNullableDecimalJsonConverter))]
     public decimal? Discount { get; set; }
 }
 

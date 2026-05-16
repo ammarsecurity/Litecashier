@@ -42,7 +42,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/Printers
-        [Authorize(Roles = "Commercial,Admin")]
+        [Authorize(Roles = "Commercial,Admin,POS,Waiter")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<List<Printer>>>> GetPrinters()
         {
@@ -416,7 +416,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // POST: api/Printers/{id}/print
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [Authorize(Roles = "Commercial,Admin,POS,Waiter")]
         [HttpPost("{id}/print")]
         public async Task<ActionResult<GlobalResponse<object>>> Print(int id, [FromBody] PrintRequest request)
         {
@@ -437,50 +437,61 @@ namespace RestaurantPOS.Controllers
                     });
                 }
 
-                // Send print request to print server
-                var printServerUrl = "http://localhost:5000";
+                // Queue print on Print Server (WebView2 can take 30–60s; avoid blocking API / axios timeout → "canceled")
+                var printServerUrl = _configuration["PrintServer:Url"] ?? "http://localhost:5000";
                 var copies = request.Copies ?? 1;
+                var printerName = printer.PrinterName;
+                var printerType = printer.PrinterType;
+                var htmlContent = request.HtmlContent;
+                var jsonData = request.JsonData;
+                object? configuration = printer.Configuration != null
+                    ? JsonSerializer.Deserialize<object>(printer.Configuration)
+                    : null;
 
-                for (int i = 0; i < copies; i++)
+                _ = Task.Run(async () =>
                 {
-                    using (var httpClient = new HttpClient())
+                    try
                     {
-                        httpClient.Timeout = TimeSpan.FromSeconds(30);
-                        
-                        var printData = new
+                        using var httpClient = new HttpClient
                         {
-                            printerName = printer.PrinterName,
-                            printerType = printer.PrinterType,
-                            htmlContent = request.HtmlContent,
-                            jsonData = request.JsonData,
-                            configuration = printer.Configuration != null ? System.Text.Json.JsonSerializer.Deserialize<object>(printer.Configuration) : null
+                            Timeout = TimeSpan.FromMinutes(3)
                         };
 
-                        var response = await httpClient.PostAsJsonAsync($"{printServerUrl}/print", printData);
-                        
-                        if (!response.IsSuccessStatusCode)
+                        var printData = new
                         {
-                            var errorContent = await response.Content.ReadAsStringAsync();
-                            _logger.LogError("Print server error: {Error}", errorContent);
-                            
-                            if (i == 0) // Only return error for first copy
+                            printerName,
+                            printerType,
+                            htmlContent,
+                            jsonData,
+                            configuration
+                        };
+
+                        for (var i = 0; i < copies; i++)
+                        {
+                            var response = await httpClient.PostAsJsonAsync($"{printServerUrl}/print", printData);
+                            if (!response.IsSuccessStatusCode)
                             {
-                                return StatusCode(500, new GlobalResponse<object>
-                                {
-                                    Data = null,
-                                    ErrorStatus = true,
-                                    Message = $"فشلت الطباعة: {errorContent}"
-                                });
+                                var errorContent = await response.Content.ReadAsStringAsync();
+                                _logger.LogError(
+                                    "Print server error for printer {PrinterId} copy {Copy}: {Error}",
+                                    id, i + 1, errorContent);
+                                break;
                             }
                         }
                     }
-                }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Background print failed for printer {PrinterId}", id);
+                    }
+                });
 
                 return Ok(new GlobalResponse<object>
                 {
-                    Data = new { Copies = copies },
+                    Data = new { Copies = copies, Queued = true },
                     ErrorStatus = false,
-                    Message = $"تم الطباعة بنجاح ({copies} نسخة)"
+                    Message = copies > 1
+                        ? $"تم إرسال {copies} أوامر طباعة إلى الطابعة"
+                        : "تم إرسال أمر الطباعة إلى الطابعة"
                 });
             }
             catch (Exception ex)

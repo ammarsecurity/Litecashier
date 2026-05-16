@@ -1018,6 +1018,10 @@
             <span class="bill-info-label">{{ $t("employeeLabel") }}:</span>
             <span class="bill-info-value">{{ userInfo.name || userInfo.fullName || '---' }}</span>
           </div>
+          <div class="bill-info-row" v-if="selectedTableId">
+            <span class="bill-info-label">{{ $t("tableNumber") || "رقم الطاولة" }}:</span>
+            <span class="bill-info-value">{{ selectedTableSummary }}</span>
+          </div>
           <div class="bill-info-row" v-if="orderForSend.orderType">
             <span class="bill-info-label">{{ $t("orderType") }}:</span>
             <span class="bill-info-value">{{ getOrderTypeText(orderForSend.orderType) }}</span>
@@ -1428,11 +1432,23 @@ import { HTTP } from "@/http/api.js";
 import { htmlToPaper } from 'vue-html-to-paper';
 import signalRService from "@/services/signalr.js";
 import {
+  RECEIPT_PRINT_STYLES_HTML,
+  buildReceiptPrintDocument,
+  getReceiptHtmlFromElement,
+  PRINT_API_TIMEOUT_MS,
+  PRINT_SERVER_FETCH_TIMEOUT_MS,
+  computeGroupPrintTotals,
+  ensurePrintTableNumberInHtml,
+  ensurePrintOrderCodeInHtml,
+} from "@/utils/receiptPrint.js";
+import {
   rootTags,
   childTagsOf,
   tagItemStorageValue,
   tagDisplayName,
+  groupItemsForDepartmentPrinting,
 } from "@/utils/tagHierarchy.js";
+import { resolveFloorPlanOverlaps } from "@/utils/floorPlanLayout.js";
 // import store from '../store/store'; // Adjust the path based on your actual folder structure
 
 export default {
@@ -1788,19 +1804,13 @@ export default {
       }
       return this.selectedTable?.tableNumber ?? "";
     },
-    tagPrintersMap() {
-      // Create a map from tag name to printer ID
-      const map = {};
-      this.tagPrinters.forEach(tagPrinter => {
-        if (tagPrinter.tag && tagPrinter.printer) {
-          map[tagPrinter.tag.name] = tagPrinter.printer.id;
-        }
-      });
-      return map;
+    hasDepartmentPrinters() {
+      return (this.tagPrinters || []).length > 0;
     },
     mainPrinter() {
-      // Get the main printer (IsMain = true)
-      return this.managedPrinters.find(p => p.isMain && p.isActive) || null;
+      return (this.managedPrinters || []).find(
+        (p) => (p.isMain ?? p.IsMain) && (p.isActive ?? p.IsActive) !== false
+      ) || null;
     },
     
     mergedTableIds() {
@@ -2219,18 +2229,22 @@ export default {
           };
         });
     },
-    getTags() {
-      HTTP.get(`Admin/GetTags?pageNumber=0&pageSize=10000`)
-        .then((response) => {
-          this.tags = response.data.data.items;
-        })
-        .catch((error) => {
+    async getTags(showErrorToast = true) {
+      try {
+        const response = await HTTP.get(
+          `Admin/GetTags?pageNumber=0&pageSize=10000`
+        );
+        this.tags = response.data?.data?.items || [];
+      } catch (error) {
+        console.error("Error loading tags:", error);
+        if (showErrorToast) {
           this.$toast.error(this.$i18n.t("error"), {
             position: "top-right",
             timeout: 2000,
             maxToasts: 1,
           });
-        });
+        }
+      }
     },
     async loadTagPrinters() {
       try {
@@ -2547,7 +2561,7 @@ export default {
             next[id] = { x: Number(lx), y: Number(ly) };
           }
         });
-        this.posFloorPlanPositions = next;
+        this.posFloorPlanPositions = resolveFloorPlanOverlaps(next, this.posFloorTableChipSizePx);
       } catch (e) {
         console.error("loadPosFloorPlan", e);
       } finally {
@@ -2761,6 +2775,11 @@ export default {
           this.tableOrders = response.data.data || [];
           const activeOrder = this.tableOrders[0] || null;
           this.orderForSend.numberOfGuests = Number(activeOrder?.numberOfGuests || 0);
+          const loadedOrderCode =
+            activeOrder?.orderCode ?? activeOrder?.OrderCode ?? "";
+          if (loadedOrderCode) {
+            this.orderForSend.orderCode = String(loadedOrderCode);
+          }
           
           // Load items from orders into cart
           this.carditems = [];
@@ -3126,7 +3145,7 @@ export default {
       Object.assign(this.orderForSend, discountPayload);
 
       HTTP.post(`Admin/AddOrder`, this.orderForSend)
-        .then((response) => {
+        .then(async (response) => {
           if (response) {
             this.show = false;
             // Save a copy of carditems for printing before clearing
@@ -3160,8 +3179,16 @@ export default {
               this.clearOrderDiscount();
               this.tableOrders = [];
             };
-            refreshAfterSave();
-            
+            if (!skipPrint) {
+              try {
+                await this.printCard(itemsForPrint);
+              } catch (printError) {
+                console.error("Print error:", printError);
+              }
+            }
+
+            await refreshAfterSave();
+
             const successMessage = isDineInTableOrder
               ? (this.$t("addOrderSucsses") || "تم حفظ الطلب بنجاح")
               : (this.$i18n.t("orderSavedAndCleared") || "تم حفظ الطلب وافراغ السلة بنجاح");
@@ -3170,19 +3197,6 @@ export default {
               timeout: 2000,
               maxToasts: 1,
             });
-            
-            if (!skipPrint) {
-              // Print automatically after saving
-              setTimeout(() => {
-                try {
-                  this.printCard(itemsForPrint);
-                } catch (printError) {
-                  console.error('Print error:', printError);
-                  // Don't show error to user, printing is optional
-                  // The order was saved successfully
-                }
-              }, 100);
-            }
           }
         })
         .catch((error) => {
@@ -3396,8 +3410,8 @@ export default {
             items: printItems.map(item => ({
               name: item.name || '',
               quantity: item.quantity || 0,
-              price: item.price ? item.price.toLocaleString() : '0',
-              total: item.total ? item.total.toLocaleString() : '0',
+              price: Number(item.price ?? 0),
+              total: Number(item.total ?? 0),
               discount: item.discount || null
             })),
             subtotal: this.totaPrice.toLocaleString(),
@@ -3409,17 +3423,18 @@ export default {
                           this.orderForSend.paymentMethod || 'نقدي'
           };
           
-          // Get HTML content if needed
+          // Get HTML content with POS receipt styles (matches browser print preview)
           await this.$nextTick();
           const printElement = document.getElementById("print");
           if (printElement) {
-            printData.htmlContent = printElement.innerHTML;
+            const invoiceTitle = (this.$t("invoice_number") || "فاتورة") + ' - ' + (this.orderForSend.orderCode || '');
+            printData.htmlContent = getReceiptHtmlFromElement(printElement, invoiceTitle);
           }
         }
         
         // Send to Python print server with timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
+        const timeoutId = setTimeout(() => controller.abort(), PRINT_SERVER_FETCH_TIMEOUT_MS);
         
         try {
           const response = await fetch('http://localhost:5000/print', {
@@ -3470,75 +3485,115 @@ export default {
       }
     },
     groupItemsByTag(items) {
-      // Group items by their tags and map to printers
-      const grouped = {};
-      const tagPrintersMap = this.tagPrintersMap;
-      
-      items.forEach(item => {
-        const tagName = item.tags || 'مواد اخرى';
-        const printerId = tagPrintersMap[tagName];
-        
-        if (printerId) {
-          // يوجد printer محدد لهذا tag
-          if (!grouped[tagName]) {
-            grouped[tagName] = {
-              items: [],
-              printerId: printerId,
-              tagName: tagName
-            };
-          }
-          grouped[tagName].items.push(item);
-        } else {
-          // لا يوجد printer محدد - إضافة إلى default
-          if (!grouped['default']) {
-            grouped['default'] = {
-              items: [],
-              printerId: null,
-              tagName: 'default'
-            };
-          }
-          grouped['default'].items.push(item);
-        }
-      });
-      
-      return grouped;
+      return groupItemsForDepartmentPrinting(
+        items,
+        this.tagPrinters,
+        this.tags
+      );
     },
-    generateHTMLForItems(items, tagName = null) {
-      // Calculate totals for this group
-      const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
-      const totalItems = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-      
-      // Get print element HTML structure
+    async ensurePrintPrintersReady() {
+      if (!this.tagPrinters?.length) {
+        await this.loadTagPrinters();
+      }
+      if (!this.managedPrinters?.length) {
+        await this.loadManagedPrinters();
+      }
+      if (!this.tags?.length) {
+        await this.getTags(false);
+      }
+    },
+    findPrinterForPrint(printerId) {
+      if (printerId == null) return null;
+      const id = String(printerId);
+      const fromManaged = (this.managedPrinters || []).find(
+        (p) => String(p.id ?? p.Id) === id
+      );
+      if (fromManaged) return fromManaged;
+      const link = (this.tagPrinters || []).find((tp) => {
+        const pid =
+          tp.printer?.id ??
+          tp.printer?.Id ??
+          tp.printerId ??
+          tp.PrinterId;
+        return String(pid) === id;
+      });
+      return link?.printer ?? link?.Printer ?? null;
+    },
+    ensureOrderCodeForPrint() {
+      const existing = String(this.orderForSend?.orderCode || "").trim();
+      if (existing && existing !== "---") {
+        return existing;
+      }
+      const activeOrder = Array.isArray(this.tableOrders) ? this.tableOrders[0] : null;
+      const fromOrder = activeOrder?.orderCode ?? activeOrder?.OrderCode ?? null;
+      if (fromOrder) {
+        this.orderForSend.orderCode = String(fromOrder);
+        return this.orderForSend.orderCode;
+      }
+      this.orderForSend.orderCode = Math.floor(
+        Math.random() * 1000000000
+      )
+        .toString()
+        .padStart(9, "0");
+      return this.orderForSend.orderCode;
+    },
+    async generateHTMLForItems(items, tagName = null) {
+      const orderCode = this.ensureOrderCodeForPrint();
+      const { subtotal, groupDiscount, groupTotal, totalItems } = computeGroupPrintTotals(
+        items,
+        this.totaPrice,
+        this.orderDiscountAmount
+      );
+      const currency = this.$t("currency") || "د.ع";
+      const discountLabel = this.$t("discountLabel") || "الخصم";
+
+      const savedCarditems = this.carditems;
+      this.carditems = items;
+      await this.$nextTick();
+
       const printElement = document.getElementById("print");
       if (!printElement) {
-        return '';
+        this.carditems = savedCarditems;
+        await this.$nextTick();
+        return "";
       }
-      
-      // Clone the structure but replace items table with filtered items
+
       let htmlContent = printElement.innerHTML;
+
+      htmlContent = ensurePrintTableNumberInHtml(
+        htmlContent,
+        this.selectedTableId ? this.selectedTableSummary : "",
+        this.$t("tableNumber") || "رقم الطاولة",
+        (t) => this.escapeHtml(t)
+      );
+      htmlContent = ensurePrintOrderCodeInHtml(
+        htmlContent,
+        orderCode,
+        (t) => this.escapeHtml(t)
+      );
       
-      // Create items table HTML for this group
+      // Create items table HTML for this group (same structure as #print template)
       let itemsTableHTML = `
-        <table data-v-f8758d62="" class="bill-table">
-          <thead data-v-f8758d62="">
-            <tr data-v-f8758d62="" class="bill-table-header">
-              <th data-v-f8758d62="" class="bill-table-cell bill-col-item">طبق/مشروب</th>
-              <th data-v-f8758d62="" class="bill-table-cell bill-col-qty">العدد</th>
-              <th data-v-f8758d62="" class="bill-table-cell bill-col-price">السعر</th>
-              <th data-v-f8758d62="" class="bill-table-cell bill-col-total">المجموع</th>
+        <table class="bill-items-table">
+          <thead>
+            <tr>
+              <th class="bill-item-name-col">${this.$t("item_name_label") || "طبق/مشروب"}</th>
+              <th class="bill-item-qty-col">${this.$t("quantity_label") || "العدد"}</th>
+              <th class="bill-item-price-col">${this.$t("selling_price_label") || "السعر"}</th>
+              <th class="bill-item-total-col">${this.$t("total_label") || "المجموع"}</th>
             </tr>
           </thead>
-          <tbody data-v-f8758d62="">
+          <tbody>
       `;
       
       items.forEach(item => {
         const itemPrice = item.price !== item.disCountPrice ? item.disCountPrice : item.price;
         itemsTableHTML += `
-          <tr data-v-f8758d62="" class="bill-table-row">
-            <td data-v-f8758d62="" class="bill-table-cell bill-col-item">${this.escapeHtml(item.name || '')}</td>
-            <td data-v-f8758d62="" class="bill-table-cell bill-col-qty">${item.quantity || 0}</td>
-            <td data-v-f8758d62="" class="bill-table-cell bill-col-price">${itemPrice ? itemPrice.toLocaleString() : '0'}</td>
-            <td data-v-f8758d62="" class="bill-table-cell bill-col-total">${item.total ? item.total.toLocaleString() : '0'}</td>
+          <tr>
+            <td class="bill-item-name">${this.escapeHtml(item.name || '')}</td>
+            <td class="bill-item-qty">${item.quantity || 0}</td>
+            <td class="bill-item-price">${itemPrice ? itemPrice.toLocaleString() : '0'}</td>
+            <td class="bill-item-total">${item.total ? item.total.toLocaleString() : '0'}</td>
           </tr>
         `;
       });
@@ -3549,7 +3604,7 @@ export default {
       `;
       
       // Replace the items table in HTML
-      const tableRegex = /<table[^>]*class="bill-table"[^>]*>[\s\S]*?<\/table>/i;
+      const tableRegex = /<table[^>]*class="bill-items-table"[^>]*>[\s\S]*?<\/table>/i;
       htmlContent = htmlContent.replace(tableRegex, itemsTableHTML);
       
       // Update summary section
@@ -3560,21 +3615,21 @@ export default {
             <span data-v-f8758d62="" class="bill-summary-label">العدد:</span>
             <span data-v-f8758d62="" class="bill-summary-value">${totalItems} طبق/مشروب</span>
           </div>
-          ${tagName && tagName !== 'default' ? `
+          ${tagName && tagName !== "unmapped" ? `
           <div data-v-f8758d62="" class="bill-summary-row">
             <span data-v-f8758d62="" class="bill-summary-label">القسم:</span>
             <span data-v-f8758d62="" class="bill-summary-value">${this.escapeHtml(tagName)}</span>
           </div>
           ` : ''}
-          ${this.orderDiscountAmount > 0 ? `
+          ${groupDiscount > 0 ? `
           <div data-v-f8758d62="" class="bill-summary-row">
-            <span data-v-f8758d62="" class="bill-summary-label">الخصم:</span>
-            <span data-v-f8758d62="" class="bill-summary-value">- ${this.orderDiscountAmount.toLocaleString()} د.ع</span>
+            <span data-v-f8758d62="" class="bill-summary-label">${discountLabel}:</span>
+            <span data-v-f8758d62="" class="bill-summary-value">- ${this.formatPrice(groupDiscount)} ${currency}</span>
           </div>
           ` : ''}
           <div data-v-f8758d62="" class="bill-summary-row bill-total-row">
-            <span data-v-f8758d62="" class="bill-summary-label">المجموع:</span>
-            <span data-v-f8758d62="" class="bill-summary-value bill-total-amount">${this.finalOrderTotal.toLocaleString()} د.ع</span>
+            <span data-v-f8758d62="" class="bill-summary-label">${this.$t("total") || "المجموع"}:</span>
+            <span data-v-f8758d62="" class="bill-summary-value bill-total-amount">${this.formatPrice(groupTotal)} ${currency}</span>
           </div>
         </div>
       `;
@@ -3623,7 +3678,11 @@ export default {
         }
       }
       
-      return htmlContent;
+      const invoiceTitle = (this.$t("invoice_number") || "فاتورة") + ' - ' + (this.orderForSend.orderCode || tagName || '');
+      const doc = buildReceiptPrintDocument(htmlContent, invoiceTitle);
+      this.carditems = savedCarditems;
+      await this.$nextTick();
+      return doc;
     },
     escapeHtml(text) {
       const div = document.createElement('div');
@@ -3636,10 +3695,13 @@ export default {
         const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
         const totalItems = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
         
-        // Find printer details from managedPrinters
-        const printer = this.managedPrinters.find(p => p.id === printerId);
-        const printerName = printer ? printer.printerName : null;
-        const printerType = printer ? printer.printerType : 'windows';
+        const printer = this.findPrinterForPrint(printerId);
+        const printerName = printer
+          ? printer.printerName ?? printer.PrinterName
+          : null;
+        const printerType = printer
+          ? printer.printerType ?? printer.PrinterType ?? "windows"
+          : "windows";
         
         // Prepare print data for this group
         const printData = {
@@ -3654,8 +3716,8 @@ export default {
           items: items.map(item => ({
             name: item.name || '',
             quantity: item.quantity || 0,
-            price: item.price ? item.price.toLocaleString() : '0',
-            total: item.total ? item.total.toLocaleString() : '0',
+            price: Number(item.price ?? 0),
+            total: Number(item.total ?? 0),
             discount: item.discount || null
           })),
           subtotal: subtotal.toLocaleString(),
@@ -3668,38 +3730,43 @@ export default {
         };
         
         // Generate HTML content for this group
-        const htmlContent = this.generateHTMLForItems(items, tagName);
+        const htmlContent = await this.generateHTMLForItems(items, tagName);
         printData.htmlContent = htmlContent;
-        
-        if (printerId && printerName) {
-          // Print to specific printer via backend API
+
+        if (!htmlContent) {
+          console.warn(`Empty print HTML for tag "${tagName}"`);
+          return false;
+        }
+
+        if (printerId) {
           try {
             const response = await HTTP.post(`Printers/${printerId}/print`, {
-              htmlContent: htmlContent,
-              copies: 1
-            });
-            
+              htmlContent,
+              copies: 1,
+            }, { timeout: PRINT_API_TIMEOUT_MS });
+
             if (response.data && !response.data.errorStatus) {
-              console.log(`Successfully printed ${tagName} items to printer ${printerName} (ID: ${printerId})`);
+              console.log(
+                `Printed ${tagName} to printer ${printerName || printerId}`
+              );
               return true;
-            } else {
-              console.warn(`Failed to print ${tagName} items to printer ${printerId}:`, response.data?.message);
-              // Fallback to Python print server with printer name
-              printData.printerName = printerName;
-              printData.printerType = printerType;
-              return await this.printWithPythonServer(items, printData);
             }
+            console.warn(
+              `Printers/${printerId}/print failed:`,
+              response.data?.message
+            );
           } catch (error) {
-            console.error(`Error printing ${tagName} items to printer ${printerId}:`, error);
-            // Fallback to Python print server with printer name
+            console.error(`Error printing ${tagName} to printer ${printerId}:`, error);
+          }
+          if (printerName) {
             printData.printerName = printerName;
             printData.printerType = printerType;
             return await this.printWithPythonServer(items, printData);
           }
-        } else {
-          // No specific printer - use default Python print server
-          return await this.printWithPythonServer(items);
+          return false;
         }
+
+        return await this.printWithPythonServer(items, printData);
       } catch (error) {
         console.error(`Error in printItemsByTag for ${tagName}:`, error);
         return false;
@@ -3709,6 +3776,7 @@ export default {
       const raiseOnError = !!(printOptions && printOptions.raiseOnError);
       let originalCarditems = null;
       try {
+        this.ensureOrderCodeForPrint();
         // Use provided items or fallback to current carditems
         const printItems = itemsToPrint || this.carditems;
         
@@ -3735,274 +3803,8 @@ export default {
           return;
         }
 
-        // Professional print styles optimized for POS printers (58mm/80mm) - Unified with Reports design
-        const stylesHtml = `
-    <style>
-      @page {
-        size: 80mm auto;
-        margin: 0;
-      }
-      
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      
-      body {
-        font-family: 'Cairo', 'Arial', sans-serif;
-        direction: rtl;
-        font-size: 11px;
-        line-height: 1.3;
-        color: #000;
-        background: #fff;
-        padding: 5mm;
-        width: 80mm;
-      }
-      
-      .bill-container {
-        width: 100%;
-        max-width: 80mm;
-        margin: 0 auto;
-      }
-      
-      .bill-header {
-        text-align: center;
-        margin-bottom: 8px;
-        padding-bottom: 8px;
-        border-bottom: 1px dashed #000;
-      }
-      
-      .bill-logo-img {
-        max-width: 50px;
-        height: auto;
-        margin-bottom: 4px;
-      }
-      
-      .bill-store-name {
-        font-size: 16px;
-        font-weight: 800;
-        margin: 4px 0 2px 0;
-        color: #000;
-      }
-      
-      .bill-store-subtitle {
-        font-size: 9px;
-        color: #666;
-        margin: 0;
-      }
-      
-      .bill-info-section {
-        margin: 8px 0;
-        font-size: 10px;
-      }
-      
-      .bill-info-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 3px;
-      }
-      
-      .bill-info-label {
-        font-weight: 600;
-      }
-      
-      .bill-info-value {
-        font-weight: 400;
-      }
-      
-      .bill-barcode-section {
-        text-align: center;
-        margin: 8px 0;
-        padding: 4px 0;
-      }
-      
-      .bill-barcode-img {
-        max-width: 100%;
-        height: auto;
-        display: block;
-        margin: 0 auto;
-      }
-      
-      .bill-divider {
-        border-top: 1px dashed #000;
-        margin: 8px 0;
-      }
-      
-      .bill-items-section {
-        margin: 8px 0;
-      }
-      
-      .bill-items-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 10px;
-      }
-      
-      .bill-items-table thead {
-        border-bottom: 1px solid #000;
-      }
-      
-      .bill-items-table th {
-        padding: 4px 2px;
-        text-align: right;
-        font-weight: 700;
-        font-size: 9px;
-      }
-      
-      .bill-item-name-col {
-        width: 40%;
-      }
-      
-      .bill-item-qty-col {
-        width: 15%;
-        text-align: center;
-      }
-      
-      .bill-item-price-col {
-        width: 20%;
-        text-align: left;
-      }
-      
-      .bill-item-total-col {
-        width: 25%;
-        text-align: left;
-      }
-      
-      .bill-items-table td {
-        padding: 3px 2px;
-        vertical-align: top;
-      }
-      
-      .bill-item-name {
-        font-weight: 500;
-        word-break: break-word;
-      }
-      
-      .bill-discount-badge {
-        display: block;
-        font-size: 7px;
-        color: #dc2626;
-        font-weight: 600;
-        margin-top: 2px;
-      }
-      
-      .bill-item-qty {
-        text-align: center;
-        font-weight: 600;
-      }
-      
-      .bill-item-price {
-        text-align: left;
-        font-size: 9px;
-      }
-      
-      .bill-price-discounted {
-        display: block;
-      }
-      
-      .bill-original-price {
-        display: block;
-        text-decoration: line-through;
-        color: #999;
-        font-size: 8px;
-      }
-      
-      .bill-discount-price {
-        display: block;
-        color: #dc2626;
-        font-weight: 600;
-      }
-      
-      .bill-item-total {
-        text-align: left;
-        font-weight: 700;
-      }
-      
-      .bill-summary-section {
-        margin: 8px 0;
-        font-size: 11px;
-      }
-      
-      .bill-summary-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 4px;
-      }
-      
-      .bill-summary-label {
-        font-weight: 600;
-      }
-      
-      .bill-summary-value {
-        font-weight: 400;
-      }
-      
-      .bill-summary-total {
-        border-top: 1px solid #000;
-        padding-top: 4px;
-        margin-top: 4px;
-        font-size: 12px;
-      }
-      
-      .bill-summary-total .bill-summary-label {
-        font-weight: 700;
-        font-size: 13px;
-      }
-      
-      .bill-summary-total .bill-summary-value {
-        font-weight: 800;
-        font-size: 13px;
-      }
-      
-      .bill-notes-section {
-        margin-top: 12px;
-        padding-top: 8px;
-      }
-      
-      .bill-notes-content {
-        margin-bottom: 8px;
-        padding: 6px 0;
-      }
-      
-      .bill-notes-label {
-        font-weight: 600;
-        font-size: 10px;
-        margin-bottom: 4px;
-        color: #000;
-      }
-      
-      .bill-notes-text {
-        font-size: 10px;
-        color: #333;
-        line-height: 1.4;
-        word-wrap: break-word;
-      }
-      
-      .bill-footer {
-        text-align: center;
-        margin-top: 12px;
-        padding-top: 8px;
-        border-top: 1px dashed #000;
-      }
-      
-      .bill-footer-text {
-        font-size: 9px;
-        margin: 2px 0;
-        color: #666;
-      }
-      
-      @media print {
-        body {
-          padding: 0;
-        }
-        
-        .bill-container {
-          width: 80mm;
-        }
-      }
-    </style>
-  `;
+        const stylesHtml = RECEIPT_PRINT_STYLES_HTML;
+        const invoiceTitle = (this.$t("invoice_number") || "فاتورة") + ' - ' + (this.orderForSend.orderCode || 'Invoice');
 
         // Step 1: Print full receipt to main printer (if exists)
         if (this.mainPrinter) {
@@ -4012,7 +3814,7 @@ export default {
             await this.$nextTick();
             const printElement = document.getElementById("print");
             if (printElement) {
-              const fullReceiptHtml = printElement.innerHTML;
+              const fullReceiptHtml = getReceiptHtmlFromElement(printElement, invoiceTitle);
               const fullReceiptData = {
                 storeName: this.commercialUserInfo.restaurantName || 'متجر المطعم',
                 storeAddress: '',
@@ -4025,8 +3827,8 @@ export default {
                 items: printItems.map(item => ({
                   name: item.name || '',
                   quantity: item.quantity || 0,
-                  price: item.price ? item.price.toLocaleString() : '0',
-                  total: item.total ? item.total.toLocaleString() : '0',
+                  price: Number(item.price ?? 0),
+                  total: Number(item.total ?? 0),
                   discount: item.discount || null
                 })),
                 subtotal: this.totaPrice.toLocaleString(),
@@ -4045,7 +3847,7 @@ export default {
               const response = await HTTP.post(`Printers/${this.mainPrinter.id}/print`, {
                 htmlContent: fullReceiptHtml,
                 copies: 1
-              });
+              }, { timeout: PRINT_API_TIMEOUT_MS });
               
               if (response.data && !response.data.errorStatus) {
                 console.log('Successfully printed full receipt to main printer');
@@ -4062,51 +3864,82 @@ export default {
         
         // Step 2: Try tag-based printing for specific items
         try {
-          // Group items by tags
+          await this.ensurePrintPrintersReady();
           const groupedItems = this.groupItemsByTag(printItems);
           const tagGroups = Object.keys(groupedItems);
-          
+
           if (tagGroups.length > 0) {
-            let allPrintSuccess = true;
-            let hasTagPrinters = false;
-            
-            // Print each group to its assigned printer
-            for (const tagName of tagGroups) {
-              const group = groupedItems[tagName];
-              
-              if (group.items.length > 0) {
-                if (group.printerId) {
-                  // Print to specific printer for this tag
-                  hasTagPrinters = true;
-                  const printSuccess = await this.printItemsByTag(tagName, group.items, group.printerId);
-                  if (!printSuccess) {
-                    allPrintSuccess = false;
-                  }
-                } else {
-                  // No printer assigned - skip (already printed to main printer)
-                  console.log(`No printer assigned for tag "${tagName}", skipping (already printed to main printer)`);
-                }
+            let anyPrinted = false;
+            let hadMappedGroup = false;
+
+            console.debug("[print]", {
+              tagPrinters: this.tagPrinters?.length,
+              tags: this.tags?.length,
+              grouped: Object.fromEntries(
+                Object.entries(groupedItems).map(([k, g]) => [
+                  k,
+                  g.items?.length ?? 0,
+                ])
+              ),
+              sampleTags: (printItems || [])
+                .slice(0, 3)
+                .map((i) => i.tags),
+            });
+
+            for (const groupKey of tagGroups) {
+              const group = groupedItems[groupKey];
+              if (!group.items.length) continue;
+              if (groupKey === "unmapped" || !group.printerId) {
+                continue;
               }
+              hadMappedGroup = true;
+              const ok = await this.printItemsByTag(
+                group.tagName,
+                group.items,
+                group.printerId
+              );
+              if (ok) anyPrinted = true;
             }
-            
-            if (hasTagPrinters || this.mainPrinter) {
-              // Restore original carditems if we changed it
-              if (itemsToPrint) {
-                this.carditems = originalCarditems;
-              }
-              this.$toast.success(this.$i18n.t("printSuccess") || 'تم الطباعة بنجاح', {
-                position: "top-right",
-                timeout: 2000,
-                maxToasts: 1,
-              });
-              return; // Success - exit early
+
+            if (itemsToPrint) {
+              this.carditems = originalCarditems;
+            }
+
+            if (anyPrinted) {
+              this.$toast.success(
+                this.$i18n.t("printSuccess") || "تم الطباعة بنجاح",
+                { position: "top-right", timeout: 2000, maxToasts: 1 }
+              );
+              return;
+            }
+
+            if (hadMappedGroup && !anyPrinted) {
+              this.$toast.error(
+                this.$i18n.t("error") || "حدث خطأ أثناء الطباعة",
+                { position: "top-right", timeout: 3000, maxToasts: 1 }
+              );
+              return;
+            }
+
+            if (
+              this.hasDepartmentPrinters &&
+              !this.mainPrinter &&
+              !hadMappedGroup
+            ) {
+              console.warn(
+                "[print] No cart items match configured department printers"
+              );
+              return;
+            }
+
+            if (this.mainPrinter) {
+              return;
             }
           }
         } catch (tagPrintError) {
-          console.warn('Tag-based printing error, trying fallback methods:', tagPrintError);
-          // Fall through to other print methods
+          console.warn("Tag-based printing error, trying fallback methods:", tagPrintError);
         }
-        
+
         // Try Python print server as fallback (if available)
         try {
           const pythonPrintSuccess = await this.printWithPythonServer(itemsToPrint);
@@ -4150,10 +3983,7 @@ export default {
         const printWindow = window.open('', '_blank', 'width=800,height=600');
         if (printWindow) {
           // Build HTML content
-          const invoiceTitle = (this.$t("invoice_number") || "فاتورة") + ' - ' + (this.orderForSend.orderCode || 'Invoice');
-          const htmlContent = '<!DOCTYPE html><html><head><title>' + invoiceTitle +
-            '</title><meta charset="UTF-8">' + stylesHtml +
-            '</head><body>' + printElement.innerHTML + '</body></html>';
+          const htmlContent = buildReceiptPrintDocument(printElement.innerHTML, invoiceTitle);
           
           printWindow.document.write(htmlContent);
           printWindow.document.close();
@@ -4203,273 +4033,7 @@ export default {
       
       // Fallback method using iframe (original method)
       const prtHtml = document.getElementById("print").innerHTML;
-      const stylesHtml = `
-    <style>
-      @page {
-        size: 80mm auto;
-        margin: 0;
-      }
-      
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      
-      body {
-        font-family: 'Cairo', 'Arial', sans-serif;
-        direction: rtl;
-        font-size: 11px;
-        line-height: 1.3;
-        color: #000;
-        background: #fff;
-        padding: 5mm;
-        width: 80mm;
-      }
-      
-      .bill-container {
-        width: 100%;
-        max-width: 80mm;
-        margin: 0 auto;
-      }
-      
-      .bill-header {
-        text-align: center;
-        margin-bottom: 8px;
-        padding-bottom: 8px;
-        border-bottom: 1px dashed #000;
-      }
-      
-      .bill-logo-img {
-        max-width: 50px;
-        height: auto;
-        margin-bottom: 4px;
-      }
-      
-      .bill-store-name {
-        font-size: 16px;
-        font-weight: 800;
-        margin: 4px 0 2px 0;
-        color: #000;
-      }
-      
-      .bill-store-subtitle {
-        font-size: 9px;
-        color: #666;
-        margin: 0;
-      }
-      
-      .bill-info-section {
-        margin: 8px 0;
-        font-size: 10px;
-      }
-      
-      .bill-info-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 3px;
-      }
-      
-      .bill-info-label {
-        font-weight: 600;
-      }
-      
-      .bill-info-value {
-        font-weight: 400;
-      }
-      
-      .bill-barcode-section {
-        text-align: center;
-        margin: 8px 0;
-        padding: 4px 0;
-      }
-      
-      .bill-barcode-img {
-        max-width: 100%;
-        height: auto;
-        display: block;
-        margin: 0 auto;
-      }
-      
-      .bill-divider {
-        border-top: 1px dashed #000;
-        margin: 8px 0;
-      }
-      
-      .bill-items-section {
-        margin: 8px 0;
-      }
-      
-      .bill-items-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 10px;
-      }
-      
-      .bill-items-table thead {
-        border-bottom: 1px solid #000;
-      }
-      
-      .bill-items-table th {
-        padding: 4px 2px;
-        text-align: right;
-        font-weight: 700;
-        font-size: 9px;
-      }
-      
-      .bill-item-name-col {
-        width: 40%;
-      }
-      
-      .bill-item-qty-col {
-        width: 15%;
-        text-align: center;
-      }
-      
-      .bill-item-price-col {
-        width: 20%;
-        text-align: left;
-      }
-      
-      .bill-item-total-col {
-        width: 25%;
-        text-align: left;
-      }
-      
-      .bill-items-table td {
-        padding: 3px 2px;
-        vertical-align: top;
-      }
-      
-      .bill-item-name {
-        font-weight: 500;
-        word-break: break-word;
-      }
-      
-      .bill-discount-badge {
-        display: block;
-        font-size: 7px;
-        color: #dc2626;
-        font-weight: 600;
-        margin-top: 2px;
-      }
-      
-      .bill-item-qty {
-        text-align: center;
-        font-weight: 600;
-      }
-      
-      .bill-item-price {
-        text-align: left;
-        font-size: 9px;
-      }
-      
-      .bill-price-discounted {
-        display: block;
-      }
-      
-      .bill-original-price {
-        display: block;
-        text-decoration: line-through;
-        color: #999;
-        font-size: 8px;
-      }
-      
-      .bill-discount-price {
-        display: block;
-        color: #dc2626;
-        font-weight: 600;
-      }
-      
-      .bill-item-total {
-        text-align: left;
-        font-weight: 700;
-      }
-      
-      .bill-summary-section {
-        margin: 8px 0;
-        font-size: 11px;
-      }
-      
-      .bill-summary-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 4px;
-      }
-      
-      .bill-summary-label {
-        font-weight: 600;
-      }
-      
-      .bill-summary-value {
-        font-weight: 400;
-      }
-      
-      .bill-summary-total {
-        border-top: 1px solid #000;
-        padding-top: 4px;
-        margin-top: 4px;
-        font-size: 12px;
-      }
-      
-      .bill-summary-total .bill-summary-label {
-        font-weight: 700;
-        font-size: 13px;
-      }
-      
-      .bill-summary-total .bill-summary-value {
-        font-weight: 800;
-        font-size: 13px;
-      }
-      
-      .bill-notes-section {
-        margin-top: 12px;
-        padding-top: 8px;
-      }
-      
-      .bill-notes-content {
-        margin-bottom: 8px;
-        padding: 6px 0;
-      }
-      
-      .bill-notes-label {
-        font-weight: 600;
-        font-size: 10px;
-        margin-bottom: 4px;
-        color: #000;
-      }
-      
-      .bill-notes-text {
-        font-size: 10px;
-        color: #333;
-        line-height: 1.4;
-        word-wrap: break-word;
-      }
-      
-      .bill-footer {
-        text-align: center;
-        margin-top: 12px;
-        padding-top: 8px;
-        border-top: 1px dashed #000;
-      }
-      
-      .bill-footer-text {
-        font-size: 9px;
-        margin: 2px 0;
-        color: #666;
-      }
-      
-      @media print {
-        body {
-          padding: 0;
-        }
-        
-        .bill-container {
-          width: 80mm;
-        }
-      }
-    </style>
-  `;
+      const stylesHtml = RECEIPT_PRINT_STYLES_HTML;
 
       const content = `
     <!DOCTYPE html>

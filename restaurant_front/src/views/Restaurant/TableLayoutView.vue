@@ -212,6 +212,10 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "../../http/api.js";
+import {
+  findOpenFloorPlanSlot,
+  resolveFloorPlanOverlaps,
+} from "@/utils/floorPlanLayout.js";
 
 export default {
   name: "TableLayoutView",
@@ -388,7 +392,7 @@ export default {
             };
           }
         });
-        this.positions = next;
+        this.positions = resolveFloorPlanOverlaps(next, this.tableChipSizePx);
       } catch (e) {
         this.$toast.error(this.$i18n.t("error") || "خطأ", { position: "top-right", timeout: 4000 });
       } finally {
@@ -426,7 +430,8 @@ export default {
     },
     addTableToCanvas(t) {
       const id = String(this.tableId(t));
-      this.$set(this.positions, id, { x: 0.45 + Math.random() * 0.1, y: 0.45 + Math.random() * 0.1 });
+      const slot = findOpenFloorPlanSlot(this.positions, this.tableChipSizePx);
+      this.$set(this.positions, id, slot);
     },
     normalizeRect(ax, ay, bx, by) {
       const x = Math.min(ax, bx);
@@ -581,6 +586,9 @@ export default {
       this.$set(this.positions, String(this.dragTableId), { x, y });
     },
     onDragMouseUp() {
+      if (this.dragTableId != null) {
+        this.positions = resolveFloorPlanOverlaps(this.positions, this.tableChipSizePx);
+      }
       this.dragTableId = null;
       this.grab = null;
     },
@@ -592,6 +600,7 @@ export default {
       return hits[0].name;
     },
     async savePositions() {
+      this.positions = resolveFloorPlanOverlaps(this.positions, this.tableChipSizePx);
       const payload = [];
       Object.keys(this.positions).forEach((idStr) => {
         const id = Number(idStr);
