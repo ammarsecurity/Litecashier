@@ -1658,7 +1658,7 @@
                   <div class="delete-confirmation-actions">
                     <button class="delete-confirm-button" @click="confirmPrintCartOnly">
                       <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                      {{ $t("confirmButton") }}
+                      {{ $t("confirm") }}
                     </button>
                     <button class="delete-cancel-button" @click="closeModel('modal-print-only-confirm')">
                       <b-icon icon="x-circle-fill" class="me-2"></b-icon>

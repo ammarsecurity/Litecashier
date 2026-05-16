@@ -86,6 +86,7 @@
   "saveAndClear": "Save and Clear",
   "saveAndPrint": "Save and Print",
   "printOnly": "Print only",
+  "printSuccess": "Printed successfully",
   "orderSavedAndCleared": "Order saved, printed, and cart cleared successfully",
   "confirmClearCartMessage": "Are you sure you want to empty the cart?",
   "cancelButton": "Cancel",

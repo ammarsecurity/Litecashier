@@ -86,6 +86,7 @@
   "saveAndClear": "حفظ وافراغ",
   "saveAndPrint": "حفظ وطباعة",
   "printOnly": "طباعة فقط",
+  "printSuccess": "تم الطباعة بنجاح",
   "orderSavedAndCleared": "تم حفظ الطلب والطباعة وإفراغ السلة بنجاح",
   "confirmClearCartMessage": "هل انت متأكد من افراغ السلة",
   "cancelButton": "تراجع",
