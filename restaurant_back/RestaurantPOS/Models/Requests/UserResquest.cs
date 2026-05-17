@@ -20,5 +20,8 @@ namespace RestaurantPOS.Models.Requests
 
         /// <summary>JSON array of allowed section keys when Role is Manager.</summary>
         public string? AllowedSectionsJson { get; set; }
+
+        /// <summary>Manager only: confirm sensitive POS actions with own LoginCode.</summary>
+        public bool? CanUseOwnLoginCodeForSensitiveActions { get; set; }
     }
 }

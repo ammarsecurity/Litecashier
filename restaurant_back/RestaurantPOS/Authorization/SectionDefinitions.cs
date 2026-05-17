@@ -9,6 +9,7 @@ public static class SectionDefinitions
 
     public static readonly IReadOnlyList<string> AssignableSectionKeys = new[]
     {
+        "pos",
         "category",
         "items",
         "tables",

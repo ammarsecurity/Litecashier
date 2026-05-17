@@ -10,7 +10,9 @@ import "vue-toastification/dist/index.css";
 import LottieAnimation from "lottie-vuejs"; 
 import VueI18n from 'vue-i18n';
 import messages from './lang';
-import FlagIcon from 'vue-flag-icon'; 
+import FlagIcon from 'vue-flag-icon';
+import notifyPlugin from './plugins/notifyPlugin';
+import { createFilterBeforeCreate, buildNotifyDefaults, syncNotifyLocale } from './utils/notify';
 
 Vue.use(BootstrapVue);
 Vue.use(IconsPlugin);
@@ -19,37 +21,27 @@ Vue.component('LottieAnimation', LottieAnimation);
 Vue.use(FlagIcon);
 Vue.use(VueI18n);
 
+const savedLang = localStorage.getItem('language') || 'ar';
+
 export const i18n = new VueI18n({
-  locale: 'ar',
+  locale: savedLang,
   fallbackLocale: 'ar',
   messages,
 });
 
+const notifyDefaults = buildNotifyDefaults(savedLang);
+
 Vue.use(Toast, {
+  ...notifyDefaults,
   transition: "Vue-Toastification__fade",
-  maxToasts: 3,
-  newestOnTop: true,
-  position: "bottom-center",
-  timeout: 3500,
-  closeOnClick: true,
-  pauseOnFocusLoss: false,
-  pauseOnHover: true,
-  draggable: true,
-  draggablePercent: 0.65,
-  hideProgressBar: false,
-  icon: true,
-  rtl: i18n.locale === 'ar',
-  closeButton: "button",
-  toastClassName: "app-toast",
-  bodyClassName: "app-toast-body",
-  containerClassName: "app-toast-container",
+  filterBeforeCreate: createFilterBeforeCreate(),
 });
 
-
+Vue.use(notifyPlugin, { i18n });
+syncNotifyLocale(savedLang);
 
 Vue.config.productionTip = false;
 
-// Create a new Vue instance
 new Vue({
   i18n,
   router,
@@ -57,5 +49,6 @@ new Vue({
   beforeMount() {
     const currentLang = this.$i18n.locale;
     document.body.dir = currentLang === 'en' ? 'ltr' : 'rtl';
+    syncNotifyLocale(currentLang);
   },
 }).$mount('#app');

@@ -179,6 +179,35 @@
                                 <span>{{ sectionLabel(key) }}</span>
                             </label>
                         </div>
+                        <div class="users-form-group mt-3">
+                            <label class="users-section-check d-flex align-items-start gap-2">
+                                <input
+                                    type="checkbox"
+                                    v-model="addForm.canUseOwnLoginCodeForSensitiveActions"
+                                />
+                                <span>{{ $t('managerCanUseOwnLoginCode') || 'يمكنه استخدام رمز الدخول الخاص به لتأكيد الإجراءات الحساسة' }}</span>
+                            </label>
+                            <small class="text-muted d-block mt-1">{{ $t('managerCanUseOwnLoginCodeHint') || 'نقل الفواتير، الدمج، الخصم وغيرها في نقطة البيع' }}</small>
+                        </div>
+                        <div
+                            v-if="addForm.canUseOwnLoginCodeForSensitiveActions"
+                            class="users-form-group"
+                        >
+                            <label class="users-form-label">
+                                <b-icon icon="shield-lock" class="form-label-icon"></b-icon>
+                                {{ $t('managerSensitiveLoginCodeLabel') || 'رمز تأكيد الإجراءات' }}
+                            </label>
+                            <input
+                                v-model="addForm.loginCode"
+                                type="password"
+                                inputmode="numeric"
+                                maxlength="12"
+                                autocomplete="off"
+                                :placeholder="$t('managerSensitiveLoginCodePlaceholder') || '4–12 رقماً'"
+                                class="users-form-input"
+                            />
+                            <small class="text-muted d-block mt-1">{{ $t('managerSensitiveLoginCodeHint') || 'يُطلب عند تفعيل الخيار. يحتاج المدير إعادة تسجيل الدخول بعد التعديل.' }}</small>
+                        </div>
                     </div>
                     
                     <!-- Commercial User Fields (Only for Admin) -->
@@ -359,6 +388,35 @@
                                 <span>{{ sectionLabel(key) }}</span>
                             </label>
                         </div>
+                        <div class="users-form-group mt-3">
+                            <label class="users-section-check d-flex align-items-start gap-2">
+                                <input
+                                    type="checkbox"
+                                    v-model="editForm.canUseOwnLoginCodeForSensitiveActions"
+                                />
+                                <span>{{ $t('managerCanUseOwnLoginCode') || 'يمكنه استخدام رمز الدخول الخاص به لتأكيد الإجراءات الحساسة' }}</span>
+                            </label>
+                            <small class="text-muted d-block mt-1">{{ $t('managerCanUseOwnLoginCodeHint') || 'نقل الفواتير، الدمج، الخصم وغيرها في نقطة البيع' }}</small>
+                        </div>
+                        <div
+                            v-if="editForm.canUseOwnLoginCodeForSensitiveActions"
+                            class="users-form-group"
+                        >
+                            <label class="users-form-label">
+                                <b-icon icon="shield-lock" class="form-label-icon"></b-icon>
+                                {{ $t('managerSensitiveLoginCodeLabel') || 'رمز تأكيد الإجراءات' }}
+                            </label>
+                            <input
+                                v-model="editForm.loginCode"
+                                type="password"
+                                inputmode="numeric"
+                                maxlength="12"
+                                autocomplete="off"
+                                :placeholder="$t('managerSensitiveLoginCodePlaceholder') || '4–12 رقماً'"
+                                class="users-form-input"
+                            />
+                            <small class="text-muted d-block mt-1">{{ $t('managerSensitiveLoginCodeHint') || 'اتركه فارغاً للإبقاء على الرمز الحالي' }}</small>
+                        </div>
                     </div>
                     
                     <!-- Commercial User Fields (Only for Admin) -->
@@ -505,7 +563,8 @@ export default {
                 logo: null,
                 logoPreview: null,
                 logoFile: null,
-                allowedSections: []
+                allowedSections: [],
+                canUseOwnLoginCodeForSensitiveActions: false
             },
             addForm: {
                 name: "",
@@ -517,7 +576,8 @@ export default {
                 loginCode: "",
                 logoFile: null,
                 logoPreview: null,
-                allowedSections: []
+                allowedSections: [],
+                canUseOwnLoginCodeForSensitiveActions: false
             },
             UserId: '',
         };
@@ -567,12 +627,19 @@ export default {
             if (i18nKey && this.$te(i18nKey)) return this.$t(i18nKey);
             return key;
         },
-        appendManagerSections(formData, role, allowedSections) {
+        appendManagerSections(formData, role, allowedSections, canUseOwnLoginCode, loginCode) {
             if (role !== 'Manager') return;
             formData.append(
                 'allowedSectionsJson',
                 JSON.stringify(Array.isArray(allowedSections) ? allowedSections : [])
             );
+            formData.append(
+                'canUseOwnLoginCodeForSensitiveActions',
+                canUseOwnLoginCode ? 'true' : 'false'
+            );
+            if (loginCode && String(loginCode).trim()) {
+                formData.append('loginCode', String(loginCode).trim());
+            }
         },
         deleteUserModel(id) {
             this.UserId = id;
@@ -581,19 +648,7 @@ export default {
         getUserInfo(User) {
             // Check if Commercial user is trying to edit a Commercial user
             if (this.role === 'Commercial' && User.role === 'Commercial') {
-                this.$toast.error(this.$i18n.t('noPermissionToEditCommercial') || 'ليس لديك صلاحية لتعديل المستخدمين التجاريين. فقط المدير الرئيسي يمكنه ذلك', {
-                    position: "top-right",
-                    timeout: 4000,
-                    closeOnClick: true,
-                    pauseOnFocusLoss: true,
-                    pauseOnHover: true,
-                    draggable: true,
-                    draggablePercent: 0.6,
-                    showCloseButtonOnHover: false,
-                    hideProgressBar: true,
-                    closeButton: "button",
-                    icon: true,
-                });
+                this.$notify.error(this.$i18n.t('noPermissionToEditCommercial') || 'ليس لديك صلاحية لتعديل المستخدمين التجاريين. فقط المدير الرئيسي يمكنه ذلك');
                 return;
             }
             
@@ -602,12 +657,16 @@ export default {
                 ...User,
                 password: '',
                 restaurantName: User.restaurantName || '',
-                loginCode: User.loginCode != null ? String(User.loginCode) : '',
+                loginCode: '',
                 logo: null,
                 logoPreview: User.logo ? `${imageBaseUrl}/Images/${User.logo}` : null,
                 logoFile: null,
                 allowedSections: parseAllowedSectionsJson(
                     User.allowedSectionsJson || User.AllowedSectionsJson
+                ),
+                canUseOwnLoginCodeForSensitiveActions: !!(
+                    User.canUseOwnLoginCodeForSensitiveActions ||
+                    User.CanUseOwnLoginCodeForSensitiveActions
                 )
             };
             this.$bvModal.show("modal-editUser");
@@ -653,10 +712,15 @@ export default {
                 this.addForm.role === 'Manager' &&
                 (!this.addForm.allowedSections || !this.addForm.allowedSections.length)
             ) {
-                this.$toast.error(this.$t('selectAtLeastOneSection') || 'اختر قسماً واحداً على الأقل', {
-                    position: 'top-right',
-                    timeout: 4000
-                });
+                this.$notify.error(this.$t('selectAtLeastOneSection') || 'اختر قسماً واحداً على الأقل');
+                return;
+            }
+            if (
+                this.addForm.role === 'Manager' &&
+                this.addForm.canUseOwnLoginCodeForSensitiveActions &&
+                !String(this.addForm.loginCode || '').trim()
+            ) {
+                this.$notify.error(this.$t('managerLoginCodeRequiredForSensitiveActions') || 'رمز التأكيد مطلوب عند تفعيل الخيار');
                 return;
             }
             this.show = true;
@@ -668,7 +732,13 @@ export default {
             formData.append('password', this.addForm.password);
             formData.append('username', this.addForm.username);
             formData.append('role', this.addForm.role);
-            this.appendManagerSections(formData, this.addForm.role, this.addForm.allowedSections);
+            this.appendManagerSections(
+                formData,
+                this.addForm.role,
+                this.addForm.allowedSections,
+                this.addForm.canUseOwnLoginCodeForSensitiveActions,
+                this.addForm.loginCode
+            );
             
             // Add logo and restaurant name if Admin adding Commercial user
             if (this.role === 'Admin' && this.addForm.role === 'Commercial') {
@@ -690,19 +760,7 @@ export default {
             })
                 .then((response) => {
                     this.show = false;
-                    this.$toast.success(this.$i18n.t('userHasbeenAddedSuccessfully'), {
-                        position: "top-right",
-                        timeout: 4000,
-                        closeOnClick: true,
-                        pauseOnFocusLoss: true,
-                        pauseOnHover: true,
-                        draggable: true,
-                        draggablePercent: 0.6,
-                        showCloseButtonOnHover: false,
-                        hideProgressBar: true,
-                        closeButton: "button",
-                        icon: true,
-                    });
+                    this.$notify.success(this.$i18n.t('userHasbeenAddedSuccessfully'));
                     // Reset form
                     this.addForm = {
                         name: "",
@@ -714,26 +772,15 @@ export default {
                         loginCode: "",
                         logoFile: null,
                         logoPreview: null,
-                        allowedSections: []
+                        allowedSections: [],
+                        canUseOwnLoginCodeForSensitiveActions: false
                     };
                     this.GetAllUsers();
                     this.$bvModal.hide('modal-addUser');
                 })
                 .catch((error) => {
                     this.show = false;
-                    this.$toast.error(error.response?.data?.message || this.$i18n.t('somethingWrong'), {
-                        position: "top-right",
-                        timeout: 4000,
-                        closeOnClick: true,
-                        pauseOnFocusLoss: true,
-                        pauseOnHover: true,
-                        draggable: true,
-                        draggablePercent: 0.6,
-                        showCloseButtonOnHover: false,
-                        hideProgressBar: true,
-                        closeButton: "button",
-                        icon: true,
-                    });
+                    this.$notify.error(error.response?.data?.message || this.$i18n.t('somethingWrong'));
                 });
         },
         EditUser() {
@@ -741,10 +788,7 @@ export default {
                 this.editForm.role === 'Manager' &&
                 (!this.editForm.allowedSections || !this.editForm.allowedSections.length)
             ) {
-                this.$toast.error(this.$t('selectAtLeastOneSection') || 'اختر قسماً واحداً على الأقل', {
-                    position: 'top-right',
-                    timeout: 4000
-                });
+                this.$notify.error(this.$t('selectAtLeastOneSection') || 'اختر قسماً واحداً على الأقل');
                 return;
             }
             this.show = true;
@@ -755,7 +799,13 @@ export default {
             formData.append('phoneNumber', this.editForm.phoneNumber);
             formData.append('username', this.editForm.username);
             formData.append('role', this.editForm.role);
-            this.appendManagerSections(formData, this.editForm.role, this.editForm.allowedSections);
+            this.appendManagerSections(
+                formData,
+                this.editForm.role,
+                this.editForm.allowedSections,
+                this.editForm.canUseOwnLoginCodeForSensitiveActions,
+                this.editForm.loginCode
+            );
             
             // Add password only if provided
             if (this.editForm.password) {
@@ -780,19 +830,7 @@ export default {
             })
                 .then((response) => {
                     this.show = false;
-                    this.$toast.success(this.$i18n.t('userHadbeenEditSuccessfully'), {
-                        position: "top-right",
-                        timeout: 4000,
-                        closeOnClick: true,
-                        pauseOnFocusLoss: true,
-                        pauseOnHover: true,
-                        draggable: true,
-                        draggablePercent: 0.6,
-                        showCloseButtonOnHover: false,
-                        hideProgressBar: true,
-                        closeButton: "button",
-                        icon: true,
-                    });
+                    this.$notify.success(this.$i18n.t('userHadbeenEditSuccessfully'));
                     this.GetAllUsers();
                     this.$bvModal.hide('modal-editUser');
                     // Reset form
@@ -806,24 +844,14 @@ export default {
                         loginCode: "",
                         logo: null,
                         logoPreview: null,
-                        logoFile: null
+                        logoFile: null,
+                        allowedSections: [],
+                        canUseOwnLoginCodeForSensitiveActions: false
                     };
                 })
                 .catch((error) => {
                     this.show = false;
-                    this.$toast.error(error.response?.data?.message || this.$i18n.t('somethingWrong'), {
-                        position: "top-right",
-                        timeout: 4000,
-                        closeOnClick: true,
-                        pauseOnFocusLoss: true,
-                        pauseOnHover: true,
-                        draggable: true,
-                        draggablePercent: 0.6,
-                        showCloseButtonOnHover: false,
-                        hideProgressBar: true,
-                        closeButton: "button",
-                        icon: true,
-                    });
+                    this.$notify.error(error.response?.data?.message || this.$i18n.t('somethingWrong'));
                 });
         },
 
@@ -832,40 +860,14 @@ export default {
             HTTP.delete(`Admin/DeleteUser?id=${this.UserId}`)
                 .then((response) => {
                     this.show = false;
-                    this.$toast.success(this.$i18n.t('userHadbeenDeleteSuccessfully'), {
-                        position: "top-right",
-                        timeout: 4000,
-                        closeOnClick: true,
-                        pauseOnFocusLoss: true,
-                        pauseOnHover: true,
-                        draggable: true,
-                        draggablePercent: 0.6,
-                        showCloseButtonOnHover: false,
-                        hideProgressBar: true,
-                        closeButton: "button",
-                        icon: true,
-                        
-                    });
+                    this.$notify.success(this.$i18n.t('userHadbeenDeleteSuccessfully'));
                     this.GetAllUsers();
                     this.$bvModal.hide(modelId);
 
                 })
                 .catch((error) => {
                     this.show = false;
-                    this.$toast.error(this.$i18n.t('somethingWrong'), {
-                        position: "top-right",
-                        timeout: 4000,
-                        closeOnClick: true,
-                        pauseOnFocusLoss: true,
-                        pauseOnHover: true,
-                        draggable: true,
-                        draggablePercent: 0.6,
-                        showCloseButtonOnHover: false,
-                        hideProgressBar: true,
-                        closeButton: "button",
-                        icon: true,
-                        
-                    });
+                    this.$notify.error(this.$i18n.t('somethingWrong'));
                 });
         },
 

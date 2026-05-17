@@ -700,7 +700,7 @@
               @hidden="onSensitiveActionPasswordModalHidden"
             >
               <div class="modal-content-wrapper">
-                <div class="order-notes-content">
+                                <div class="order-notes-content">
                   <div class="order-notes-header">
                     <b-icon icon="shield-lock" class="me-2"></b-icon>
                     <h3 class="order-notes-title">{{ $t("sensitiveActionPasswordTitle") || "تأكيد الباسورد" }}</h3>
@@ -712,12 +712,15 @@
                     </label>
                   </div>
                   <div class="order-notes-input-wrapper">
-                    <label class="order-notes-label">{{ $t("password") || "كلمة المرور" }}</label>
+                    <label class="order-notes-label">{{ sensitiveAuthFieldLabel }}</label>
                     <input
                       v-model="sensitiveActionAuth.password"
                       type="password"
+                      :inputmode="sensitiveAuthUsesOwnLoginCode ? 'numeric' : null"
+                      :maxlength="sensitiveAuthUsesOwnLoginCode ? 12 : null"
                       class="order-notes-input"
-                      :placeholder="$t('enterManagerPassword') || 'أدخل باسورد المدير'"
+                      :placeholder="sensitiveAuthFieldPlaceholder"
+                      autocomplete="off"
                       @keyup.enter="confirmSensitiveActionPassword"
                     />
                   </div>
@@ -1923,6 +1926,31 @@ export default {
         order_discount: this.$t("sensitiveActionOrderDiscount") || "تطبيق الخصم",
       };
       return labels[key] || (this.$t("sensitiveActionGeneral") || "إجراء حساس");
+    },
+    sensitiveAuthUsesOwnLoginCode() {
+      const role = localStorage.getItem("role");
+      if (role !== "Manager") return false;
+      try {
+        const info = JSON.parse(localStorage.getItem("info") || "{}");
+        return !!(
+          info.canUseOwnLoginCodeForSensitiveActions ||
+          info.CanUseOwnLoginCodeForSensitiveActions
+        );
+      } catch {
+        return false;
+      }
+    },
+    sensitiveAuthFieldLabel() {
+      if (this.sensitiveAuthUsesOwnLoginCode) {
+        return this.$t("sensitiveAuthLoginCodeLabel") || "رمز التأكيد";
+      }
+      return this.$t("password") || "كلمة المرور";
+    },
+    sensitiveAuthFieldPlaceholder() {
+      if (this.sensitiveAuthUsesOwnLoginCode) {
+        return this.$t("enterYourLoginCode") || "أدخل رمز الدخول الخاص بك";
+      }
+      return this.$t("enterManagerPassword") || "أدخل باسورد المدير";
     },
     cardfields() {
       const lang = this.$i18n.locale;
@@ -4094,6 +4122,14 @@ export default {
     closeModel(id) {
       this.$bvModal.hide(id);
     },
+    resolveSensitiveAuthErrorMessage(rawMessage) {
+      const msg = rawMessage != null ? String(rawMessage).trim() : "";
+      if (msg && this.$te(msg)) return this.$t(msg);
+      if (this.sensitiveAuthUsesOwnLoginCode) {
+        return this.$t("invalidManagerLoginCode") || "رمز الدخول غير صحيح";
+      }
+      return this.$t("invalidManagerPassword") || "كلمة المرور غير صحيحة";
+    },
     requestSensitiveActionPassword(actionKey) {
       if (this.sensitiveActionAuth.resolver) {
         this.sensitiveActionAuth.resolver(false);
@@ -4125,10 +4161,10 @@ export default {
     async confirmSensitiveActionPassword() {
       if (this.sensitiveActionAuth.verifying) return;
       if (!this.sensitiveActionAuth.password || !this.sensitiveActionAuth.password.trim()) {
-        this.$toast.error(this.$t("managerPasswordRequired") || "يرجى إدخال باسورد المدير", {
-          timeout: 2500,
-          maxToasts: 1,
-        });
+        const requiredMsg = this.sensitiveAuthUsesOwnLoginCode
+          ? (this.$t("enterYourLoginCode") || "أدخل رمز الدخول الخاص بك")
+          : (this.$t("managerPasswordRequired") || "يرجى إدخال باسورد المدير");
+        this.$notify.error(requiredMsg, { timeout: 2500 });
         return;
       }
 
@@ -4140,20 +4176,14 @@ export default {
         });
 
         if (!response?.data || response.data.errorStatus) {
-          this.$toast.error(response?.data?.message || (this.$t("invalidManagerPassword") || "كلمة المرور غير صحيحة"), {
-            timeout: 2500,
-            maxToasts: 1,
-          });
+          this.$notify.error(this.resolveSensitiveAuthErrorMessage(response?.data?.message), { timeout: 2500 });
           return;
         }
 
         this.resolveSensitiveActionPassword(true);
         this.$bvModal.hide("modal-sensitive-action-password");
       } catch (error) {
-        this.$toast.error(error?.response?.data?.message || (this.$t("invalidManagerPassword") || "كلمة المرور غير صحيحة"), {
-          timeout: 2500,
-          maxToasts: 1,
-        });
+        this.$notify.error(this.resolveSensitiveAuthErrorMessage(error?.response?.data?.message), { timeout: 2500 });
       } finally {
         this.sensitiveActionAuth.verifying = false;
       }

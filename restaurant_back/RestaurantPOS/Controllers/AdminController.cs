@@ -120,6 +120,67 @@ namespace RestaurantPOS.Controllers
             return s;
         }
 
+        private static bool IsManagerRole(string? role) =>
+            string.Equals(role, SectionDefinitions.ManagerRole, StringComparison.OrdinalIgnoreCase);
+
+        private async Task<(bool Ok, string? ErrorMessage)> ApplyManagerSensitiveLoginCodeSettingsAsync(
+            User user,
+            string role,
+            string? loginCodeRaw,
+            bool? canUseOwnLoginCode,
+            int? excludeUserId = null)
+        {
+            if (!IsManagerRole(role))
+            {
+                user.CanUseOwnLoginCodeForSensitiveActions = false;
+                if (!string.Equals(role, "Commercial", StringComparison.OrdinalIgnoreCase))
+                {
+                    user.LoginCode = null;
+                }
+                return (true, null);
+            }
+
+            user.CanUseOwnLoginCodeForSensitiveActions = canUseOwnLoginCode == true;
+
+            if (!user.CanUseOwnLoginCodeForSensitiveActions)
+            {
+                return (true, null);
+            }
+
+            string? lc = null;
+            if (!string.IsNullOrWhiteSpace(loginCodeRaw))
+            {
+                lc = NormalizeLoginCode(loginCodeRaw);
+                if (lc == null)
+                {
+                    return (false, "رمز الدخول يجب أن يكون من 4 إلى 12 رقماً");
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(user.LoginCode))
+            {
+                lc = user.LoginCode;
+            }
+
+            if (string.IsNullOrWhiteSpace(lc))
+            {
+                return (false, "managerLoginCodeRequiredForSensitiveActions");
+            }
+
+            var duplicateQuery = _dbConfig.Users.Where(u => u.LoginCode == lc && !u.IsDeleted);
+            if (excludeUserId.HasValue)
+            {
+                duplicateQuery = duplicateQuery.Where(u => u.Id != excludeUserId.Value);
+            }
+
+            if (await duplicateQuery.AnyAsync())
+            {
+                return (false, "رمز الدخول مستخدم من حساب آخر");
+            }
+
+            user.LoginCode = lc;
+            return (true, null);
+        }
+
         private static decimal ResolveSellingPrice(Item item)
         {
             if (item.DisCountPrice > 0 && item.DisCountPrice != item.SellingPrice)
@@ -568,6 +629,21 @@ namespace RestaurantPOS.Controllers
                     }
                     newUse.LoginCode = lc;
                 }
+
+                var (managerLoginOk, managerLoginError) = await ApplyManagerSensitiveLoginCodeSettingsAsync(
+                    newUse,
+                    request.Role,
+                    request.LoginCode,
+                    request.CanUseOwnLoginCodeForSensitiveActions);
+                if (!managerLoginOk)
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = managerLoginError ?? "managerLoginCodeRequiredForSensitiveActions"
+                    });
+                }
                 
                 _dbConfig.Users.Add(newUse);
                 await _dbConfig.SaveChangesAsync();
@@ -676,6 +752,22 @@ namespace RestaurantPOS.Controllers
                     });
                 }
                 user.AllowedSectionsJson = sectionsJson;
+
+                var (managerLoginOk, managerLoginError) = await ApplyManagerSensitiveLoginCodeSettingsAsync(
+                    user,
+                    request.Role,
+                    request.LoginCode,
+                    request.CanUseOwnLoginCodeForSensitiveActions,
+                    id);
+                if (!managerLoginOk)
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = managerLoginError ?? "managerLoginCodeRequiredForSensitiveActions"
+                    });
+                }
                 
                 // Update password only if provided and not empty
                 if (!string.IsNullOrWhiteSpace(request.Password))
@@ -1010,7 +1102,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,POS,Waiter")]
+        [Authorize(Roles = "Commercial,POS,Waiter,Manager")]
         [HttpPost("VerifySensitiveActionPassword")]
         public async Task<ActionResult<GlobalResponse<object>>> VerifySensitiveActionPassword([FromBody] SensitiveActionPasswordRequest request)
         {
@@ -1024,11 +1116,11 @@ namespace RestaurantPOS.Controllers
                 });
             }
 
-            var commercialUserId = GetCommercialUserId();
-            var commercialUser = await _dbConfig.Users
-                .FirstOrDefaultAsync(u => u.Id == commercialUserId && !u.IsDeleted);
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+            var currentUser = await _dbConfig.Users
+                .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
 
-            if (commercialUser == null)
+            if (currentUser == null)
             {
                 return Unauthorized(new GlobalResponse<object>
                 {
@@ -1038,7 +1130,61 @@ namespace RestaurantPOS.Controllers
                 });
             }
 
-            var isValid = BCrypt.Net.BCrypt.Verify(request.Password, commercialUser.Password);
+            if (IsManagerRole(currentUser.Role) && currentUser.CanUseOwnLoginCodeForSensitiveActions)
+            {
+                if (string.IsNullOrWhiteSpace(currentUser.LoginCode))
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "managerLoginCodeNotConfigured"
+                    });
+                }
+
+                var submittedCode = NormalizeLoginCode(request.Password);
+                if (submittedCode == null || submittedCode != currentUser.LoginCode)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "invalidManagerLoginCode"
+                    });
+                }
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new { action = request.ActionKey ?? "general", verified = true },
+                    ErrorStatus = false,
+                    Message = "تم التحقق بنجاح"
+                });
+            }
+
+            User passwordUser;
+            if (string.Equals(currentUser.Role, "Commercial", StringComparison.OrdinalIgnoreCase))
+            {
+                passwordUser = currentUser;
+            }
+            else
+            {
+                var commercialUserId = GetCommercialUserId();
+                passwordUser = await _dbConfig.Users
+                    .FirstOrDefaultAsync(u => u.Id == commercialUserId && !u.IsDeleted)
+                    ?? currentUser;
+            }
+
+            if (string.IsNullOrWhiteSpace(passwordUser.Password))
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "كلمة المرور غير صحيحة"
+                });
+            }
+
+            var isValid = BCrypt.Net.BCrypt.Verify(request.Password, passwordUser.Password);
             if (!isValid)
             {
                 return BadRequest(new GlobalResponse<object>

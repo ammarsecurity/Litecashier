@@ -757,15 +757,6 @@ export default {
     if (this.movementsSearchTimer) clearTimeout(this.movementsSearchTimer);
   },
   methods: {
-    /** خيارات موحّدة مع vue-toastification (نفس نمط Employees/Users) */
-    inventoryToastOpts(overrides = {}) {
-      return {
-        position: 'top-right',
-        timeout: 3000,
-        rtl: this.$i18n.locale === 'ar',
-        ...overrides
-      };
-    },
     onStockTabClick() {
       if (this.items.length === 0) this.loadInventory();
     },
@@ -801,21 +792,21 @@ export default {
     async submitAddSupplier() {
       const name = (this.supplierForm.name || '').trim();
       if (!name) {
-        this.$toast.warning(this.$t('supplierNameRequired') || 'اسم المورد مطلوب', this.inventoryToastOpts());
+        this.$notify.warning(this.$t('supplierNameRequired') || 'اسم المورد مطلوب');
         return;
       }
       try {
         this.savingSupplier = true;
         const response = await HTTP.post('Inventory/AddSupplier', { name, notes: this.supplierForm.notes?.trim() || null });
         if (response.data && !response.data.errorStatus) {
-          this.$toast.success(response.data.message || this.$t('supplierAdded'), this.inventoryToastOpts());
+          this.$notify.success(response.data.message || this.$t('supplierAdded'));
           this.showAddSupplierModal = false;
           this.loadSuppliers();
         } else {
-          this.$toast.error(response.data?.message || this.$t('error'), this.inventoryToastOpts());
+          this.$notify.error(response.data?.message || this.$t('error'));
         }
       } catch (error) {
-        this.$toast.error(error.response?.data?.message || this.$t('error'), this.inventoryToastOpts());
+        this.$notify.error(error.response?.data?.message || this.$t('error'));
       } finally {
         this.savingSupplier = false;
       }
@@ -828,7 +819,7 @@ export default {
     async submitEditSupplier() {
       const name = (this.supplierForm.name || '').trim();
       if (!name) {
-        this.$toast.warning(this.$t('supplierNameRequired') || 'اسم المورد مطلوب', this.inventoryToastOpts());
+        this.$notify.warning(this.$t('supplierNameRequired') || 'اسم المورد مطلوب');
         return;
       }
       if (this.editingSupplierId == null) return;
@@ -836,14 +827,14 @@ export default {
         this.savingSupplier = true;
         const response = await HTTP.put(`Inventory/UpdateSupplier/${this.editingSupplierId}`, { name, notes: this.supplierForm.notes?.trim() || null });
         if (response.data && !response.data.errorStatus) {
-          this.$toast.success(response.data.message || this.$t('supplierUpdated'), this.inventoryToastOpts());
+          this.$notify.success(response.data.message || this.$t('supplierUpdated'));
           this.showEditSupplierModal = false;
           this.loadSuppliers();
         } else {
-          this.$toast.error(response.data?.message || this.$t('error'), this.inventoryToastOpts());
+          this.$notify.error(response.data?.message || this.$t('error'));
         }
       } catch (error) {
-        this.$toast.error(error.response?.data?.message || this.$t('error'), this.inventoryToastOpts());
+        this.$notify.error(error.response?.data?.message || this.$t('error'));
       } finally {
         this.savingSupplier = false;
       }
@@ -862,13 +853,13 @@ export default {
       try {
         const response = await HTTP.delete(`Inventory/DeleteSupplier/${id}`);
         if (response.data && !response.data.errorStatus) {
-          this.$toast.success(response.data.message || this.$t('supplierDeleted'), this.inventoryToastOpts());
+          this.$notify.success(response.data.message || this.$t('supplierDeleted'));
           this.loadSuppliers();
         } else {
-          this.$toast.error(response.data?.message || this.$t('error'), this.inventoryToastOpts());
+          this.$notify.error(response.data?.message || this.$t('error'));
         }
       } catch (error) {
-        this.$toast.error(error.response?.data?.message || this.$t('error'), this.inventoryToastOpts());
+        this.$notify.error(error.response?.data?.message || this.$t('error'));
       }
     },
     async loadStockMovements() {
@@ -942,7 +933,7 @@ export default {
         }
       } catch (error) {
         console.error('Error loading inventory:', error);
-        this.$toast.error(error.response?.data?.message || this.$t('error') || 'حدث خطأ', this.inventoryToastOpts());
+        this.$notify.error(error.response?.data?.message || this.$t('error') || 'حدث خطأ');
         this.items = [];
       } finally {
         this.loading = false;
@@ -957,7 +948,7 @@ export default {
     },
     removeStockItemRow(index) {
       if (this.addForm.items.length <= 1) {
-        this.$toast.warning(this.$t('materialNameRequired') || 'يجب إدخال مادة واحدة على الأقل', this.inventoryToastOpts());
+        this.$notify.warning(this.$t('materialNameRequired') || 'يجب إدخال مادة واحدة على الأقل');
         return;
       }
       this.addForm.items.splice(index, 1);
@@ -1016,7 +1007,7 @@ export default {
       }));
       const validRows = rows.filter((row) => row.materialName && row.quantity > 0);
       if (validRows.length === 0) {
-        this.$toast.warning(this.$t('materialNameRequired') || 'يرجى إدخال مادة واحدة على الأقل مع كمية صحيحة', this.inventoryToastOpts());
+        this.$notify.warning(this.$t('materialNameRequired') || 'يرجى إدخال مادة واحدة على الأقل مع كمية صحيحة');
         return;
       }
       try {
@@ -1031,18 +1022,17 @@ export default {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
         if (response.data && !response.data.errorStatus) {
-          this.$toast.success(
-            response.data.message || (this.$t('addStockSuccess') || 'تمت إضافة الكمية بنجاح'),
-            this.inventoryToastOpts()
+          this.$notify.success(
+            response.data.message || (this.$t('addStockSuccess') || 'تمت إضافة الكمية بنجاح')
           );
           this.showAddModal = false;
           this.loadInventory();
           if (this.activeInventoryTab === 'movements') this.loadStockMovements();
         } else {
-          this.$toast.error(response.data?.message || (this.$t('error') || 'حدث خطأ'), this.inventoryToastOpts());
+          this.$notify.error(response.data?.message || (this.$t('error') || 'حدث خطأ'));
         }
       } catch (error) {
-        this.$toast.error(error.response?.data?.message || (this.$t('error') || 'حدث خطأ'), this.inventoryToastOpts());
+        this.$notify.error(error.response?.data?.message || (this.$t('error') || 'حدث خطأ'));
       } finally {
         this.savingAdd = false;
       }
@@ -1070,9 +1060,8 @@ export default {
         await this.loadEmployeesForWithdraw();
       }
       if (this.withdrawEmployeesList.length === 0) {
-        this.$toast.warning(
-          this.$t('noEmployeesForWithdraw') || 'لا يوجد موظفون. أضف موظفاً من إدارة الموظفين أولاً.',
-          this.inventoryToastOpts()
+        this.$notify.warning(
+          this.$t('noEmployeesForWithdraw') || 'لا يوجد موظفون. أضف موظفاً من إدارة الموظفين أولاً.'
         );
         return;
       }
@@ -1093,21 +1082,21 @@ export default {
     },
     async submitWithdraw() {
       if (!(this.withdrawForm.materialName || '').trim()) {
-        this.$toast.warning(this.$t('materialNameRequired') || 'اسم المادة مطلوب', this.inventoryToastOpts());
+        this.$notify.warning(this.$t('materialNameRequired') || 'اسم المادة مطلوب');
         return;
       }
       if (!this.withdrawForm.quantity || this.withdrawForm.quantity <= 0) {
-        this.$toast.warning(this.$t('quantityRequired') || 'الكمية مطلوبة وأكبر من صفر', this.inventoryToastOpts());
+        this.$notify.warning(this.$t('quantityRequired') || 'الكمية مطلوبة وأكبر من صفر');
         return;
       }
       if (this.withdrawForm.quantity > this.withdrawForm.currentStock) {
-        this.$toast.error(this.$t('insufficientQuantity') || 'الكمية المتاحة غير كافية', this.inventoryToastOpts());
+        this.$notify.error(this.$t('insufficientQuantity') || 'الكمية المتاحة غير كافية');
         return;
       }
       const empId = this.withdrawForm.receivedByEmployeeId;
       const selectedEmp = this.withdrawEmployeesList.find((e) => e.id === empId || String(e.id) === String(empId));
       if (!selectedEmp || !(selectedEmp.name || '').trim()) {
-        this.$toast.warning(this.$t('selectEmployeeWhoReceived') || 'اختر الموظف الذي استلم السحب', this.inventoryToastOpts());
+        this.$notify.warning(this.$t('selectEmployeeWhoReceived') || 'اختر الموظف الذي استلم السحب');
         return;
       }
       try {
@@ -1120,18 +1109,17 @@ export default {
           notes: this.withdrawForm.notes || null
         });
         if (response.data && !response.data.errorStatus) {
-          this.$toast.success(
-            response.data.message || (this.$t('withdrawSuccess') || 'تم السحب بنجاح'),
-            this.inventoryToastOpts()
+          this.$notify.success(
+            response.data.message || (this.$t('withdrawSuccess') || 'تم السحب بنجاح')
           );
           this.showWithdrawModal = false;
           this.loadInventory();
           if (this.activeInventoryTab === 'movements') this.loadStockMovements();
         } else {
-          this.$toast.error(response.data?.message || (this.$t('error') || 'حدث خطأ'), this.inventoryToastOpts());
+          this.$notify.error(response.data?.message || (this.$t('error') || 'حدث خطأ'));
         }
       } catch (error) {
-        this.$toast.error(error.response?.data?.message || (this.$t('error') || 'حدث خطأ'), this.inventoryToastOpts());
+        this.$notify.error(error.response?.data?.message || (this.$t('error') || 'حدث خطأ'));
       } finally {
         this.savingWithdraw = false;
       }

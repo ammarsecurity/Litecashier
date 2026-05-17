@@ -3,6 +3,7 @@
  */
 
 export const ASSIGNABLE_SECTION_KEYS = [
+  "pos",
   "category",
   "items",
   "tables",
@@ -23,6 +24,7 @@ export const ASSIGNABLE_SECTION_KEYS = [
 
 /** Route path → section key (first match wins). */
 const ROUTE_SECTION_MAP = [
+  { prefix: "/pos", key: "pos" },
   { prefix: "/reports", key: "reports" },
   { prefix: "/end-of-day-report", key: "endOfDayReport" },
   { prefix: "/inventory", key: "inventory" },
@@ -97,6 +99,7 @@ export function managerCanAccessPath(path, allowedSections) {
 
 /** i18n keys for section labels in user forms */
 export const SECTION_I18N_KEYS = {
+  pos: "PointOfSale",
   category: "itemTagsPlaceholder",
   items: "Items",
   tables: "tables",

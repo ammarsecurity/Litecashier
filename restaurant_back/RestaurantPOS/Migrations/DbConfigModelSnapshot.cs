@@ -1160,6 +1160,9 @@ namespace RestaurantPOS.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
 
+                    b.Property<bool>("CanUseOwnLoginCodeForSensitiveActions")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("LoginCode")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");

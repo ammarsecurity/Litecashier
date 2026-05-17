@@ -72,6 +72,8 @@
 </template>
 
 <script>
+import { syncNotifyLocale } from '@/plugins/notifyPlugin';
+
 export default {
   name: "AppHeader",
   props: {
@@ -95,6 +97,7 @@ export default {
       localStorage.setItem("language", lang);
       this.$i18n.locale = lang;
       document.body.dir = lang === "en" ? "ltr" : "rtl";
+      syncNotifyLocale(lang);
     },
     toggleLanguage() {
       const currentLang = this.$i18n.locale || localStorage.getItem("language") || "ar";

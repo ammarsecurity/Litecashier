@@ -26,6 +26,9 @@ namespace RestaurantPOS.Models
         [StringLength(2000)]
         public string? AllowedSectionsJson { get; set; }
 
+        /// <summary>When true (Manager only), sensitive POS actions are confirmed with this user's LoginCode instead of the commercial account password.</summary>
+        public bool CanUseOwnLoginCodeForSensitiveActions { get; set; }
+
         [JsonIgnore]
         public List<Item>? Items { get; set; }
         [JsonIgnore]
