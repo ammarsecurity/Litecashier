@@ -52,7 +52,7 @@ namespace RestaurantPOS.Controllers
         private int GetCommercialUserId()
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
-            var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+            var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId && !x.IsDeleted);
             
             if (user != null && user.Role == "Commercial")
             {
@@ -60,6 +60,53 @@ namespace RestaurantPOS.Controllers
             }
             
             return user?.InsertByUserId ?? userId;
+        }
+
+        /// <summary>
+        /// Validates sensitive-action credential for a tenant: commercial password,
+        /// then any manager's confirmation code (if enabled), then any manager's login password.
+        /// </summary>
+        private async Task<(bool Ok, string? ErrorKey)> TryVerifySensitiveCredentialAsync(int commercialUserId, string password)
+        {
+            var commercial = await _dbConfig.Users
+                .FirstOrDefaultAsync(u => u.Id == commercialUserId && !u.IsDeleted);
+
+            if (commercial != null
+                && !string.IsNullOrWhiteSpace(commercial.Password)
+                && BCrypt.Net.BCrypt.Verify(password, commercial.Password))
+            {
+                return (true, null);
+            }
+
+            var managers = await _dbConfig.Users
+                .Where(u => !u.IsDeleted
+                    && u.InsertByUserId == commercialUserId
+                    && u.Role == SectionDefinitions.ManagerRole)
+                .ToListAsync();
+
+            var submittedCode = NormalizeLoginCode(password);
+
+            foreach (var manager in managers)
+            {
+                if (manager.CanUseOwnLoginCodeForSensitiveActions
+                    && !string.IsNullOrWhiteSpace(manager.LoginCode)
+                    && submittedCode != null
+                    && submittedCode == manager.LoginCode)
+                {
+                    return (true, null);
+                }
+            }
+
+            foreach (var manager in managers)
+            {
+                if (!string.IsNullOrWhiteSpace(manager.Password)
+                    && BCrypt.Net.BCrypt.Verify(password, manager.Password))
+                {
+                    return (true, null);
+                }
+            }
+
+            return (false, "invalidSensitiveAuth");
         }
 
         /// <summary>
@@ -1161,37 +1208,15 @@ namespace RestaurantPOS.Controllers
                 });
             }
 
-            User passwordUser;
-            if (string.Equals(currentUser.Role, "Commercial", StringComparison.OrdinalIgnoreCase))
-            {
-                passwordUser = currentUser;
-            }
-            else
-            {
-                var commercialUserId = GetCommercialUserId();
-                passwordUser = await _dbConfig.Users
-                    .FirstOrDefaultAsync(u => u.Id == commercialUserId && !u.IsDeleted)
-                    ?? currentUser;
-            }
-
-            if (string.IsNullOrWhiteSpace(passwordUser.Password))
+            var commercialUserId = GetCommercialUserId();
+            var (verified, errorKey) = await TryVerifySensitiveCredentialAsync(commercialUserId, request.Password);
+            if (!verified)
             {
                 return BadRequest(new GlobalResponse<object>
                 {
                     Data = null,
                     ErrorStatus = true,
-                    Message = "كلمة المرور غير صحيحة"
-                });
-            }
-
-            var isValid = BCrypt.Net.BCrypt.Verify(request.Password, passwordUser.Password);
-            if (!isValid)
-            {
-                return BadRequest(new GlobalResponse<object>
-                {
-                    Data = null,
-                    ErrorStatus = true,
-                    Message = "كلمة المرور غير صحيحة"
+                    Message = errorKey ?? "invalidSensitiveAuth"
                 });
             }
 

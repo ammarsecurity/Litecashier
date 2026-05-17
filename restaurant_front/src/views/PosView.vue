@@ -945,6 +945,9 @@
                       autocomplete="off"
                       @keyup.enter="confirmSensitiveActionPassword"
                     />
+                    <small v-if="!sensitiveAuthUsesOwnLoginCode" class="text-muted d-block mt-1">
+                      {{ $t("sensitiveAuthPosHint") }}
+                    </small>
                   </div>
                   <div class="order-notes-actions">
                     <button class="order-notes-confirm-button" :disabled="sensitiveActionAuth.verifying" @click="confirmSensitiveActionPassword">
@@ -2368,7 +2371,7 @@ export default {
       if (this.sensitiveAuthUsesOwnLoginCode) {
         return this.$t("sensitiveAuthLoginCodeLabel") || "رمز التأكيد";
       }
-      return this.$t("password") || "كلمة المرور";
+      return this.$t("sensitiveAuthPasswordLabel") || "تأكيد الصلاحية";
     },
     sensitiveAuthFieldPlaceholder() {
       if (this.sensitiveAuthUsesOwnLoginCode) {
@@ -5472,7 +5475,7 @@ export default {
       if (this.sensitiveAuthUsesOwnLoginCode) {
         return this.$t("invalidManagerLoginCode") || "رمز الدخول غير صحيح";
       }
-      return this.$t("invalidManagerPassword") || "كلمة المرور غير صحيحة";
+      return this.$t("invalidSensitiveAuth") || this.$t("invalidManagerPassword") || "كلمة المرور غير صحيحة";
     },
     requestSensitiveActionPassword(actionKey) {
       if (this.sensitiveActionAuth.resolver) {
