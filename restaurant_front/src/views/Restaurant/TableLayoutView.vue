@@ -291,7 +291,7 @@ export default {
     },
     canEditFloorPlan() {
       const r = (typeof localStorage !== "undefined" && localStorage.getItem("role")) || "";
-      return ["Commercial", "Admin", "TablesManager"].includes(r);
+      return ["Commercial", "Admin"].includes(r);
     },
     /** مواقع الطاولات ضمن المخطط الحالي (نفس تبويب الطابق) */
     zonesForCurrentPlan() {

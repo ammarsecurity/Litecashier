@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Models;
 using RestaurantPOS.Models.Requests;
@@ -39,7 +40,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/TagPrinters
-        [Authorize(Roles = "Commercial,Admin,POS,Waiter")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS,Waiter")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<List<TagPrinter>>>> GetTagPrinters()
         {
@@ -74,7 +75,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/TagPrinters/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
         [HttpGet("{id}")]
         public async Task<ActionResult<GlobalResponse<TagPrinter>>> GetTagPrinter(int id)
         {
@@ -117,7 +118,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // POST: api/TagPrinters
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
         [HttpPost]
         public async Task<ActionResult<GlobalResponse<TagPrinter>>> AddTagPrinter([FromBody] TagPrinterRequest request)
         {
@@ -212,7 +213,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // PUT: api/TagPrinters/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
         [HttpPut("{id}")]
         public async Task<ActionResult<GlobalResponse<TagPrinter>>> UpdateTagPrinter(int id, [FromBody] TagPrinterRequest request)
         {
@@ -344,7 +345,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // DELETE: api/TagPrinters/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<GlobalResponse<object>>> DeleteTagPrinter(int id)
         {

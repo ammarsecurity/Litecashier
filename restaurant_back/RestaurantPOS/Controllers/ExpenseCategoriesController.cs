@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Models;
 using RestaurantPOS.Models.Requests;
@@ -39,7 +40,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/ExpenseCategories
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<List<ExpenseCategory>>>> GetExpenseCategories()
         {
@@ -72,7 +73,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/ExpenseCategories/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpGet("{id}")]
         public async Task<ActionResult<GlobalResponse<ExpenseCategory>>> GetExpenseCategory(int id)
         {
@@ -113,7 +114,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // POST: api/ExpenseCategories
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpPost]
         public async Task<ActionResult<GlobalResponse<ExpenseCategory>>> AddExpenseCategory([FromBody] ExpenseCategoryRequest request)
         {
@@ -181,7 +182,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // PUT: api/ExpenseCategories/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpPut("{id}")]
         public async Task<ActionResult<GlobalResponse<ExpenseCategory>>> UpdateExpenseCategory(int id, [FromBody] ExpenseCategoryRequest request)
         {
@@ -287,7 +288,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // DELETE: api/ExpenseCategories/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<GlobalResponse<object>>> DeleteExpenseCategory(int id)
         {

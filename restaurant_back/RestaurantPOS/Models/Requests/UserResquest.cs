@@ -17,5 +17,8 @@ namespace RestaurantPOS.Models.Requests
         public string? RestaurantName { get; set; }
         /// <summary>رمز دخول الحساب التجاري (اختياري، مثل 45443)</summary>
         public string? LoginCode { get; set; }
+
+        /// <summary>JSON array of allowed section keys when Role is Manager.</summary>
+        public string? AllowedSectionsJson { get; set; }
     }
 }

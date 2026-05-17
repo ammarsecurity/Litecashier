@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Models;
 using RestaurantPOS.Models.Response;
@@ -11,7 +12,8 @@ namespace RestaurantPOS.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    [Authorize(Roles = "Commercial")]
+    [Authorize]
+    [AuthorizeSection("auditLog", Roles = "Commercial")]
     [EnableCors("CorsPolicy")]
     public class AuditLogController : ControllerBase
     {

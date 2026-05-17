@@ -136,7 +136,15 @@ export function buildNavItems(t) {
   ];
 }
 
-export function filterNavByRole(role, items) {
+export function filterNavByRole(role, items, allowedSections = []) {
+  if (role === "Manager") {
+    const allowed = new Set(
+      Array.isArray(allowedSections) ? allowedSections.map(String) : []
+    );
+    return items.filter(
+      (item) => item.name === "logout" || allowed.has(item.name)
+    );
+  }
   if (role === "Admin") {
     return items.filter((item) => item.name === "users" || item.name === "logout" || item.name === "customers");
   }
@@ -161,8 +169,8 @@ export function filterNavByRole(role, items) {
 /**
  * روابط لوحة التحكم: قائمة واحدة مرتبة كما في buildNavItems، بدون الرئيسية وبدون الخروج (الخروج في الهيدر).
  */
-export function flatNavItemsForHub(role, t) {
-  const items = filterNavByRole(role, buildNavItems(t));
+export function flatNavItemsForHub(role, t, allowedSections = []) {
+  const items = filterNavByRole(role, buildNavItems(t), allowedSections);
   return items.filter(
     (item) => item.name !== "dashboard" && item.name !== "logout"
   );

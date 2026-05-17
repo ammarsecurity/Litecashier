@@ -3987,21 +3987,6 @@ p {
   color: #ffffff;
 }
 
-.role-tables-manager {
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
-  color: #ffffff;
-}
-
-.role-reservations-manager {
-  background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
-  color: #ffffff;
-}
-
-.role-kitchen-manager {
-  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
-  color: #ffffff;
-}
-
 .role-loyalty-manager {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: #ffffff;
@@ -4010,6 +3995,32 @@ p {
 .role-waiter {
   background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
   color: #ffffff;
+}
+
+.role-manager {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  color: #ffffff;
+}
+
+.users-sections-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 0.5rem 0.75rem;
+}
+
+.users-section-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  cursor: pointer;
+  padding: 0.35rem 0.25rem;
+}
+
+.users-section-check input {
+  margin-top: 0.15rem;
+  flex-shrink: 0;
 }
 
 .role-default {

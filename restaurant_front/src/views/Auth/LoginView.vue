@@ -135,6 +135,7 @@
 </template>
 <script>
 import { HTTP } from '../../http/api.js';
+import { setAllowedSections } from '@/navigation/sectionRegistry.js';
 
 export default {
     name: 'LoginView',
@@ -158,17 +159,20 @@ export default {
             if (/^error in login info$/i.test(s)) return this.$i18n.t("errorInLoginInfo");
             return s;
         },
+        persistSession(responseData) {
+            localStorage.setItem('token', responseData.token);
+            localStorage.setItem('role', responseData.role);
+            localStorage.setItem('info', JSON.stringify(responseData.info || {}));
+            const sections = responseData.allowedSections || [];
+            setAllowedSections(sections);
+        },
         redirectAfterLogin(role) {
             if (role === 'Admin') {
                 this.$router.push('/users');
             } else if (role === 'POS') {
                 this.$router.push('/pos');
-            } else if (role === 'TablesManager') {
-                this.$router.push('/restaurant/tables');
-            } else if (role === 'ReservationsManager') {
-                this.$router.push('/restaurant/reservations');
-            } else if (role === 'KitchenManager') {
-                this.$router.push('/restaurant/kitchen');
+            } else if (role === 'Manager') {
+                this.$router.push('/sections');
             } else if (role === 'Waiter') {
                 this.$router.push('/restaurant/waiter');
             } else {
@@ -188,9 +192,7 @@ export default {
             HTTP.post('Auth/LoginByCode', { loginCode: code })
                 .then(response => {
                     if (response.data && response.data.token) {
-                        localStorage.setItem('token', response.data.token);
-                        localStorage.setItem('role', response.data.role);
-                        localStorage.setItem('info', JSON.stringify(response.data.info || {}));
+                        this.persistSession(response.data);
                         this.redirectAfterLogin(response.data.role);
                     } else {
                         throw new Error('Invalid response from server');
@@ -226,9 +228,7 @@ export default {
             })
                 .then(response => {
                     if (response.data && response.data.token) {
-                        localStorage.setItem('token', response.data.token);
-                        localStorage.setItem('role', response.data.role);
-                        localStorage.setItem('info', JSON.stringify(response.data.info || {}));
+                        this.persistSession(response.data);
                         this.redirectAfterLogin(response.data.role);
                     } else {
                         throw new Error('Invalid response from server');

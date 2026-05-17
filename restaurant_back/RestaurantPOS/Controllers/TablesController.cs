@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Hubs;
 using RestaurantPOS.Models.Requests.Restaurant;
@@ -58,7 +59,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/Tables
-        [Authorize(Roles = "Commercial,POS,Admin,TablesManager,Waiter")]
+        [AuthorizeSection("tables", Roles = "Commercial,POS,Admin,Waiter")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<PagedList<Table>>>> GetTables(
             int pageNumber = 0,
@@ -115,7 +116,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/Tables/{id}
-        [Authorize(Roles = "Commercial,POS,Admin,TablesManager")]
+        [AuthorizeSection("tables", Roles = "Commercial,POS,Admin")]
         [HttpGet("{id}")]
         public async Task<ActionResult<GlobalResponse<Table>>> GetTable(int id)
         {
@@ -143,7 +144,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // POST: api/Tables
-        [Authorize(Roles = "Commercial,Admin,TablesManager")]
+        [AuthorizeSection("tables", Roles = "Commercial,Admin")]
         [HttpPost]
         public async Task<ActionResult<GlobalResponse<Table>>> AddTable(TableRequest request)
         {
@@ -177,7 +178,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // PUT: api/Tables/{id}")
-        [Authorize(Roles = "Commercial,Admin,TablesManager")]
+        [AuthorizeSection("tables", Roles = "Commercial,Admin")]
         [HttpPut("{id}")]
         public async Task<ActionResult<GlobalResponse<Table>>> UpdateTable(int id, TableRequest request)
         {
@@ -272,7 +273,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // PUT: api/Tables/{id}/status
-        [Authorize(Roles = "Commercial,POS,Admin,TablesManager")]
+        [AuthorizeSection("tables", Roles = "Commercial,POS,Admin")]
         [HttpPut("{id}/status")]
         public async Task<ActionResult<GlobalResponse<Table>>> UpdateTableStatus(int id, [FromBody] string status)
         {
@@ -355,7 +356,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // POST: api/Tables/bulk
-        [Authorize(Roles = "Commercial,Admin,TablesManager")]
+        [AuthorizeSection("tables", Roles = "Commercial,Admin")]
         [HttpPost("bulk")]
         public async Task<ActionResult<GlobalResponse<List<Table>>>> AddTablesBulk([FromBody] BulkTableRequest request)
         {
@@ -423,7 +424,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // DELETE: api/Tables/{id}
-        [Authorize(Roles = "Commercial,Admin,TablesManager")]
+        [AuthorizeSection("tables", Roles = "Commercial,Admin")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<GlobalResponse<int>>> DeleteTable(int id)
         {
@@ -473,7 +474,7 @@ namespace RestaurantPOS.Controllers
         }
 
         /// <summary>حذف عدة طاولات (إخفاء منطقي) حسب المعرفات.</summary>
-        [Authorize(Roles = "Commercial,Admin,TablesManager")]
+        [AuthorizeSection("tables", Roles = "Commercial,Admin")]
         [HttpPost("bulk-delete")]
         public async Task<ActionResult<GlobalResponse<int>>> BulkDeleteTables([FromBody] List<int> ids)
         {
@@ -537,7 +538,7 @@ namespace RestaurantPOS.Controllers
         }
 
         /// <summary>حذف جميع الطاولات للمستخدم التجاري؛ يمكن تقييد الحالة بنفس فلتر القائمة.</summary>
-        [Authorize(Roles = "Commercial,Admin,TablesManager")]
+        [AuthorizeSection("tables", Roles = "Commercial,Admin")]
         [HttpPost("delete-all")]
         public async Task<ActionResult<GlobalResponse<int>>> DeleteAllTables([FromQuery] string? status = null)
         {
@@ -600,7 +601,7 @@ namespace RestaurantPOS.Controllers
         private static string NormalizeFloorPlanKey(string? planKey) =>
             string.IsNullOrWhiteSpace(planKey) ? "" : planKey.Trim();
 
-        [Authorize(Roles = "Commercial,POS,Admin,TablesManager,Waiter")]
+        [AuthorizeSection("tables", Roles = "Commercial,POS,Admin,Waiter")]
         [HttpGet("floor-plan")]
         public async Task<ActionResult<GlobalResponse<object>>> GetFloorPlan([FromQuery] string? planKey = null)
         {
@@ -717,7 +718,7 @@ namespace RestaurantPOS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial,Admin,TablesManager")]
+        [AuthorizeSection("tables", Roles = "Commercial,Admin")]
         [HttpPut("floor-plan/settings")]
         public async Task<ActionResult<GlobalResponse<object>>> UpdateFloorPlanSettings(
             [FromBody] RestaurantLayoutSettingsUpdateRequest request)
@@ -791,7 +792,7 @@ namespace RestaurantPOS.Controllers
         private static int ClampFloorPlanChipSize(int sizePx) =>
             Math.Max(32, Math.Min(96, sizePx));
 
-        [Authorize(Roles = "Commercial,Admin,TablesManager")]
+        [AuthorizeSection("tables", Roles = "Commercial,Admin")]
         [HttpPost("floor-plan/image")]
         public async Task<ActionResult<GlobalResponse<object>>> UploadFloorPlanImage(
             [FromForm] IFormFile? file,
@@ -859,7 +860,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin,TablesManager")]
+        [AuthorizeSection("tables", Roles = "Commercial,Admin")]
         [HttpPost("floor-plan/positions")]
         public async Task<ActionResult<GlobalResponse<int>>> UpdateFloorPlanPositions(
             [FromQuery] string? planKey,

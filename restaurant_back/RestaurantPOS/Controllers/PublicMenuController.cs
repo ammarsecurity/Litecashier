@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Hubs;
 using RestaurantPOS.Models;
@@ -439,7 +440,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/PublicMenu/{commercialUserId}/orders
-        [Authorize(Roles = "Commercial")]
+        [AuthorizeSection("publicOrders", Roles = "Commercial")]
         [HttpGet("{commercialUserId}/orders")]
         public async Task<ActionResult<GlobalResponse<object>>> GetPublicOrders(int commercialUserId, int pageNumber = 0, int pageSize = 10, DateTime? startDate = null, DateTime? endDate = null, int? dailySequenceNumber = null, string? orderCode = null, string? orderType = null, int? deliveryDriverId = null)
         {
@@ -719,7 +720,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // PUT: api/PublicMenu/{commercialUserId}/orders/{orderId}/status
-        [Authorize(Roles = "Commercial")]
+        [AuthorizeSection("publicOrders", Roles = "Commercial")]
         [HttpPut("{commercialUserId}/orders/{orderId}/status")]
         public async Task<ActionResult<GlobalResponse<object>>> UpdateOrderStatus(int commercialUserId, int orderId, UpdateOrderStatusRequest request)
         {

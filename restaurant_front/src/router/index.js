@@ -25,16 +25,24 @@ import InventoryView from '../views/InventoryView.vue'
 import AuditLogView from '../views/AuditLogView.vue'
 import PrintTemplatesView from '../views/PrintTemplatesView.vue'
 import { i18n } from '../main'
+import { managerCanAccessPath } from '../navigation/sectionRegistry.js'
 Vue.use(VueRouter)
 
 const getDefaultPathForRole = (role) => {
   if (role === 'Admin') return '/users'
   if (role === 'POS') return '/pos'
-  if (role === 'TablesManager') return '/restaurant/tables'
-  if (role === 'ReservationsManager') return '/restaurant/reservations'
+  if (role === 'Manager') return '/sections'
   if (role === 'LoyaltyManager') return '/restaurant/loyalty'
   if (role === 'Waiter') return '/restaurant/waiter'
   return '/dashboard'
+}
+
+function userMayAccessRoute(role, to) {
+  const roles = to.meta && to.meta.roles
+  if (!roles || !Array.isArray(roles)) return true
+  if (roles.includes(role)) return true
+  if (role === 'Manager' && managerCanAccessPath(to.path)) return true
+  return false
 }
 
 const routes = [
@@ -185,7 +193,7 @@ const routes = [
     component: () => import('../views/SectionsView.vue'),
     meta: {
       requiresAuth: true,
-      roles: ['Commercial', 'Admin', 'POS', 'Waiter', 'TablesManager', 'ReservationsManager', 'LoyaltyManager']
+      roles: ['Commercial', 'Admin', 'POS', 'Waiter', 'LoyaltyManager', 'Manager']
     }
   },
   {
@@ -212,7 +220,7 @@ const routes = [
     component: TablesView,
     meta: {
       requiresAuth: true,
-      roles: ['Commercial', 'POS', 'Admin', 'TablesManager']
+      roles: ['Commercial', 'POS', 'Admin']
     }
   },
   {
@@ -221,7 +229,7 @@ const routes = [
     component: TableLayoutView,
     meta: {
       requiresAuth: true,
-      roles: ['Commercial', 'POS', 'Admin', 'TablesManager', 'Waiter']
+      roles: ['Commercial', 'POS', 'Admin', 'Waiter']
     }
   },
   {
@@ -230,7 +238,7 @@ const routes = [
     component: ReservationsView,
     meta: {
       requiresAuth: true,
-      roles: ['Commercial', 'POS', 'Admin', 'ReservationsManager']
+      roles: ['Commercial', 'POS', 'Admin']
     }
   },
   {
@@ -349,6 +357,7 @@ router.beforeEach((to, from, next) => {
       localStorage.removeItem('token');
       localStorage.removeItem('role');
       localStorage.removeItem('info');
+      localStorage.removeItem('allowedSections');
       return next('/login');
     }
 
@@ -358,7 +367,17 @@ router.beforeEach((to, from, next) => {
 
     // Check if user has required role
     if (to.meta.requiresAuth === true && token && role) {
-      if (to.meta.roles && Array.isArray(to.meta.roles) && to.meta.roles.includes(role)) {
+      if (userMayAccessRoute(role, to)) {
+        if (role === 'Manager') {
+          if (
+            to.path === '/sections' ||
+            to.path === '/logout' ||
+            managerCanAccessPath(to.path)
+          ) {
+            return next();
+          }
+          return next('/sections');
+        }
         // If Admin tries to access any page other than /users, redirect to /users
         if (role === 'Admin' && to.path !== '/users' && to.path !== '/logout' && to.path !== '/sections' && to.path !== '/customers') {
           return next('/users');
@@ -374,13 +393,6 @@ router.beforeEach((to, from, next) => {
         ) {
           return next('/pos');
         }
-        // Handle new restaurant roles
-        if (role === 'TablesManager' && to.path !== '/restaurant/tables' && to.path !== '/logout' && to.path !== '/sections') {
-          return next('/restaurant/tables');
-        }
-        if (role === 'ReservationsManager' && to.path !== '/restaurant/reservations' && to.path !== '/logout' && to.path !== '/sections') {
-          return next('/restaurant/reservations');
-        }
         if (role === 'LoyaltyManager' && to.path !== '/restaurant/loyalty' && to.path !== '/logout' && to.path !== '/sections') {
           return next('/restaurant/loyalty');
         }
@@ -389,7 +401,6 @@ router.beforeEach((to, from, next) => {
         }
         return next();
       } else {
-        // User doesn't have required role, redirect to role home.
         return next(getDefaultPathForRole(role));
       }
     }

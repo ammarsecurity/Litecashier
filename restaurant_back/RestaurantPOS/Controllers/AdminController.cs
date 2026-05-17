@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Hubs;
 using RestaurantPOS.Models;
@@ -415,6 +416,18 @@ namespace RestaurantPOS.Controllers
             return destinationOrder;
         }
 
+        [Authorize(Roles = "Commercial,Admin")]
+        [HttpGet("assignable-sections")]
+        public ActionResult<GlobalResponse<object>> GetAssignableSections()
+        {
+            return Ok(new GlobalResponse<object>
+            {
+                Data = new { keys = SectionDefinitions.AssignableSectionKeys },
+                ErrorStatus = false,
+                Message = "done"
+            });
+        }
+
         // Add User
         [Authorize(Roles = "Commercial,Admin")]
         [HttpPost("AddUser")]
@@ -481,6 +494,19 @@ namespace RestaurantPOS.Controllers
                 var newUse = _mapper.Map<User>(request);
                 var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
                 newUse.Password = passwordHash;
+
+                var (sectionsOk, sectionsError, sectionsJson) =
+                    SectionPermissionService.ResolveManagerSectionsForSave(request.Role, request.AllowedSectionsJson);
+                if (!sectionsOk)
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = sectionsError ?? "selectAtLeastOneSection"
+                    });
+                }
+                newUse.AllowedSectionsJson = sectionsJson;
                 
                 // Set InsertByUserId based on role
                 if (request.Role == "Commercial" && currentUser?.Role == "Admin")
@@ -637,6 +663,19 @@ namespace RestaurantPOS.Controllers
                 user.PhoneNumber = request.PhoneNumber;
                 user.Username = request.Username;
                 user.Role = request.Role;
+
+                var (sectionsOk, sectionsError, sectionsJson) =
+                    SectionPermissionService.ResolveManagerSectionsForSave(request.Role, request.AllowedSectionsJson);
+                if (!sectionsOk)
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = sectionsError ?? "selectAtLeastOneSection"
+                    });
+                }
+                user.AllowedSectionsJson = sectionsJson;
                 
                 // Update password only if provided and not empty
                 if (!string.IsNullOrWhiteSpace(request.Password))
@@ -850,7 +889,7 @@ namespace RestaurantPOS.Controllers
         }
 
 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("category", Roles = "Commercial,POS,Admin")]
         [HttpPost("AddTag")]
         public async Task<ActionResult<GlobalResponse<Tag>>> AddTag(TagRequset request)
         {
@@ -1020,8 +1059,7 @@ namespace RestaurantPOS.Controllers
 
         // updata tag
         // Update User 
-        [Authorize(Roles = "Commercial")]
-
+        [AuthorizeSection("category", Roles = "Commercial,Admin")]
         [HttpPut("UpdateTag")]
         public async Task<ActionResult<GlobalResponse<Tag>>> UpdateTag(TagRequset request, int id)
         {
@@ -1164,7 +1202,7 @@ namespace RestaurantPOS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial")]
+        [AuthorizeSection("category", Roles = "Commercial")]
         [HttpDelete("DeleteTag")]
         public async Task<ActionResult<GlobalResponse<int>>> DeleteTag(int id)
         {
@@ -1216,7 +1254,7 @@ namespace RestaurantPOS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial,POS,Waiter")]
+        [AuthorizeSection("category", Roles = "Commercial,POS,Waiter")]
         [HttpGet("GetTags")]
         public ActionResult<GlobalResponse<PagedList<Tag>>> GetTags(int pageNumber, int pageSize, string? info)
         {
@@ -1256,7 +1294,7 @@ namespace RestaurantPOS.Controllers
             return response;
         }
 
-        [Authorize(Roles = "Admin,Commercial")]
+        [AuthorizeSection("category", Roles = "Admin,Commercial")]
         [HttpPost("GenerateCategoriesWithAI")]
         public async Task<ActionResult<GlobalResponse<List<string>>>> GenerateCategoriesWithAI(GenerateCategoriesRequest request)
         {
@@ -1492,7 +1530,7 @@ namespace RestaurantPOS.Controllers
             return (true, null, root.Name ?? "");
         }
 
-        [Authorize(Roles = "Admin,Commercial")]
+        [AuthorizeSection("items", Roles = "Admin,Commercial")]
         [HttpPost("GenerateItemsWithAI")]
         public async Task<ActionResult<GlobalResponse<List<GeneratedItemDto>>>> GenerateItemsWithAI(GenerateItemsRequest request)
         {
@@ -1864,7 +1902,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // add item 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("items", Roles = "Commercial,POS")]
         [HttpPost("AddItem")]
         public async Task<ActionResult<GlobalResponse<Item>>> AddItem([FromForm] ItemRequest request)
         {
@@ -1912,7 +1950,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // update item 
-        [Authorize(Roles = "Commercial")]
+        [AuthorizeSection("items", Roles = "Commercial")]
         [HttpPut("UpdateItem")]
         public async Task<ActionResult<GlobalResponse<Item>>> UpdateItem([FromForm]  ItemRequest request, int id)
         {
@@ -1994,7 +2032,7 @@ namespace RestaurantPOS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial")]
+        [AuthorizeSection("items", Roles = "Commercial")]
         [HttpDelete("DeleteItem")]
         public async Task<ActionResult<GlobalResponse<int>>> DeleteItem(int id)
         {
@@ -2041,7 +2079,7 @@ namespace RestaurantPOS.Controllers
         }
 
 
-        [Authorize(Roles = "Commercial,POS,Waiter")]
+        [AuthorizeSection("items", "reports", Roles = "Commercial,POS,Waiter")]
         [HttpGet("GetItems")]
         public ActionResult<GlobalResponse<PagedList<Item>>> GetItems(int pageNumber, int pageSize, string? info)
         {
@@ -2094,7 +2132,7 @@ namespace RestaurantPOS.Controllers
             return response;
         }
 
-        [Authorize(Roles = "Commercial,POS,Reader,Waiter")]
+        [AuthorizeSection("items", Roles = "Commercial,POS,Reader,Waiter")]
         [HttpGet("GetItemsByCode")]
         public async Task<ActionResult<GlobalResponse<Object>>> GetItemsByCode(string code)
         {
@@ -2637,7 +2675,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial")]
+        [AuthorizeSection("reports", "orderQueue", Roles = "Commercial")]
         [HttpPut("UpdateOrder/{id}")]
         public async Task<ActionResult<GlobalResponse<CustomerOrder>>> UpdateOrder(int id, CustomerOrderRequest request)
         {
@@ -3177,7 +3215,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial")]
+        [AuthorizeSection("reports", Roles = "Commercial")]
         [HttpGet("GetReturnedOrderItems")]
         public ActionResult<GlobalResponse<PagedList<ReturnedOrderItemDto>>> GetReturnedOrderItems(
             int pageNumber,
@@ -3862,7 +3900,7 @@ namespace RestaurantPOS.Controllers
             return result;
         }
 
-        [Authorize(Roles = "Commercial")]
+        [AuthorizeSection("reports", "orderQueue", Roles = "Commercial")]
         [HttpGet("GetOrders")]
         public ActionResult<GlobalResponse<PagedList<OrderDto>>> GetOrders(int pageNumber, int pageSize, string? info, DateTime? startDate, DateTime? endDate, string? orderType, string? paymentMethod, int? deliveryDriverId)
         {
@@ -4009,7 +4047,7 @@ namespace RestaurantPOS.Controllers
      
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("reports", "orderQueue", Roles = "Commercial,Admin")]
         [HttpGet("ExportOrders")]
         public ActionResult ExportOrders(string? info, DateTime? startDate, DateTime? endDate, string? orderType, string? paymentMethod, int? deliveryDriverId)
         {
@@ -4094,7 +4132,7 @@ namespace RestaurantPOS.Controllers
 
         // get selse count
 
-        [Authorize(Roles = "Commercial")]
+        [AuthorizeSection("reports", Roles = "Commercial")]
         [HttpGet("GetSellsCount")]
         public ActionResult<GlobalResponse<object>> GetSellsCount()
         {
@@ -4146,7 +4184,7 @@ namespace RestaurantPOS.Controllers
             return response;
         }
 
-        [Authorize(Roles = "Commercial")]
+        [AuthorizeSection("reports", Roles = "Commercial")]
         [HttpGet("GetSellsCountByUser")]
         public ActionResult<GlobalResponse<object>> GetSellsCountByUser()
         {
@@ -4313,7 +4351,7 @@ namespace RestaurantPOS.Controllers
 
         // Advanced Reports Endpoints
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("reports", Roles = "Commercial,Admin")]
         [HttpGet("GetProfitReport")]
         public ActionResult<GlobalResponse<object>> GetProfitReport(DateTime? startDate, DateTime? endDate)
         {
@@ -4386,7 +4424,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("reports", Roles = "Commercial,Admin")]
         [HttpGet("GetTopSellingItems")]
         public ActionResult<GlobalResponse<object>> GetTopSellingItems(int topCount = 10, DateTime? startDate = null, DateTime? endDate = null)
         {
@@ -4446,7 +4484,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("reports", Roles = "Commercial,Admin")]
         [HttpGet("GetSalesByCategory")]
         public ActionResult<GlobalResponse<object>> GetSalesByCategory(DateTime? startDate = null, DateTime? endDate = null)
         {
@@ -4552,7 +4590,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("reports", Roles = "Commercial,Admin")]
         [HttpGet("GetSalesReportStaff")]
         public ActionResult<GlobalResponse<object>> GetSalesReportStaff()
         {
@@ -4593,7 +4631,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("reports", Roles = "Commercial,Admin")]
         [HttpGet("GetSalesByEmployee")]
         public ActionResult<GlobalResponse<object>> GetSalesByEmployee(
             DateTime? startDate = null,
@@ -4702,7 +4740,7 @@ namespace RestaurantPOS.Controllers
             return set.Count > 0 ? set.ToList() : null;
         }
 
-        [Authorize(Roles = "Commercial")]
+        [AuthorizeSection("endOfDayReport", Roles = "Commercial")]
         [HttpGet("GetEndOfDaySummary")]
         public async Task<ActionResult<GlobalResponse<EndOfDayReportDto>>> GetEndOfDaySummary()
         {
@@ -4739,7 +4777,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial")]
+        [AuthorizeSection("endOfDayReport", Roles = "Commercial")]
         [HttpGet("ExportEndOfDaySummary")]
         public async Task<IActionResult> ExportEndOfDaySummary()
         {
@@ -4916,7 +4954,7 @@ namespace RestaurantPOS.Controllers
 
 
         // POST: api/Admin/UploadItemImage/{itemId}
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("items", Roles = "Commercial,POS")]
         [HttpPost("UploadItemImage/{itemId}")]
         public async Task<ActionResult<GlobalResponse<object>>> UploadItemImage(int itemId, [FromForm] IFormFile image)
         {
@@ -4985,7 +5023,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // POST: api/Admin/UploadMultipleItemImages
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("items", Roles = "Commercial,POS")]
         [HttpPost("UploadMultipleItemImages")]
         public async Task<ActionResult<GlobalResponse<object>>> UploadMultipleItemImages([FromForm] List<IFormFile> images, [FromForm] List<int> itemIds)
         {

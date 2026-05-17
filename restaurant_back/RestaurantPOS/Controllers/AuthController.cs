@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Models;
 using RestaurantPOS.Models.Requests;
@@ -236,6 +237,7 @@ namespace RestaurantPOS.Controllers
             {
                 token = new JwtSecurityTokenHandler().WriteToken(token),
                 role = userFromDb.Role,
+                allowedSections = SectionPermissionService.ParseAllowedSections(userFromDb),
                 info = userFromDb
             };
         }

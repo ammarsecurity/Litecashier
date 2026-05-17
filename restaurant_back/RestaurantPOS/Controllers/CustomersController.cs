@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Models;
 using RestaurantPOS.Models.Requests;
@@ -42,7 +43,7 @@ namespace RestaurantPOS.Controllers
             return commercialId;
         }
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("customers", Roles = "Commercial,Admin,POS")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<List<Customer>>>> GetCustomers([FromQuery] string? search = null)
         {
@@ -84,7 +85,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("customers", Roles = "Commercial,Admin,POS")]
         [HttpGet("{id}")]
         public async Task<ActionResult<GlobalResponse<Customer>>> GetCustomer(int id)
         {
@@ -124,7 +125,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("customers", Roles = "Commercial,Admin,POS")]
         [HttpPost]
         public async Task<ActionResult<GlobalResponse<Customer>>> AddCustomer([FromBody] CustomerRequest request)
         {
@@ -203,7 +204,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("customers", Roles = "Commercial,Admin,POS")]
         [HttpPut("{id}")]
         public async Task<ActionResult<GlobalResponse<Customer>>> UpdateCustomer(int id, [FromBody] CustomerRequest request)
         {
@@ -293,7 +294,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("customers", Roles = "Commercial,Admin,POS")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<GlobalResponse<object>>> DeleteCustomer(int id)
         {

@@ -1156,6 +1156,10 @@ namespace RestaurantPOS.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<string>("AllowedSectionsJson")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
                     b.Property<string>("LoginCode")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");

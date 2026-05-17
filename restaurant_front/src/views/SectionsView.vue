@@ -35,6 +35,7 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { flatNavItemsForHub } from "@/navigation/navItems.js";
+import { getAllowedSections } from "@/navigation/sectionRegistry.js";
 
 export default {
   name: "SectionsView",
@@ -43,8 +44,18 @@ export default {
     role() {
       return localStorage.getItem("role");
     },
+    allowedSections() {
+      return getAllowedSections();
+    },
     flatHubItems() {
-      const modules = flatNavItemsForHub(this.role, (k) => this.$t(k));
+      const modules = flatNavItemsForHub(
+        this.role,
+        (k) => this.$t(k),
+        this.allowedSections
+      );
+      if (this.role === "Manager") {
+        return modules;
+      }
       const dashboardEntry = {
         name: "dashboard-home",
         label: this.$t("appHomeLink") || this.$t("home") || "الرئيسية",

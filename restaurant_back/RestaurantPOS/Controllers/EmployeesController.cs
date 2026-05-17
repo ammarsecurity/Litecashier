@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Models;
 using RestaurantPOS.Models.Requests;
@@ -43,7 +44,7 @@ namespace RestaurantPOS.Controllers
             return commercialId;
         }
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("employees", Roles = "Commercial,Admin,POS")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<List<Employee>>>> GetEmployees()
         {
@@ -76,7 +77,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("employees", Roles = "Commercial,Admin")]
         [HttpGet("{id}")]
         public async Task<ActionResult<GlobalResponse<Employee>>> GetEmployee(int id)
         {
@@ -117,7 +118,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("employees", Roles = "Commercial,Admin")]
         [HttpPost]
         public async Task<ActionResult<GlobalResponse<Employee>>> AddEmployee([FromBody] EmployeeRequest request)
         {
@@ -202,7 +203,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("employees", Roles = "Commercial,Admin")]
         [HttpPut("{id}")]
         public async Task<ActionResult<GlobalResponse<Employee>>> UpdateEmployee(int id, [FromBody] EmployeeRequest request)
         {
@@ -326,7 +327,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("employees", Roles = "Commercial,Admin")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<GlobalResponse<object>>> DeleteEmployee(int id)
         {

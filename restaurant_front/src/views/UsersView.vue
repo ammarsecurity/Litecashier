@@ -150,12 +150,35 @@
                         <select v-model="addForm.role" class="users-form-select">
                             <option v-if="role == 'Commercial'" value="POS">{{ $t('point_of_sale') }}</option>
                             <option v-if="role == 'Commercial'" value="Reader">{{ $t('price_reader') }}</option>
-                            <option v-if="role == 'Commercial'" value="TablesManager">{{ $t('tablesManager') || 'مدير الطاولات' }}</option>
-                            <option v-if="role == 'Commercial'" value="ReservationsManager">{{ $t('reservationsManager') || 'مدير الحجوزات' }}</option>
-                            <option v-if="role == 'Commercial'" value="KitchenManager">{{ $t('kitchenManager') || 'مدير المطبخ' }}</option>
                             <option v-if="role == 'Commercial'" value="Waiter">{{ $t('waiter') || 'ويتر' }}</option>
+                            <option v-if="role == 'Commercial'" value="Manager">{{ $t('managerRole') || 'مدير إدارة' }}</option>
                             <option v-if="role == 'Admin'" value="Commercial">{{ $t('commercial') }}</option>
                         </select>
+                    </div>
+
+                    <div
+                        v-if="role == 'Commercial' && addForm.role == 'Manager'"
+                        class="users-form-group users-sections-picker"
+                    >
+                        <label class="users-form-label">
+                            <b-icon icon="grid-3x3-gap-fill" class="form-label-icon"></b-icon>
+                            {{ $t('sectionsPermissions') || 'صلاحيات الأقسام' }}
+                        </label>
+                        <p class="text-muted small mb-2">{{ $t('selectAtLeastOneSection') || 'اختر قسماً واحداً على الأقل' }}</p>
+                        <div class="users-sections-grid">
+                            <label
+                                v-for="key in assignableSectionKeys"
+                                :key="'add-sec-' + key"
+                                class="users-section-check"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :value="key"
+                                    v-model="addForm.allowedSections"
+                                />
+                                <span>{{ sectionLabel(key) }}</span>
+                            </label>
+                        </div>
                     </div>
                     
                     <!-- Commercial User Fields (Only for Admin) -->
@@ -307,12 +330,35 @@
                             <template v-else-if="role == 'Commercial'">
                                 <option value="POS">{{ $t('point_of_sale') }}</option>
                                 <option value="Reader">{{ $t('price_reader') }}</option>
-                                <option value="TablesManager">{{ $t('tablesManager') || 'مدير الطاولات' }}</option>
-                                <option value="ReservationsManager">{{ $t('reservationsManager') || 'مدير الحجوزات' }}</option>
-                            <option value="KitchenManager">{{ $t('kitchenManager') || 'مدير المطبخ' }}</option>
-                            <option value="Waiter">{{ $t('waiter') || 'ويتر' }}</option>
+                                <option value="Waiter">{{ $t('waiter') || 'ويتر' }}</option>
+                                <option value="Manager">{{ $t('managerRole') || 'مدير إدارة' }}</option>
                             </template>
                         </select>
+                    </div>
+
+                    <div
+                        v-if="role == 'Commercial' && editForm.role == 'Manager'"
+                        class="users-form-group users-sections-picker"
+                    >
+                        <label class="users-form-label">
+                            <b-icon icon="grid-3x3-gap-fill" class="form-label-icon"></b-icon>
+                            {{ $t('sectionsPermissions') || 'صلاحيات الأقسام' }}
+                        </label>
+                        <p class="text-muted small mb-2">{{ $t('selectAtLeastOneSection') || 'اختر قسماً واحداً على الأقل' }}</p>
+                        <div class="users-sections-grid">
+                            <label
+                                v-for="key in assignableSectionKeys"
+                                :key="'edit-sec-' + key"
+                                class="users-section-check"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :value="key"
+                                    v-model="editForm.allowedSections"
+                                />
+                                <span>{{ sectionLabel(key) }}</span>
+                            </label>
+                        </div>
                     </div>
                     
                     <!-- Commercial User Fields (Only for Admin) -->
@@ -421,6 +467,12 @@ import AppHeader from "@/components/Layout/AppHeader.vue";
 import ClockVue from "@/components/ClockVue.vue";
 import VueBarcode from "@chenfengyuan/vue-barcode";
 import { HTTP } from '../http/api.js';
+import {
+    ASSIGNABLE_SECTION_KEYS,
+    SECTION_I18N_KEYS,
+    parseAllowedSectionsJson,
+} from "@/navigation/sectionRegistry.js";
+
 export default {
     name: "UsersView",
     components: {
@@ -452,7 +504,8 @@ export default {
                 loginCode: "",
                 logo: null,
                 logoPreview: null,
-                logoFile: null
+                logoFile: null,
+                allowedSections: []
             },
             addForm: {
                 name: "",
@@ -463,7 +516,8 @@ export default {
                 restaurantName: "",
                 loginCode: "",
                 logoFile: null,
-                logoPreview: null
+                logoPreview: null,
+                allowedSections: []
             },
             UserId: '',
         };
@@ -491,6 +545,9 @@ export default {
         role() {
             return localStorage.getItem("role");
         },
+        assignableSectionKeys() {
+            return ASSIGNABLE_SECTION_KEYS;
+        },
     },
 
     methods: {
@@ -500,12 +557,22 @@ export default {
                 'Commercial': 'role-commercial',
                 'POS': 'role-pos',
                 'Reader': 'role-reader',
-                'TablesManager': 'role-tables-manager',
-                'ReservationsManager': 'role-reservations-manager',
-                'KitchenManager': 'role-kitchen-manager',
-                'Waiter': 'role-waiter'
+                'Waiter': 'role-waiter',
+                'Manager': 'role-manager'
             };
             return roleClasses[role] || 'role-default';
+        },
+        sectionLabel(key) {
+            const i18nKey = SECTION_I18N_KEYS[key];
+            if (i18nKey && this.$te(i18nKey)) return this.$t(i18nKey);
+            return key;
+        },
+        appendManagerSections(formData, role, allowedSections) {
+            if (role !== 'Manager') return;
+            formData.append(
+                'allowedSectionsJson',
+                JSON.stringify(Array.isArray(allowedSections) ? allowedSections : [])
+            );
         },
         deleteUserModel(id) {
             this.UserId = id;
@@ -538,7 +605,10 @@ export default {
                 loginCode: User.loginCode != null ? String(User.loginCode) : '',
                 logo: null,
                 logoPreview: User.logo ? `${imageBaseUrl}/Images/${User.logo}` : null,
-                logoFile: null
+                logoFile: null,
+                allowedSections: parseAllowedSectionsJson(
+                    User.allowedSectionsJson || User.AllowedSectionsJson
+                )
             };
             this.$bvModal.show("modal-editUser");
         },
@@ -579,6 +649,16 @@ export default {
             }
         },
         addUser() {
+            if (
+                this.addForm.role === 'Manager' &&
+                (!this.addForm.allowedSections || !this.addForm.allowedSections.length)
+            ) {
+                this.$toast.error(this.$t('selectAtLeastOneSection') || 'اختر قسماً واحداً على الأقل', {
+                    position: 'top-right',
+                    timeout: 4000
+                });
+                return;
+            }
             this.show = true;
             
             // Create FormData for file upload (if Admin adding Commercial user)
@@ -588,6 +668,7 @@ export default {
             formData.append('password', this.addForm.password);
             formData.append('username', this.addForm.username);
             formData.append('role', this.addForm.role);
+            this.appendManagerSections(formData, this.addForm.role, this.addForm.allowedSections);
             
             // Add logo and restaurant name if Admin adding Commercial user
             if (this.role === 'Admin' && this.addForm.role === 'Commercial') {
@@ -632,7 +713,8 @@ export default {
                         restaurantName: "",
                         loginCode: "",
                         logoFile: null,
-                        logoPreview: null
+                        logoPreview: null,
+                        allowedSections: []
                     };
                     this.GetAllUsers();
                     this.$bvModal.hide('modal-addUser');
@@ -655,6 +737,16 @@ export default {
                 });
         },
         EditUser() {
+            if (
+                this.editForm.role === 'Manager' &&
+                (!this.editForm.allowedSections || !this.editForm.allowedSections.length)
+            ) {
+                this.$toast.error(this.$t('selectAtLeastOneSection') || 'اختر قسماً واحداً على الأقل', {
+                    position: 'top-right',
+                    timeout: 4000
+                });
+                return;
+            }
             this.show = true;
             
             // Create FormData for file upload
@@ -663,6 +755,7 @@ export default {
             formData.append('phoneNumber', this.editForm.phoneNumber);
             formData.append('username', this.editForm.username);
             formData.append('role', this.editForm.role);
+            this.appendManagerSections(formData, this.editForm.role, this.editForm.allowedSections);
             
             // Add password only if provided
             if (this.editForm.password) {

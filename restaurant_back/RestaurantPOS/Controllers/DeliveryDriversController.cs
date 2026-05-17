@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Models;
 using RestaurantPOS.Models.Requests;
@@ -39,7 +40,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/DeliveryDrivers
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("deliveryDrivers", "reports", Roles = "Commercial,Admin")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<List<DeliveryDriver>>>> GetDeliveryDrivers()
         {
@@ -72,7 +73,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/DeliveryDrivers/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("deliveryDrivers", Roles = "Commercial,Admin")]
         [HttpGet("{id}")]
         public async Task<ActionResult<GlobalResponse<DeliveryDriver>>> GetDeliveryDriver(int id)
         {
@@ -113,7 +114,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // POST: api/DeliveryDrivers
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("deliveryDrivers", Roles = "Commercial,Admin")]
         [HttpPost]
         public async Task<ActionResult<GlobalResponse<DeliveryDriver>>> AddDeliveryDriver([FromBody] DeliveryDriverRequest request)
         {
@@ -179,7 +180,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // PUT: api/DeliveryDrivers/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("deliveryDrivers", Roles = "Commercial,Admin")]
         [HttpPut("{id}")]
         public async Task<ActionResult<GlobalResponse<DeliveryDriver>>> UpdateDeliveryDriver(int id, [FromBody] DeliveryDriverRequest request)
         {
@@ -293,7 +294,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // DELETE: api/DeliveryDrivers/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("deliveryDrivers", Roles = "Commercial,Admin")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<GlobalResponse<object>>> DeleteDeliveryDriver(int id)
         {
@@ -354,7 +355,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/DeliveryDrivers/{id}/Statistics
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("deliveryDrivers", Roles = "Commercial,Admin")]
         [HttpGet("{id}/Statistics")]
         public async Task<ActionResult<GlobalResponse<object>>> GetDriverStatistics(int id, DateTime? startDate = null, DateTime? endDate = null)
         {
@@ -461,7 +462,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/DeliveryDrivers/Statistics/All
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("deliveryDrivers", "reports", Roles = "Commercial,Admin")]
         [HttpGet("Statistics/All")]
         public async Task<ActionResult<GlobalResponse<object>>> GetAllDriversStatistics()
         {

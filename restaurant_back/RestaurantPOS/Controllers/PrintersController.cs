@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Models;
 using RestaurantPOS.Models.Requests;
@@ -42,7 +43,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/Printers
-        [Authorize(Roles = "Commercial,Admin,POS,Waiter")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS,Waiter")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<List<Printer>>>> GetPrinters()
         {
@@ -75,7 +76,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/Printers/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
         [HttpGet("{id}")]
         public async Task<ActionResult<GlobalResponse<Printer>>> GetPrinter(int id)
         {
@@ -116,7 +117,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/Printers/category/{category}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
         [HttpGet("category/{category}")]
         public async Task<ActionResult<GlobalResponse<List<Printer>>>> GetPrintersByCategory(string category)
         {
@@ -152,7 +153,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // POST: api/Printers
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
         [HttpPost]
         public async Task<ActionResult<GlobalResponse<Printer>>> AddPrinter([FromBody] PrinterRequest request)
         {
@@ -244,7 +245,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // PUT: api/Printers/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
         [HttpPut("{id}")]
         public async Task<ActionResult<GlobalResponse<Printer>>> UpdatePrinter(int id, [FromBody] PrinterRequest request)
         {
@@ -356,7 +357,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // DELETE: api/Printers/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<GlobalResponse<object>>> DeletePrinter(int id)
         {
@@ -416,7 +417,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // POST: api/Printers/{id}/print
-        [Authorize(Roles = "Commercial,Admin,POS,Waiter")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS,Waiter")]
         [HttpPost("{id}/print")]
         public async Task<ActionResult<GlobalResponse<object>>> Print(int id, [FromBody] PrintRequest request)
         {

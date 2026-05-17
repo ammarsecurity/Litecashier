@@ -22,6 +22,10 @@ namespace RestaurantPOS.Models
         [StringLength(20)]
         public string? LoginCode { get; set; }
 
+        /// <summary>JSON array of section keys for Manager role (see SectionDefinitions.AssignableSectionKeys).</summary>
+        [StringLength(2000)]
+        public string? AllowedSectionsJson { get; set; }
+
         [JsonIgnore]
         public List<Item>? Items { get; set; }
         [JsonIgnore]

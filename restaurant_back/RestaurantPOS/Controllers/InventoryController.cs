@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Models;
 using RestaurantPOS.Models.Requests;
@@ -14,7 +15,8 @@ namespace RestaurantPOS.Controllers
     [ApiController]
     [Route("[controller]")]
     [EnableCors("CorsPolicy")]
-    [Authorize(Roles = "Commercial,POS,Admin")]
+    [Authorize]
+    [AuthorizeSection("inventory", Roles = "Commercial,POS,Admin")]
     public class InventoryController : ControllerBase
     {
         private readonly DbConfig _dbConfig;

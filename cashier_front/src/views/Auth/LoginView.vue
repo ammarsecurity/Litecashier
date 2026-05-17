@@ -167,12 +167,6 @@ export default {
                             this.$router.push('/pos');
                         } else if (role === 'Reader') {
                             this.$router.push('/priceReader');
-                        } else if (role === 'TablesManager') {
-                            this.$router.push('/restaurant/tables');
-                        } else if (role === 'ReservationsManager') {
-                            this.$router.push('/restaurant/reservations');
-                        } else if (role === 'KitchenManager') {
-                            this.$router.push('/restaurant/kitchen');
                         } else if (role === 'LoyaltyManager') {
                             this.$router.push('/restaurant/loyalty');
                         } else if (role === 'Waiter') {

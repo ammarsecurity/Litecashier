@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Models;
 using RestaurantPOS.Models.Requests;
@@ -40,7 +41,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/Expenses
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<PagedList<Expense>>>> GetExpenses(
             int pageNumber = 0,
@@ -124,7 +125,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/Expenses/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpGet("{id}")]
         public async Task<ActionResult<GlobalResponse<Expense>>> GetExpense(int id)
         {
@@ -167,7 +168,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // POST: api/Expenses
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpPost]
         public async Task<ActionResult<GlobalResponse<Expense>>> AddExpense([FromBody] ExpenseRequest request)
         {
@@ -263,7 +264,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // PUT: api/Expenses/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpPut("{id}")]
         public async Task<ActionResult<GlobalResponse<Expense>>> UpdateExpense(int id, [FromBody] ExpenseRequest request)
         {
@@ -402,7 +403,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // DELETE: api/Expenses/{id}
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<GlobalResponse<object>>> DeleteExpense(int id)
         {
@@ -463,7 +464,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/Expenses/Statistics
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("expenses", "reports", Roles = "Commercial,Admin")]
         [HttpGet("Statistics")]
         public async Task<ActionResult<GlobalResponse<object>>> GetExpensesStatistics(
             DateTime? startDate = null,
@@ -549,7 +550,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/Expenses/Export
-        [Authorize(Roles = "Commercial,Admin")]
+        [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpGet("Export")]
         public async Task<ActionResult> ExportExpenses(
             string? category = null,

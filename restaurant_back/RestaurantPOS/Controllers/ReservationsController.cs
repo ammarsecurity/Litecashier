@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Models.Requests.Restaurant;
 using RestaurantPOS.Models.Response;
@@ -43,7 +44,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/Reservations
-        [Authorize(Roles = "Commercial,POS,Admin,ReservationsManager")]
+        [AuthorizeSection("reservations", Roles = "Commercial,POS,Admin")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<PagedList<Reservation>>>> GetReservations(
             int pageNumber = 0,
@@ -100,7 +101,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/Reservations/{id}
-        [Authorize(Roles = "Commercial,POS,Admin,ReservationsManager")]
+        [AuthorizeSection("reservations", Roles = "Commercial,POS,Admin")]
         [HttpGet("{id}")]
         public async Task<ActionResult<GlobalResponse<Reservation>>> GetReservation(int id)
         {
@@ -129,7 +130,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/Reservations/upcoming
-        [Authorize(Roles = "Commercial,POS,Admin,ReservationsManager")]
+        [AuthorizeSection("reservations", Roles = "Commercial,POS,Admin")]
         [HttpGet("upcoming")]
         public async Task<ActionResult<GlobalResponse<List<Reservation>>>> GetUpcomingReservations()
         {
@@ -154,7 +155,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // POST: api/Reservations
-        [Authorize(Roles = "Commercial,POS,Admin,ReservationsManager")]
+        [AuthorizeSection("reservations", Roles = "Commercial,POS,Admin")]
         [HttpPost]
         public async Task<ActionResult<GlobalResponse<Reservation>>> AddReservation(ReservationRequest request)
         {
@@ -233,7 +234,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // PUT: api/Reservations/{id}
-        [Authorize(Roles = "Commercial,POS,Admin,ReservationsManager")]
+        [AuthorizeSection("reservations", Roles = "Commercial,POS,Admin")]
         [HttpPut("{id}")]
         public async Task<ActionResult<GlobalResponse<Reservation>>> UpdateReservation(int id, ReservationRequest request)
         {
@@ -374,7 +375,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // PUT: api/Reservations/{id}/status
-        [Authorize(Roles = "Commercial,POS,Admin,ReservationsManager")]
+        [AuthorizeSection("reservations", Roles = "Commercial,POS,Admin")]
         [HttpPut("{id}/status")]
         public async Task<ActionResult<GlobalResponse<Reservation>>> UpdateReservationStatus(int id, [FromBody] string status)
         {
@@ -432,7 +433,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // DELETE: api/Reservations/{id}
-        [Authorize(Roles = "Commercial,Admin,ReservationsManager")]
+        [AuthorizeSection("reservations", Roles = "Commercial,Admin")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<GlobalResponse<int>>> DeleteReservation(int id)
         {
