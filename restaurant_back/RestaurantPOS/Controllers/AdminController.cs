@@ -2369,6 +2369,38 @@ namespace RestaurantPOS.Controllers
                     }); 
 
                 }
+
+                var commercialUserIdForTableGuard = GetCommercialUserId();
+                var tableIdsToGuard = new List<int>();
+                if (request.TableIds != null && request.TableIds.Any())
+                {
+                    tableIdsToGuard.AddRange(request.TableIds.Distinct());
+                }
+                else if (request.TableId.HasValue)
+                {
+                    tableIdsToGuard.Add(request.TableId.Value);
+                }
+
+                foreach (var tableIdToGuard in tableIdsToGuard.Distinct())
+                {
+                    var guardedTable = await _dbConfig.Tables
+                        .FirstOrDefaultAsync(t => t.Id == tableIdToGuard && !t.IsDeleted && t.InsertByUserId == commercialUserIdForTableGuard);
+                    if (guardedTable?.CurrentOrderId.HasValue == true)
+                    {
+                        var activeTableOrder = await _dbConfig.CustomerOrders
+                            .FirstOrDefaultAsync(o => o.Id == guardedTable.CurrentOrderId.Value && !o.IsDeleted);
+                        if (activeTableOrder != null &&
+                            !string.Equals(activeTableOrder.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return BadRequest(new GlobalResponse<CustomerOrder>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = "activeTableOrderExists"
+                            });
+                        }
+                    }
+                }
                 
                 // Load items with user information to avoid lazy loading issues
                 var items = await _dbConfig.Items
@@ -2846,7 +2878,7 @@ namespace RestaurantPOS.Controllers
             }
         }
 
-        [AuthorizeSection("reports", "orderQueue", Roles = "Commercial")]
+        [Authorize(Roles = "Commercial,POS,Waiter")]
         [HttpPut("UpdateOrder/{id}")]
         public async Task<ActionResult<GlobalResponse<CustomerOrder>>> UpdateOrder(int id, CustomerOrderRequest request)
         {

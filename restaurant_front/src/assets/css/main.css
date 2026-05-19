@@ -2888,6 +2888,12 @@ p {
   flex-shrink: 0;
 }
 
+.app-top-header-start-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .app-top-header-center {
   flex: 1 1 auto;
   min-width: 0;

@@ -151,15 +151,24 @@
       @toggle-pos-fullscreen="toggleFullscreen"
     >
       <template #header-start>
-        <button
-          type="button"
-          class="app-top-header-icon-btn app-top-header-icon-btn--table-plan"
-          :class="{ 'app-top-header-icon-btn--table-plan-active': posFloorPlanGateVisible }"
-          @click="initPosFloorPlanGate"
-          :title="$t('posFloorPlanGateTitle')"
-        >
-          <b-icon icon="grid-3x3-gap-fill" class="app-top-header-icon"></b-icon>
-        </button>
+        <div class="app-top-header-start-group">
+          <router-link
+            to="/sections"
+            class="app-top-header-sections-link app-top-header-sections-link--back"
+            :title="$t('backToSections') || $t('systemModules')"
+          >
+            <b-icon icon="arrow-right" class="app-top-header-sections-icon"></b-icon>
+          </router-link>
+          <button
+            type="button"
+            class="app-top-header-icon-btn app-top-header-icon-btn--table-plan"
+            :class="{ 'app-top-header-icon-btn--table-plan-active': posFloorPlanGateVisible }"
+            @click="initPosFloorPlanGate"
+            :title="$t('posFloorPlanGateTitle')"
+          >
+            <b-icon icon="grid-3x3-gap-fill" class="app-top-header-icon"></b-icon>
+          </button>
+        </div>
       </template>
       <template #pos-center>
         <div class="pos-quick-search pos-quick-search--header">
@@ -1867,10 +1876,12 @@ import {
   PRINT_API_TIMEOUT_MS,
 } from "@/utils/receiptPrint.js";
 import { resolveFloorPlanOverlaps } from "@/utils/floorPlanLayout.js";
+import posOrderPersistMixin from "@/mixins/posOrderPersistMixin.js";
 // import store from '../store/store'; // Adjust the path based on your actual folder structure
 
 export default {
   name: "PosView",
+  mixins: [posOrderPersistMixin],
   components: {
     AppHeader,
     ClockVue,
@@ -3299,6 +3310,7 @@ export default {
           const response = await HTTP.get(`Admin/GetTableOrders?tableId=${table.id}`);
           this.tableOrders = response.data.data || [];
           const activeOrder = this.tableOrders[0] || null;
+          this.syncActiveOrderIdFromTable(table, activeOrder);
           this.orderForSend.numberOfGuests = Number(activeOrder?.numberOfGuests || 0);
           const loadedOrderCode =
             activeOrder?.orderCode ?? activeOrder?.OrderCode ?? "";
@@ -3370,6 +3382,8 @@ export default {
         }
       } else if (isAvailable) {
         // Start new order for available table
+        this.activeOrderId = null;
+        this.orderForSend.orderCode = "";
         this.selectedTableId = table.id;
         this.selectedTableIds = [table.id]; // Reset multi-select
         this.orderForSend.tableId = table.id;
@@ -3451,6 +3465,7 @@ export default {
           this.carditems = [];
         }
         this.tableOrders = [];
+        this.activeOrderId = null;
         this.tableToClose = null;
         this.tablesToClose = null;
         await this.getTables();
@@ -3522,494 +3537,6 @@ export default {
         hour: '2-digit',
         minute: '2-digit'
       });
-    },
-    addOrderAndClear(skipPrint = false) {
-      const textDirection = document.documentElement.dir;
-      const toastPosition = textDirection === "rtl" ? "top-right" : "top-left";
-
-      if (this.carditems.length <= 0) {
-        this.$toast.error(this.$i18n.t("emptyCartMessage"), {
-          position: toastPosition,
-          timeout: 2500,
-          maxToasts: 1,
-        });
-        return;
-      }
-
-      if (!this.validateCreditForOrder(toastPosition)) {
-        return;
-      }
-      
-      // Validate Delivery information if order type is Delivery
-      if (this.orderForSend.orderType === 'Delivery') {
-        if (this.useExistingCustomer && !this.selectedDeliveryCustomerId) {
-          this.$toast.error(this.$i18n.t("pleaseSelectCustomer") || "يرجى اختيار عميل من القائمة", {
-            position: toastPosition,
-            timeout: 2500,
-            maxToasts: 1,
-          });
-          return;
-        }
-        if (!this.orderForSend.deliveryCustomerName || !this.orderForSend.deliveryCustomerName.trim()) {
-          this.$toast.error(this.$i18n.t("pleaseEnterCustomerName") || "يرجى إدخال اسم المستلم", {
-            position: toastPosition,
-            timeout: 2500,
-            maxToasts: 1,
-          });
-          return;
-        }
-        if (!this.orderForSend.deliveryPhoneNumber || !this.orderForSend.deliveryPhoneNumber.trim()) {
-          this.$toast.error(this.$i18n.t("pleaseEnterPhoneNumber") || "يرجى إدخال رقم هاتف المستلم", {
-            position: toastPosition,
-            timeout: 2500,
-            maxToasts: 1,
-          });
-          return;
-        }
-        if (!this.orderForSend.deliveryAddress || !this.orderForSend.deliveryAddress.trim()) {
-          this.$toast.error(this.$i18n.t("pleaseEnterDeliveryAddress") || "يرجى إدخال عنوان التوصيل", {
-            position: toastPosition,
-            timeout: 2500,
-            maxToasts: 1,
-          });
-          return;
-        }
-        if (!this.orderForSend.deliveryDriverId) {
-          this.$toast.error(this.$i18n.t("pleaseSelectDriver") || "يرجى اختيار سائق", {
-            position: toastPosition,
-            timeout: 2500,
-            maxToasts: 1,
-          });
-          return;
-        }
-      }
-      
-      this.show = true;
-      this.orderForSend.orderCode = "";
-      this.orderForSend.paymentMethod = this.orderForSend.paymentMethod || "Cash";
-      this.orderForSend.customerOrderItem = [];
-      for (const item of this.carditems) {
-        this.orderForSend.customerOrderItem.push({
-          itemId: item.id,
-          quantity: item.quantity,
-        });
-      }
-      this.orderForSend.orderCode = Math.floor(
-        Math.random() * 1000000000
-      ).toString().padStart(9, '0');
-      
-      // Handle multiple tables or single table
-      // For merged tables, use selectedTableIds if it contains multiple tables (from merged selection)
-      // Otherwise check mergedTableIds computed property
-      let tableIdsToUse = [];
-      
-      // Check if we have multiple selected tables (from merged selection)
-      if (this.selectedTableIds.length > 1) {
-        tableIdsToUse = [...this.selectedTableIds];
-      } 
-      // Check mergedTableIds computed property (for already merged tables)
-      else if (this.mergedTableIds.length > 1) {
-        tableIdsToUse = [...this.mergedTableIds];
-      }
-      // Fallback to single table
-      else if (this.selectedTableId) {
-        tableIdsToUse = [this.selectedTableId];
-      }
-      
-      if (tableIdsToUse.length > 1) {
-        // Multiple tables - use TableIds
-        this.orderForSend.tableIds = [...tableIdsToUse];
-        this.orderForSend.tableId = tableIdsToUse[0]; // First table for backward compatibility
-      } else if (tableIdsToUse.length === 1) {
-        // Single table - use TableId
-        this.orderForSend.tableId = tableIdsToUse[0];
-        this.orderForSend.tableIds = null;
-      } else {
-        // No table selected
-        this.orderForSend.tableId = null;
-        this.orderForSend.tableIds = null;
-      }
-      
-      if (!this.orderForSend.reservationId) {
-        this.orderForSend.reservationId = null;
-      }
-      
-      // Clear Delivery fields if not Delivery order
-      if (this.orderForSend.orderType !== 'Delivery') {
-        this.orderForSend.deliveryDriverId = null;
-        this.orderForSend.deliveryStatus = null;
-        this.orderForSend.deliveryAddress = null;
-        this.orderForSend.deliveryPhoneNumber = null;
-        this.orderForSend.deliveryCustomerName = null;
-        this.orderForSend.deliveryFee = null;
-        this.orderForSend.newDriverName = null;
-        this.orderForSend.newDriverPhone = null;
-        this.orderForSend.newDriverAddress = null;
-        this.orderForSend.newDriverVehicleType = null;
-        this.orderForSend.newDriverVehicleNumber = null;
-      } else {
-        // Set delivery status if not set
-        if (!this.orderForSend.deliveryStatus) {
-          this.orderForSend.deliveryStatus = "Pending";
-        }
-        // Clear new driver fields (no longer used, drivers are added via modal)
-        this.orderForSend.newDriverName = null;
-        this.orderForSend.newDriverPhone = null;
-        this.orderForSend.newDriverAddress = null;
-        this.orderForSend.newDriverVehicleType = null;
-        this.orderForSend.newDriverVehicleNumber = null;
-      }
-
-      if (this.orderForSend.orderType === "DineIn" && this.orderForSend.tableId) {
-        this.orderForSend.numberOfGuests = Math.max(1, Number(this.orderForSend.numberOfGuests || 1));
-      } else {
-        this.orderForSend.numberOfGuests = 0;
-      }
-      
-      const discountPayload = this.buildOrderDiscountPayload();
-      Object.assign(this.orderForSend, discountPayload);
-
-      HTTP.post(`Admin/AddOrder`, this.orderForSend)
-        .then(async (response) => {
-          if (response) {
-            this.show = false;
-            const itemsForPrint = JSON.parse(JSON.stringify(this.carditems));
-            const tableIdToUpdate = this.selectedTableId;
-            const isDineInTableOrder =
-              this.orderForSend.orderType === "DineIn" && !!this.orderForSend.tableId;
-            const refreshAfterSave = async () => {
-              this.orderForSend.creditEmployeeId = null;
-              this.orderForSend.creditCustomerId = null;
-              await this.getTables();
-              if (isDineInTableOrder && tableIdToUpdate) {
-                const savedTable = this.allTables.find((t) => t.id === tableIdToUpdate);
-                if (savedTable) {
-                  await this.selectTable(savedTable, null);
-                }
-                return;
-              }
-
-              this.carditems = [];
-              this.selectedTableId = null;
-              this.selectedTableIds = [];
-              this.orderForSend.tableId = null;
-              this.orderForSend.tableIds = null;
-              this.orderForSend.orderType = "Takeaway";
-              this.orderForSend.numberOfGuests = 0;
-              this.orderForSend.notes = "";
-              this.orderForSend.pagerNumber = "";
-              this.clearOrderDiscount();
-              this.tableOrders = [];
-            };
-
-            const successMessage = isDineInTableOrder
-              ? (this.$t("addOrderSucsses") || "تم حفظ الطلب بنجاح")
-              : (this.$i18n.t("orderSavedAndCleared") || "تم حفظ الطلب وافراغ السلة بنجاح");
-            this.$toast.success(successMessage, {
-              position: "top-right",
-              timeout: 2000,
-              maxToasts: 1,
-            });
-
-            if (!skipPrint && itemsForPrint.length > 0) {
-              try {
-                await this.ensurePrintPrintersReady();
-                const printResult = await this.printCard(itemsForPrint);
-                if (printResult && !printResult.ok) {
-                  const printErr =
-                    this.$t("printError") ||
-                    "تم حفظ الطلب لكن فشلت الطباعة";
-                  this.$toast.warning(printErr, {
-                    position: "top-right",
-                    timeout: 3500,
-                    maxToasts: 1,
-                  });
-                }
-              } catch (printError) {
-                console.error("Print error:", printError);
-                this.$toast.warning(
-                  this.$t("printError") || "تم حفظ الطلب لكن فشلت الطباعة",
-                  {
-                    position: "top-right",
-                    timeout: 3500,
-                    maxToasts: 1,
-                  }
-                );
-              }
-            }
-
-            await refreshAfterSave();
-          }
-        })
-        .catch((error) => {
-          this.show = false;
-          console.error('Order save error:', error);
-          let errorMessage = this.$i18n.t("error") || "حدث خطأ ما";
-          
-          if (error.response) {
-            if (error.response.data && error.response.data.message) {
-              errorMessage = error.response.data.message;
-            } else if (error.response.status === 400) {
-              errorMessage = this.$i18n.t("badRequest") || "طلب غير صحيح";
-            } else if (error.response.status === 401) {
-              errorMessage = this.$i18n.t("unauthorized") || "غير مصرح";
-            } else if (error.response.status === 500) {
-              errorMessage = this.$i18n.t("serverError") || "خطأ في الخادم";
-            }
-          } else if (error.request) {
-            errorMessage = this.$i18n.t("networkError") || "خطأ في الاتصال بالخادم";
-          }
-          
-          this.$toast.error(errorMessage, {
-            position: "top-right",
-            timeout: 3000,
-            maxToasts: 1,
-          });
-        });
-    },
-    addOrder(isPrint) {
-      const textDirection = document.documentElement.dir;
-      const toastPosition = textDirection === "rtl" ? "top-right" : "top-left";
-
-      if (this.carditems.length <= 0) {
-        this.$toast.error(this.$i18n.t("emptyCartMessage"), {
-          position: toastPosition,
-          timeout: 2500,
-          maxToasts: 1,
-        });
-        return;
-      }
-
-      if (!this.validateCreditForOrder(toastPosition)) {
-        return;
-      }
-      
-      // Validate Delivery information if order type is Delivery
-      if (this.orderForSend.orderType === 'Delivery') {
-        if (this.useExistingCustomer && !this.selectedDeliveryCustomerId) {
-          this.$toast.error(this.$i18n.t("pleaseSelectCustomer") || "يرجى اختيار عميل من القائمة", {
-            position: toastPosition,
-            timeout: 2500,
-            maxToasts: 1,
-          });
-          return;
-        }
-        if (!this.orderForSend.deliveryCustomerName || !this.orderForSend.deliveryCustomerName.trim()) {
-          this.$toast.error(this.$i18n.t("pleaseEnterCustomerName") || "يرجى إدخال اسم المستلم", {
-            position: toastPosition,
-            timeout: 2500,
-            maxToasts: 1,
-          });
-          return;
-        }
-        if (!this.orderForSend.deliveryPhoneNumber || !this.orderForSend.deliveryPhoneNumber.trim()) {
-          this.$toast.error(this.$i18n.t("pleaseEnterPhoneNumber") || "يرجى إدخال رقم هاتف المستلم", {
-            position: toastPosition,
-            timeout: 2500,
-            maxToasts: 1,
-          });
-          return;
-        }
-        if (!this.orderForSend.deliveryAddress || !this.orderForSend.deliveryAddress.trim()) {
-          this.$toast.error(this.$i18n.t("pleaseEnterDeliveryAddress") || "يرجى إدخال عنوان التوصيل", {
-            position: toastPosition,
-            timeout: 2500,
-            maxToasts: 1,
-          });
-          return;
-        }
-        if (!this.orderForSend.deliveryDriverId) {
-          this.$toast.error(this.$i18n.t("pleaseSelectDriver") || "يرجى اختيار سائق", {
-            position: toastPosition,
-            timeout: 2500,
-            maxToasts: 1,
-          });
-          return;
-        }
-      }
-      
-      this.show = true;
-      this.orderForSend.orderCode = "";
-      this.orderForSend.paymentMethod = this.orderForSend.paymentMethod || "Cash";
-      this.orderForSend.customerOrderItem = [];
-      for (const item of this.carditems) {
-        this.orderForSend.customerOrderItem.push({
-          itemId: item.id,
-          quantity: item.quantity,
-        });
-      }
-      this.orderForSend.orderCode = Math.floor(
-        Math.random() * 1000000000
-      ).toString().padStart(9, '0');
-      
-      // Handle multiple tables or single table
-      // For merged tables, use selectedTableIds if it contains multiple tables (from merged selection)
-      // Otherwise check mergedTableIds computed property
-      let tableIdsToUse = [];
-      
-      // Check if we have multiple selected tables (from merged selection)
-      if (this.selectedTableIds.length > 1) {
-        tableIdsToUse = [...this.selectedTableIds];
-      } 
-      // Check mergedTableIds computed property (for already merged tables)
-      else if (this.mergedTableIds.length > 1) {
-        tableIdsToUse = [...this.mergedTableIds];
-      }
-      // Fallback to single table
-      else if (this.selectedTableId) {
-        tableIdsToUse = [this.selectedTableId];
-      }
-      
-      if (tableIdsToUse.length > 1) {
-        // Multiple tables - use TableIds
-        this.orderForSend.tableIds = [...tableIdsToUse];
-        this.orderForSend.tableId = tableIdsToUse[0]; // First table for backward compatibility
-      } else if (tableIdsToUse.length === 1) {
-        // Single table - use TableId
-        this.orderForSend.tableId = tableIdsToUse[0];
-        this.orderForSend.tableIds = null;
-      } else {
-        // No table selected
-        this.orderForSend.tableId = null;
-        this.orderForSend.tableIds = null;
-      }
-      
-      if (!this.orderForSend.reservationId) {
-        this.orderForSend.reservationId = null;
-      }
-      
-      // Clear Delivery fields if not Delivery order
-      if (this.orderForSend.orderType !== 'Delivery') {
-        this.orderForSend.deliveryDriverId = null;
-        this.orderForSend.deliveryStatus = null;
-        this.orderForSend.deliveryAddress = null;
-        this.orderForSend.deliveryPhoneNumber = null;
-        this.orderForSend.deliveryCustomerName = null;
-        this.orderForSend.deliveryFee = null;
-        this.orderForSend.newDriverName = null;
-        this.orderForSend.newDriverPhone = null;
-        this.orderForSend.newDriverAddress = null;
-        this.orderForSend.newDriverVehicleType = null;
-        this.orderForSend.newDriverVehicleNumber = null;
-      } else {
-        // Set delivery status if not set
-        if (!this.orderForSend.deliveryStatus) {
-          this.orderForSend.deliveryStatus = "Pending";
-        }
-        // Clear new driver fields (no longer used, drivers are added via modal)
-        this.orderForSend.newDriverName = null;
-        this.orderForSend.newDriverPhone = null;
-        this.orderForSend.newDriverAddress = null;
-        this.orderForSend.newDriverVehicleType = null;
-        this.orderForSend.newDriverVehicleNumber = null;
-      }
-      
-      const discountPayload = this.buildOrderDiscountPayload();
-      Object.assign(this.orderForSend, discountPayload);
-
-      // Stable snapshot before network call — Pay&Print must not race cart/DOM reset
-      const itemsForPrintSnapshot =
-        isPrint ? JSON.parse(JSON.stringify(this.carditems)) : null;
-
-      HTTP.post(`Admin/AddOrder`, this.orderForSend)
-        .then(async (response) => {
-          if (response) {
-            this.show = false;
-            const tableIdToReload = this.selectedTableId;
-            const isDineInTableOrder =
-              this.orderForSend.orderType === "DineIn" && !!this.orderForSend.tableId;
-            const refreshAfterSave = async () => {
-              this.orderForSend.creditEmployeeId = null;
-              this.orderForSend.creditCustomerId = null;
-              if (isDineInTableOrder && tableIdToReload) {
-                try {
-                  await HTTP.put(`Tables/${tableIdToReload}/status`, JSON.stringify("Available"), {
-                    headers: { "Content-Type": "application/json" },
-                  });
-                } catch (statusError) {
-                  console.error("Failed to set table Available after checkout:", statusError);
-                }
-              }
-              await this.getTables();
-              this.carditems = [];
-              this.selectedTableId = null;
-              this.selectedTableIds = [];
-              this.orderForSend.tableId = null;
-              this.orderForSend.tableIds = null;
-              this.orderForSend.orderType = "Takeaway";
-              this.orderForSend.numberOfGuests = 0;
-              this.orderForSend.notes = "";
-              this.orderForSend.pagerNumber = "";
-              this.clearOrderDiscount();
-              this.tableOrders = [];
-              if (this.$refs.posQuickSearchInput) {
-                this.$refs.posQuickSearchInput.focus();
-              }
-            };
-
-            // Print before reset so receipt HTML/items are never empty due to clearing state
-            if (isPrint && itemsForPrintSnapshot && itemsForPrintSnapshot.length > 0) {
-              await this.$nextTick();
-              try {
-                await this.printCard(itemsForPrintSnapshot, {
-                  raiseOnError: true,
-                  cashierReceiptOnly: true,
-                });
-              } catch (printError) {
-                console.error("Print error:", printError);
-                const persisted =
-                  this.$i18n.t("addOrderSucsses") ||
-                  this.$i18n.t("orderSavedAndCleared") ||
-                  "";
-                const printErr = this.$i18n.t("printError") || "خطأ بالطباعة";
-                const warnText = persisted ? `${printErr}. ${persisted}` : printErr;
-                this.$toast.warning(warnText, {
-                  position: "top-right",
-                  timeout: 3500,
-                  maxToasts: 1,
-                });
-              }
-            }
-
-            await refreshAfterSave();
-
-            const successMessage = isPrint
-              ? this.$t("payAndPrint") || "دفع وطباعة"
-              : this.$t("payNow") || "دفع";
-            this.$toast.success(successMessage, {
-              position: "top-right",
-              timeout: 2000,
-              maxToasts: 1,
-            });
-          }
-        })
-        .catch((error) => {
-          this.show = false;
-          console.error('Order save error:', error);
-          let errorMessage = this.$i18n.t("error") || "حدث خطأ ما";
-          
-          if (error.response) {
-            // Server responded with error status
-            if (error.response.data && error.response.data.message) {
-              errorMessage = error.response.data.message;
-            } else if (error.response.status === 400) {
-              errorMessage = this.$i18n.t("badRequest") || "طلب غير صحيح";
-            } else if (error.response.status === 401) {
-              errorMessage = this.$i18n.t("unauthorized") || "غير مصرح";
-            } else if (error.response.status === 500) {
-              errorMessage = this.$i18n.t("serverError") || "خطأ في الخادم";
-            }
-          } else if (error.request) {
-            // Request was made but no response received
-            errorMessage = this.$i18n.t("networkError") || "خطأ في الاتصال بالخادم";
-          }
-          
-          this.$toast.error(errorMessage, {
-            position: "top-right",
-            timeout: 3000,
-            maxToasts: 1,
-          });
-        });
     },
 
     

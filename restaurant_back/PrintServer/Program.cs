@@ -1,4 +1,4 @@
-using PrintServer.Services;
+﻿using PrintServer.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +22,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddSingleton<ConfigurationService>();
 builder.Services.AddScoped<PrintService>();
 
+// ✅ حدد الـ URL هنا
+builder.WebHost.UseUrls("http://localhost:5000");
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
@@ -31,8 +34,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseSwagger();
+app.UseSwaggerUI();
+
 app.UseCors("AllowAll");
-// Note: HTTPS redirection removed for local print server
 app.UseAuthorization();
 app.MapControllers();
 
@@ -52,4 +57,5 @@ Console.WriteLine("  PUT  /config - Update server configuration");
 Console.WriteLine("  PUT  /config/printer - Set default printer");
 Console.WriteLine("=" + new string('=', 49));
 
-app.Run("http://localhost:5000");
+// ✅ بدون URL هنا
+app.Run();
