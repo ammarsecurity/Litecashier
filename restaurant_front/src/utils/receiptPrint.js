@@ -223,6 +223,15 @@ export const RECEIPT_PRINT_STYLES_HTML = `
         overflow-wrap: anywhere;
       }
 
+      .bill-items-table--kitchen .bill-item-name-col {
+        width: 72%;
+      }
+
+      .bill-items-table--kitchen .bill-item-qty-col {
+        width: 28%;
+        text-align: center;
+      }
+
       .bill-summary-section {
         margin: 8px 0;
         padding: 0 1mm;
@@ -397,6 +406,210 @@ export function computeGroupPrintTotals(items, orderSubtotal, orderDiscountAmoun
     0
   );
   return { subtotal, groupDiscount, groupTotal, totalItems };
+}
+
+function receiptLineUnitPrice(item) {
+  const price = Number(item?.price || 0);
+  const discount = Number(item?.disCountPrice || 0);
+  return discount > 0 && discount !== price ? discount : price;
+}
+
+/**
+ * Build items table HTML for receipt / kitchen department prints.
+ */
+export function buildReceiptItemsTableHtml({
+  items = [],
+  labels = {},
+  escapeHtml = (t) => String(t ?? ""),
+  formatPrice = (n) => String(n),
+  hidePrices = false,
+} = {}) {
+  const itemName = labels.itemName || "طبق/مشروب";
+  const quantity = labels.quantity || "العدد";
+  const priceLabel = labels.price || "السعر";
+  const totalLabel = labels.total || "المجموع";
+  const tableClass = hidePrices
+    ? "bill-items-table bill-items-table--kitchen"
+    : "bill-items-table";
+
+  let html = `
+        <table class="${tableClass}">
+          <thead>
+            <tr>
+              <th class="bill-item-name-col">${itemName}</th>
+              <th class="bill-item-qty-col">${quantity}</th>`;
+
+  if (!hidePrices) {
+    html += `
+              <th class="bill-item-price-col">${priceLabel}</th>
+              <th class="bill-item-total-col">${totalLabel}</th>`;
+  }
+
+  html += `
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+  for (const item of items) {
+    const unitPrice = receiptLineUnitPrice(item);
+    html += `
+          <tr>
+            <td class="bill-item-name">${escapeHtml(item.name || "")}</td>
+            <td class="bill-item-qty">${item.quantity || 0}</td>`;
+    if (!hidePrices) {
+      html += `
+            <td class="bill-item-price">${unitPrice ? formatPrice(unitPrice) : "0"}</td>
+            <td class="bill-item-total">${item.total ? formatPrice(item.total) : "0"}</td>`;
+    }
+    html += `
+          </tr>
+        `;
+  }
+
+  html += `
+          </tbody>
+        </table>
+      `;
+  return html;
+}
+
+/**
+ * Build summary block HTML for receipt / kitchen department prints.
+ */
+export function buildReceiptSummaryHtml({
+  totalItems = 0,
+  tagName = null,
+  hidePrices = false,
+  groupDiscount = 0,
+  groupTotal = 0,
+  labels = {},
+  formatPrice = (n) => String(n),
+  escapeHtml = (t) => String(t ?? ""),
+} = {}) {
+  const countLabel = labels.countLabel || "العدد:";
+  const countSuffix = labels.countSuffix || " طبق/مشروب";
+  const sectionLabel = labels.sectionLabel || "القسم:";
+  const discountLabel = labels.discountLabel || "الخصم";
+  const totalLabel = labels.totalLabel || "المجموع:";
+  const currency = labels.currency || "";
+
+  const showTag =
+    tagName && tagName !== "default" && tagName !== "unmapped";
+
+  let html = `
+        <div data-v-f8758d62="" class="bill-summary-section">
+          <div data-v-f8758d62="" class="bill-summary-row">
+            <span data-v-f8758d62="" class="bill-summary-label">${countLabel}</span>
+            <span data-v-f8758d62="" class="bill-summary-value">${totalItems}${countSuffix}</span>
+          </div>`;
+
+  if (showTag) {
+    html += `
+          <div data-v-f8758d62="" class="bill-summary-row">
+            <span data-v-f8758d62="" class="bill-summary-label">${sectionLabel}</span>
+            <span data-v-f8758d62="" class="bill-summary-value">${escapeHtml(tagName)}</span>
+          </div>`;
+  }
+
+  if (!hidePrices) {
+    if (groupDiscount > 0) {
+      html += `
+          <div data-v-f8758d62="" class="bill-summary-row">
+            <span data-v-f8758d62="" class="bill-summary-label">${discountLabel}:</span>
+            <span data-v-f8758d62="" class="bill-summary-value">- ${formatPrice(groupDiscount)} ${currency}</span>
+          </div>`;
+    }
+    html += `
+          <div data-v-f8758d62="" class="bill-summary-row bill-total-row">
+            <span data-v-f8758d62="" class="bill-summary-label">${totalLabel}</span>
+            <span data-v-f8758d62="" class="bill-summary-value bill-total-amount">${formatPrice(groupTotal)} ${currency}</span>
+          </div>`;
+  }
+
+  html += `
+        </div>
+      `;
+  return html;
+}
+
+/**
+ * Replace the full bill-summary-section block (nested div-safe).
+ */
+export function replaceReceiptSummarySection(htmlContent, summaryHTML) {
+  if (!htmlContent || !summaryHTML) return htmlContent;
+
+  const classPattern = /class="[^"]*\bbill-summary-section\b[^"]*"/i;
+  const match = classPattern.exec(htmlContent);
+  if (!match) return htmlContent;
+
+  let start = htmlContent.lastIndexOf("<div", match.index);
+  if (start === -1) return htmlContent;
+
+  let depth = 0;
+  let i = start;
+  const len = htmlContent.length;
+
+  while (i < len) {
+    const openDiv = htmlContent.indexOf("<div", i);
+    const closeDiv = htmlContent.indexOf("</div>", i);
+    if (closeDiv === -1) break;
+
+    if (openDiv !== -1 && openDiv < closeDiv) {
+      depth += 1;
+      i = openDiv + 4;
+    } else {
+      depth -= 1;
+      i = closeDiv + 6;
+      if (depth === 0) {
+        return (
+          htmlContent.slice(0, start) + summaryHTML + htmlContent.slice(i)
+        );
+      }
+    }
+  }
+
+  return htmlContent;
+}
+
+/**
+ * Remove leftover price/total rows from kitchen department receipt HTML.
+ */
+export function stripKitchenFinancialFromReceiptHtml(htmlContent) {
+  if (!htmlContent) return htmlContent;
+
+  let html = htmlContent;
+
+  html = html.replace(
+    /<div[^>]*class="[^"]*\bbill-summary-total\b[^"]*"[^>]*>[\s\S]*?<\/div>\s*/gi,
+    ""
+  );
+  html = html.replace(
+    /<div[^>]*class="[^"]*\bbill-total-row\b[^"]*"[^>]*>[\s\S]*?<\/div>\s*/gi,
+    ""
+  );
+  html = html.replace(
+    /<div[^>]*class="bill-summary-row"[^>]*>[\s\S]*?(?:discountLabel|الخصم|discount)[\s\S]*?<\/div>\s*/gi,
+    ""
+  );
+  html = html.replace(
+    /<th[^>]*class="[^"]*\bbill-item-price-col\b[^"]*"[^>]*>[\s\S]*?<\/th>\s*/gi,
+    ""
+  );
+  html = html.replace(
+    /<th[^>]*class="[^"]*\bbill-item-total-col\b[^"]*"[^>]*>[\s\S]*?<\/th>\s*/gi,
+    ""
+  );
+  html = html.replace(
+    /<td[^>]*class="[^"]*\bbill-item-price\b[^"]*"[^>]*>[\s\S]*?<\/td>\s*/gi,
+    ""
+  );
+  html = html.replace(
+    /<td[^>]*class="[^"]*\bbill-item-total\b[^"]*"[^>]*>[\s\S]*?<\/td>\s*/gi,
+    ""
+  );
+
+  return html;
 }
 
 /**

@@ -1454,6 +1454,10 @@ import {
   PRINT_API_TIMEOUT_MS,
   PRINT_SERVER_FETCH_TIMEOUT_MS,
   computeGroupPrintTotals,
+  buildReceiptItemsTableHtml,
+  buildReceiptSummaryHtml,
+  replaceReceiptSummarySection,
+  stripKitchenFinancialFromReceiptHtml,
   ensurePrintTableNumberInHtml,
   ensurePrintOrderCodeInHtml,
 } from "@/utils/receiptPrint.js";
@@ -2857,6 +2861,8 @@ export default {
               });
             }
           });
+
+          this.syncPrintedCartBaselineFromCart();
           
           this.selectedTableId = table.id;
           
@@ -2894,6 +2900,7 @@ export default {
       } else if (isAvailable) {
         // Start new order for available table
         this.activeOrderId = null;
+        this.resetPrintedCartBaseline();
         this.orderForSend.orderCode = "";
         this.selectedTableId = table.id;
         this.selectedTableIds = [table.id]; // Reset multi-select
@@ -2977,6 +2984,7 @@ export default {
         }
         this.tableOrders = [];
         this.activeOrderId = null;
+        this.resetPrintedCartBaseline();
         this.tableToClose = null;
         this.tablesToClose = null;
         await this.getTables();
@@ -3361,15 +3369,28 @@ export default {
         .padStart(9, "0");
       return this.orderForSend.orderCode;
     },
-    async generateHTMLForItems(items, tagName = null) {
+    async generateHTMLForItems(items, tagName = null, options = {}) {
+      const hidePrices = !!(options && options.hidePrices);
       const orderCode = this.ensureOrderCodeForPrint();
-      const { subtotal, groupDiscount, groupTotal, totalItems } = computeGroupPrintTotals(
+      const { groupDiscount, groupTotal, totalItems } = computeGroupPrintTotals(
         items,
         this.totaPrice,
         this.orderDiscountAmount
       );
       const currency = this.$t("currency") || "د.ع";
       const discountLabel = this.$t("discountLabel") || "الخصم";
+      const receiptLabels = {
+        itemName: this.$t("item_name_label") || "طبق/مشروب",
+        quantity: this.$t("quantity_label") || "العدد",
+        price: this.$t("selling_price_label") || "السعر",
+        total: this.$t("total_label") || "المجموع",
+        countLabel: "العدد:",
+        countSuffix: " طبق/مشروب",
+        sectionLabel: "القسم:",
+        discountLabel,
+        totalLabel: `${this.$t("total") || "المجموع"}:`,
+        currency,
+      };
 
       const savedCarditems = this.carditems;
       this.carditems = items;
@@ -3395,69 +3416,32 @@ export default {
         orderCode,
         (t) => this.escapeHtml(t)
       );
-      
-      // Create items table HTML for this group (same structure as #print template)
-      let itemsTableHTML = `
-        <table class="bill-items-table">
-          <thead>
-            <tr>
-              <th class="bill-item-name-col">${this.$t("item_name_label") || "طبق/مشروب"}</th>
-              <th class="bill-item-qty-col">${this.$t("quantity_label") || "العدد"}</th>
-              <th class="bill-item-price-col">${this.$t("selling_price_label") || "السعر"}</th>
-              <th class="bill-item-total-col">${this.$t("total_label") || "المجموع"}</th>
-            </tr>
-          </thead>
-          <tbody>
-      `;
-      
-      items.forEach(item => {
-        const itemPrice = item.price !== item.disCountPrice ? item.disCountPrice : item.price;
-        itemsTableHTML += `
-          <tr>
-            <td class="bill-item-name">${this.escapeHtml(item.name || '')}</td>
-            <td class="bill-item-qty">${item.quantity || 0}</td>
-            <td class="bill-item-price">${itemPrice ? itemPrice.toLocaleString() : '0'}</td>
-            <td class="bill-item-total">${item.total ? item.total.toLocaleString() : '0'}</td>
-          </tr>
-        `;
+
+      const itemsTableHTML = buildReceiptItemsTableHtml({
+        items,
+        labels: receiptLabels,
+        escapeHtml: (t) => this.escapeHtml(t),
+        formatPrice: (n) => this.formatPrice(n),
+        hidePrices,
       });
-      
-      itemsTableHTML += `
-          </tbody>
-        </table>
-      `;
-      
-      // Replace the items table in HTML
+
       const tableRegex = /<table[^>]*class="bill-items-table"[^>]*>[\s\S]*?<\/table>/i;
       htmlContent = htmlContent.replace(tableRegex, itemsTableHTML);
-      
-      // Update summary section
-      const summaryRegex = /<div[^>]*class="bill-summary-section"[^>]*>[\s\S]*?<\/div>/i;
-      const summaryHTML = `
-        <div data-v-f8758d62="" class="bill-summary-section">
-          <div data-v-f8758d62="" class="bill-summary-row">
-            <span data-v-f8758d62="" class="bill-summary-label">العدد:</span>
-            <span data-v-f8758d62="" class="bill-summary-value">${totalItems} طبق/مشروب</span>
-          </div>
-          ${tagName && tagName !== "unmapped" ? `
-          <div data-v-f8758d62="" class="bill-summary-row">
-            <span data-v-f8758d62="" class="bill-summary-label">القسم:</span>
-            <span data-v-f8758d62="" class="bill-summary-value">${this.escapeHtml(tagName)}</span>
-          </div>
-          ` : ''}
-          ${groupDiscount > 0 ? `
-          <div data-v-f8758d62="" class="bill-summary-row">
-            <span data-v-f8758d62="" class="bill-summary-label">${discountLabel}:</span>
-            <span data-v-f8758d62="" class="bill-summary-value">- ${this.formatPrice(groupDiscount)} ${currency}</span>
-          </div>
-          ` : ''}
-          <div data-v-f8758d62="" class="bill-summary-row bill-total-row">
-            <span data-v-f8758d62="" class="bill-summary-label">${this.$t("total") || "المجموع"}:</span>
-            <span data-v-f8758d62="" class="bill-summary-value bill-total-amount">${this.formatPrice(groupTotal)} ${currency}</span>
-          </div>
-        </div>
-      `;
-      htmlContent = htmlContent.replace(summaryRegex, summaryHTML);
+
+      const summaryHTML = buildReceiptSummaryHtml({
+        totalItems,
+        tagName,
+        hidePrices,
+        groupDiscount,
+        groupTotal,
+        labels: receiptLabels,
+        formatPrice: (n) => this.formatPrice(n),
+        escapeHtml: (t) => this.escapeHtml(t),
+      });
+      htmlContent = replaceReceiptSummarySection(htmlContent, summaryHTML);
+      if (hidePrices) {
+        htmlContent = stripKitchenFinancialFromReceiptHtml(htmlContent);
+      }
       
       // Add notes and pager number section before footer
       const notesSectionHTML = `
@@ -3515,10 +3499,6 @@ export default {
     },
     async printItemsByTag(tagName, items, printerId) {
       try {
-        // Calculate totals for this group
-        const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
-        const totalItems = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-        
         const printer = this.findPrinterForPrint(printerId);
         const printerName = printer
           ? printer.printerName ?? printer.PrinterName
@@ -3537,24 +3517,22 @@ export default {
           time: new Date().toLocaleTimeString('ar-EG'),
           tableNumber: this.selectedTableId ? this.allTables.find(t => t.id === this.selectedTableId)?.tableNumber : null,
           employeeName: this.userInfo.name || '',
-          items: items.map(item => ({
-            name: item.name || '',
+          items: items.map((item) => ({
+            name: item.name || "",
             quantity: item.quantity || 0,
-            price: Number(item.price ?? 0),
-            total: Number(item.total ?? 0),
-            discount: item.discount || null
           })),
-          subtotal: subtotal.toLocaleString(),
-          discount: '0',
-          tax: '0',
-          total: subtotal.toLocaleString(),
+          subtotal: "0",
+          discount: "0",
+          tax: "0",
+          total: "0",
           paymentMethod: this.orderForSend.paymentMethod === 'Cash' ? 'نقدي' : 
                         this.orderForSend.paymentMethod === 'Card' ? 'بطاقة' : 
                         this.orderForSend.paymentMethod || 'نقدi'
         };
         
-        // Generate HTML content for this group
-        const htmlContent = await this.generateHTMLForItems(items, tagName);
+        const htmlContent = await this.generateHTMLForItems(items, tagName, {
+          hidePrices: true,
+        });
         printData.htmlContent = htmlContent;
 
         if (!htmlContent) {

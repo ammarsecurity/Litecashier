@@ -86,6 +86,7 @@
   "emptyButton": "افراغ فقط",
   "saveAndClear": "حفظ وافراغ",
   "saveAndPrint": "حفظ وطباعة",
+  "noNewItemsToPrint": "لا توجد أصناف جديدة للطباعة",
   "printOnly": "طباعة فقط",
   "printSuccess": "تم الطباعة بنجاح",
   "itemsWithoutDepartmentPrinter": "بعض الأصناف ليس لها طابعة قسم ولم تُطبع",

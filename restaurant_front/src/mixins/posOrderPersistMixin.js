@@ -1,4 +1,8 @@
 import { HTTP } from "@/http/api.js";
+import {
+  cloneCartBaseline,
+  computeKitchenPrintDelta,
+} from "@/utils/cartPrintDelta.js";
 
 /**
  * Shared POS/Waiter order save vs update (AddOrder / UpdateOrder).
@@ -7,6 +11,7 @@ export default {
   data() {
     return {
       activeOrderId: null,
+      printedCartBaseline: [],
     };
   },
   methods: {
@@ -41,6 +46,12 @@ export default {
         }
       }
       return null;
+    },
+    syncPrintedCartBaselineFromCart() {
+      this.printedCartBaseline = cloneCartBaseline(this.carditems);
+    },
+    resetPrintedCartBaseline() {
+      this.printedCartBaseline = [];
     },
     syncActiveOrderIdFromTable(table, activeOrder) {
       const fromOrder = activeOrder?.id ?? activeOrder?.Id;
@@ -247,6 +258,7 @@ export default {
       }
       this.activeOrderId = null;
       this.tableOrders = [];
+      this.resetPrintedCartBaseline();
     },
     async refreshAfterOrderSave({
       isCheckout,
@@ -277,6 +289,7 @@ export default {
         this.clearOrderDiscount();
         this.activeOrderId = null;
         this.tableOrders = [];
+        this.resetPrintedCartBaseline();
         const quickSearchRef = this.$refs.posQuickSearchInput;
         if (quickSearchRef) {
           quickSearchRef.focus();
@@ -305,6 +318,7 @@ export default {
       this.clearOrderDiscount();
       this.tableOrders = [];
       this.activeOrderId = null;
+      this.resetPrintedCartBaseline();
     },
     getOrderPersistSuccessMessage({ isUpdate, isCheckout, isPrint, isDineInTableOrder }) {
       if (isCheckout) {
@@ -352,9 +366,20 @@ export default {
         this.orderForSend.orderType === "DineIn" && !!this.orderForSend.tableId;
       const tableIdToReload = this.selectedTableId;
 
-      const itemsForPrintSnapshot = shouldPrint
+      const fullCartSnapshot = shouldPrint
         ? JSON.parse(JSON.stringify(this.carditems))
         : null;
+      const kitchenPrintItems =
+        shouldPrint && !isCheckout && fullCartSnapshot
+          ? computeKitchenPrintDelta(
+              fullCartSnapshot,
+              this.printedCartBaseline
+            )
+          : null;
+      const itemsForPrintSnapshot =
+        shouldPrint && isCheckout
+          ? fullCartSnapshot
+          : kitchenPrintItems;
 
       this.show = true;
       this.prepareOrderPayload(!isUpdate);
@@ -375,6 +400,20 @@ export default {
         }
 
         this.setActiveOrderIdFromResponse(response.data?.data);
+
+        if (shouldPrint && !isCheckout && fullCartSnapshot?.length > 0) {
+          if (!kitchenPrintItems || kitchenPrintItems.length === 0) {
+            this.$toast.info(
+              this.$t("noNewItemsToPrint") ||
+                "لا توجد أصناف جديدة للطباعة",
+              {
+                position: "top-right",
+                timeout: 2500,
+                maxToasts: 1,
+              }
+            );
+          }
+        }
 
         if (shouldPrint && itemsForPrintSnapshot?.length > 0) {
           if (isCheckout) {
@@ -425,6 +464,10 @@ export default {
               );
             }
           }
+        }
+
+        if (!isCheckout && fullCartSnapshot?.length > 0) {
+          this.syncPrintedCartBaselineFromCart();
         }
 
         await this.refreshAfterOrderSave({

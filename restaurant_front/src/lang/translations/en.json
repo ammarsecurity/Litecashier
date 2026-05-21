@@ -86,6 +86,7 @@
   "emptyButton": "Clear Only",
   "saveAndClear": "Save and Clear",
   "saveAndPrint": "Save and Print",
+  "noNewItemsToPrint": "No new items to print",
   "printOnly": "Print only",
   "printSuccess": "Printed successfully",
   "itemsWithoutDepartmentPrinter": "Some items have no department printer and were not printed",
