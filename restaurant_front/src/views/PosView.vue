@@ -434,7 +434,10 @@
                       :key="index"
                     >
                       <div class="pos-cart-item-top">
-                        <h4 class="pos-cart-item-name">{{ item.name }}</h4>
+                        <div class="pos-cart-item-name-wrap">
+                          <h4 class="pos-cart-item-name">{{ item.name }}</h4>
+                          <p v-if="item.lineNote" class="pos-cart-item-line-note">{{ item.lineNote }}</p>
+                        </div>
                         <div class="pos-cart-item-line-total">
                           {{ formatPrice(item.total) }} {{ $t("currency") }}
                         </div>
@@ -479,7 +482,16 @@
                               <b-icon icon="plus-lg"></b-icon>
                             </button>
                           </div>
-                          
+
+                          <button
+                            type="button"
+                            class="pos-cart-item-note"
+                            :class="{ 'pos-cart-item-note--active': item.lineNote }"
+                            @click.stop="openCartLineNoteModal(index)"
+                            :title="$t('itemLineNote') || 'ملاحظة الصنف'"
+                          >
+                            <b-icon icon="chat-left-text"></b-icon>
+                          </button>
                           <button
                             class="pos-cart-item-transfer"
                             @click.stop="openOrderMoveModal('item', item)"
@@ -914,6 +926,54 @@
                       {{ $t("orderNotesComplete") || "اكمال" }}
                     </button>
                     <button class="order-notes-cancel-button" @click="closeModel('modal-order-notes')">
+                      <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                      {{ $t("cancelButton") || "إلغاء" }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </b-modal>
+
+            <b-modal
+              id="modal-cart-line-note"
+              :title="$t('itemLineNote') || 'ملاحظة الصنف'"
+              hide-header
+              hide-footer
+              class="users-modal"
+            >
+              <div class="modal-content-wrapper">
+                <div class="order-notes-content">
+                  <div class="order-notes-header">
+                    <b-icon icon="chat-left-text" class="me-2"></b-icon>
+                    <h3 class="order-notes-title">{{ $t("itemLineNote") || "ملاحظة الصنف" }}</h3>
+                  </div>
+                  <p v-if="lineNoteCartItemName" class="pos-line-note-item-name">{{ lineNoteCartItemName }}</p>
+                  <p class="pos-line-note-hint">{{ $t("itemLineNoteHint") || "تظهر في طباعة المطبخ فقط" }}</p>
+                  <div class="order-notes-input-wrapper">
+                    <label class="order-notes-label">{{ $t("itemLineNoteLabel") || "الملاحظة" }}</label>
+                    <textarea
+                      v-model="lineNoteDraft"
+                      class="order-notes-textarea"
+                      :placeholder="$t('itemLineNotePlaceholder') || 'مثال: بدون بصل، حار جداً...'"
+                      rows="3"
+                      maxlength="500"
+                    ></textarea>
+                  </div>
+                  <div class="order-notes-actions">
+                    <button type="button" class="order-notes-confirm-button" @click="saveCartLineNote">
+                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                      {{ $t("save") || "حفظ" }}
+                    </button>
+                    <button
+                      v-if="lineNoteDraft"
+                      type="button"
+                      class="order-notes-cancel-button"
+                      @click="clearCartLineNote"
+                    >
+                      <b-icon icon="trash" class="me-2"></b-icon>
+                      {{ $t("clear") || "مسح" }}
+                    </button>
+                    <button type="button" class="order-notes-cancel-button" @click="$bvModal.hide('modal-cart-line-note')">
                       <b-icon icon="x-circle-fill" class="me-2"></b-icon>
                       {{ $t("cancelButton") || "إلغاء" }}
                     </button>
@@ -1898,6 +1958,8 @@ export default {
       show: false,
       totaPrice: 0,
       carditems: [],
+      lineNoteCartIndex: null,
+      lineNoteDraft: "",
       typingTimer: null,
       doneTypingInterval: 500,
       lastAddedItem: null,
@@ -2089,6 +2151,11 @@ export default {
     },
     formattedNumber() {
       return this.finalOrderTotal.toLocaleString();
+    },
+    lineNoteCartItemName() {
+      const index = this.lineNoteCartIndex;
+      if (index == null || !this.carditems[index]) return "";
+      return this.carditems[index].name || "";
     },
     /** ملخص الطلب + الدفع + الطابعة + الأزرار في شريط سفلي ثابت */
     showPosCheckoutBar() {
@@ -3344,7 +3411,8 @@ export default {
                     total: finalPrice * (orderItem.quantity || 1),
                     tags: orderItem.item.tags || 'مواد اخرى',
                     sourceOrderId: order.id,
-                    sourceOrderItemId: orderItem.id
+                    sourceOrderItemId: orderItem.id,
+                    lineNote: (orderItem.notes || orderItem.Notes || "").trim() || undefined,
                   });
                 }
               });
@@ -5042,6 +5110,34 @@ export default {
       } finally {
         this.sensitiveActionAuth.verifying = false;
       }
+    },
+    openCartLineNoteModal(index) {
+      const item = this.carditems[index];
+      if (!item) return;
+      this.lineNoteCartIndex = index;
+      this.lineNoteDraft = item.lineNote ? String(item.lineNote) : "";
+      this.$bvModal.show("modal-cart-line-note");
+    },
+    saveCartLineNote() {
+      const index = this.lineNoteCartIndex;
+      if (index == null || !this.carditems[index]) return;
+      const note = String(this.lineNoteDraft || "").trim();
+      if (note) {
+        this.$set(this.carditems[index], "lineNote", note);
+      } else {
+        this.$delete(this.carditems[index], "lineNote");
+      }
+      this.$bvModal.hide("modal-cart-line-note");
+      this.lineNoteCartIndex = null;
+      this.lineNoteDraft = "";
+    },
+    clearCartLineNote() {
+      const index = this.lineNoteCartIndex;
+      if (index == null || !this.carditems[index]) return;
+      this.$delete(this.carditems[index], "lineNote");
+      this.lineNoteDraft = "";
+      this.$bvModal.hide("modal-cart-line-note");
+      this.lineNoteCartIndex = null;
     },
     openOrderNotesModal(mode = "pay") {
       if (this.carditems.length <= 0) {
@@ -7343,6 +7439,60 @@ export default {
   min-height: 2.05rem;
 }
 
+.pos-route--v2 .pos-cart-item--v2 .pos-cart-item-name-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.pos-route--v2 .pos-cart-item--v2 .pos-cart-item-line-note {
+  margin: 0.12rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: #b45309;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.pos-line-note-item-name {
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.pos-line-note-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.pos-route--v2 .pos-cart-item--v2 .pos-cart-item-note {
+  width: 2.05rem;
+  height: 2.05rem;
+  min-width: 2.05rem;
+  min-height: 2.05rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.16) 0%, rgba(245, 158, 11, 0.08) 100%);
+  color: #d97706;
+  transition: all 0.16s ease;
+}
+
+.pos-route--v2 .pos-cart-item--v2 .pos-cart-item-note--active {
+  border-color: rgba(217, 119, 6, 0.5);
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.28) 0%, rgba(245, 158, 11, 0.16) 100%);
+  color: #b45309;
+}
+
+.pos-route--v2 .pos-cart-item--v2 .pos-cart-item-note:hover {
+  border-color: rgba(217, 119, 6, 0.45);
+  color: #b45309;
+  transform: translateY(-1px);
+}
+
 .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer {
   width: 2.05rem;
   height: 2.05rem;
@@ -7426,6 +7576,7 @@ export default {
 
   .pos-route--v2 .pos-cart-item--v2 .pos-quantity-btn,
   .pos-route--v2 .pos-cart-item--v2 .pos-quantity-input,
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-note,
   .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer,
   .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-delete {
     height: 1.9rem;
@@ -7466,6 +7617,7 @@ export default {
 
   .pos-route--v2 .pos-cart-item--v2 .pos-quantity-btn,
   .pos-route--v2 .pos-cart-item--v2 .pos-quantity-input,
+  .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-note,
   .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer,
   .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-delete {
     min-height: 2.1rem !important;

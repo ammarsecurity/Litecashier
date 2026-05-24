@@ -83,5 +83,12 @@ export function cloneCartBaseline(items) {
     image: line.image,
     sourceOrderId: line.sourceOrderId,
     sourceOrderItemId: line.sourceOrderItemId,
+    lineNote: line.lineNote,
   }));
+}
+
+export function getCartLineNote(item) {
+  const note = item?.lineNote ?? item?.notes ?? item?.Notes;
+  if (note == null) return "";
+  return String(note).trim();
 }

@@ -10,5 +10,8 @@ namespace RestaurantPOS.Models.Requests
         [Required]
         public int Quantity { get; set; }
 
+        [MaxLength(500)]
+        public string? Notes { get; set; }
+
     }
 }

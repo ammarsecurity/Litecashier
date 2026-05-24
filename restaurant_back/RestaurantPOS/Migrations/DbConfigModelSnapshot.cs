@@ -275,6 +275,10 @@ namespace RestaurantPOS.Migrations
                     b.Property<int>("ItemId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
                     b.Property<decimal>("PurchasingPrice")
                         .HasColumnType("decimal(65,30)");
 

@@ -2619,6 +2619,10 @@ namespace RestaurantPOS.Controllers
                         {
                             // Increment the quantity of an existing item
                             existingItem.Quantity += itemRequest.Quantity;
+                            if (!string.IsNullOrWhiteSpace(itemRequest.Notes))
+                            {
+                                existingItem.Notes = itemRequest.Notes.Trim();
+                            }
                         }
                         else
                         {
@@ -2646,6 +2650,7 @@ namespace RestaurantPOS.Controllers
                                 PurchasingPrice = currentItem.PurchasingPrice,
                                 Quantity = itemRequest.Quantity,
                                 ItemId = itemRequest.ItemId,
+                                Notes = string.IsNullOrWhiteSpace(itemRequest.Notes) ? null : itemRequest.Notes.Trim(),
                                 InsertByUserId = userId,
                             };
 
@@ -2989,6 +2994,7 @@ namespace RestaurantPOS.Controllers
                             ItemId = itemRequest.ItemId,
                             Quantity = itemRequest.Quantity,
                             SellingPrice = sellingPrice,
+                            Notes = string.IsNullOrWhiteSpace(itemRequest.Notes) ? null : itemRequest.Notes.Trim(),
                             CustomerOrderId = existingOrder.Id,
                             InsertByUserId = userId,
                             InsertDate = DateTime.Now
@@ -3785,6 +3791,7 @@ namespace RestaurantPOS.Controllers
                         Quantity = transferQuantity,
                         SellingPrice = repricedUnit,
                         PurchasingPrice = itemEntity.PurchasingPrice,
+                        Notes = sourceItem.Notes,
                         InsertByUserId = userId
                     });
                 }

@@ -120,6 +120,7 @@ export default {
       this.orderForSend.customerOrderItem = this.carditems.map((item) => ({
         itemId: item.id,
         quantity: item.quantity,
+        notes: item.lineNote ? String(item.lineNote).trim() : null,
       }));
 
       if (isNewOrder) {

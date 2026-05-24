@@ -232,6 +232,16 @@ export const RECEIPT_PRINT_STYLES_HTML = `
         text-align: center;
       }
 
+      .bill-item-line-note {
+        display: block;
+        margin-top: 3px;
+        font-size: 8px;
+        font-weight: 600;
+        color: #333;
+        line-height: 1.3;
+        word-break: break-word;
+      }
+
       .bill-summary-section {
         margin: 8px 0;
         padding: 0 1mm;
@@ -414,6 +424,20 @@ function receiptLineUnitPrice(item) {
   return discount > 0 && discount !== price ? discount : price;
 }
 
+function receiptLineNote(item) {
+  const raw = item?.lineNote ?? item?.notes ?? item?.Notes;
+  if (raw == null) return "";
+  return String(raw).trim();
+}
+
+function formatReceiptItemNameCell(item, escapeHtml, includeLineNote) {
+  const name = escapeHtml(item?.name || "");
+  if (!includeLineNote) return name;
+  const note = receiptLineNote(item);
+  if (!note) return name;
+  return `${name}<div class="bill-item-line-note">${escapeHtml(note)}</div>`;
+}
+
 /**
  * Build items table HTML for receipt / kitchen department prints.
  */
@@ -453,9 +477,10 @@ export function buildReceiptItemsTableHtml({
 
   for (const item of items) {
     const unitPrice = receiptLineUnitPrice(item);
+    const nameCell = formatReceiptItemNameCell(item, escapeHtml, hidePrices);
     html += `
           <tr>
-            <td class="bill-item-name">${escapeHtml(item.name || "")}</td>
+            <td class="bill-item-name">${nameCell}</td>
             <td class="bill-item-qty">${item.quantity || 0}</td>`;
     if (!hidePrices) {
       html += `

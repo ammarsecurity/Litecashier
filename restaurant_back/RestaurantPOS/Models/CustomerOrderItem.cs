@@ -28,6 +28,9 @@ namespace RestaurantPOS.Models
         [Required]
         public decimal SellingPrice { get; set; }
 
+        [MaxLength(500)]
+        public string? Notes { get; set; }
+
         public decimal PurchasingPrice { get; set; }
 
         [ForeignKey("InsertByUserId")]
