@@ -375,27 +375,39 @@
               </option>
             </select>
           </div>
-          <div class="modal-form-grid">
-            <div class="users-form-group">
-              <label class="users-form-label">
-                <b-icon icon="check-circle-fill" class="form-label-icon"></b-icon>
-                {{ $t("isMain") || "طابعة رئيسية" }}
-              </label>
-              <label class="switch">
-                <input type="checkbox" v-model="printerForm.isMain" />
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="users-form-group">
-              <label class="users-form-label">
-                <b-icon icon="power" class="form-label-icon"></b-icon>
-                {{ $t("isActive") || "مفعل" }}
-              </label>
-              <label class="switch">
-                <input type="checkbox" v-model="printerForm.isActive" />
-                <span class="slider"></span>
-              </label>
-            </div>
+          <div class="form-toggle-cards">
+            <label
+              class="form-toggle-card"
+              :class="{ 'form-toggle-card--on': printerForm.isActive }"
+            >
+              <input v-model="printerForm.isActive" type="checkbox" class="form-toggle-card-input" />
+              <span class="form-toggle-card-body">
+                <span class="form-toggle-card-icon form-toggle-card-icon--success">
+                  <b-icon icon="check-circle-fill"></b-icon>
+                </span>
+                <span class="form-toggle-card-text">
+                  <span class="form-toggle-card-title">{{ $t("active") || "مفعل" }}</span>
+                  <span class="form-toggle-card-desc">{{ $t("printerActiveHint") || "الطابعة متاحة للاستخدام" }}</span>
+                </span>
+              </span>
+              <span class="form-toggle-switch" aria-hidden="true"></span>
+            </label>
+            <label
+              class="form-toggle-card form-toggle-card--accent-warning"
+              :class="{ 'form-toggle-card--on': printerForm.isMain }"
+            >
+              <input v-model="printerForm.isMain" type="checkbox" class="form-toggle-card-input" />
+              <span class="form-toggle-card-body">
+                <span class="form-toggle-card-icon form-toggle-card-icon--warning">
+                  <b-icon icon="star-fill"></b-icon>
+                </span>
+                <span class="form-toggle-card-text">
+                  <span class="form-toggle-card-title">{{ $t("mainPrinter") || "طابعة رئيسية" }}</span>
+                  <span class="form-toggle-card-desc">{{ $t("mainPrinterHint") || "تطبع كل الفواتير والإيصالات" }}</span>
+                </span>
+              </span>
+              <span class="form-toggle-switch" aria-hidden="true"></span>
+            </label>
           </div>
           <div class="users-form-actions">
             <button type="submit" class="users-form-button users-form-button-primary" :disabled="savingPrinter">
@@ -474,27 +486,39 @@
               </option>
             </select>
           </div>
-          <div class="modal-form-grid">
-            <div class="users-form-group">
-              <label class="users-form-label">
-                <b-icon icon="check-circle-fill" class="form-label-icon"></b-icon>
-                {{ $t("isMain") || "طابعة رئيسية" }}
-              </label>
-              <label class="switch">
-                <input type="checkbox" v-model="printerForm.isMain" />
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="users-form-group">
-              <label class="users-form-label">
-                <b-icon icon="power" class="form-label-icon"></b-icon>
-                {{ $t("isActive") || "مفعل" }}
-              </label>
-              <label class="switch">
-                <input type="checkbox" v-model="printerForm.isActive" />
-                <span class="slider"></span>
-              </label>
-            </div>
+          <div class="form-toggle-cards">
+            <label
+              class="form-toggle-card"
+              :class="{ 'form-toggle-card--on': printerForm.isActive }"
+            >
+              <input v-model="printerForm.isActive" type="checkbox" class="form-toggle-card-input" />
+              <span class="form-toggle-card-body">
+                <span class="form-toggle-card-icon form-toggle-card-icon--success">
+                  <b-icon icon="check-circle-fill"></b-icon>
+                </span>
+                <span class="form-toggle-card-text">
+                  <span class="form-toggle-card-title">{{ $t("active") || "مفعل" }}</span>
+                  <span class="form-toggle-card-desc">{{ $t("printerActiveHint") || "الطابعة متاحة للاستخدام" }}</span>
+                </span>
+              </span>
+              <span class="form-toggle-switch" aria-hidden="true"></span>
+            </label>
+            <label
+              class="form-toggle-card form-toggle-card--accent-warning"
+              :class="{ 'form-toggle-card--on': printerForm.isMain }"
+            >
+              <input v-model="printerForm.isMain" type="checkbox" class="form-toggle-card-input" />
+              <span class="form-toggle-card-body">
+                <span class="form-toggle-card-icon form-toggle-card-icon--warning">
+                  <b-icon icon="star-fill"></b-icon>
+                </span>
+                <span class="form-toggle-card-text">
+                  <span class="form-toggle-card-title">{{ $t("mainPrinter") || "طابعة رئيسية" }}</span>
+                  <span class="form-toggle-card-desc">{{ $t("mainPrinterHint") || "تطبع كل الفواتير والإيصالات" }}</span>
+                </span>
+              </span>
+              <span class="form-toggle-switch" aria-hidden="true"></span>
+            </label>
           </div>
           <div class="users-form-actions">
             <button type="submit" class="users-form-button users-form-button-primary" :disabled="savingPrinter">
@@ -1061,37 +1085,23 @@ export default {
       };
       this.$bvModal.show('modal-editTagPrinter');
     },
-    confirmDeletePrinter(printer) {
-      this.$bvModal.msgBoxConfirm(
-        this.$i18n.t("confirmDeletePrinter") || `هل أنت متأكد من حذف الطابعة "${printer.name}"؟`,
-        {
-          title: this.$i18n.t("confirmDelete") || "تأكيد الحذف",
-          okVariant: 'danger',
-          okTitle: this.$i18n.t("delete") || "حذف",
-          cancelTitle: this.$i18n.t("cancel") || "إلغاء",
-          centered: true
-        }
-      ).then(value => {
-        if (value) {
-          this.deletePrinter(printer.id);
-        }
+    async confirmDeletePrinter(printer) {
+      const ok = await this.$confirm({
+        title: this.$t("confirmDelete"),
+        message: this.$t("confirmDeletePrinter", { name: printer.name || "" }),
       });
+      if (ok) {
+        this.deletePrinter(printer.id);
+      }
     },
-    confirmDeleteTagPrinter(tagPrinter) {
-      this.$bvModal.msgBoxConfirm(
-        this.$i18n.t("confirmDeleteTagPrinter") || `هل أنت متأكد من حذف الربط؟`,
-        {
-          title: this.$i18n.t("confirmDelete") || "تأكيد الحذف",
-          okVariant: 'danger',
-          okTitle: this.$i18n.t("delete") || "حذف",
-          cancelTitle: this.$i18n.t("cancel") || "إلغاء",
-          centered: true
-        }
-      ).then(value => {
-        if (value) {
-          this.deleteTagPrinter(tagPrinter.id);
-        }
+    async confirmDeleteTagPrinter(tagPrinter) {
+      const ok = await this.$confirm({
+        title: this.$t("confirmDelete"),
+        message: this.$t("confirmDeleteTagPrinter"),
       });
+      if (ok) {
+        this.deleteTagPrinter(tagPrinter.id);
+      }
     },
     testPrintToPrinter(printerId) {
       this.printForm.printerId = printerId;

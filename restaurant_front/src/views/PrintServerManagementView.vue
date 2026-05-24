@@ -1,11 +1,11 @@
 <template>
   <div class="main-content-wrapper" :dir="direction">
     <AppHeader />
-    <div class="users-page-container">
-      <div class="users-page-content">
-        <!-- Header Section -->
+    <div class="print-server-page-container">
+      <div class="print-server-page-content">
+        <!-- Header -->
         <div class="users-header-section">
-          <div class="users-header-content">
+          <div class="users-header-content print-server-header-row">
             <div class="header-title-wrapper">
               <div class="header-icon-wrapper">
                 <b-icon icon="server" class="header-icon"></b-icon>
@@ -14,6 +14,25 @@
                 <h1 class="users-page-title">{{ $t("printServerManagement") || "إدارة خادم الطباعة" }}</h1>
                 <p class="header-subtitle">{{ $t("printServerManagementDescription") || "إدارة حالة الخادم والطابعات وربط الأقسام بالطابعات" }}</p>
               </div>
+            </div>
+            <div v-if="serverStatus" class="print-server-header-actions">
+              <button
+                type="button"
+                class="btn-refresh"
+                @click="checkServerHealth"
+                :disabled="loading"
+              >
+                <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: loading }"></b-icon>
+                <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+              </button>
+              <button
+                type="button"
+                class="users-add-button"
+                @click="showAddPrinterModal = true"
+              >
+                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                <span class="button-text">{{ $t("addPrinter") || "إضافة طابعة" }}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -91,227 +110,228 @@
           </div>
         </div>
 
-        <!-- Server Status Card -->
-        <div class="printers-management-card" v-if="serverStatus || loading">
-          <div class="printers-management-header">
-            <div class="printers-management-header-content">
-              <h3 class="printers-management-title">
-                {{ $t("serverStatus") || "حالة الخادم" }}
-              </h3>
-              <button 
-                class="users-add-button" 
-                @click="checkServerHealth"
-                :disabled="loading"
-              >
-                <b-icon icon="arrow-clockwise" :class="{ 'spinning': loading }" class="button-icon"></b-icon>
-                <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
-              </button>
+        <!-- Overview (server online) -->
+        <div v-if="loading && !serverStatus" class="print-server-section-card">
+          <div class="loading-state">
+            <b-spinner small></b-spinner>
+            <span>{{ $t("checking") || "جاري الفحص..." }}</span>
+          </div>
+        </div>
+
+        <div v-if="serverStatus && !loading" class="print-server-overview">
+          <div class="overview-stat-card">
+            <div class="overview-stat-icon overview-stat-icon--success">
+              <b-icon icon="hdd-network-fill"></b-icon>
+            </div>
+            <div class="overview-stat-content">
+              <div class="overview-stat-value">{{ $t("online") || "متصل" }}</div>
+              <div class="overview-stat-label">{{ $t("serverStatus") || "حالة الخادم" }}</div>
             </div>
           </div>
-          <div class="printers-management-body">
-            <div v-if="loading" class="loading-state">
-              <b-spinner small></b-spinner>
-              <span>{{ $t("checking") || "جاري الفحص..." }}</span>
+          <div class="overview-stat-card">
+            <div class="overview-stat-icon overview-stat-icon--primary">
+              <b-icon icon="printer-fill"></b-icon>
             </div>
-            <div v-else-if="serverStatus" class="status-info">
-              <div class="status-item">
-                <span class="status-label">{{ $t("serverStatus") || "حالة الخادم" }}:</span>
-                <span 
-                  class="status-badge" 
-                  :class="serverStatus.status === 'ok' ? 'status-success' : 'status-error'"
-                >
-                  <b-icon 
-                    :icon="serverStatus.status === 'ok' ? 'check-circle-fill' : 'x-circle-fill'"
-                    class="me-1"
-                  ></b-icon>
-                  {{ serverStatus.status === 'ok' ? ($t("online") || "متصل") : ($t("offline") || "غير متصل") }}
-                </span>
-              </div>
+            <div class="overview-stat-content">
+              <div class="overview-stat-value">{{ managedPrinters.length }}</div>
+              <div class="overview-stat-label">{{ $t("printersManagement") || "الطابعات" }}</div>
+            </div>
+          </div>
+          <div class="overview-stat-card">
+            <div class="overview-stat-icon overview-stat-icon--info">
+              <b-icon icon="wifi"></b-icon>
+            </div>
+            <div class="overview-stat-content">
+              <div class="overview-stat-value">{{ printersOnlineCount }}</div>
+              <div class="overview-stat-label">{{ $t("printerOnline") || "طابعات متصلة" }}</div>
+            </div>
+          </div>
+          <div class="overview-stat-card">
+            <div class="overview-stat-icon overview-stat-icon--warning">
+              <b-icon icon="tags-fill"></b-icon>
+            </div>
+            <div class="overview-stat-content">
+              <div class="overview-stat-value">{{ tagPrinters.length }}</div>
+              <div class="overview-stat-label">{{ $t("tagPrintersManagement") || "ربط الأقسام" }}</div>
             </div>
           </div>
         </div>
 
-        <!-- Printers Management Card -->
-        <div class="printers-management-card" v-if="serverStatus">
-          <div class="printers-management-header">
-            <div class="printers-management-header-content">
-              <h3 class="printers-management-title">
-                {{ $t("printersManagement") || "إدارة الطابعات" }}
-              </h3>
-              <button 
-                class="users-add-button" 
-                @click="showAddPrinterModal = true"
-              >
-                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
-                <span class="button-text">{{ $t("addPrinter") || "إضافة طابعة" }}</span>
-              </button>
+        <!-- Printers -->
+        <div v-if="serverStatus" class="print-server-section-card">
+          <div class="print-server-section-header">
+            <div class="print-server-section-title-wrap">
+              <div class="print-server-section-icon-wrap">
+                <b-icon icon="printer-fill" class="print-server-section-icon"></b-icon>
+              </div>
+              <div>
+                <h3 class="print-server-section-title">{{ $t("printersManagement") || "إدارة الطابعات" }}</h3>
+                <p class="print-server-section-subtitle">{{ $t("printersManagementHint") || "إعداد الطابعات وتجربة الطباعة" }}</p>
+              </div>
             </div>
           </div>
-          <div class="printers-management-body">
+          <div class="print-server-section-body">
             <div v-if="loadingPrinters" class="loading-state">
               <b-spinner small></b-spinner>
               <span>{{ $t("loading") || "جاري التحميل..." }}</span>
             </div>
-            <div v-else-if="managedPrinters.length > 0" class="users-grid-container">
-              <div class="users-grid">
-                <div 
-                  v-for="printer in managedPrinters" 
-                  :key="printer.id"
-                  class="user-card"
-                >
-                  <div class="user-card-header">
-                    <div class="printer-card-actions">
-                      <button 
-                        class="btn-edit-printer"
-                        @click="editPrinter(printer)"
-                        :title="$t('edit') || 'تعديل'"
-                      >
-                        <b-icon icon="pencil"></b-icon>
-                      </button>
-                      <button 
-                        class="btn-delete-printer"
-                        @click="confirmDeletePrinter(printer)"
-                        :title="$t('delete') || 'حذف'"
-                      >
-                        <b-icon icon="trash"></b-icon>
-                      </button>
-                    </div>
-                    <div class="user-avatar">
-                      <b-icon icon="printer-fill" class="avatar-icon"></b-icon>
-                    </div>
-                    <h3 class="user-name">{{ printer.name }}</h3>
-                    <div class="printer-badges">
-                      <span v-if="printer.isMain" class="main-printer-badge">
-                        {{ $t("mainPrinter") || "رئيسية" }}
-                      </span>
-                      <span v-if="!printer.isActive" class="inactive-badge">
-                        {{ $t("inactive") || "غير مفعل" }}
-                      </span>
-                      <span 
-                        v-else-if="getPrinterStatus(printer.id).online" 
-                        class="printer-status-badge online"
-                        :title="$t('printerOnline') || 'الطابعة متصلة'"
-                      >
-                        <b-icon icon="circle-fill" class="status-icon"></b-icon>
-                        {{ $t("online") || "أونلاين" }}
-                      </span>
-                      <span 
-                        v-else 
-                        class="printer-status-badge offline"
-                        :title="getPrinterStatus(printer.id).error || ($t('printerOffline') || 'الطابعة غير متصلة')"
-                      >
-                        <b-icon icon="circle-fill" class="status-icon"></b-icon>
-                        {{ $t("offline") || "أوفلاين" }}
-                      </span>
-                    </div>
+            <div v-else-if="managedPrinters.length > 0" class="print-server-cards-grid">
+              <div
+                v-for="printer in managedPrinters"
+                :key="printer.id"
+                class="print-server-item-card"
+              >
+                <div class="print-server-item-card-header">
+                  <div class="print-server-item-card-title">
+                    <b-icon icon="printer-fill" class="print-server-item-card-icon"></b-icon>
+                    <h4>{{ printer.name }}</h4>
                   </div>
-                  <div class="user-card-body">
-                    <div class="user-info-item">
-                      <b-icon icon="printer-fill" class="info-icon"></b-icon>
-                      <span class="info-label">{{ $t("printerName") || "اسم الطابعة:" }}</span>
-                      <span class="info-value">{{ printer.printerName }}</span>
-                    </div>
-                    <div class="user-info-item">
-                      <b-icon icon="tag" class="info-icon"></b-icon>
-                      <span class="info-label">{{ $t("type") || "النوع:" }}</span>
-                      <span class="info-value">{{ printer.printerType }}</span>
-                    </div>
-                    <div class="user-info-item" v-if="printer.printCategory">
-                      <b-icon icon="folder" class="info-icon"></b-icon>
-                      <span class="info-label">{{ $t("category") || "الفئة:" }}</span>
-                      <span class="info-value">{{ getCategoryLabel(printer.printCategory) }}</span>
-                    </div>
-                    <div class="user-info-item" v-if="printer.description">
-                      <b-icon icon="file-text" class="info-icon"></b-icon>
-                      <span class="info-label">{{ $t("description") || "الوصف:" }}</span>
-                      <span class="info-value">{{ printer.description }}</span>
-                    </div>
-                  </div>
-                  <div class="user-card-footer">
-                    <button 
-                      class="user-action-button user-edit-button"
-                      @click="testPrintToPrinter(printer.id)"
-                      :disabled="!printer.isActive || testingPrint"
+                  <div class="print-server-item-badges">
+                    <span v-if="printer.isMain" class="item-badge item-badge--main">
+                      {{ $t("mainPrinter") || "رئيسية" }}
+                    </span>
+                    <span v-if="!printer.isActive" class="item-badge item-badge--inactive">
+                      {{ $t("inactive") || "غير مفعل" }}
+                    </span>
+                    <span
+                      v-else-if="getPrinterStatus(printer.id).online"
+                      class="item-badge item-badge--online"
                     >
-                      <b-icon icon="printer-fill" class="action-icon"></b-icon>
-                      <span>{{ $t("testPrint") || "اختبار الطباعة" }}</span>
+                      <b-icon icon="circle-fill"></b-icon>
+                      {{ $t("online") || "متصل" }}
+                    </span>
+                    <span v-else class="item-badge item-badge--offline">
+                      <b-icon icon="circle-fill"></b-icon>
+                      {{ $t("offline") || "غير متصل" }}
+                    </span>
+                  </div>
+                  <div class="print-server-item-card-actions">
+                    <button
+                      type="button"
+                      class="action-btn action-btn--icon action-btn--edit"
+                      @click="editPrinter(printer)"
+                      :title="$t('edit') || 'تعديل'"
+                    >
+                      <b-icon icon="pencil" class="action-icon"></b-icon>
+                    </button>
+                    <button
+                      type="button"
+                      class="action-btn action-btn--icon action-btn--delete"
+                      @click="confirmDeletePrinter(printer)"
+                      :title="$t('delete') || 'حذف'"
+                    >
+                      <b-icon icon="trash" class="action-icon"></b-icon>
                     </button>
                   </div>
+                </div>
+                <div class="print-server-item-card-body">
+                  <div class="print-server-info-row">
+                    <b-icon icon="pc-display" class="info-icon"></b-icon>
+                    <span class="info-label">{{ $t("systemPrinterName") || "في النظام" }}</span>
+                    <span class="info-value">{{ printer.printerName }}</span>
+                  </div>
+                  <div class="print-server-info-row">
+                    <b-icon icon="gear-fill" class="info-icon"></b-icon>
+                    <span class="info-label">{{ $t("type") || "النوع" }}</span>
+                    <span class="info-value">{{ printer.printerType }}</span>
+                  </div>
+                  <div v-if="printer.printCategory" class="print-server-info-row">
+                    <b-icon icon="folder-fill" class="info-icon"></b-icon>
+                    <span class="info-label">{{ $t("printCategory") || "الفئة" }}</span>
+                    <span class="info-value">{{ getCategoryLabel(printer.printCategory) }}</span>
+                  </div>
+                  <div v-if="printer.description" class="print-server-info-row">
+                    <b-icon icon="file-text" class="info-icon"></b-icon>
+                    <span class="info-label">{{ $t("description") || "الوصف" }}</span>
+                    <span class="info-value">{{ printer.description }}</span>
+                  </div>
+                </div>
+                <div class="print-server-item-card-footer">
+                  <button
+                    type="button"
+                    class="print-server-test-btn"
+                    @click="testPrintToPrinter(printer.id)"
+                    :disabled="!printer.isActive || testingPrint"
+                  >
+                    <b-icon icon="printer-fill"></b-icon>
+                    {{ $t("testPrint") || "اختبار الطباعة" }}
+                  </button>
                 </div>
               </div>
             </div>
             <div v-else class="empty-state">
               <b-icon icon="printer" class="empty-icon"></b-icon>
               <p>{{ $t("noPrintersConfigured") || "لم يتم إعداد أي طابعات" }}</p>
-              <button 
-                class="btn-add-first-printer"
-                @click="showAddPrinterModal = true"
-              >
-                <b-icon icon="plus-circle" class="me-2"></b-icon>
-                {{ $t("addFirstPrinter") || "إضافة أول طابعة" }}
+              <button type="button" class="empty-state-btn" @click="showAddPrinterModal = true">
+                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                <span class="button-text">{{ $t("addFirstPrinter") || "إضافة أول طابعة" }}</span>
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Tag Printers Management Card -->
-        <div class="tag-printers-management-card" v-if="serverStatus">
-          <div class="tag-printers-management-header">
-            <b-icon icon="tags-fill" class="me-2"></b-icon>
-            <h3 class="tag-printers-management-title">
-              {{ $t("tagPrintersManagement") || "إدارة طباعة الأقسام" }}
-            </h3>
-            <button 
-              class="btn-add-tag-printer" 
-              @click="showAddTagPrinterModal = true"
-            >
-              <b-icon icon="plus-circle" class="me-1"></b-icon>
-              {{ $t("addTagPrinter") || "إضافة ربط قسم بطابعة" }}
+        <!-- Tag ↔ Printer links -->
+        <div v-if="serverStatus" class="print-server-section-card">
+          <div class="print-server-section-header print-server-section-header--with-action">
+            <div class="print-server-section-title-wrap">
+              <div class="print-server-section-icon-wrap print-server-section-icon-wrap--tags">
+                <b-icon icon="tags-fill" class="print-server-section-icon"></b-icon>
+              </div>
+              <div>
+                <h3 class="print-server-section-title">{{ $t("tagPrintersManagement") || "إدارة طباعة الأقسام" }}</h3>
+                <p class="print-server-section-subtitle">{{ $t("tagPrintersManagementHint") || "ربط كل قسم رئيسي بطابعة المطبخ المناسبة" }}</p>
+              </div>
+            </div>
+            <button type="button" class="users-add-button users-add-button--compact" @click="openAddTagPrinterModal">
+              <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+              <span class="button-text">{{ $t("addTagPrinter") || "إضافة ربط" }}</span>
             </button>
           </div>
-          <div class="tag-printers-management-body">
+          <div class="print-server-section-body">
             <div v-if="loadingTagPrinters" class="loading-state">
               <b-spinner small></b-spinner>
               <span>{{ $t("loading") || "جاري التحميل..." }}</span>
             </div>
-            <div v-else-if="tagPrinters.length > 0" class="tag-printers-grid">
-              <div 
-                v-for="tagPrinter in tagPrinters" 
+            <div v-else-if="tagPrinters.length > 0" class="print-server-cards-grid print-server-cards-grid--compact">
+              <div
+                v-for="tagPrinter in tagPrinters"
                 :key="tagPrinter.id"
-                class="tag-printer-card"
+                class="print-server-item-card print-server-item-card--link"
               >
-                <div class="tag-printer-card-header">
-                  <div class="tag-printer-card-title">
-                    <b-icon icon="tag" class="tag-printer-card-icon"></b-icon>
-                    <h4>{{ tagPrinter.tag?.name || 'قسم غير محدد' }}</h4>
+                <div class="print-server-item-card-header">
+                  <div class="print-server-item-card-title">
+                    <b-icon icon="tag-fill" class="print-server-item-card-icon"></b-icon>
+                    <h4>{{ tagPrinter.tag?.name || ($t("undefinedTag") || "قسم غير محدد") }}</h4>
                   </div>
-                  <div class="tag-printer-card-actions">
-                    <button 
-                      class="btn-edit-tag-printer"
+                  <div class="print-server-item-card-actions">
+                    <button
+                      type="button"
+                      class="action-btn action-btn--icon action-btn--edit"
                       @click="editTagPrinter(tagPrinter)"
                       :title="$t('edit') || 'تعديل'"
                     >
-                      <b-icon icon="pencil"></b-icon>
+                      <b-icon icon="pencil" class="action-icon"></b-icon>
                     </button>
-                    <button 
-                      class="btn-delete-tag-printer"
+                    <button
+                      type="button"
+                      class="action-btn action-btn--icon action-btn--delete"
                       @click="confirmDeleteTagPrinter(tagPrinter)"
                       :title="$t('delete') || 'حذف'"
                     >
-                      <b-icon icon="trash"></b-icon>
+                      <b-icon icon="trash" class="action-icon"></b-icon>
                     </button>
                   </div>
                 </div>
-                <div class="tag-printer-card-body">
-                  <div class="tag-printer-info-item">
-                    <b-icon icon="tag" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("tag") || "القسم:" }}</span>
-                    <span class="info-value">{{ tagPrinter.tag?.name || 'N/A' }}</span>
+                <div class="print-server-item-card-body">
+                  <div class="print-server-link-arrow">
+                    <span class="print-server-link-from">{{ tagPrinter.tag?.name }}</span>
+                    <b-icon icon="arrow-left" class="print-server-link-arrow-icon"></b-icon>
+                    <span class="print-server-link-to">{{ tagPrinter.printer?.name || "—" }}</span>
                   </div>
-                  <div class="tag-printer-info-item">
-                    <b-icon icon="printer" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("printer") || "الطابعة:" }}</span>
-                    <span class="info-value">{{ tagPrinter.printer?.name || 'N/A' }}</span>
+                  <div class="print-server-info-row">
+                    <b-icon icon="printer-fill" class="info-icon"></b-icon>
+                    <span class="info-label">{{ $t("printer") || "الطابعة" }}</span>
+                    <span class="info-value">{{ tagPrinter.printer?.name || "—" }}</span>
                   </div>
                 </div>
               </div>
@@ -319,12 +339,9 @@
             <div v-else class="empty-state">
               <b-icon icon="tags" class="empty-icon"></b-icon>
               <p>{{ $t("noTagPrintersConfigured") || "لم يتم إعداد أي ربط بين الأقسام والطابعات" }}</p>
-              <button 
-                class="btn-add-first-tag-printer"
-                @click="showAddTagPrinterModal = true"
-              >
-                <b-icon icon="plus-circle" class="me-2"></b-icon>
-                {{ $t("addFirstTagPrinter") || "إضافة أول ربط" }}
+              <button type="button" class="empty-state-btn" @click="openAddTagPrinterModal">
+                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                <span class="button-text">{{ $t("addFirstTagPrinter") || "إضافة أول ربط" }}</span>
               </button>
             </div>
           </div>
@@ -510,42 +527,49 @@
               </option>
             </select>
           </div>
-          <div class="modal-form-grid">
-            <div class="users-form-group">
-              <label class="users-form-label">
-                <b-icon icon="check-circle-fill" class="form-label-icon"></b-icon>
-                {{ $t("active") || "مفعل" }}
-              </label>
-              <div class="users-form-checkbox">
-                <input 
-                  type="checkbox" 
-                  v-model="printerForm.isActive"
-                  id="printer-active"
-                  class="users-form-checkbox-input"
-                />
-                <label for="printer-active" class="users-form-checkbox-label">
-                  {{ $t("active") || "مفعل" }}
-                </label>
-              </div>
-            </div>
-            <div class="users-form-group">
-              <label class="users-form-label">
-                <b-icon icon="star-fill" class="form-label-icon"></b-icon>
-                {{ $t("mainPrinter") || "طابعة رئيسية" }}
-              </label>
-              <div class="users-form-checkbox">
-                <input 
-                  type="checkbox" 
-                  v-model="printerForm.isMain"
-                  id="printer-main"
-                  class="users-form-checkbox-input"
-                />
-                <label for="printer-main" class="users-form-checkbox-label">
-                  {{ $t("mainPrinter") || "طابعة رئيسية" }}
-                  <small class="form-help-text">(تطبع كل الفواتير)</small>
-                </label>
-              </div>
-            </div>
+          <div class="form-toggle-cards">
+            <label
+              class="form-toggle-card"
+              :class="{ 'form-toggle-card--on': printerForm.isActive }"
+            >
+              <input
+                v-model="printerForm.isActive"
+                type="checkbox"
+                id="printer-active"
+                class="form-toggle-card-input"
+              />
+              <span class="form-toggle-card-body">
+                <span class="form-toggle-card-icon form-toggle-card-icon--success">
+                  <b-icon icon="check-circle-fill"></b-icon>
+                </span>
+                <span class="form-toggle-card-text">
+                  <span class="form-toggle-card-title">{{ $t("active") || "مفعل" }}</span>
+                  <span class="form-toggle-card-desc">{{ $t("printerActiveHint") || "الطابعة متاحة للاستخدام" }}</span>
+                </span>
+              </span>
+              <span class="form-toggle-switch" aria-hidden="true"></span>
+            </label>
+            <label
+              class="form-toggle-card form-toggle-card--accent-warning"
+              :class="{ 'form-toggle-card--on': printerForm.isMain }"
+            >
+              <input
+                v-model="printerForm.isMain"
+                type="checkbox"
+                id="printer-main"
+                class="form-toggle-card-input"
+              />
+              <span class="form-toggle-card-body">
+                <span class="form-toggle-card-icon form-toggle-card-icon--warning">
+                  <b-icon icon="star-fill"></b-icon>
+                </span>
+                <span class="form-toggle-card-text">
+                  <span class="form-toggle-card-title">{{ $t("mainPrinter") || "طابعة رئيسية" }}</span>
+                  <span class="form-toggle-card-desc">{{ $t("mainPrinterHint") || "تطبع كل الفواتير والإيصالات" }}</span>
+                </span>
+              </span>
+              <span class="form-toggle-switch" aria-hidden="true"></span>
+            </label>
           </div>
           <div class="users-form-actions">
             <button type="button" class="users-form-cancel-button" @click="showAddPrinterModal = false" :disabled="savingPrinter">
@@ -642,42 +666,49 @@
               </option>
             </select>
           </div>
-          <div class="modal-form-grid">
-            <div class="users-form-group">
-              <label class="users-form-label">
-                <b-icon icon="check-circle-fill" class="form-label-icon"></b-icon>
-                {{ $t("active") || "مفعل" }}
-              </label>
-              <div class="users-form-checkbox">
-                <input 
-                  type="checkbox" 
-                  v-model="printerForm.isActive"
-                  id="edit-printer-active"
-                  class="users-form-checkbox-input"
-                />
-                <label for="edit-printer-active" class="users-form-checkbox-label">
-                  {{ $t("active") || "مفعل" }}
-                </label>
-              </div>
-            </div>
-            <div class="users-form-group">
-              <label class="users-form-label">
-                <b-icon icon="star-fill" class="form-label-icon"></b-icon>
-                {{ $t("mainPrinter") || "طابعة رئيسية" }}
-              </label>
-              <div class="users-form-checkbox">
-                <input 
-                  type="checkbox" 
-                  v-model="printerForm.isMain"
-                  id="edit-printer-main"
-                  class="users-form-checkbox-input"
-                />
-                <label for="edit-printer-main" class="users-form-checkbox-label">
-                  {{ $t("mainPrinter") || "طابعة رئيسية" }}
-                  <small class="form-help-text">(تطبع كل الفواتير)</small>
-                </label>
-              </div>
-            </div>
+          <div class="form-toggle-cards">
+            <label
+              class="form-toggle-card"
+              :class="{ 'form-toggle-card--on': printerForm.isActive }"
+            >
+              <input
+                v-model="printerForm.isActive"
+                type="checkbox"
+                id="edit-printer-active"
+                class="form-toggle-card-input"
+              />
+              <span class="form-toggle-card-body">
+                <span class="form-toggle-card-icon form-toggle-card-icon--success">
+                  <b-icon icon="check-circle-fill"></b-icon>
+                </span>
+                <span class="form-toggle-card-text">
+                  <span class="form-toggle-card-title">{{ $t("active") || "مفعل" }}</span>
+                  <span class="form-toggle-card-desc">{{ $t("printerActiveHint") || "الطابعة متاحة للاستخدام" }}</span>
+                </span>
+              </span>
+              <span class="form-toggle-switch" aria-hidden="true"></span>
+            </label>
+            <label
+              class="form-toggle-card form-toggle-card--accent-warning"
+              :class="{ 'form-toggle-card--on': printerForm.isMain }"
+            >
+              <input
+                v-model="printerForm.isMain"
+                type="checkbox"
+                id="edit-printer-main"
+                class="form-toggle-card-input"
+              />
+              <span class="form-toggle-card-body">
+                <span class="form-toggle-card-icon form-toggle-card-icon--warning">
+                  <b-icon icon="star-fill"></b-icon>
+                </span>
+                <span class="form-toggle-card-text">
+                  <span class="form-toggle-card-title">{{ $t("mainPrinter") || "طابعة رئيسية" }}</span>
+                  <span class="form-toggle-card-desc">{{ $t("mainPrinterHint") || "تطبع كل الفواتير والإيصالات" }}</span>
+                </span>
+              </span>
+              <span class="form-toggle-switch" aria-hidden="true"></span>
+            </label>
           </div>
           <div class="users-form-actions">
             <button type="button" class="users-form-cancel-button" @click="showEditPrinterModal = false" :disabled="savingPrinter">
@@ -745,64 +776,6 @@
       </div>
     </b-modal>
 
-    <!-- Delete Printer Modal -->
-    <b-modal
-      v-model="showDeletePrinterModal"
-      hide-header
-      hide-footer
-      class="users-modal"
-      centered
-    >
-      <div class="modal-content-wrapper">
-        <div class="delete-confirmation-content">
-          <div class="delete-icon-wrapper">
-            <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
-          </div>
-          <h3 class="delete-confirmation-title">{{ $t("confirm_delete") || "تأكيد الحذف" }}</h3>
-          <p class="delete-confirmation-text">{{ deletePrinterMessage }}</p>
-          <div class="delete-confirmation-actions">
-            <button type="button" class="delete-confirm-button" @click="executeDeletePrinter">
-              <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-              {{ $t("delete") || "حذف" }}
-            </button>
-            <button type="button" class="delete-cancel-button" @click="showDeletePrinterModal = false">
-              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-              {{ $t("cancel") || "إلغاء" }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </b-modal>
-
-    <!-- Delete Tag Printer Modal -->
-    <b-modal
-      v-model="showDeleteTagPrinterModal"
-      hide-header
-      hide-footer
-      class="users-modal"
-      centered
-    >
-      <div class="modal-content-wrapper">
-        <div class="delete-confirmation-content">
-          <div class="delete-icon-wrapper">
-            <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
-          </div>
-          <h3 class="delete-confirmation-title">{{ $t("confirm_delete") || "تأكيد الحذف" }}</h3>
-          <p class="delete-confirmation-text">{{ deleteTagPrinterMessage }}</p>
-          <div class="delete-confirmation-actions">
-            <button type="button" class="delete-confirm-button" @click="executeDeleteTagPrinter">
-              <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-              {{ $t("delete") || "حذف" }}
-            </button>
-            <button type="button" class="delete-cancel-button" @click="showDeleteTagPrinterModal = false">
-              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-              {{ $t("cancel") || "إلغاء" }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </b-modal>
-
   </div>
 </template>
 
@@ -839,10 +812,6 @@ export default {
       loadingTags: false,
       showAddTagPrinterModal: false,
       selectedTagPrinter: null,
-      showDeletePrinterModal: false,
-      printerToDelete: null,
-      showDeleteTagPrinterModal: false,
-      tagPrinterToDelete: null,
       savingPrinter: false,
       savingTagPrinter: false,
       tagPrinterForm: {
@@ -882,28 +851,10 @@ export default {
     rootTagsForSelect() {
       return rootTags(this.tags);
     },
-    deletePrinterMessage() {
-      if (!this.printerToDelete) return "";
-      const name = this.printerToDelete.name || "";
-      return (
-        this.$t("confirmDeletePrinter") ||
-        `هل أنت متأكد من حذف الطابعة "${name}"؟`
-      );
-    },
-    deleteTagPrinterMessage() {
-      if (!this.tagPrinterToDelete) return "";
-      const tagName =
-        this.tagPrinterToDelete.tag?.name ||
-        this.tagPrinterToDelete.Tag?.name ||
-        "";
-      const printerName =
-        this.tagPrinterToDelete.printer?.name ||
-        this.tagPrinterToDelete.Printer?.name ||
-        "";
-      return (
-        this.$t("confirmDeleteTagPrinter") ||
-        `هل أنت متأكد من حذف ربط القسم "${tagName}" بالطابعة "${printerName}"؟`
-      );
+    printersOnlineCount() {
+      return this.managedPrinters.filter(
+        (p) => p.isActive && this.getPrinterStatus(p.id).online
+      ).length;
     },
   },
   mounted() {
@@ -1271,16 +1222,20 @@ export default {
         this.savingPrinter = false;
       }
     },
-    confirmDeletePrinter(printer) {
-      this.printerToDelete = printer;
-      this.showDeletePrinterModal = true;
+    async confirmDeletePrinter(printer) {
+      const ok = await this.$confirm({
+        message: this.deletePrinterMessageFor(printer),
+      });
+      if (ok) {
+        await this.deletePrinter(printer.id);
+      }
     },
-    async executeDeletePrinter() {
-      if (!this.printerToDelete) return;
-      const id = this.printerToDelete.id;
-      this.showDeletePrinterModal = false;
-      this.printerToDelete = null;
-      await this.deletePrinter(id);
+    deletePrinterMessageFor(printer) {
+      const name = printer?.name || "";
+      return (
+        this.$t("confirmDeletePrinter", { name }) ||
+        `هل أنت متأكد من حذف الطابعة "${name}"؟`
+      );
     },
     async deletePrinter(id) {
       try {
@@ -1554,16 +1509,26 @@ export default {
       };
       this.showAddTagPrinterModal = true;
     },
-    confirmDeleteTagPrinter(tagPrinter) {
-      this.tagPrinterToDelete = tagPrinter;
-      this.showDeleteTagPrinterModal = true;
+    openAddTagPrinterModal() {
+      this.selectedTagPrinter = null;
+      this.resetTagPrinterForm();
+      this.showAddTagPrinterModal = true;
     },
-    async executeDeleteTagPrinter() {
-      if (!this.tagPrinterToDelete) return;
-      const id = this.tagPrinterToDelete.id;
-      this.showDeleteTagPrinterModal = false;
-      this.tagPrinterToDelete = null;
-      await this.deleteTagPrinter(id);
+    async confirmDeleteTagPrinter(tagPrinter) {
+      const ok = await this.$confirm({
+        message: this.deleteTagPrinterMessageFor(tagPrinter),
+      });
+      if (ok) {
+        await this.deleteTagPrinter(tagPrinter.id);
+      }
+    },
+    deleteTagPrinterMessageFor(tagPrinter) {
+      const tagName = tagPrinter?.tag?.name || tagPrinter?.Tag?.name || "";
+      const printerName = tagPrinter?.printer?.name || tagPrinter?.Printer?.name || "";
+      return (
+        this.$t("confirmDeleteTagPrinterDetailed", { tagName, printerName }) ||
+        `هل أنت متأكد من حذف ربط القسم "${tagName}" بالطابعة "${printerName}"؟`
+      );
     },
     async deleteTagPrinter(id) {
       try {
@@ -1599,7 +1564,11 @@ export default {
       this.selectedTagPrinter = null;
     },
     async removeDefaultPrinter() {
-      if (!confirm(this.$i18n.t("confirmRemovePrinter") || 'هل أنت متأكد من إزالة الطابعة المحددة؟ سيتم استخدام الطابعة الافتراضية للنظام.')) {
+      const ok = await this.$confirm({
+        message: this.$t("confirmRemovePrinter"),
+        variant: "warning",
+      });
+      if (!ok) {
         return;
       }
 
@@ -1645,6 +1614,379 @@ export default {
 </script>
 
 <style scoped>
+.print-server-page-container {
+  padding: 2rem;
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.print-server-page-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.print-server-header-row {
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.print-server-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 992px) {
+  .print-server-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 576px) {
+  .print-server-overview {
+    grid-template-columns: 1fr;
+  }
+}
+
+.overview-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.85rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.overview-stat-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.overview-stat-icon--success {
+  background: rgba(16, 185, 129, 0.14);
+  color: #059669;
+}
+
+.overview-stat-icon--primary {
+  background: rgba(99, 102, 241, 0.14);
+  color: #4f46e5;
+}
+
+.overview-stat-icon--info {
+  background: rgba(59, 130, 246, 0.14);
+  color: #2563eb;
+}
+
+.overview-stat-icon--warning {
+  background: rgba(245, 158, 11, 0.16);
+  color: #d97706;
+}
+
+.overview-stat-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.overview-stat-label {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.print-server-section-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.print-server-section-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.print-server-section-header--with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.print-server-section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.print-server-section-icon-wrap {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.16) 0%, rgba(79, 70, 229, 0.08) 100%);
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.print-server-section-icon-wrap--tags {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(217, 119, 6, 0.08) 100%);
+  color: #d97706;
+}
+
+.print-server-section-icon {
+  font-size: 1.25rem;
+}
+
+.print-server-section-title {
+  margin: 0 0 0.2rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.print-server-section-subtitle {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.print-server-section-body {
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.users-add-button--compact {
+  padding: 0.5rem 1rem;
+  font-size: 0.88rem;
+}
+
+.print-server-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.print-server-cards-grid--compact {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.print-server-item-card {
+  border: 1.5px solid var(--border-color);
+  border-radius: 0.85rem;
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.print-server-item-card:hover {
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.print-server-item-card-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 0.5rem 0.65rem;
+  padding: 0.9rem 1rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.print-server-item-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.print-server-item-card-title h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.print-server-item-card-icon {
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.print-server-item-badges {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.print-server-item-card-actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.item-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.item-badge--main {
+  background: rgba(245, 158, 11, 0.16);
+  color: #b45309;
+}
+
+.item-badge--inactive {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+.item-badge--online {
+  background: rgba(16, 185, 129, 0.14);
+  color: #059669;
+}
+
+.item-badge--offline {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text-secondary);
+}
+
+.print-server-item-card-body {
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  flex: 1;
+}
+
+.print-server-info-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0.35rem 0.5rem;
+  align-items: start;
+  font-size: 0.82rem;
+}
+
+.print-server-info-row .info-icon {
+  color: var(--text-secondary);
+  margin-top: 0.1rem;
+}
+
+.print-server-info-row .info-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.print-server-info-row .info-value {
+  color: var(--text-primary);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.print-server-item-card-footer {
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.print-server-test-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 0.6rem;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(79, 70, 229, 0.06) 100%);
+  color: var(--primary-color);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.print-server-test-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(79, 70, 229, 0.12) 100%);
+  transform: translateY(-1px);
+}
+
+.print-server-test-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.print-server-link-arrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.55rem;
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-color);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.print-server-link-from {
+  color: #d97706;
+}
+
+.print-server-link-to {
+  color: var(--primary-color);
+}
+
+.print-server-link-arrow-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+[dir="rtl"] .print-server-link-arrow-icon {
+  transform: scaleX(-1);
+}
+
+@media (max-width: 768px) {
+  .print-server-page-container {
+    padding: 1rem;
+  }
+
+  .print-server-cards-grid,
+  .print-server-cards-grid--compact {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Using users-page-container and users-page-content from main.css */
 /* Using printers-management-card styles from below */
 

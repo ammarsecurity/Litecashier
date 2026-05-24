@@ -2,27 +2,90 @@
   <b-overlay :show="false" spinner-variant="primary" spinner-type="grow" spinner-large rounded="sm">
     <AppHeader />
     <div class="main-content-wrapper">
-      <div class="users-page-container">
-        <div class="users-page-content">
+      <div class="app-page-container">
+        <div class="app-page-content inventory-page">
           <div class="users-header-section">
-            <div class="users-header-content">
+            <div class="users-header-content app-header-row">
               <div class="header-title-wrapper">
                 <div class="header-icon-wrapper">
                   <b-icon icon="box-seam" class="header-icon"></b-icon>
                 </div>
                 <div>
                   <h1 class="users-page-title">{{ $t("inventoryTitle") || "مخزن المواد" }}</h1>
-                  <p class="header-subtitle">{{ $t("inventorySubtitle") || "عرض الكميات وإضافة وسحب المخزون — اسم المادة كتابة حرة (لا علاقة بالأطباق/المشروبات)" }}</p>
+                  <p class="header-subtitle">{{ $t("inventorySubtitle") || "عرض الكميات وإضافة وسحب المخزون" }}</p>
                 </div>
               </div>
-              <button class="users-add-button" @click="openAddModal()">
-                <b-icon icon="plus-circle" class="me-1"></b-icon>
-                {{ $t("addStock") || "إضافة دخول مخزون" }}
-              </button>
+              <div class="app-header-actions">
+                <button
+                  type="button"
+                  class="btn-refresh"
+                  @click="refreshPage"
+                  :disabled="pageRefreshing"
+                >
+                  <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: pageRefreshing }"></b-icon>
+                  <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+                </button>
+                <button type="button" class="users-add-button" @click="openAddModal()">
+                  <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("addStock") || "إضافة دخول مخزون" }}</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- تابات: مخزن المواد | سجل الحركات | إدارة الموردين -->
+          <div class="app-overview-grid">
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                <b-icon icon="box-seam"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">
+                  <b-spinner small v-if="loading"></b-spinner>
+                  <template v-else>{{ inventoryMaterialsCount }}</template>
+                </div>
+                <div class="app-overview-stat-label">{{ $t("inventoryOverviewMaterials") || "مواد في المخزن" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                <b-icon icon="stack"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">
+                  <b-spinner small v-if="loading"></b-spinner>
+                  <template v-else>{{ formatNumber(totalCurrentStockQuantity) }}</template>
+                </div>
+                <div class="app-overview-stat-label">{{ $t("inventoryOverviewStock") || "إجمالي الكميات الحالية" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                <b-icon icon="people"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">
+                  <b-spinner small v-if="loadingSuppliers && suppliersList.length === 0"></b-spinner>
+                  <template v-else>{{ suppliersOverviewCount }}</template>
+                </div>
+                <div class="app-overview-stat-label">{{ $t("inventoryOverviewSuppliers") || "الموردون" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                <b-icon icon="arrow-left-right"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">
+                  <b-spinner small v-if="loadingMovementsOverview"></b-spinner>
+                  <template v-else>{{ formatNumber(movementsOverviewCount) }}</template>
+                </div>
+                <div class="app-overview-stat-label">{{ $t("inventoryOverviewMovements") || "حركات مسجلة" }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="app-section-card app-section-card--flush">
+            <div class="app-section-body app-section-body--tabs">
           <div class="reports-tabs-section inventory-tabs-section">
             <div class="reports-tabs">
               <button
@@ -51,27 +114,37 @@
               </button>
             </div>
           </div>
+            </div>
 
-          <!-- محتوى تاب مخزن المواد -->
-          <div v-if="activeInventoryTab === 'stock'" class="inventory-tab-content">
-            <div class="users-search-section">
-              <div class="users-search-container">
-                <b-icon icon="search" class="search-icon"></b-icon>
+          <div v-if="activeInventoryTab === 'stock'" class="inventory-tab-panel">
+            <div class="app-section-header app-section-header--toolbar">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap">
+                  <b-icon icon="box-seam"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("inventory") || "مخزن المواد" }}</h3>
+                  <p class="app-section-subtitle">{{ $t("inventoryListHint") || "الكميات الحالية وإجراءات السحب" }}</p>
+                </div>
+              </div>
+              <div class="app-search-wrap app-search-wrap--wide">
+                <b-icon icon="search" class="app-search-icon"></b-icon>
                 <input
                   v-model="searchQuery"
-                  type="text"
+                  type="search"
+                  class="app-search-input"
                   :placeholder="$t('search') || 'بحث...'"
-                  class="users-search-input"
+                  autocomplete="off"
                   @input="debounceSearch"
                 />
               </div>
             </div>
-            <div class="users-grid-container">
+            <div class="app-section-body app-section-body--no-padding inventory-table-section">
               <div v-if="loading" class="loading-state-full">
                 <b-spinner variant="primary"></b-spinner>
                 <span>{{ $t("loading") || "جاري التحميل..." }}</span>
               </div>
-              <div v-else class="table-responsive">
+              <div v-else-if="items.length > 0" class="table-responsive">
                 <table class="table users-table">
                   <thead>
                     <tr>
@@ -137,15 +210,26 @@
                   </tbody>
                 </table>
               </div>
-            </div>
-            <div v-if="items.length === 0 && !loading" class="empty-state">
-              <b-icon icon="box-seam" class="empty-icon"></b-icon>
-              <p class="empty-text">{{ $t("noInventoryItems") || "لا توجد مواد في المخزن أو لا توجد نتائج" }}</p>
+              <div v-else class="empty-state inventory-empty-state">
+                <b-icon icon="box-seam" class="empty-icon"></b-icon>
+                <p>{{ $t("noInventoryItems") || "لا توجد مواد في المخزن أو لا توجد نتائج" }}</p>
+              </div>
             </div>
           </div>
 
-          <!-- محتوى تاب سجل الحركات -->
-          <div v-if="activeInventoryTab === 'movements'" class="inventory-tab-content">
+          <div v-if="activeInventoryTab === 'movements'" class="inventory-tab-panel">
+            <div class="app-section-header">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap">
+                  <b-icon icon="arrow-left-right"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("movementsHistory") || "سجل الحركات" }}</h3>
+                  <p class="app-section-subtitle">{{ $t("movementsHistoryHint") || "إضافة وسحب المخزون مع الفلاتر" }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="app-section-body inventory-filters-body">
               <div class="movements-filters">
                 <input
                   v-model="movementFilterMaterial"
@@ -187,21 +271,20 @@
                   :aria-label="$t('toDate') || 'إلى تاريخ'"
                   @change="onMovementDateFilterChange"
                 />
-                <button type="button" class="btn-refresh-movements" @click="loadStockMovements">
-                  <b-icon icon="arrow-clockwise"></b-icon>
-                  {{ $t("refresh") || "تحديث" }}
+                <button type="button" class="btn-refresh" @click="loadStockMovements" :disabled="loadingMovements">
+                  <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: loadingMovements }"></b-icon>
+                  <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
                 </button>
               </div>
-              <div
-                v-if="!loadingMovements"
-                class="movements-filter-summary-wrap"
-              >
+            </div>
+            <div class="app-section-body app-section-body--no-padding inventory-table-section">
+              <div v-if="!loadingMovements" class="movements-filter-summary-wrap">
                 <div class="inventory-stock-total-bar movements-filter-total-bar" role="status">
                   <span class="inventory-stock-total-bar__label">{{
-                    $t('movementsFilterTotalAmount') || 'إجمالي المبلغ (حسب الفلتر)'
+                    $t("movementsFilterTotalAmount") || "إجمالي المبلغ (حسب الفلتر)"
                   }}</span>
                   <span class="inventory-stock-total-bar__value">
-                    {{ formatNumber(movementsTotalAmount) }} {{ $t('currency') || 'د.ع' }}
+                    {{ formatNumber(movementsTotalAmount) }} {{ $t("currency") || "د.ع" }}
                   </span>
                 </div>
               </div>
@@ -209,7 +292,7 @@
                 <b-spinner variant="primary"></b-spinner>
                 <span>{{ $t("loading") || "جاري التحميل..." }}</span>
               </div>
-              <div v-else class="table-responsive">
+              <div v-else-if="movementsList.length > 0" class="table-responsive">
                 <table class="table users-table movements-table">
                   <thead>
                     <tr>
@@ -276,10 +359,13 @@
                   </tbody>
                 </table>
               </div>
-              <div v-if="movementsList.length === 0 && !loadingMovements" class="empty-movements">
-                {{ $t("noMovements") || "لا توجد حركات" }}
+              <div v-else class="empty-state inventory-empty-state">
+                <b-icon icon="arrow-left-right" class="empty-icon"></b-icon>
+                <p>{{ $t("noMovements") || "لا توجد حركات" }}</p>
               </div>
-              <div v-if="movementsTotal > movementsPageSize" class="movements-pagination">
+            </div>
+            <div v-if="!loadingMovements && movementsTotal > movementsPageSize" class="app-section-body inventory-pagination-body">
+              <div class="movements-pagination">
                 <b-pagination
                   v-model="movementsPage"
                   :total-rows="movementsTotal"
@@ -288,21 +374,31 @@
                   @change="loadStockMovements"
                 ></b-pagination>
               </div>
+            </div>
           </div>
 
-          <!-- محتوى تاب إدارة الموردين -->
-          <div v-if="activeInventoryTab === 'suppliers'" class="inventory-tab-content">
-            <div class="suppliers-tab-header">
-              <button type="button" class="btn-add-supplier" @click="openAddSupplierModal">
-                <b-icon icon="plus-circle" class="me-1"></b-icon>
-                {{ $t("addSupplier") || "إضافة مورد" }}
+          <div v-if="activeInventoryTab === 'suppliers'" class="inventory-tab-panel">
+            <div class="app-section-header app-section-header--toolbar">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap">
+                  <b-icon icon="people"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("manageSuppliers") || "إدارة الموردين" }}</h3>
+                  <p class="app-section-subtitle">{{ $t("suppliersListHint") || "إضافة وتعديل موردي المواد" }}</p>
+                </div>
+              </div>
+              <button type="button" class="users-add-button" @click="openAddSupplierModal">
+                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                <span class="button-text">{{ $t("addSupplier") || "إضافة مورد" }}</span>
               </button>
             </div>
+            <div class="app-section-body app-section-body--no-padding inventory-table-section">
             <div v-if="loadingSuppliers" class="loading-state-full">
               <b-spinner variant="primary"></b-spinner>
               <span>{{ $t("loading") || "جاري التحميل..." }}</span>
             </div>
-            <div v-else class="table-responsive">
+            <div v-else-if="suppliersList.length > 0" class="table-responsive">
               <table class="table users-table movements-table">
                 <thead>
                   <tr>
@@ -325,9 +421,17 @@
                 </tbody>
               </table>
             </div>
-            <div v-if="suppliersList.length === 0 && !loadingSuppliers" class="empty-movements">
-              {{ $t("noSuppliers") || "لا يوجد موردين" }}
+            <div v-else class="empty-state inventory-empty-state">
+              <b-icon icon="people" class="empty-icon"></b-icon>
+              <p>{{ $t("noSuppliers") || "لا يوجد موردين" }}</p>
+              <button type="button" class="empty-state-btn" @click="openAddSupplierModal">
+                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                <span class="button-text">{{ $t("addSupplier") || "إضافة مورد" }}</span>
+              </button>
             </div>
+            </div>
+          </div>
+
           </div>
         </div>
       </div>
@@ -741,22 +845,68 @@ export default {
       showEditSupplierModal: false,
       supplierForm: { name: '', notes: '' },
       editingSupplierId: null,
-      savingSupplier: false
+      savingSupplier: false,
+      loadingMovementsOverview: false,
+      movementsOverviewCount: 0
     };
   },
   computed: {
     totalStockInvoiceAmount() {
       return (this.addForm.items || []).reduce((sum, row) => sum + this.calculateRowAmount(row), 0);
+    },
+    pageRefreshing() {
+      return (
+        this.loading ||
+        (this.activeInventoryTab === 'movements' && this.loadingMovements) ||
+        (this.activeInventoryTab === 'suppliers' && this.loadingSuppliers)
+      );
+    },
+    inventoryMaterialsCount() {
+      return this.items.length;
+    },
+    totalCurrentStockQuantity() {
+      return (this.items || []).reduce((sum, row) => sum + (Number(row.currentQuantity) || 0), 0);
+    },
+    suppliersOverviewCount() {
+      return this.suppliersList.length;
     }
   },
   mounted() {
     this.loadInventory();
+    this.loadSuppliers();
+    this.loadMovementsOverviewCount();
   },
   beforeDestroy() {
     if (this.searchTimer) clearTimeout(this.searchTimer);
     if (this.movementsSearchTimer) clearTimeout(this.movementsSearchTimer);
   },
   methods: {
+    async refreshPage() {
+      await Promise.all([
+        this.loadInventory(),
+        this.loadSuppliers(),
+        this.loadMovementsOverviewCount()
+      ]);
+      if (this.activeInventoryTab === 'movements') {
+        await this.loadStockMovements();
+      }
+    },
+    async loadMovementsOverviewCount() {
+      try {
+        this.loadingMovementsOverview = true;
+        const response = await HTTP.get('Inventory/GetStockMovements?pageNumber=0&pageSize=1');
+        if (response.data && !response.data.errorStatus && response.data.data) {
+          this.movementsOverviewCount = response.data.data.totalItems || 0;
+        } else {
+          this.movementsOverviewCount = 0;
+        }
+      } catch (error) {
+        console.error('Error loading movements overview:', error);
+        this.movementsOverviewCount = 0;
+      } finally {
+        this.loadingMovementsOverview = false;
+      }
+    },
     onStockTabClick() {
       if (this.items.length === 0) this.loadInventory();
     },
@@ -839,15 +989,14 @@ export default {
         this.savingSupplier = false;
       }
     },
-    confirmDeleteSupplier(s) {
-      this.$bvModal.msgBoxConfirm(this.$t('confirmDeleteSupplier') || 'هل تريد حذف هذا المورد؟', {
-        title: this.$t('deleteSupplier') || 'حذف مورد',
-        okTitle: this.$t('confirmButton') || 'تأكيد',
-        cancelTitle: this.$t('cancel') || 'إلغاء',
-        okVariant: 'danger'
-      }).then(ok => {
-        if (ok) this.deleteSupplier(s.id);
-      }).catch(() => {});
+    async confirmDeleteSupplier(s) {
+      const ok = await this.$confirm({
+        title: this.$t('deleteSupplier'),
+        message: this.$t('confirmDeleteSupplier', { name: s.name || '' }),
+      });
+      if (ok) {
+        this.deleteSupplier(s.id);
+      }
     },
     async deleteSupplier(id) {
       try {
@@ -879,6 +1028,7 @@ export default {
         if (response.data && !response.data.errorStatus && response.data.data) {
           this.movementsList = response.data.data.items || [];
           this.movementsTotal = response.data.data.totalItems || 0;
+          this.movementsOverviewCount = this.movementsTotal;
           const d = response.data.data;
           const rawTotal = d.totalFilteredAmount ?? d.TotalFilteredAmount;
           this.movementsTotalAmount =
@@ -1191,34 +1341,42 @@ export default {
   color: var(--text-secondary, #6b7280);
 }
 .inventory-tabs-section {
-  margin-top: 2rem;
+  margin: 0;
 }
-.inventory-tab-content {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: var(--bg-secondary, #f8f9fa);
-  border-radius: 1rem;
-  border: 1px solid var(--border-color, #e5e7eb);
+
+.inventory-tab-panel {
+  border-top: 1px solid var(--border-color);
 }
-.suppliers-tab-header {
-  margin-bottom: 1rem;
-  display: flex;
-  justify-content: flex-end;
+
+.inventory-filters-body {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
 }
-.btn-add-supplier {
-  border: none;
-  border-radius: 0.5rem;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.875rem;
-  background: rgba(34, 197, 94, 0.15);
-  color: #16a34a;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
+
+.inventory-table-section {
+  padding: 0;
 }
-.btn-add-supplier:hover {
-  background: #16a34a;
-  color: #fff;
+
+.inventory-table-section .table-responsive {
+  margin: 0;
+}
+
+.inventory-table-section .users-table {
+  margin-top: 0;
+}
+
+.inventory-empty-state {
+  min-height: 220px;
+  padding: 2rem 1rem;
+}
+
+.inventory-pagination-body {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.movements-filters .btn-refresh {
+  flex-shrink: 0;
 }
 .movements-section {
   margin-top: 2rem;
@@ -1248,43 +1406,32 @@ export default {
 .movements-section-body {
   padding: 1rem;
 }
-.movements-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-.movements-filter-input {
-  max-width: 200px;
-}
 .movements-filter-date {
-  max-width: 170px;
+  min-width: 0;
 }
+
 .movements-filter-summary-wrap {
   width: 100%;
-  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border-color);
 }
 .movements-filter-total-bar.inventory-stock-total-bar {
   border-radius: 0.75rem;
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.06));
 }
-.btn-refresh-movements {
-  display: inline-flex;
+.movements-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.65rem;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 0.5rem;
-  background: rgba(59, 130, 246, 0.15);
-  color: #2563eb;
-  cursor: pointer;
-  font-size: 0.875rem;
 }
-.btn-refresh-movements:hover {
-  background: #2563eb;
-  color: #fff;
+
+.movements-filter-input {
+  max-width: none;
+  width: 100%;
 }
+
 .movements-table th,
 .movements-table td {
   font-size: 0.875rem;

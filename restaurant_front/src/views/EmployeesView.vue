@@ -2,125 +2,178 @@
   <div>
     <AppHeader />
     <div class="main-content-wrapper">
-    <div class="employees-page-container">
-      <div class="employees-page-content">
-        <div class="users-header-section">
-          <div class="users-header-content">
-            <div class="header-title-wrapper">
-              <div class="header-icon-wrapper">
-                <b-icon icon="person-badge-fill" class="header-icon"></b-icon>
-              </div>
-              <div>
-                <h1 class="users-page-title">{{ $t("employeesManagement") || "إدارة الموظفين" }}</h1>
-                <p class="header-subtitle">{{ $t("employeesManagementDescription") || "إدارة بيانات الموظفين والرواتب والأقسام" }}</p>
-              </div>
-            </div>
-            <button
-              class="users-add-button btn-add-employee-header"
-              @click="openAddModal"
-            >
-              <b-icon icon="plus-circle" class="me-1"></b-icon>
-              {{ $t("addEmployee") || "إضافة موظف" }}
-            </button>
-          </div>
-        </div>
-
-        <div class="employees-management-card">
-          <div class="employees-management-header">
-            <div class="employees-management-header-content">
-              <div class="employees-management-title-wrapper">
-                <div class="employees-management-icon-wrapper">
-                  <b-icon icon="people-fill" class="employees-management-icon"></b-icon>
+      <div class="app-page-container">
+        <div class="app-page-content employees-page">
+          <div class="users-header-section">
+            <div class="users-header-content app-header-row">
+              <div class="header-title-wrapper">
+                <div class="header-icon-wrapper">
+                  <b-icon icon="person-badge-fill" class="header-icon"></b-icon>
                 </div>
                 <div>
-                  <h3 class="employees-management-title">
-                    {{ $t("employees") || "الموظفون" }}
-                  </h3>
-                  <p class="employees-management-subtitle">
-                    {{ $t("employeesListDescription") || "قائمة الموظفين مع البيانات والراتب والقسم" }}
-                  </p>
+                  <h1 class="users-page-title">{{ $t("employeesManagement") || "إدارة الموظفين" }}</h1>
+                  <p class="header-subtitle">{{ $t("employeesManagementDescription") || "إدارة بيانات الموظفين والرواتب والأقسام" }}</p>
                 </div>
+              </div>
+              <div class="app-header-actions">
+                <button
+                  type="button"
+                  class="btn-refresh"
+                  @click="refreshPage"
+                  :disabled="loadingEmployees"
+                >
+                  <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: loadingEmployees }"></b-icon>
+                  <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+                </button>
+                <button type="button" class="users-add-button" @click="openAddModal">
+                  <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("addEmployee") || "إضافة موظف" }}</span>
+                </button>
               </div>
             </div>
           </div>
-          <div class="employees-management-body">
-            <div v-if="loadingEmployees" class="loading-state">
-              <b-spinner small></b-spinner>
-              <span>{{ $t("loading") || "جاري التحميل..." }}</span>
+
+          <div class="app-overview-grid">
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                <b-icon icon="people-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">
+                  <b-spinner small v-if="loadingEmployees"></b-spinner>
+                  <template v-else>{{ employees.length }}</template>
+                </div>
+                <div class="app-overview-stat-label">{{ $t("employees") || "الموظفون" }}</div>
+              </div>
             </div>
-            <div v-else-if="employees.length > 0" class="users-grid-container employees-cards-wrap">
-              <div class="users-grid">
-                <div
-                  v-for="emp in employees"
-                  :key="emp.id"
-                  class="user-card"
-                >
-                  <div class="user-card-header">
-                    <div class="user-avatar">
-                      <b-icon icon="person-circle" class="avatar-icon"></b-icon>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                <b-icon icon="tags-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">
+                  <b-spinner small v-if="loadingEmployees"></b-spinner>
+                  <template v-else>{{ employeesWithDepartmentCount }}</template>
+                </div>
+                <div class="app-overview-stat-label">{{ $t("employeesOverviewWithDepartment") || "مرتبطون بقسم" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                <b-icon icon="calendar-month"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">
+                  <b-spinner small v-if="loadingEmployees"></b-spinner>
+                  <template v-else>{{ monthlySalaryEmployeesCount }}</template>
+                </div>
+                <div class="app-overview-stat-label">{{ $t("salaryTypeMonthly") || "راتب شهري" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                <b-icon icon="briefcase-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">
+                  <b-spinner small v-if="loadingEmployees"></b-spinner>
+                  <template v-else>{{ employeesWithJobTitleCount }}</template>
+                </div>
+                <div class="app-overview-stat-label">{{ $t("employeesOverviewWithJobTitle") || "لديهم مسمى وظيفي" }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="app-section-card">
+            <div class="app-section-header app-section-header--toolbar">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap">
+                  <b-icon icon="people-fill"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("employees") || "الموظفون" }}</h3>
+                  <p class="app-section-subtitle">{{ $t("employeesListDescription") || "قائمة الموظفين مع البيانات والراتب والقسم" }}</p>
+                </div>
+              </div>
+              <div class="app-search-wrap app-search-wrap--wide">
+                <b-icon icon="search" class="app-search-icon"></b-icon>
+                <input
+                  v-model="searchQuery"
+                  type="search"
+                  class="app-search-input"
+                  :placeholder="$t('searchEmployeesPlaceholder') || 'بحث بالاسم أو الهاتف...'"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+            <div class="app-section-body">
+              <div v-if="loadingEmployees" class="loading-state">
+                <b-spinner small></b-spinner>
+                <span>{{ $t("loading") || "جاري التحميل..." }}</span>
+              </div>
+              <div v-else-if="filteredEmployees.length > 0" class="app-cards-grid">
+                <div v-for="emp in filteredEmployees" :key="emp.id" class="app-item-card">
+                  <div class="app-item-card-header">
+                    <div class="app-item-card-title">
+                      <b-icon icon="person-circle" class="app-item-card-icon"></b-icon>
+                      <h4>{{ emp.name }}</h4>
                     </div>
-                    <h3 class="user-name">{{ emp.name }}</h3>
+                    <div class="app-item-card-actions">
+                      <button
+                        type="button"
+                        class="action-btn action-btn--icon action-btn--edit"
+                        @click="editEmployee(emp)"
+                        :title="$t('edit') || 'تعديل'"
+                      >
+                        <b-icon icon="pencil" class="action-icon"></b-icon>
+                      </button>
+                      <button
+                        type="button"
+                        class="action-btn action-btn--icon action-btn--delete"
+                        @click="confirmDeleteEmployee(emp)"
+                        :title="$t('delete') || 'حذف'"
+                      >
+                        <b-icon icon="trash" class="action-icon"></b-icon>
+                      </button>
+                    </div>
                   </div>
-                  <div class="user-card-body">
-                    <div class="user-info-item">
+                  <div class="app-item-card-body">
+                    <div class="app-info-row">
                       <b-icon icon="telephone-fill" class="info-icon"></b-icon>
                       <span class="info-label">{{ $t("phoneNumber") || "رقم الهاتف" }}</span>
                       <span class="info-value">{{ emp.phoneNumber }}</span>
                     </div>
-                    <div class="user-info-item" v-if="emp.address">
+                    <div v-if="emp.address" class="app-info-row">
                       <b-icon icon="geo-alt-fill" class="info-icon"></b-icon>
                       <span class="info-label">{{ $t("address") || "العنوان" }}</span>
                       <span class="info-value">{{ emp.address }}</span>
                     </div>
-                    <div class="user-info-item" v-if="emp.jobTitle">
+                    <div v-if="emp.jobTitle" class="app-info-row">
                       <b-icon icon="briefcase-fill" class="info-icon"></b-icon>
                       <span class="info-label">{{ $t("jobTitle") || "المسمى الوظيفي" }}</span>
                       <span class="info-value">{{ emp.jobTitle }}</span>
                     </div>
-                    <div class="user-info-item">
+                    <div class="app-info-row">
                       <b-icon icon="cash-stack" class="info-icon"></b-icon>
                       <span class="info-label">{{ $t("salary") || "الراتب" }}</span>
                       <span class="info-value">{{ formatPrice(emp.salary) }} ({{ salaryTypeLabel(emp.salaryType) }})</span>
                     </div>
-                    <div class="user-info-item" v-if="emp.tag">
+                    <div v-if="emp.tag" class="app-info-row">
                       <b-icon icon="tags-fill" class="info-icon"></b-icon>
                       <span class="info-label">{{ $t("category") || "القسم" }}</span>
                       <span class="info-value">{{ emp.tag.name }}</span>
                     </div>
                   </div>
-                  <div class="user-card-footer employees-card-footer">
-                    <button
-                      type="button"
-                      class="user-action-button action-btn action-btn--edit"
-                      @click="editEmployee(emp)"
-                      :title="$t('edit') || 'تعديل'"
-                    >
-                      <b-icon icon="pencil-fill" class="action-icon"></b-icon>
-                      <span>{{ $t("edit") }}</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="user-action-button action-btn action-btn--delete"
-                      @click="confirmDeleteEmployee(emp)"
-                      :title="$t('delete') || 'حذف'"
-                    >
-                      <b-icon icon="trash-fill" class="action-icon"></b-icon>
-                      <span>{{ $t("delete") }}</span>
-                    </button>
-                  </div>
                 </div>
               </div>
-            </div>
-            <div v-else class="empty-state">
-              <b-icon icon="people" class="empty-icon"></b-icon>
-              <p>{{ $t("noEmployees") || "لا يوجد موظفون" }}</p>
-              <button
-                class="btn-add-first-employee"
-                @click="openAddModal"
-              >
-                <b-icon icon="plus-circle" class="me-2"></b-icon>
-                {{ $t("addFirstEmployee") || "إضافة أول موظف" }}
-              </button>
+              <div v-else class="empty-state">
+                <b-icon icon="people" class="empty-icon"></b-icon>
+                <p>{{ searchQuery ? ($t("noResults") || "لا توجد نتائج") : ($t("noEmployees") || "لا يوجد موظفون") }}</p>
+                <button v-if="!searchQuery" type="button" class="empty-state-btn" @click="openAddModal">
+                  <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("addFirstEmployee") || "إضافة أول موظف" }}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -259,6 +312,7 @@ export default {
     return {
       loadingEmployees: false,
       loadingTags: false,
+      searchQuery: '',
       employees: [],
       tags: [],
       showEmployeeModal: false,
@@ -275,11 +329,37 @@ export default {
       },
     };
   },
+  computed: {
+    filteredEmployees() {
+      const q = (this.searchQuery || '').trim().toLowerCase();
+      if (!q) return this.employees;
+      return this.employees.filter((emp) => {
+        const name = (emp.name || '').toLowerCase();
+        const phone = (emp.phoneNumber || '').toLowerCase();
+        const job = (emp.jobTitle || '').toLowerCase();
+        const dept = (emp.tag?.name || '').toLowerCase();
+        return name.includes(q) || phone.includes(q) || job.includes(q) || dept.includes(q);
+      });
+    },
+    employeesWithDepartmentCount() {
+      return this.employees.filter((e) => e.tag || e.tagId).length;
+    },
+    monthlySalaryEmployeesCount() {
+      return this.employees.filter((e) => Number(e.salaryType) === 2).length;
+    },
+    employeesWithJobTitleCount() {
+      return this.employees.filter((e) => (e.jobTitle || '').trim()).length;
+    },
+  },
   mounted() {
     this.loadEmployees();
     this.loadTags();
   },
   methods: {
+    refreshPage() {
+      this.loadEmployees();
+      this.loadTags();
+    },
     salaryTypeLabel(type) {
       if (type === 0) return this.$t("salaryTypeDaily") || "يومي";
       if (type === 1) return this.$t("salaryTypeWeekly") || "أسبوعي";
@@ -407,8 +487,11 @@ export default {
         this.savingEmployee = false;
       }
     },
-    confirmDeleteEmployee(emp) {
-      if (confirm(this.$i18n.t("confirmDeleteEmployee") || `هل أنت متأكد من حذف الموظف "${emp.name}"؟`)) {
+    async confirmDeleteEmployee(emp) {
+      const ok = await this.$confirm({
+        message: this.$t("confirmDeleteEmployee", { name: emp.name || "" }),
+      });
+      if (ok) {
         this.deleteEmployee(emp.id);
       }
     },
@@ -463,144 +546,6 @@ export default {
 </script>
 
 <style scoped>
-.employees-page-container {
-  padding: 2rem;
-  min-height: 100vh;
-  background: var(--bg-primary, #f5f5f5);
-}
-
-.employees-page-content {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.btn-add-employee-header {
-  background: var(--primary-color, #007bff);
-  color: #ffffff;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-md, 8px);
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: all 0.3s ease;
-}
-
-.btn-add-employee-header:hover {
-  background: var(--primary-hover, #0056b3);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md, 0 4px 8px rgba(0,0,0,0.15));
-}
-
-.employees-management-card {
-  background: var(--bg-primary);
-  border-radius: 1rem;
-  padding: 0;
-  margin-bottom: 2rem;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-}
-
-.employees-management-header {
-  padding: 1.5rem;
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.employees-management-header-content {
-  width: 100%;
-}
-
-.employees-management-title-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.employees-management-icon-wrapper {
-  width: 48px;
-  height: 48px;
-  border-radius: 0.75rem;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.15) 0%, rgba(167, 139, 250, 0.15) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.employees-management-icon {
-  font-size: 1.5rem;
-  color: var(--primary-color);
-}
-
-.employees-management-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 0.25rem 0;
-  line-height: 1.2;
-}
-
-.employees-management-subtitle {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin: 0;
-  line-height: 1.4;
-}
-
-.employees-management-body {
-  padding: 1.5rem;
-}
-
-.loading-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 2rem;
-  color: var(--text-secondary);
-}
-
-/* بطاقات الموظفين: نفس أسلوب user-card مع عمودين للأزرار */
-.employees-cards-wrap .employees-card-footer {
-  grid-template-columns: 1fr 1fr;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 3rem 2rem;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  color: var(--text-secondary);
-  margin-bottom: 1rem;
-  opacity: 0.5;
-}
-
-.empty-state p {
-  color: var(--text-secondary);
-  margin-bottom: 1.5rem;
-}
-
-.btn-add-first-employee {
-  background: var(--primary-color, #007bff);
-  color: #fff;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-md, 8px);
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-}
-
-.btn-add-first-employee:hover {
-  background: var(--primary-hover, #0056b3);
-}
-
 .modal-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

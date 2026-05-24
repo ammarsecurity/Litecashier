@@ -2,11 +2,10 @@
     <b-overlay :show="show" spinner-variant="primary" spinner-type="grow" spinner-large rounded="sm">
         <AppHeader />
         <div class="main-content-wrapper">
-            <div class="users-page-container">
-                <div class="users-page-content">
-                    <!-- Header Section -->
+            <div class="app-page-container">
+                <div class="app-page-content reports-page-content">
                     <div class="users-header-section">
-                        <div class="users-header-content">
+                        <div class="users-header-content app-header-row">
                             <div class="header-title-wrapper">
                                 <div class="header-icon-wrapper">
                                     <b-icon icon="file-earmark-bar-graph-fill" class="header-icon"></b-icon>
@@ -19,7 +18,8 @@
                         </div>
                     </div>
 
-                    <!-- Reports Tabs -->
+                    <div class="app-section-card app-section-card--flush">
+                      <div class="app-section-body app-section-body--tabs">
                     <div class="reports-tabs-section">
                         <div class="reports-tabs">
                             <button 
@@ -803,6 +803,8 @@
                                 <p>{{ $t('noExpensesReport') || 'لا توجد بيانات صرفيات' }}</p>
                             </div>
                         </div>
+                    </div>
+                      </div>
                     </div>
                 </div>
             </div>

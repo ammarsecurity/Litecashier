@@ -12,6 +12,7 @@ import VueI18n from 'vue-i18n';
 import messages from './lang';
 import FlagIcon from 'vue-flag-icon';
 import notifyPlugin from './plugins/notifyPlugin';
+import confirmPlugin from './plugins/confirmPlugin';
 import { createFilterBeforeCreate, buildNotifyDefaults, syncNotifyLocale } from './utils/notify';
 
 Vue.use(BootstrapVue);
@@ -38,6 +39,7 @@ Vue.use(Toast, {
 });
 
 Vue.use(notifyPlugin, { i18n });
+Vue.use(confirmPlugin, { i18n });
 syncNotifyLocale(savedLang);
 
 Vue.config.productionTip = false;

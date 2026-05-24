@@ -8,11 +8,10 @@
   >
     <AppHeader />
     <div class="main-content-wrapper">
-      <div class="users-page-container">
-        <div class="users-page-content order-queue-page">
-          <!-- Header Section -->
+      <div class="app-page-container">
+        <div class="app-page-content order-queue-page">
           <div class="users-header-section">
-            <div class="users-header-content">
+            <div class="users-header-content app-header-row">
               <div class="header-title-wrapper">
                 <div class="header-icon-wrapper">
                   <b-icon icon="list-task" class="header-icon"></b-icon>
@@ -22,31 +21,72 @@
                   <p class="header-subtitle">{{ $t("orderQueueDescription") || "إدارة ومتابعة الطلبات حسب الحالة" }}</p>
                 </div>
               </div>
-              <button type="button" class="users-add-button" @click="loadOrders({ silent: false })">
-                <b-icon icon="arrow-clockwise" class="button-icon"></b-icon>
-                <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
-              </button>
+              <div class="app-header-actions">
+                <button type="button" class="btn-refresh" @click="loadOrders({ silent: false })" :disabled="loading">
+                  <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: loading }"></b-icon>
+                  <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <div class="users-search-section">
-            <div class="users-search-container order-queue-filter-wrap">
-              <b-icon icon="filter" class="search-icon"></b-icon>
-              <select
-                v-model="orderTypeFilter"
-                class="users-search-input"
-                @change="loadOrders({ silent: true })"
-                style="padding-inline-start: 2.5rem; min-width: 220px; max-width: 100%;"
-              >
-                <option value="">{{ $t("allOrderTypes") || "جميع الأنواع" }}</option>
-                <option value="DineIn">{{ $t("dineIn") || "داخل المطعم" }}</option>
-                <option value="Takeaway">{{ $t("takeaway") || "خارجي" }}</option>
-                <option value="Delivery">{{ $t("delivery") || "توصيل" }}</option>
-              </select>
+          <div class="app-overview-grid">
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                <b-icon icon="clock-history"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ pendingOrders.length }}</div>
+                <div class="app-overview-stat-label">{{ $t("pending") || "قيد الانتظار" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                <b-icon icon="gear"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ processingOrders.length }}</div>
+                <div class="app-overview-stat-label">{{ $t("processing") || "قيد المعالجة" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                <b-icon icon="check-circle"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ readyOrders.length }}</div>
+                <div class="app-overview-stat-label">{{ $t("ready") || "جاهز" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                <b-icon icon="list-check"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ activeOrdersCount }}</div>
+                <div class="app-overview-stat-label">{{ $t("activeOrders") || "طلبات نشطة" }}</div>
+              </div>
             </div>
           </div>
 
-          <!-- Queue Board -->
+          <div class="app-section-card app-section-card--flush">
+            <div class="app-section-body">
+              <div class="users-search-container order-queue-filter-wrap">
+                <b-icon icon="filter" class="search-icon"></b-icon>
+                <select
+                  v-model="orderTypeFilter"
+                  class="users-search-input order-queue-filter-select"
+                  @change="loadOrders({ silent: true })"
+                >
+                  <option value="">{{ $t("allOrderTypes") || "جميع الأنواع" }}</option>
+                  <option value="DineIn">{{ $t("dineIn") || "داخل المطعم" }}</option>
+                  <option value="Takeaway">{{ $t("takeaway") || "خارجي" }}</option>
+                  <option value="Delivery">{{ $t("delivery") || "توصيل" }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           <div class="queue-board order-queue-board">
             <!-- Pending Column -->
             <div class="queue-column">
@@ -452,7 +492,10 @@ export default {
     },
     completedOrders() {
       return this.Orders.filter(o => o.orderStatus === 'Completed').slice(0, 10); // Show only last 10 completed
-    }
+    },
+    activeOrdersCount() {
+      return this.pendingOrders.length + this.processingOrders.length + this.readyOrders.length;
+    },
   },
   mounted() {
     const userInfo = JSON.parse(localStorage.getItem('info') || '{}');
@@ -653,7 +696,14 @@ export default {
 
 <style scoped>
 .order-queue-filter-wrap {
-  max-width: 360px;
+  max-width: 100%;
+  width: 100%;
+}
+
+.order-queue-filter-select {
+  padding-inline-start: 2.5rem;
+  min-width: 220px;
+  max-width: 100%;
 }
 
 .order-queue-board {

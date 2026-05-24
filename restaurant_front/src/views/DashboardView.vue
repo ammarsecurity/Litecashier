@@ -8,149 +8,145 @@
         spinner-type="border"
         rounded="sm"
       >
-        <div class="dashboard-page-container">
-          <div class="dashboard-page-content">
-            <!-- Welcome Header -->
-            <div class="dashboard-welcome-section">
-              <h1 class="dashboard-welcome-title">{{ $t("welcomeToDashboard") || "مرحباً بك في لوحة التحكم" }}</h1>
-              <p class="dashboard-welcome-subtitle">{{ $t("dashboardSubtitle") || "نظرة شاملة على إحصائيات متجرك" }}</p>
-              <div class="dashboard-to-sections-wrap">
-                <router-link to="/sections" class="dashboard-to-sections-btn">
-                  <b-icon icon="grid-3x3-gap-fill" class="me-2"></b-icon>
-                  {{ $t("systemModules") }}
-                </router-link>
-              </div>
-            </div>
-            <!-- Quick Stats Overview -->
-            <div class="dashboard-quick-stats">
-              <div class="quick-stat-card quick-stat-primary">
-                <div class="quick-stat-icon">
-                  <b-icon icon="receipt-cutoff"></b-icon>
+        <div class="app-page-container">
+          <div class="app-page-content dashboard-page">
+            <div class="users-header-section">
+              <div class="users-header-content app-header-row">
+                <div class="header-title-wrapper">
+                  <div class="header-icon-wrapper">
+                    <b-icon icon="speedometer2" class="header-icon"></b-icon>
+                  </div>
+                  <div>
+                    <h1 class="users-page-title">{{ $t("welcomeToDashboard") || "لوحة التحكم" }}</h1>
+                    <p class="header-subtitle">{{ $t("dashboardSubtitle") || "نظرة شاملة على إحصائيات متجرك" }}</p>
+                  </div>
                 </div>
-                <div class="quick-stat-content">
-                  <h3 class="quick-stat-value">{{ stats.orders?.total || 0 }}</h3>
-                  <p class="quick-stat-label">{{ $t("all_sales") }}</p>
-                </div>
-              </div>
-              <div class="quick-stat-card quick-stat-success">
-                <div class="quick-stat-icon">
-                  <b-icon icon="currency-dollar"></b-icon>
-                </div>
-                <div class="quick-stat-content">
-                  <h3 class="quick-stat-value">{{ formattedNumber(stats.salesAmount?.total || 0) }} {{ $t("currency") }}</h3>
-                  <p class="quick-stat-label">{{ $t("totalLabel") }} {{ $t("salesAmountStatisticsLabel") }}</p>
-                </div>
-              </div>
-              <div class="quick-stat-card quick-stat-info">
-                <div class="quick-stat-icon">
-                  <b-icon icon="box-fill"></b-icon>
-                </div>
-                <div class="quick-stat-content">
-                  <h3 class="quick-stat-value">{{ stats.products?.total || 0 }}</h3>
-                  <p class="quick-stat-label">{{ $t("Items") }}</p>
-                </div>
-              </div>
-              <div class="quick-stat-card quick-stat-warning">
-                <div class="quick-stat-icon">
-                  <b-icon icon="people"></b-icon>
-                </div>
-                <div class="quick-stat-content">
-                  <h3 class="quick-stat-value">{{ stats.users?.total || 0 }}</h3>
-                  <p class="quick-stat-label">{{ $t("all_accounts") }}</p>
+                <div class="app-header-actions">
+                  <button type="button" class="btn-refresh" @click="refreshPage" :disabled="show">
+                    <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: show }"></b-icon>
+                    <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+                  </button>
+                  <router-link to="/sections" class="users-add-button dashboard-sections-link">
+                    <b-icon icon="grid-3x3-gap-fill" class="button-icon"></b-icon>
+                    <span class="button-text">{{ $t("systemModules") }}</span>
+                  </router-link>
                 </div>
               </div>
             </div>
 
-            <!-- Public Menu Link Section (Only for Commercial users) -->
-            <div v-if="role === 'Commercial'" class="public-menu-section">
-              <div class="public-menu-card">
-                <div class="public-menu-header">
-                  <div class="public-menu-logo-wrapper">
-                    <img 
-                      v-if="commercialUserInfo.logo && !logoError" 
-                      :src="commercialUserInfo.logo" 
-                      alt="Restaurant Logo" 
-                      class="public-menu-logo"
-                      @error="logoError = true"
-                    />
-                    <div v-else class="public-menu-icon-wrapper">
-                      <b-icon icon="shop" class="public-menu-icon"></b-icon>
-                    </div>
+            <div class="app-overview-grid">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                  <b-icon icon="receipt-cutoff"></b-icon>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value">{{ stats.orders?.total || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("all_sales") }}</div>
+                </div>
+              </div>
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                  <b-icon icon="currency-dollar"></b-icon>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value app-overview-stat-value--text">
+                    {{ formattedNumber(stats.salesAmount?.total || 0) }} {{ $t("currency") }}
                   </div>
-                  <div class="public-menu-content">
-                    <h3 class="public-menu-title">{{ commercialUserInfo.restaurantName || $t("publicMenu") || "القائمة العامة" }}</h3>
-                    <p class="public-menu-description">{{ $t("publicMenuDescription") || "شارك رابط المنيو الخاص بك مع العملاء" }}</p>
+                  <div class="app-overview-stat-label">{{ $t("salesAmountStatisticsLabel") }}</div>
+                </div>
+              </div>
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                  <b-icon icon="box-fill"></b-icon>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value">{{ stats.products?.total || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("Items") }}</div>
+                </div>
+              </div>
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                  <b-icon icon="people-fill"></b-icon>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value">{{ stats.users?.total || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("all_accounts") }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="role === 'Commercial'" class="app-section-card dashboard-links-card">
+              <div class="app-section-header">
+                <div class="app-section-title-wrap">
+                  <div class="app-section-icon-wrap">
+                    <b-icon icon="link-45deg"></b-icon>
+                  </div>
+                  <div>
+                    <h3 class="app-section-title">{{ $t("dashboardQuickLinks") || "روابط سريعة" }}</h3>
+                    <p class="app-section-subtitle">{{ $t("dashboardQuickLinksHint") || "مشاركة المنيو وشاشة الطلبات" }}</p>
                   </div>
                 </div>
-                <div class="public-menu-link-wrapper">
-                  <div class="public-menu-link-box">
-                    <input 
-                      type="text" 
-                      :value="publicMenuUrl" 
-                      readonly 
-                      class="public-menu-link-input"
+              </div>
+              <div class="app-section-body dashboard-links-body">
+                <div class="dashboard-link-block">
+                  <div class="dashboard-link-block-head">
+                    <span class="dashboard-link-block-icon dashboard-link-block-icon--menu">
+                      <img
+                        v-if="commercialUserInfo.logo && !logoError"
+                        :src="commercialUserInfo.logo"
+                        alt=""
+                        class="dashboard-link-logo"
+                        @error="logoError = true"
+                      />
+                      <b-icon v-else icon="shop"></b-icon>
+                    </span>
+                    <div class="dashboard-link-block-text">
+                      <strong>{{ commercialUserInfo.restaurantName || $t("publicMenu") || "القائمة العامة" }}</strong>
+                      <span>{{ $t("publicMenuDescription") || "شارك رابط المنيو مع العملاء" }}</span>
+                    </div>
+                  </div>
+                  <div class="dashboard-link-actions">
+                    <input
+                      type="text"
+                      :value="publicMenuUrl"
+                      readonly
+                      class="dashboard-link-input"
                       :id="'publicMenuLink-' + commercialUserId"
                     />
-                    <button 
-                      class="public-menu-copy-btn"
-                      @click="copyPublicMenuLink"
-                      :title="$t('copyLink') || 'نسخ الرابط'"
-                    >
-                      <b-icon icon="clipboard" class="me-1"></b-icon>
-                      {{ $t("copyLink") || "نسخ" }}
+                    <button type="button" class="btn-refresh dashboard-link-btn" @click="copyPublicMenuLink">
+                      <b-icon icon="clipboard" class="button-icon"></b-icon>
+                      <span class="button-text">{{ $t("copyLink") || "نسخ" }}</span>
                     </button>
-                    <a 
-                      :href="publicMenuUrl" 
-                      target="_blank" 
-                      class="public-menu-open-btn"
-                      :title="$t('openInNewTab') || 'فتح في نافذة جديدة'"
-                    >
-                      <b-icon icon="box-arrow-up-right" class="me-1"></b-icon>
+                    <a :href="publicMenuUrl" target="_blank" rel="noopener" class="users-form-cancel-button dashboard-link-btn dashboard-link-btn--open">
+                      <b-icon icon="box-arrow-up-right"></b-icon>
                       {{ $t("open") || "فتح" }}
                     </a>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <!-- Public Queue Display Link Section (Only for Commercial users) -->
-            <div v-if="role === 'Commercial'" class="public-menu-section">
-              <div class="public-menu-card">
-                <div class="public-menu-header">
-                  <div class="public-menu-logo-wrapper">
-                    <div class="public-menu-icon-wrapper">
-                      <b-icon icon="display" class="public-menu-icon"></b-icon>
+                <div class="dashboard-link-block">
+                  <div class="dashboard-link-block-head">
+                    <span class="dashboard-link-block-icon dashboard-link-block-icon--queue">
+                      <b-icon icon="display"></b-icon>
+                    </span>
+                    <div class="dashboard-link-block-text">
+                      <strong>{{ $t("publicQueueDisplay") || "شاشة عرض الطلبات" }}</strong>
+                      <span>{{ $t("publicQueueDisplayDescription") || "رابط العرض على الشاشة الكبيرة" }}</span>
                     </div>
                   </div>
-                  <div class="public-menu-content">
-                    <h3 class="public-menu-title">{{ $t("publicQueueDisplay") || "شاشة عرض الطلبات" }}</h3>
-                    <p class="public-menu-description">{{ $t("publicQueueDisplayDescription") || "شارك رابط شاشة عرض الطلبات للعرض على الشاشة الكبيرة" }}</p>
-                  </div>
-                </div>
-                <div class="public-menu-link-wrapper">
-                  <div class="public-menu-link-box">
-                    <input 
-                      type="text" 
-                      :value="publicQueueDisplayUrl" 
-                      readonly 
-                      class="public-menu-link-input"
+                  <div class="dashboard-link-actions">
+                    <input
+                      type="text"
+                      :value="publicQueueDisplayUrl"
+                      readonly
+                      class="dashboard-link-input"
                       :id="'publicQueueDisplayLink-' + commercialUserId"
                     />
-                    <button 
-                      class="public-menu-copy-btn"
-                      @click="copyPublicQueueDisplayLink"
-                      :title="$t('copyLink') || 'نسخ الرابط'"
-                    >
-                      <b-icon icon="clipboard" class="me-1"></b-icon>
-                      {{ $t("copyLink") || "نسخ" }}
+                    <button type="button" class="btn-refresh dashboard-link-btn" @click="copyPublicQueueDisplayLink">
+                      <b-icon icon="clipboard" class="button-icon"></b-icon>
+                      <span class="button-text">{{ $t("copyLink") || "نسخ" }}</span>
                     </button>
-                    <a 
-                      :href="publicQueueDisplayUrl" 
-                      target="_blank" 
-                      class="public-menu-open-btn"
-                      :title="$t('openInNewTab') || 'فتح في نافذة جديدة'"
-                    >
-                      <b-icon icon="box-arrow-up-right" class="me-1"></b-icon>
+                    <a :href="publicQueueDisplayUrl" target="_blank" rel="noopener" class="users-form-cancel-button dashboard-link-btn dashboard-link-btn--open">
+                      <b-icon icon="box-arrow-up-right"></b-icon>
                       {{ $t("open") || "فتح" }}
                     </a>
                   </div>
@@ -158,62 +154,74 @@
               </div>
             </div>
 
-            <!-- Invoice Statistics Section -->
-            <section class="dashboard-section">
-              <div class="section-header">
-                <h2 class="section-title">
-                  <b-icon icon="receipt-cutoff" class="section-title-icon"></b-icon>
-                  {{ $t("invoiceStatisticsLabel") }}
-                </h2>
-                <button 
-                  class="section-view-details-btn"
+            <div class="app-section-card dashboard-period-card">
+              <div class="app-section-header">
+                <div class="app-section-title-wrap">
+                  <div class="app-section-icon-wrap">
+                    <b-icon icon="graph-up"></b-icon>
+                  </div>
+                  <div>
+                    <h3 class="app-section-title">{{ $t("dashboardPeriodStats") || "إحصائيات حسب الفترة" }}</h3>
+                    <p class="app-section-subtitle">{{ $t("dashboardPeriodStatsHint") || "اليوم، الأسبوع، والشهر" }}</p>
+                  </div>
+                </div>
+              </div>
+              <div class="app-section-body dashboard-period-body">
+                <div
+                  v-for="group in periodStatGroups"
+                  :key="group.key"
+                  class="dashboard-stat-group"
+                >
+                  <h4 class="dashboard-stat-group-title">
+                    <b-icon :icon="group.headerIcon"></b-icon>
+                    {{ group.title }}
+                  </h4>
+                  <div class="app-overview-grid dashboard-period-grid">
+                    <div
+                      v-for="(item, idx) in group.items"
+                      :key="group.key + '-' + idx"
+                      class="app-overview-stat"
+                    >
+                      <span class="app-overview-stat-icon" :class="'app-overview-stat-icon--' + item.tone">
+                        <b-icon :icon="item.icon"></b-icon>
+                      </span>
+                      <div>
+                        <div
+                          class="app-overview-stat-value"
+                          :class="{ 'app-overview-stat-value--text': item.isText }"
+                        >
+                          {{ item.value }}
+                        </div>
+                        <div class="app-overview-stat-label">{{ item.label }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="app-section-card dashboard-invoices-card">
+              <div class="app-section-header app-section-header--toolbar">
+                <div class="app-section-title-wrap">
+                  <div class="app-section-icon-wrap">
+                    <b-icon icon="receipt-cutoff"></b-icon>
+                  </div>
+                  <div>
+                    <h3 class="app-section-title">{{ $t("invoiceListTitle") || "قائمة الفواتير" }}</h3>
+                    <p class="app-section-subtitle">{{ $t("invoiceListHint") || "بحث وعرض تفاصيل الفواتير" }}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="users-form-cancel-button section-view-details-btn"
                   @click="showInvoiceDetails = !showInvoiceDetails"
                 >
-                  <b-icon :icon="showInvoiceDetails ? 'chevron-up' : 'chevron-down'" class="me-2"></b-icon>
-                  {{ showInvoiceDetails ? ($t("hideDetails") || "إخفاء التفاصيل") : ($t("viewDetails") || "عرض التفاصيل") }}
+                  <b-icon :icon="showInvoiceDetails ? 'chevron-up' : 'chevron-down'"></b-icon>
+                  {{ showInvoiceDetails ? ($t("hideDetails") || "إخفاء") : ($t("viewDetails") || "عرض الفواتير") }}
                 </button>
               </div>
-              <div class="stats-grid">
-                <StatCard
-                  color="primary"
-                  :value="stats.orders?.total || 0"
-                  :label="$t('totalLabel')"
-                >
-                  <template #icon>
-                    <b-icon icon="receipt-cutoff" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-                <StatCard
-                  color="danger"
-                  :value="stats.orders?.today || 0"
-                  :label="$t('todayLabel')"
-                >
-                  <template #icon>
-                    <b-icon icon="calendar-day" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-                <StatCard
-                  color="success"
-                  :value="stats.orders?.thisWeek || 0"
-                  :label="$t('thisWeekLabel')"
-                >
-                  <template #icon>
-                    <b-icon icon="calendar-week" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-                <StatCard
-                  color="info"
-                  :value="stats.orders?.thisMonth || 0"
-                  :label="$t('thisMonthLabel')"
-                >
-                  <template #icon>
-                    <b-icon icon="calendar-month" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-              </div>
-
-              <!-- Invoice Details Section (Expandable) -->
-              <div v-if="showInvoiceDetails" class="invoice-details-section">
+              <div v-if="showInvoiceDetails" class="app-section-body dashboard-invoices-body">
+              <div class="invoice-details-section">
                 <!-- Date Filter -->
                 <div class="invoice-filters-section">
                   <div class="invoice-filter-group">
@@ -341,142 +349,8 @@
                   </div>
                 </div>
               </div>
-            </section>
-
-            <!-- Items Statistics Section -->
-            <section class="dashboard-section">
-              <div class="section-header">
-                <h2 class="section-title">
-                  <b-icon icon="box-fill" class="section-title-icon"></b-icon>
-                  {{ $t("itemsStatisticsLabel") }}
-                </h2>
               </div>
-              <div class="stats-grid">
-                <StatCard
-                  color="primary"
-                  :value="stats.items?.total || 0"
-                  :label="$t('totalLabel')"
-                >
-                  <template #icon>
-                    <b-icon icon="box-fill" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-                <StatCard
-                  color="danger"
-                  :value="stats.items?.today || 0"
-                  :label="$t('todayLabel')"
-                >
-                  <template #icon>
-                    <b-icon icon="calendar-day" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-                <StatCard
-                  color="success"
-                  :value="stats.items?.thisWeek || 0"
-                  :label="$t('thisWeekLabel')"
-                >
-                  <template #icon>
-                    <b-icon icon="calendar-week" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-                <StatCard
-                  color="info"
-                  :value="stats.items?.thisMonth || 0"
-                  :label="$t('thisMonthLabel')"
-                >
-                  <template #icon>
-                    <b-icon icon="calendar-month" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-              </div>
-            </section>
-
-            <!-- Sales Amount Statistics Section -->
-            <section class="dashboard-section">
-              <div class="section-header">
-                <h2 class="section-title">
-                  <b-icon icon="currency-dollar" class="section-title-icon"></b-icon>
-                  {{ $t("salesAmountStatisticsLabel") }}
-                </h2>
-              </div>
-              <div class="stats-grid">
-                <StatCard
-                  color="primary"
-                  :value="formattedNumber(stats.salesAmount?.total || 0) + ' ' + $t('currency')"
-                  :label="$t('totalLabel')"
-                >
-                  <template #icon>
-                    <b-icon icon="currency-dollar" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-                <StatCard
-                  color="danger"
-                  :value="formattedNumber(stats.salesAmount?.today || 0) + ' ' + $t('currency')"
-                  :label="$t('todayLabel')"
-                >
-                  <template #icon>
-                    <b-icon icon="calendar-day" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-                <StatCard
-                  color="success"
-                  :value="formattedNumber(stats.salesAmount?.thisWeek || 0) + ' ' + $t('currency')"
-                  :label="$t('thisWeekLabel')"
-                >
-                  <template #icon>
-                    <b-icon icon="calendar-week" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-                <StatCard
-                  color="info"
-                  :value="formattedNumber(stats.salesAmount?.thisMonth || 0) + ' ' + $t('currency')"
-                  :label="$t('thisMonthLabel')"
-                >
-                  <template #icon>
-                    <b-icon icon="calendar-month" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-              </div>
-            </section>
-
-            <!-- Additional Statistics -->
-            <section class="dashboard-section">
-              <div class="section-header">
-                <h2 class="section-title">
-                  <b-icon icon="graph-up" class="section-title-icon"></b-icon>
-                  {{ $t("additionalStats") || "إحصائيات إضافية" }}
-                </h2>
-              </div>
-              <div class="stats-grid">
-                <StatCard
-                  color="info"
-                  :value="stats.products?.total || 0"
-                  :label="$t('Items') + ' (' + $t('totalLabel') + ')'"
-                >
-                  <template #icon>
-                    <b-icon icon="box-fill" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-                <StatCard
-                  color="warning"
-                  :value="stats.users?.total || 0"
-                  :label="$t('all_accounts')"
-                >
-                  <template #icon>
-                    <b-icon icon="people-fill" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-                <StatCard
-                  color="success"
-                  :value="stats.categories?.total || 0"
-                  :label="$t('all_categories')"
-                >
-                  <template #icon>
-                    <b-icon icon="tags-fill" class="stat-icon-large"></b-icon>
-                  </template>
-                </StatCard>
-              </div>
-            </section>
+            </div>
           </div>
         </div>
       </b-overlay>
@@ -647,13 +521,10 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "../http/api.js";
-import StatCard from "@/components/StatCard.vue";
-
 export default {
   name: "DashboardView",
   components: {
     AppHeader,
-    StatCard,
   },
   data() {
     return {
@@ -729,6 +600,65 @@ export default {
     totalInvoicePages() {
       return Math.ceil(this.totalInvoices / this.invoicePageSize);
     },
+    periodStatGroups() {
+      const currency = this.$t("currency");
+      const periodLabels = [
+        { key: "total", label: this.$t("totalLabel"), tone: "primary" },
+        { key: "today", label: this.$t("todayLabel"), tone: "danger" },
+        { key: "week", label: this.$t("thisWeekLabel"), tone: "success" },
+        { key: "month", label: this.$t("thisMonthLabel"), tone: "info" },
+      ];
+      const periodIcons = {
+        total: "receipt-cutoff",
+        today: "calendar-day",
+        week: "calendar-week",
+        month: "calendar-month",
+      };
+      const buildGroup = (key, title, headerIcon, source, formatValue) => ({
+        key,
+        title,
+        headerIcon,
+        items: periodLabels.map((p) => ({
+          label: p.label,
+          tone: p.tone,
+          icon: key === "sales" && p.key === "total" ? "currency-dollar" : periodIcons[p.key],
+          isText: key === "sales",
+          value: formatValue(source, p.key),
+        })),
+      });
+      return [
+        buildGroup(
+          "orders",
+          this.$t("invoiceStatisticsLabel"),
+          "receipt-cutoff",
+          this.stats.orders,
+          (src, p) => {
+            const map = { total: src?.total, today: src?.today, week: src?.thisWeek, month: src?.thisMonth };
+            return map[p] ?? 0;
+          }
+        ),
+        buildGroup(
+          "items",
+          this.$t("itemsStatisticsLabel"),
+          "box-fill",
+          this.stats.items,
+          (src, p) => {
+            const map = { total: src?.total, today: src?.today, week: src?.thisWeek, month: src?.thisMonth };
+            return map[p] ?? 0;
+          }
+        ),
+        buildGroup(
+          "sales",
+          this.$t("salesAmountStatisticsLabel"),
+          "currency-dollar",
+          this.stats.salesAmount,
+          (src, p) => {
+            const map = { total: src?.total, today: src?.today, week: src?.thisWeek, month: src?.thisMonth };
+            return `${this.formattedNumber(map[p] ?? 0)} ${currency}`;
+          }
+        ),
+      ];
+    },
   },
   watch: {
     showInvoiceDetails(newVal) {
@@ -745,6 +675,15 @@ export default {
     }
   },
   methods: {
+    refreshPage() {
+      this.getDashboardStats();
+      if (this.role === "Commercial") {
+        this.loadCommercialUserInfo();
+      }
+      if (this.showInvoiceDetails) {
+        this.loadInvoices();
+      }
+    },
     getCommercialUserId() {
       // Get user ID from localStorage
       const userInfoStr = localStorage.getItem("info");
@@ -1005,64 +944,151 @@ export default {
 </script>
 
 <style scoped>
-.dashboard-to-sections-wrap {
-  margin-top: 1.25rem;
-}
-
-.dashboard-to-sections-btn {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.6rem 1.1rem;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 0.65rem;
-  color: var(--text-primary);
-  font-weight: 600;
-  font-size: 0.9375rem;
+.dashboard-sections-link {
   text-decoration: none;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
-}
-
-.dashboard-to-sections-btn:hover {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
   color: #fff;
-  transform: translateY(-1px);
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
 }
 
 .section-view-details-btn {
-  display: flex;
-  align-items: center;
-  padding: 0.5rem 1rem;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
-  color: var(--text-primary);
-  font-weight: 600;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  flex: 0 1 auto;
+  width: auto;
+  gap: 0.45rem;
 }
 
-.section-view-details-btn:hover {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: #ffffff;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.3);
+.dashboard-links-card {
+  margin-top: 10px;
+}
+
+.dashboard-links-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dashboard-link-block {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.dashboard-link-block-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.dashboard-link-block-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.25rem;
+}
+
+.dashboard-link-block-icon--menu {
+  background: rgba(129, 140, 248, 0.12);
+  color: var(--primary-color);
+  overflow: hidden;
+}
+
+.dashboard-link-block-icon--queue {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.dashboard-link-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.dashboard-link-block-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.dashboard-link-block-text strong {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.dashboard-link-block-text span {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.dashboard-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard-link-input {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  direction: ltr;
+  text-align: left;
+}
+
+.dashboard-link-btn {
+  flex: 0 1 auto;
+  width: auto;
+  padding: 0.65rem 1rem;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.dashboard-link-btn--open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.dashboard-period-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.dashboard-stat-group-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dashboard-period-grid {
+  margin-bottom: 0;
+}
+
+.dashboard-stat-group + .dashboard-stat-group {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.dashboard-invoices-body {
+  padding-top: 0.5rem;
 }
 
 .invoice-details-section {
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 2px solid var(--border-color);
   animation: slideDown 0.3s ease;
 }
 

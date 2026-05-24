@@ -2,11 +2,10 @@
   <div>
     <AppHeader />
     <div class="main-content-wrapper">
-    <div class="delivery-drivers-page-container">
-      <div class="delivery-drivers-page-content">
-        <!-- Header Section -->
+      <div class="app-page-container">
+        <div class="app-page-content delivery-drivers-page">
         <div class="users-header-section">
-          <div class="users-header-content">
+          <div class="users-header-content app-header-row">
             <div class="header-title-wrapper">
               <div class="header-icon-wrapper">
                 <b-icon icon="truck" class="header-icon"></b-icon>
@@ -16,41 +15,31 @@
                 <p class="header-subtitle">{{ $t("deliveryDriversDescription") || "إدارة سائقي التوصيل ومتابعة الطلبات" }}</p>
               </div>
             </div>
-            <button 
-              class="users-add-button btn-add-driver-header" 
-              @click="showAddDriverModal = true"
-            >
-              <b-icon icon="plus-circle" class="me-1"></b-icon>
-              {{ $t("addDeliveryDriver") || "إضافة سائق" }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Statistics Card -->
-        <div class="delivery-statistics-card">
-          <div class="delivery-statistics-header">
-            <div class="delivery-statistics-header-content">
-              <div class="delivery-statistics-title-wrapper">
-                <div class="delivery-statistics-icon-wrapper">
-                  <b-icon icon="graph-up" class="delivery-statistics-icon"></b-icon>
-                </div>
-                <div>
-                  <h3 class="delivery-statistics-title">
-                    {{ $t("deliveryStatistics") || "إحصائيات التوصيل" }}
-                  </h3>
-                </div>
-              </div>
-              <button 
-                class="btn-refresh" 
-                @click="loadStatistics"
-                :disabled="loadingStatistics"
-              >
-                <b-icon icon="arrow-clockwise" :class="{ 'spinning': loadingStatistics }"></b-icon>
-                {{ $t("refresh") || "تحديث" }}
+            <div class="app-header-actions">
+              <button type="button" class="users-add-button" @click="showAddDriverModal = true">
+                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                <span class="button-text">{{ $t("addDeliveryDriver") || "إضافة سائق" }}</span>
               </button>
             </div>
           </div>
-          <div class="delivery-statistics-body">
+        </div>
+
+        <div class="app-section-card">
+          <div class="app-section-header app-section-header--toolbar">
+            <div class="app-section-title-wrap">
+              <div class="app-section-icon-wrap">
+                <b-icon icon="graph-up"></b-icon>
+              </div>
+              <div>
+                <h3 class="app-section-title">{{ $t("deliveryStatistics") || "إحصائيات التوصيل" }}</h3>
+              </div>
+            </div>
+            <button type="button" class="btn-refresh" @click="loadStatistics" :disabled="loadingStatistics">
+              <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: loadingStatistics }"></b-icon>
+              <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+            </button>
+          </div>
+          <div class="app-section-body">
             <div v-if="loadingStatistics" class="loading-state">
               <b-spinner small></b-spinner>
               <span>{{ $t("loading") || "جاري التحميل..." }}</span>
@@ -114,50 +103,42 @@
           </div>
         </div>
 
-        <!-- Drivers Management Card -->
-        <div class="drivers-management-card">
-          <div class="drivers-management-header">
-            <div class="drivers-management-header-content">
-              <div class="drivers-management-title-wrapper">
-                <div class="drivers-management-icon-wrapper">
-                  <b-icon icon="people-fill" class="drivers-management-icon"></b-icon>
-                </div>
-                <div>
-                  <h3 class="drivers-management-title">
-                    {{ $t("deliveryDrivers") || "سائقي التوصيل" }}
-                  </h3>
-                  <p class="drivers-management-subtitle">
-                    {{ $t("deliveryDriversDescription") || "إدارة ومتابعة سائقي التوصيل" }}
-                  </p>
-                </div>
+        <div class="app-section-card">
+          <div class="app-section-header">
+            <div class="app-section-title-wrap">
+              <div class="app-section-icon-wrap">
+                <b-icon icon="people-fill"></b-icon>
+              </div>
+              <div>
+                <h3 class="app-section-title">{{ $t("deliveryDrivers") || "سائقي التوصيل" }}</h3>
+                <p class="app-section-subtitle">{{ $t("deliveryDriversListHint") || "إدارة ومتابعة سائقي التوصيل" }}</p>
               </div>
             </div>
           </div>
-          <div class="drivers-management-body">
+          <div class="app-section-body">
             <div v-if="loadingDrivers" class="loading-state">
               <b-spinner small></b-spinner>
               <span>{{ $t("loading") || "جاري التحميل..." }}</span>
             </div>
-            <div v-else-if="drivers.length > 0" class="drivers-grid">
-              <div 
-                v-for="driver in drivers" 
-                :key="driver.id"
-                class="driver-card"
-              >
-                <div class="driver-card-header">
-                  <div class="driver-card-title">
-                    <b-icon icon="person-circle" class="driver-card-icon"></b-icon>
+            <div v-else-if="drivers.length > 0" class="app-cards-grid">
+              <div v-for="driver in drivers" :key="driver.id" class="app-item-card">
+                <div class="app-item-card-header">
+                  <div class="app-item-card-title">
+                    <b-icon icon="person-circle" class="app-item-card-icon"></b-icon>
                     <h4>{{ driver.name }}</h4>
-                  
                   </div>
-                  <div v-if="!driver.isActive" class="status-icon-badge inactive-badge-icon m-2" :title="$t('inactive') || 'غير مفعل'">
-                      <b-icon icon="x-circle-fill"></b-icon>
-                    </div>
-                    <div v-else class="status-icon-badge active-badge-icon m-2" :title="$t('active') || 'نشط'">
-                      <b-icon icon="check-circle-fill"></b-icon>
-                    </div>
-                  <div class="driver-card-actions">
-                    <button 
+                  <div
+                    v-if="!driver.isActive"
+                    class="status-icon-badge inactive-badge-icon"
+                    :title="$t('inactive') || 'غير مفعل'"
+                  >
+                    <b-icon icon="x-circle-fill"></b-icon>
+                  </div>
+                  <div v-else class="status-icon-badge active-badge-icon" :title="$t('active') || 'نشط'">
+                    <b-icon icon="check-circle-fill"></b-icon>
+                  </div>
+                  <div class="app-item-card-actions">
+                    <button
                       type="button"
                       class="action-btn action-btn--icon action-btn--view"
                       @click="viewDriverStatistics(driver.id)"
@@ -167,7 +148,7 @@
                       <b-spinner small v-if="loadingDriverStatisticsId === driver.id"></b-spinner>
                       <b-icon v-else icon="graph-up" class="action-icon"></b-icon>
                     </button>
-                    <button 
+                    <button
                       type="button"
                       class="action-btn action-btn--icon action-btn--edit"
                       @click="editDriver(driver)"
@@ -175,7 +156,7 @@
                     >
                       <b-icon icon="pencil" class="action-icon"></b-icon>
                     </button>
-                    <button 
+                    <button
                       type="button"
                       class="action-btn action-btn--icon action-btn--delete"
                       @click="confirmDeleteDriver(driver)"
@@ -185,25 +166,25 @@
                     </button>
                   </div>
                 </div>
-                <div class="driver-card-body">
-                  <div class="driver-info-item">
-                    <b-icon icon="telephone" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("phoneNumber") || "رقم الهاتف:" }}</span>
+                <div class="app-item-card-body">
+                  <div class="app-info-row">
+                    <b-icon icon="telephone-fill" class="info-icon"></b-icon>
+                    <span class="info-label">{{ $t("phoneNumber") || "رقم الهاتف" }}</span>
                     <span class="info-value">{{ driver.phoneNumber }}</span>
                   </div>
-                  <div class="driver-info-item" v-if="driver.address">
-                    <b-icon icon="geo-alt" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("address") || "العنوان:" }}</span>
+                  <div v-if="driver.address" class="app-info-row">
+                    <b-icon icon="geo-alt-fill" class="info-icon"></b-icon>
+                    <span class="info-label">{{ $t("address") || "العنوان" }}</span>
                     <span class="info-value">{{ driver.address }}</span>
                   </div>
-                  <div class="driver-info-item" v-if="driver.vehicleType">
-                    <b-icon icon="car-front" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("vehicleType") || "نوع المركبة:" }}</span>
+                  <div v-if="driver.vehicleType" class="app-info-row">
+                    <b-icon icon="car-front-fill" class="info-icon"></b-icon>
+                    <span class="info-label">{{ $t("vehicleType") || "نوع المركبة" }}</span>
                     <span class="info-value">{{ driver.vehicleType }}</span>
                   </div>
-                  <div class="driver-info-item" v-if="driver.vehicleNumber">
+                  <div v-if="driver.vehicleNumber" class="app-info-row">
                     <b-icon icon="123" class="info-icon"></b-icon>
-                    <span class="info-label">{{ $t("vehicleNumber") || "رقم المركبة:" }}</span>
+                    <span class="info-label">{{ $t("vehicleNumber") || "رقم المركبة" }}</span>
                     <span class="info-value">{{ driver.vehicleNumber }}</span>
                   </div>
                 </div>
@@ -212,18 +193,15 @@
             <div v-else class="empty-state">
               <b-icon icon="truck" class="empty-icon"></b-icon>
               <p>{{ $t("noDriversConfigured") || "لم يتم إعداد أي سائقين" }}</p>
-              <button 
-                class="btn-add-first-driver"
-                @click="showAddDriverModal = true"
-              >
-                <b-icon icon="plus-circle" class="me-2"></b-icon>
-                {{ $t("addFirstDriver") || "إضافة أول سائق" }}
+              <button type="button" class="empty-state-btn" @click="showAddDriverModal = true">
+                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                <span class="button-text">{{ $t("addFirstDriver") || "إضافة أول سائق" }}</span>
               </button>
             </div>
           </div>
         </div>
-
       </div>
+    </div>
     </div>
 
     <!-- Add/Edit Driver Modal -->
@@ -646,8 +624,11 @@ export default {
       };
       this.showAddDriverModal = true;
     },
-    confirmDeleteDriver(driver) {
-      if (confirm(this.$i18n.t("confirmDeleteDriver") || `هل أنت متأكد من حذف السائق "${driver.name}"؟`)) {
+    async confirmDeleteDriver(driver) {
+      const ok = await this.$confirm({
+        message: this.$t("confirmDeleteDriver", { name: driver.name || "" }),
+      });
+      if (ok) {
         this.deleteDriver(driver.id);
       }
     },
@@ -836,31 +817,6 @@ export default {
 
 .drivers-management-body {
   padding: 1.5rem;
-}
-
-.btn-refresh {
-  background: var(--bg-tertiary, #f8f9fa);
-  border: 1px solid var(--border-color, #dee2e6);
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-sm, 4px);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: all 0.3s ease;
-}
-
-.btn-refresh:hover {
-  background: var(--bg-secondary, #e9ecef);
-}
-
-.btn-refresh .spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 .statistics-grid {

@@ -2,11 +2,10 @@
   <b-overlay :show="false" spinner-variant="primary" spinner-type="grow" spinner-large rounded="sm">
     <AppHeader />
     <div class="main-content-wrapper">
-      <div class="users-page-container">
-        <div class="users-page-content">
-          <!-- Header Section -->
+      <div class="app-page-container">
+        <div class="app-page-content expenses-page">
           <div class="users-header-section">
-            <div class="users-header-content">
+            <div class="users-header-content app-header-row">
               <div class="header-title-wrapper">
                 <div class="header-icon-wrapper">
                   <b-icon icon="wallet2" class="header-icon"></b-icon>
@@ -16,165 +15,167 @@
                   <p class="header-subtitle">{{ $t("expensesManagementDescription") || "إدارة ومتابعة جميع الصرفيات" }}</p>
                 </div>
               </div>
-              <button 
-                class="users-add-button" 
-                @click="showAddExpenseModal = true"
-              >
-                <b-icon icon="plus-circle" class="me-1"></b-icon>
-                {{ $t("addExpense") || "إضافة صرفية" }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Statistics Card -->
-          <div class="expenses-statistics-card">
-            <div class="expenses-statistics-header">
-              <div class="expenses-statistics-header-content">
-                <div class="expenses-statistics-title-wrapper">
-                  <div class="expenses-statistics-icon-wrapper">
-                    <b-icon icon="graph-up" class="expenses-statistics-icon"></b-icon>
-                  </div>
-                  <div>
-                    <h3 class="expenses-statistics-title">
-                      {{ $t("expensesStatistics") || "إحصائيات الصرفيات" }}
-                    </h3>
-                  </div>
-                </div>
-                <button 
-                  class="btn-refresh" 
-                  @click="loadStatistics"
-                  :disabled="loadingStatistics"
+              <div class="app-header-actions">
+                <button
+                  type="button"
+                  class="btn-refresh"
+                  @click="refreshPage"
+                  :disabled="loadingStatistics || loadingExpenses"
                 >
-                  <b-icon icon="arrow-clockwise" :class="{ 'spinning': loadingStatistics }"></b-icon>
-                  {{ $t("refresh") || "تحديث" }}
+                  <b-icon
+                    icon="arrow-clockwise"
+                    class="button-icon"
+                    :class="{ spinning: loadingStatistics || loadingExpenses }"
+                  ></b-icon>
+                  <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+                </button>
+                <button type="button" class="users-add-button" @click="showAddExpenseModal = true">
+                  <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("addExpense") || "إضافة صرفية" }}</span>
                 </button>
               </div>
             </div>
-            <div class="expenses-statistics-body">
-              <div v-if="loadingStatistics" class="loading-state">
-                <b-spinner small></b-spinner>
+          </div>
+
+          <div class="app-overview-grid">
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--danger">
+                <b-icon icon="wallet2"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">
+                  <b-spinner small v-if="loadingStatistics"></b-spinner>
+                  <template v-else>{{ formatPrice(statistics?.totalExpenses || 0) }}</template>
+                </div>
+                <div class="app-overview-stat-label">{{ $t("totalExpenses") || "إجمالي الصرفيات" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                <b-icon icon="calendar-month"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">
+                  <b-spinner small v-if="loadingStatistics"></b-spinner>
+                  <template v-else>{{ formatPrice(statistics?.thisMonthExpenses || 0) }}</template>
+                </div>
+                <div class="app-overview-stat-label">{{ $t("expensesThisMonth") || "صرفيات هذا الشهر" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                <b-icon icon="calendar-week"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">
+                  <b-spinner small v-if="loadingStatistics"></b-spinner>
+                  <template v-else>{{ formatPrice(statistics?.thisWeekExpenses || 0) }}</template>
+                </div>
+                <div class="app-overview-stat-label">{{ $t("expensesThisWeek") || "صرفيات هذا الأسبوع" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                <b-icon icon="tag-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value app-overview-stat-value--text">
+                  <b-spinner small v-if="loadingStatistics"></b-spinner>
+                  <template v-else>{{ statistics?.topCategory || "—" }}</template>
+                </div>
+                <div class="app-overview-stat-label">{{ $t("topCategory") || "أكبر فئة" }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="app-section-card">
+            <div class="app-section-header app-section-header--toolbar">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap">
+                  <b-icon icon="list-ul"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("expenses") || "الصرفيات" }}</h3>
+                  <p class="app-section-subtitle">{{ $t("expensesListDescription") || "سجل الصرفيات مع البحث والتصفية" }}</p>
+                </div>
+              </div>
+              <div class="app-header-actions">
+                <button type="button" class="users-form-cancel-button expenses-toolbar-btn" @click="showCategoriesModal = true">
+                  <b-icon icon="tags-fill"></b-icon>
+                  {{ $t("manageCategories") || "إدارة الفئات" }}
+                </button>
+                <button
+                  type="button"
+                  class="export-excel-btn"
+                  @click="exportExpenses"
+                  :disabled="exportingExpenses"
+                >
+                  <b-spinner small v-if="exportingExpenses"></b-spinner>
+                  <b-icon v-else icon="file-earmark-arrow-down"></b-icon>
+                  {{ exportingExpenses ? ($t("exporting") || "جاري التصدير...") : ($t("export") || "تصدير") }}
+                </button>
+              </div>
+            </div>
+
+            <div class="app-section-body expenses-filters-body">
+              <div class="expenses-filters-grid">
+                <div class="app-search-wrap app-search-wrap--wide">
+                  <b-icon icon="search" class="app-search-icon"></b-icon>
+                  <input
+                    v-model="searchQuery"
+                    type="search"
+                    class="app-search-input"
+                    :placeholder="$t('searchByDescription') || 'ابحث بالوصف...'"
+                    autocomplete="off"
+                    @input="debounceSearch"
+                  />
+                </div>
+                <div class="users-search-container">
+                  <b-icon icon="calendar" class="search-icon"></b-icon>
+                  <input
+                    v-model="startDate"
+                    type="date"
+                    class="users-search-input"
+                    @change="loadExpenses"
+                  />
+                </div>
+                <div class="users-search-container">
+                  <b-icon icon="calendar-check" class="search-icon"></b-icon>
+                  <input
+                    v-model="endDate"
+                    type="date"
+                    class="users-search-input"
+                    @change="loadExpenses"
+                  />
+                </div>
+                <div class="users-search-container">
+                  <b-icon icon="tag" class="search-icon"></b-icon>
+                  <select v-model="categoryFilter" class="users-search-input" @change="loadExpenses">
+                    <option value="">{{ $t("allCategories") || "جميع الفئات" }}</option>
+                    <option v-for="cat in expenseCategories" :key="cat.id" :value="cat.name">
+                      {{ cat.name }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="app-section-body app-section-body--no-padding">
+              <div v-if="loadingExpenses" class="loading-state-full">
+                <b-spinner variant="primary"></b-spinner>
                 <span>{{ $t("loading") || "جاري التحميل..." }}</span>
               </div>
-              <div v-else-if="statistics" class="statistics-grid">
-                <div class="stat-card">
-                  <div class="stat-icon total">
-                    <b-icon icon="wallet2"></b-icon>
-                  </div>
-                  <div class="stat-content">
-                    <div class="stat-value">{{ formatPrice(statistics.totalExpenses || 0) }}</div>
-                    <div class="stat-label">{{ $t("totalExpenses") || "إجمالي الصرفيات" }}</div>
-                  </div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-icon active">
-                    <b-icon icon="calendar-month"></b-icon>
-                  </div>
-                  <div class="stat-content">
-                    <div class="stat-value">{{ formatPrice(statistics.thisMonthExpenses || 0) }}</div>
-                    <div class="stat-label">{{ $t("expensesThisMonth") || "صرفيات هذا الشهر" }}</div>
-                  </div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-icon orders">
-                    <b-icon icon="calendar-week"></b-icon>
-                  </div>
-                  <div class="stat-content">
-                    <div class="stat-value">{{ formatPrice(statistics.thisWeekExpenses || 0) }}</div>
-                    <div class="stat-label">{{ $t("expensesThisWeek") || "صرفيات هذا الأسبوع" }}</div>
-                  </div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-icon delivered">
-                    <b-icon icon="tag-fill"></b-icon>
-                  </div>
-                  <div class="stat-content">
-                    <div class="stat-value">{{ statistics.topCategory || "-" }}</div>
-                    <div class="stat-label">{{ $t("topCategory") || "أكبر فئة" }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Search and Filter Section -->
-          <div class="users-search-section">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-              <div class="users-search-container">
-                <b-icon icon="search" class="search-icon"></b-icon>
-                <input 
-                  v-model="searchQuery" 
-                  type="text" 
-                  :placeholder="$t('searchByDescription') || 'ابحث بالوصف...'"
-                  class="users-search-input"
-                  @input="debounceSearch"
-                />
-              </div>
-              <div class="users-search-container">
-                <b-icon icon="calendar" class="search-icon"></b-icon>
-                <input 
-                  v-model="startDate" 
-                  type="date" 
-                  :placeholder="$t('from_date') || 'من تاريخ'"
-                  class="users-search-input"
-                  @change="loadExpenses"
-                />
-              </div>
-              <div class="users-search-container">
-                <b-icon icon="calendar-check" class="search-icon"></b-icon>
-                <input 
-                  v-model="endDate" 
-                  type="date" 
-                  :placeholder="$t('to_date') || 'إلى تاريخ'"
-                  class="users-search-input"
-                  @change="loadExpenses"
-                />
-              </div>
-              <div class="users-search-container">
-                <b-icon icon="tag" class="search-icon"></b-icon>
-                <select 
-                  v-model="categoryFilter" 
-                  class="users-search-input"
-                  @change="loadExpenses"
+              <div v-else class="report-table-container expenses-table-wrap">
+                <b-table
+                  id="expenses-table"
+                  :items="Expenses"
+                  :fields="expensesTableFields"
+                  striped
+                  hover
+                  responsive
+                  class="reports-table"
+                  :empty-text="$t('noExpenses') || 'لا توجد صرفيات'"
                 >
-                  <option value="">{{ $t('allCategories') || 'جميع الفئات' }}</option>
-                  <option v-for="cat in expenseCategories" :key="cat.id" :value="cat.name">
-                    {{ cat.name }}
-                  </option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- Actions Section -->
-          <div class="expenses-actions-section">
-            <button class="btn-manage-categories" @click="showCategoriesModal = true">
-              <b-icon icon="tags-fill" class="me-2"></b-icon>
-              {{ $t("manageCategories") || "إدارة الفئات" }}
-            </button>
-            <button class="btn-export" @click="exportExpenses" :disabled="exportingExpenses">
-              <b-spinner small v-if="exportingExpenses" class="me-2"></b-spinner>
-              <b-icon v-else icon="download" class="me-2"></b-icon>
-              {{ exportingExpenses ? ($t("exporting") || "جاري التصدير...") : ($t("export") || "تصدير") }}
-            </button>
-          </div>
-
-          <!-- Expenses Table -->
-          <div class="report-table-container">
-            <div v-if="loadingExpenses" class="loading-state-full">
-              <b-spinner variant="primary"></b-spinner>
-              <span>{{ $t("loading") || "جاري التحميل..." }}</span>
-            </div>
-            <b-table
-              v-else
-              id="expenses-table"
-              :items="Expenses"
-              :fields="expensesTableFields"
-              striped
-              hover
-              responsive
-              class="reports-table"
-              :empty-text="$t('noExpenses') || 'لا توجد صرفيات'"
-            >
               <template #cell(amount)="row">
                 <span class="expense-amount-text">{{ formatPrice(row.item.amount) }} {{ $t("currency") || "د.ع" }}</span>
               </template>
@@ -213,25 +214,22 @@
                   </button>
                 </div>
               </template>
-            </b-table>
-          </div>
+                </b-table>
+              </div>
+            </div>
 
-          <!-- Empty State -->
-          <div v-if="Expenses.length === 0 && !loadingExpenses" class="empty-state">
-            <b-icon icon="wallet2" class="empty-icon"></b-icon>
-            <p class="empty-text">{{ $t("noExpenses") || "لا توجد صرفيات" }}</p>
-          </div>
-
-          <!-- Pagination -->
-          <div class="users-pagination-section">
-            <b-pagination 
-              v-model="pageNumber" 
-              :total-rows="totalExpenses" 
-              :per-page="pageSize"
-              aria-controls="expenses-table"
-              class="users-pagination"
-              @change="loadExpenses"
-            ></b-pagination>
+            <div v-if="!loadingExpenses" class="app-section-body expenses-pagination-body">
+              <div class="users-pagination-section">
+                <b-pagination
+                  v-model="pageNumber"
+                  :total-rows="totalExpenses"
+                  :per-page="pageSize"
+                  aria-controls="expenses-table"
+                  class="users-pagination"
+                  @change="loadExpenses"
+                ></b-pagination>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -580,6 +578,10 @@ export default {
     }
   },
   methods: {
+    refreshPage() {
+      this.loadStatistics();
+      this.loadExpenses();
+    },
     async loadExpenses() {
       try {
         this.loadingExpenses = true;
@@ -981,232 +983,73 @@ export default {
 </script>
 
 <style scoped>
-.expenses-statistics-card {
-  background: var(--bg-primary);
-  border-radius: 1rem;
-  padding: 0;
-  margin-bottom: 2rem;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-}
-
-.expenses-statistics-header {
-  padding: 1.5rem;
-  background: var(--bg-primary);
+.expenses-filters-body {
+  padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--border-color);
 }
 
-.expenses-statistics-header-content {
-  display: flex;
-  justify-content: space-between;
+.expenses-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
   align-items: center;
 }
 
-.expenses-statistics-title-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+.expenses-filters-grid .users-search-container {
+  max-width: none;
 }
 
-.expenses-statistics-icon-wrapper {
-  width: 48px;
-  height: 48px;
+.expenses-toolbar-btn {
+  flex: 0 1 auto;
+  width: auto;
+  gap: 0.45rem;
+}
+
+.export-excel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.875rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0d6e2f;
+  background: rgba(13, 110, 47, 0.12);
+  border: 1px solid rgba(13, 110, 47, 0.3);
   border-radius: 0.75rem;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.15) 0%, rgba(167, 139, 250, 0.15) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.expenses-statistics-icon {
-  font-size: 1.5rem;
-  color: var(--primary-color);
+.export-excel-btn:hover:not(:disabled) {
+  background: #0d6e2f;
+  color: #fff;
+  border-color: #0d6e2f;
 }
 
-.expenses-statistics-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
+.export-excel-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.expenses-table-wrap {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+
+.expenses-pagination-body {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.expenses-pagination-body .users-pagination-section {
   margin: 0;
 }
 
-.expenses-statistics-body {
-  padding: 1.5rem;
-}
-
-.statistics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.stat-card {
-  background: var(--bg-secondary);
-  border: 2px solid var(--border-color);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  transition: all 0.3s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(129, 140, 248, 0.2), 0 4px 8px rgba(0, 0, 0, 0.3);
-  border-color: var(--primary-color);
-  background: var(--bg-primary);
-}
-
-.stat-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.stat-icon.total {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--danger-color);
-}
-
-.stat-icon.active {
-  background: rgba(59, 130, 246, 0.15);
-  color: var(--info-color);
-}
-
-.stat-icon.orders {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
-}
-
-.stat-icon.delivered {
-  background: rgba(34, 197, 94, 0.15);
-  color: var(--success-color);
-}
-
-.stat-content {
-  flex: 1;
-}
-
-.stat-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 0.25rem;
-}
-
-.stat-label {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-}
-
-.btn-refresh {
-  background: var(--bg-tertiary);
-  border: 2px solid var(--border-color);
-  padding: 0.625rem 1rem;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: all 0.3s ease;
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.btn-refresh:hover {
-  background: var(--primary-color);
-  color: #ffffff;
-  border-color: var(--primary-color);
-}
-
-.btn-refresh .spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.expenses-actions-section {
-  margin-bottom: 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.btn-manage-categories {
-  background: var(--primary-color);
-  color: #ffffff;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: all 0.3s ease;
-}
-
-.btn-manage-categories:hover {
-  background: var(--accent-dark);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.expenses-export-section {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.btn-export {
-  background: var(--success-color);
-  color: #ffffff;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: all 0.3s ease;
-}
-
-.btn-export:hover {
-  background: var(--accent-dark);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.expense-card {
-  transition: all 0.3s ease;
-}
-
-.expense-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-}
-
-.expense-header-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  flex: 1;
-}
-
-.expense-date {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  font-weight: 400;
+.app-overview-stat-value--text {
+  font-size: 1rem;
+  line-height: 1.3;
+  word-break: break-word;
 }
 
 .expense-category-badge {

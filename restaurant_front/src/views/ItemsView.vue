@@ -8,44 +8,103 @@
   >
     <AppHeader />
     <div class="main-content-wrapper">
-      <div class="users-page-container">
-        <div class="users-page-content">
-          <!-- Header Section -->
+      <div class="app-page-container">
+        <div class="app-page-content items-page">
           <div class="users-header-section">
-            <div class="users-header-content">
-              <h1 class="users-page-title">{{ $t("allItemsLabel") }}</h1>
-              <div style="display: flex; gap: 0.75rem;">
-                <button class="users-add-button ai-generate-button" v-b-modal.modal-ai-generate-items>
-                  <b-icon icon="cpu-fill" class="button-icon"></b-icon>
-                  <span class="button-text">{{ $t('aiGenerateItems') || 'إنشاء أطباق بالذكاء الاصطناعي' }}</span>
+            <div class="users-header-content app-header-row">
+              <div class="header-title-wrapper">
+                <div class="header-icon-wrapper">
+                  <b-icon icon="cup-hot-fill" class="header-icon"></b-icon>
+                </div>
+                <div>
+                  <h1 class="users-page-title">{{ $t("allItemsLabel") }}</h1>
+                  <p class="header-subtitle">{{ $t("itemsPageDescription") || "إدارة الأطباق والمشروبات والأسعار" }}</p>
+                </div>
+              </div>
+              <div class="app-header-actions">
+                <button type="button" class="btn-refresh" @click="refreshPage" :disabled="show">
+                  <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: show }"></b-icon>
+                  <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
                 </button>
-                <button class="users-add-button btn-upload-images" @click="showUploadModal = true">
+                <button type="button" class="users-add-button ai-generate-button" v-b-modal.modal-ai-generate-items>
+                  <b-icon icon="cpu-fill" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("aiGenerateItems") || "إنشاء أطباق بالذكاء الاصطناعي" }}</span>
+                </button>
+                <button type="button" class="users-add-button btn-upload-images" @click="showUploadModal = true">
                   <b-icon icon="image-fill" class="button-icon"></b-icon>
                   <span class="button-text">{{ $t("uploadImages") || "رفع الصور" }}</span>
                 </button>
-              <button class="users-add-button" v-b-modal.modal-addItem>
-                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
-                <span class="button-text">{{ $t("addItemLabel") }}</span>
-              </button>
+                <button type="button" class="users-add-button" v-b-modal.modal-addItem>
+                  <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("addItemLabel") }}</span>
+                </button>
               </div>
             </div>
           </div>
 
-          <!-- Search Section -->
-          <div class="users-search-section">
-            <div class="users-search-container">
-              <b-icon icon="search" class="search-icon"></b-icon>
-              <input 
-                v-model="search.info" 
-                type="search" 
-                :placeholder="$t('searchPlaceholder')"
-                class="users-search-input"
-              />
+          <div class="app-overview-grid">
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                <b-icon icon="box-seam-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ totalItems }}</div>
+                <div class="app-overview-stat-label">{{ $t("itemsOverviewTotal") || "إجمالي الأصناف" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                <b-icon icon="check-circle-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ itemsAvailableCount }}</div>
+                <div class="app-overview-stat-label">{{ $t("isAvailable") || "متوفر" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--danger">
+                <b-icon icon="x-circle-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ itemsUnavailableCount }}</div>
+                <div class="app-overview-stat-label">{{ $t("notAvailable") || "غير متوفر" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                <b-icon icon="list-ul"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ Items.length }}</div>
+                <div class="app-overview-stat-label">{{ $t("itemsOverviewOnPage") || "في الصفحة الحالية" }}</div>
+              </div>
             </div>
           </div>
 
-          <!-- Items Table -->
-          <div class="items-table-container">
+          <div class="app-section-card">
+            <div class="app-section-header app-section-header--toolbar">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap">
+                  <b-icon icon="list-ul"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("allItemsLabel") }}</h3>
+                  <p class="app-section-subtitle">{{ $t("itemsListHint") || "قائمة الأصناف مع الأسعار والصور" }}</p>
+                </div>
+              </div>
+              <div class="app-search-wrap app-search-wrap--wide">
+                <b-icon icon="search" class="app-search-icon"></b-icon>
+                <input
+                  v-model="search.info"
+                  type="search"
+                  class="app-search-input"
+                  :placeholder="$t('searchPlaceholder')"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+            <div class="app-section-body app-section-body--no-padding">
+          <div class="items-table-container report-table-container">
             <b-table
               :items="Items"
               :fields="itemFields"
@@ -134,8 +193,7 @@
               </template>
             </b-table>
 
-            <!-- Pagination -->
-            <div class="pagination-container" v-if="totalPages > 1">
+            <div class="users-pagination-section" v-if="totalPages > 1">
               <b-pagination
                 v-model="pageNumber"
                 :total-rows="totalItems"
@@ -144,11 +202,13 @@
                 first-number
                 last-number
                 @change="onPageChange"
-                class="items-pagination"
+                class="users-pagination items-pagination"
               ></b-pagination>
               <div class="pagination-info">
                 <span>{{ $t('showing') || 'عرض' }} {{ ((pageNumber - 1) * pageSize) + 1 }} - {{ Math.min(pageNumber * pageSize, totalItems) }} {{ $t('of') || 'من' }} {{ totalItems }}</span>
               </div>
+            </div>
+          </div>
             </div>
           </div>
         </div>
@@ -1196,6 +1256,12 @@ export default {
     totalPages() {
       return Math.ceil(this.totalItems / this.pageSize);
     },
+    itemsAvailableCount() {
+      return (this.allItems || []).filter((item) => item.isAvailable).length;
+    },
+    itemsUnavailableCount() {
+      return (this.allItems || []).filter((item) => !item.isAvailable).length;
+    },
     categoryAssignmentOptions() {
       return posCategoryEntries(this.tags);
     },
@@ -1304,6 +1370,11 @@ export default {
   },
 
   methods: {
+    refreshPage() {
+      this.getTags();
+      this.GetAllItems();
+      this.loadAllItemsForSelect();
+    },
     getTags() {
       HTTP.get(`Admin/GetTags?pageNumber=0&pageSize=10000`)
         .then((response) => {

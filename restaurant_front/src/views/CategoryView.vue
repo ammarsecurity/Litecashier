@@ -2,40 +2,99 @@
     <b-overlay :show="show" spinner-variant="primary" spinner-type="grow" spinner-large rounded="sm">
         <AppHeader />
         <div class="main-content-wrapper">
-            <div class="users-page-container">
-                <div class="users-page-content">
-                    <!-- Header Section -->
+            <div class="app-page-container">
+                <div class="app-page-content category-page">
                     <div class="users-header-section">
-                        <div class="users-header-content">
-                            <h1 class="users-page-title">{{ $t('all_categories') }}</h1>
-                            <div class="header-buttons-group">
-                                <button class="users-add-button ai-generate-button" v-b-modal.modal-ai-generate>
+                        <div class="users-header-content app-header-row">
+                            <div class="header-title-wrapper">
+                                <div class="header-icon-wrapper">
+                                    <b-icon icon="tags-fill" class="header-icon"></b-icon>
+                                </div>
+                                <div>
+                                    <h1 class="users-page-title">{{ $t('all_categories') }}</h1>
+                                    <p class="header-subtitle">{{ $t('categoriesPageDescription') || 'إدارة الأقسام الرئيسية والفرعية' }}</p>
+                                </div>
+                            </div>
+                            <div class="app-header-actions">
+                                <button type="button" class="btn-refresh" @click="refreshPage" :disabled="show">
+                                    <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: show }"></b-icon>
+                                    <span class="button-text">{{ $t('refresh') || 'تحديث' }}</span>
+                                </button>
+                                <button type="button" class="users-add-button ai-generate-button" v-b-modal.modal-ai-generate>
                                     <b-icon icon="cpu-fill" class="button-icon"></b-icon>
                                     <span class="button-text">{{ $t('aiGenerateCategories') }}</span>
                                 </button>
-                            <button class="users-add-button" v-b-modal.modal-addTags>
-                                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
-                                <span class="button-text">{{ $t('add_category') }}</span>
-                            </button>
+                                <button type="button" class="users-add-button" v-b-modal.modal-addTags>
+                                    <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                                    <span class="button-text">{{ $t('add_category') }}</span>
+                                </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Search Section -->
-                    <div class="users-search-section">
-                        <div class="users-search-container">
-                            <b-icon icon="search" class="search-icon"></b-icon>
-                            <input 
-                                v-model="search.info" 
-                                type="search" 
-                                :placeholder="$t('search')"
-                                class="users-search-input"
-                            />
+                    <div class="app-overview-grid">
+                        <div class="app-overview-stat">
+                            <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                                <b-icon icon="tags-fill"></b-icon>
+                            </span>
+                            <div>
+                                <div class="app-overview-stat-value">{{ totalTagss }}</div>
+                                <div class="app-overview-stat-label">{{ $t('categoriesOverviewTotal') || 'إجمالي الأقسام' }}</div>
+                            </div>
+                        </div>
+                        <div class="app-overview-stat">
+                            <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                                <b-icon icon="diagram-3"></b-icon>
+                            </span>
+                            <div>
+                                <div class="app-overview-stat-value">{{ mainCategoriesCount }}</div>
+                                <div class="app-overview-stat-label">{{ $t('categoriesOverviewMain') || 'أقسام رئيسية' }}</div>
+                            </div>
+                        </div>
+                        <div class="app-overview-stat">
+                            <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                                <b-icon icon="diagram-3-fill"></b-icon>
+                            </span>
+                            <div>
+                                <div class="app-overview-stat-value">{{ subCategoriesCount }}</div>
+                                <div class="app-overview-stat-label">{{ $t('categoriesOverviewSub') || 'أقسام فرعية' }}</div>
+                            </div>
+                        </div>
+                        <div class="app-overview-stat">
+                            <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                                <b-icon icon="list-ul"></b-icon>
+                            </span>
+                            <div>
+                                <div class="app-overview-stat-value">{{ Tagss.length }}</div>
+                                <div class="app-overview-stat-label">{{ $t('categoriesOverviewOnPage') || 'في الصفحة الحالية' }}</div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Categories Table -->
-                    <div class="categories-table-container">
+                    <div class="app-section-card">
+                        <div class="app-section-header app-section-header--toolbar">
+                            <div class="app-section-title-wrap">
+                                <div class="app-section-icon-wrap">
+                                    <b-icon icon="tags-fill"></b-icon>
+                                </div>
+                                <div>
+                                    <h3 class="app-section-title">{{ $t('all_categories') }}</h3>
+                                    <p class="app-section-subtitle">{{ $t('categoriesListHint') || 'قائمة الأقسام مع التعديل والحذف' }}</p>
+                                </div>
+                            </div>
+                            <div class="app-search-wrap app-search-wrap--wide">
+                                <b-icon icon="search" class="app-search-icon"></b-icon>
+                                <input
+                                    v-model="search.info"
+                                    type="search"
+                                    class="app-search-input"
+                                    :placeholder="$t('search')"
+                                    autocomplete="off"
+                                />
+                            </div>
+                        </div>
+                        <div class="app-section-body app-section-body--no-padding">
+                    <div class="categories-table-container report-table-container">
                         <b-table
                             :items="Tagss"
                             :fields="categoryFields"
@@ -73,8 +132,7 @@
                             </template>
                         </b-table>
 
-                        <!-- Pagination -->
-                        <div class="pagination-container" v-if="totalPages > 1">
+                        <div class="users-pagination-section" v-if="totalPages > 1">
                             <b-pagination
                                 v-model="pageNumber"
                                 :total-rows="totalTagss"
@@ -83,11 +141,13 @@
                                 first-number
                                 last-number
                                 @change="onPageChange"
-                                class="categories-pagination"
+                                class="users-pagination categories-pagination"
                             ></b-pagination>
                             <div class="pagination-info">
                                 <span>{{ $t('showing') || 'عرض' }} {{ ((pageNumber - 1) * pageSize) + 1 }} - {{ Math.min(pageNumber * pageSize, totalTagss) }} {{ $t('of') || 'من' }} {{ totalTagss }}</span>
                             </div>
+                        </div>
+                    </div>
                         </div>
                     </div>
                 </div>
@@ -446,10 +506,20 @@ export default {
         },
         totalPages() {
             return Math.ceil(this.totalTagss / this.pageSize);
-        }
+        },
+        mainCategoriesCount() {
+            return this.allTagsFlat.filter((t) => t.parentTagId == null).length;
+        },
+        subCategoriesCount() {
+            return this.allTagsFlat.filter((t) => t.parentTagId != null).length;
+        },
     },
 
     methods: {
+        refreshPage() {
+            this.fetchAllTagsFlat();
+            this.GetAllTagss();
+        },
         formatCategoryDisplay(tag) {
             return hierarchyTagLabel(tag, this.allTagsFlat);
         },

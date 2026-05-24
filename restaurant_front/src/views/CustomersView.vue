@@ -2,10 +2,10 @@
   <div>
     <AppHeader />
     <div class="main-content-wrapper">
-      <div class="customers-page-container">
-        <div class="customers-page-content">
+      <div class="app-page-container">
+        <div class="app-page-content customers-page">
           <div class="users-header-section">
-            <div class="users-header-content">
+            <div class="users-header-content app-header-row">
               <div class="header-title-wrapper">
                 <div class="header-icon-wrapper">
                   <b-icon icon="person-lines-fill" class="header-icon"></b-icon>
@@ -15,98 +15,123 @@
                   <p class="header-subtitle">{{ $t("customersManagementDescription") }}</p>
                 </div>
               </div>
-              <button type="button" class="users-add-button btn-add-customer-header" @click="openAddModal">
-                <b-icon icon="plus-circle" class="me-1"></b-icon>
-                {{ $t("addCustomer") }}
-              </button>
-            </div>
-          </div>
-
-          <div class="customers-toolbar">
-            <div class="customers-search-wrap">
-              <b-icon icon="search" class="customers-search-icon"></b-icon>
-              <input
-                v-model="searchQuery"
-                type="search"
-                class="customers-search-input"
-                :placeholder="$t('searchCustomersPlaceholder')"
-                autocomplete="off"
-              />
-            </div>
-          </div>
-
-          <div class="customers-management-card">
-            <div class="customers-management-header">
-              <div class="customers-management-header-content">
-                <div class="customers-management-title-wrapper">
-                  <div class="customers-management-icon-wrapper">
-                    <b-icon icon="people-fill" class="customers-management-icon"></b-icon>
-                  </div>
-                  <div>
-                    <h3 class="customers-management-title">{{ $t("customers") }}</h3>
-                    <p class="customers-management-subtitle">{{ $t("customersListDescription") }}</p>
-                  </div>
-                </div>
+              <div class="app-header-actions">
+                <button type="button" class="users-add-button" @click="openAddModal">
+                  <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("addCustomer") }}</span>
+                </button>
               </div>
             </div>
-            <div class="customers-management-body">
+          </div>
+
+          <div class="app-overview-grid">
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                <b-icon icon="people-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ customers.length }}</div>
+                <div class="app-overview-stat-label">{{ $t("customers") }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                <b-icon icon="check-circle-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ activeCustomersCount }}</div>
+                <div class="app-overview-stat-label">{{ $t("active") }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--danger">
+                <b-icon icon="x-circle-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ inactiveCustomersCount }}</div>
+                <div class="app-overview-stat-label">{{ $t("inactive") }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="app-section-card">
+            <div class="app-section-header app-section-header--toolbar">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap">
+                  <b-icon icon="people-fill"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("customers") }}</h3>
+                  <p class="app-section-subtitle">{{ $t("customersListDescription") }}</p>
+                </div>
+              </div>
+              <div class="app-search-wrap app-search-wrap--wide">
+                <b-icon icon="search" class="app-search-icon"></b-icon>
+                <input
+                  v-model="searchQuery"
+                  type="search"
+                  class="app-search-input"
+                  :placeholder="$t('searchCustomersPlaceholder')"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+            <div class="app-section-body">
               <div v-if="loadingCustomers" class="loading-state">
                 <b-spinner small></b-spinner>
                 <span>{{ $t("loading") }}</span>
               </div>
-              <div v-else-if="customers.length > 0" class="users-grid-container customers-cards-wrap">
-                <div class="users-grid">
-                  <div v-for="c in customers" :key="c.id" class="user-card">
-                    <div class="user-card-header">
-                      <div class="user-avatar">
-                        <b-icon icon="person-circle" class="avatar-icon"></b-icon>
-                      </div>
-                      <h3 class="user-name">{{ c.name }}</h3>
-                      <div
-                        v-if="!c.isActive"
-                        class="status-icon-badge inactive-badge-icon customer-status-badge"
-                        :title="$t('inactive')"
-                      >
-                        <b-icon icon="x-circle-fill"></b-icon>
-                      </div>
-                      <div v-else class="status-icon-badge active-badge-icon customer-status-badge" :title="$t('active')">
-                        <b-icon icon="check-circle-fill"></b-icon>
-                      </div>
+              <div v-else-if="customers.length > 0" class="app-cards-grid">
+                <div v-for="c in customers" :key="c.id" class="app-item-card">
+                  <div class="app-item-card-header">
+                    <div class="app-item-card-title">
+                      <b-icon icon="person-circle" class="app-item-card-icon"></b-icon>
+                      <h4>{{ c.name }}</h4>
                     </div>
-                    <div class="user-card-body">
-                      <div class="user-info-item">
-                        <b-icon icon="telephone-fill" class="info-icon"></b-icon>
-                        <span class="info-label">{{ $t("phoneNumber") }}</span>
-                        <span class="info-value">{{ c.phoneNumber }}</span>
-                      </div>
-                      <div v-if="c.address" class="user-info-item">
-                        <b-icon icon="geo-alt-fill" class="info-icon"></b-icon>
-                        <span class="info-label">{{ $t("address") }}</span>
-                        <span class="info-value">{{ c.address }}</span>
-                      </div>
-                      <div v-if="c.notes" class="user-info-item user-info-item--notes">
-                        <b-icon icon="chat-left-text-fill" class="info-icon"></b-icon>
-                        <span class="info-label">{{ $t("notes") }}</span>
-                        <span class="info-value">{{ c.notes }}</span>
-                      </div>
+                    <div
+                      v-if="!c.isActive"
+                      class="status-icon-badge inactive-badge-icon"
+                      :title="$t('inactive')"
+                    >
+                      <b-icon icon="x-circle-fill"></b-icon>
                     </div>
-                    <div class="user-card-footer customers-card-footer">
+                    <div v-else class="status-icon-badge active-badge-icon" :title="$t('active')">
+                      <b-icon icon="check-circle-fill"></b-icon>
+                    </div>
+                    <div class="app-item-card-actions">
                       <button
                         type="button"
-                        class="user-action-button action-btn action-btn--edit"
+                        class="action-btn action-btn--icon action-btn--edit"
                         @click="editCustomer(c)"
+                        :title="$t('edit')"
                       >
-                        <b-icon icon="pencil-fill" class="action-icon"></b-icon>
-                        <span>{{ $t("edit") }}</span>
+                        <b-icon icon="pencil" class="action-icon"></b-icon>
                       </button>
                       <button
                         type="button"
-                        class="user-action-button action-btn action-btn--delete"
+                        class="action-btn action-btn--icon action-btn--delete"
                         @click="confirmDeleteCustomer(c)"
+                        :title="$t('delete')"
                       >
-                        <b-icon icon="trash-fill" class="action-icon"></b-icon>
-                        <span>{{ $t("delete") }}</span>
+                        <b-icon icon="trash" class="action-icon"></b-icon>
                       </button>
+                    </div>
+                  </div>
+                  <div class="app-item-card-body">
+                    <div class="app-info-row">
+                      <b-icon icon="telephone-fill" class="info-icon"></b-icon>
+                      <span class="info-label">{{ $t("phoneNumber") }}</span>
+                      <span class="info-value">{{ c.phoneNumber }}</span>
+                    </div>
+                    <div v-if="c.address" class="app-info-row">
+                      <b-icon icon="geo-alt-fill" class="info-icon"></b-icon>
+                      <span class="info-label">{{ $t("address") }}</span>
+                      <span class="info-value">{{ c.address }}</span>
+                    </div>
+                    <div v-if="c.notes" class="app-info-row">
+                      <b-icon icon="chat-left-text-fill" class="info-icon"></b-icon>
+                      <span class="info-label">{{ $t("notes") }}</span>
+                      <span class="info-value">{{ c.notes }}</span>
                     </div>
                   </div>
                 </div>
@@ -114,9 +139,9 @@
               <div v-else class="empty-state">
                 <b-icon icon="people" class="empty-icon"></b-icon>
                 <p>{{ $t("noCustomers") }}</p>
-                <button type="button" class="btn-add-first-customer" @click="openAddModal">
-                  <b-icon icon="plus-circle" class="me-2"></b-icon>
-                  {{ $t("addFirstCustomer") }}
+                <button type="button" class="empty-state-btn" @click="openAddModal">
+                  <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("addFirstCustomer") }}</span>
                 </button>
               </div>
             </div>
@@ -185,10 +210,22 @@
                 :placeholder="$t('customerNotesPlaceholder')"
               ></textarea>
             </div>
-            <div class="users-form-group customers-active-row">
-              <label class="customers-checkbox-label">
-                <input v-model="customerForm.isActive" type="checkbox" />
-                <span>{{ $t("customerActive") }}</span>
+            <div class="form-toggle-cards">
+              <label
+                class="form-toggle-card"
+                :class="{ 'form-toggle-card--on': customerForm.isActive }"
+              >
+                <input v-model="customerForm.isActive" type="checkbox" class="form-toggle-card-input" />
+                <span class="form-toggle-card-body">
+                  <span class="form-toggle-card-icon form-toggle-card-icon--success">
+                    <b-icon icon="check-circle-fill"></b-icon>
+                  </span>
+                  <span class="form-toggle-card-text">
+                    <span class="form-toggle-card-title">{{ $t("customerActive") }}</span>
+                    <span class="form-toggle-card-desc">{{ $t("customerActiveHint") || "العميل متاح للطلبات والتوصيل" }}</span>
+                  </span>
+                </span>
+                <span class="form-toggle-switch" aria-hidden="true"></span>
               </label>
             </div>
             <div class="users-form-actions">
@@ -248,6 +285,14 @@ export default {
       this.searchDebounce = setTimeout(() => {
         this.loadCustomers();
       }, 350);
+    },
+  },
+  computed: {
+    activeCustomersCount() {
+      return this.customers.filter((c) => c.isActive !== false).length;
+    },
+    inactiveCustomersCount() {
+      return this.customers.filter((c) => c.isActive === false).length;
     },
   },
   mounted() {
@@ -352,9 +397,11 @@ export default {
         this.savingCustomer = false;
       }
     },
-    confirmDeleteCustomer(c) {
-      const msg = this.$t("confirmDeleteCustomer", { name: c.name || "" });
-      if (typeof msg === "string" && window.confirm(msg)) {
+    async confirmDeleteCustomer(c) {
+      const ok = await this.$confirm({
+        message: this.$t("confirmDeleteCustomer", { name: c.name || "" }),
+      });
+      if (ok) {
         this.deleteCustomer(c.id);
       }
     },
@@ -398,207 +445,38 @@ export default {
 </script>
 
 <style scoped>
-.customers-page-container {
-  padding: 2rem;
-  min-height: 100vh;
-  background: var(--bg-primary, #f5f5f5);
-}
-
-.customers-page-content {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.btn-add-customer-header {
-  background: var(--primary-color, #007bff);
-  color: #ffffff;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-md, 8px);
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: all 0.3s ease;
-}
-
-.btn-add-customer-header:hover {
-  background: var(--primary-hover, #0056b3);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md, 0 4px 8px rgba(0, 0, 0, 0.15));
-}
-
-.customers-toolbar {
-  margin-bottom: 1rem;
-}
-
-.customers-search-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  max-width: 420px;
-  padding: 0.5rem 0.85rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--border-color);
-  background: var(--bg-primary);
-  box-shadow: var(--shadow-sm);
-}
-
-.customers-search-icon {
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-
-.customers-search-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 0.9375rem;
-  outline: none;
-  min-width: 0;
-}
-
-.customers-management-card {
-  background: var(--bg-primary);
-  border-radius: 1rem;
-  padding: 0;
-  margin-bottom: 2rem;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-}
-
-.customers-management-header {
-  padding: 1.5rem;
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.customers-management-title-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.customers-management-icon-wrapper {
-  width: 48px;
-  height: 48px;
-  border-radius: 0.75rem;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.15) 0%, rgba(167, 139, 250, 0.15) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.customers-management-icon {
-  font-size: 1.5rem;
-  color: var(--primary-color);
-}
-
-.customers-management-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 0.25rem 0;
-  line-height: 1.2;
-}
-
-.customers-management-subtitle {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin: 0;
-  line-height: 1.4;
-}
-
-.customers-management-body {
-  padding: 1.5rem;
-}
-
-.loading-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 2rem;
-  color: var(--text-secondary);
-}
-
-.customers-cards-wrap .customers-card-footer {
-  grid-template-columns: 1fr 1fr;
-}
-
-.customer-status-badge {
-  margin-inline-start: auto;
-}
-
-.user-info-item--notes .info-value {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 3rem 2rem;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  color: var(--text-secondary);
-  margin-bottom: 1rem;
-  opacity: 0.5;
-}
-
-.empty-state p {
-  color: var(--text-secondary);
-  margin-bottom: 1.5rem;
-}
-
-.btn-add-first-customer {
-  background: var(--primary-color, #007bff);
-  color: #fff;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-md, 8px);
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-}
-
-.btn-add-first-customer:hover {
-  background: var(--primary-hover, #0056b3);
-}
-
-.modal-form-grid {
+.customers-page .app-item-card-header {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 0.45rem 0.5rem;
+  align-items: start;
 }
 
-.customers-active-row {
-  margin-top: 0.25rem;
+.customers-page .app-item-card-title {
+  grid-column: 1;
+  grid-row: 1;
 }
 
-.customers-checkbox-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  font-weight: 600;
-  color: var(--text-primary);
+.customers-page .status-icon-badge {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: start;
 }
 
-.customers-checkbox-label input {
-  width: 1.1rem;
-  height: 1.1rem;
-  accent-color: var(--primary-color);
+.customers-page .app-item-card-actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 @media (max-width: 768px) {
-  .modal-form-grid {
-    grid-template-columns: 1fr;
+  .app-section-header--toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-search-wrap--wide {
+    max-width: 100%;
   }
 }
 </style>

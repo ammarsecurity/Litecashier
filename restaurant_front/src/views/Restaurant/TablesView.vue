@@ -8,13 +8,24 @@
   >
     <AppHeader />
     <div class="main-content-wrapper">
-      <div class="users-page-container">
-        <div class="users-page-content">
-          <!-- Header Section -->
+      <div class="app-page-container">
+        <div class="app-page-content tables-page">
           <div class="users-header-section">
-            <div class="users-header-content">
-              <h1 class="users-page-title">{{ $t("tables") || "الطاولات" }}</h1>
-              <div class="tables-header-actions">
+            <div class="users-header-content app-header-row">
+              <div class="header-title-wrapper">
+                <div class="header-icon-wrapper">
+                  <b-icon icon="table" class="header-icon"></b-icon>
+                </div>
+                <div>
+                  <h1 class="users-page-title">{{ $t("tables") || "الطاولات" }}</h1>
+                  <p class="header-subtitle">{{ $t("tablesPageDescription") || "إدارة الطاولات والحالات والمناطق" }}</p>
+                </div>
+              </div>
+              <div class="app-header-actions tables-header-actions">
+                <button type="button" class="btn-refresh" @click="refreshPage" :disabled="show">
+                  <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: show }"></b-icon>
+                  <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+                </button>
                 <router-link
                   to="/restaurant/table-layout"
                   class="users-add-button floor-plan-nav-link"
@@ -23,11 +34,11 @@
                   <b-icon icon="columns-gap" class="button-icon"></b-icon>
                   <span class="button-text">{{ $t("tableFloorPlanTitle") }}</span>
                 </router-link>
-                <button class="users-add-button" v-b-modal.modal-addTableBulk>
+                <button type="button" class="users-add-button" v-b-modal.modal-addTableBulk>
                   <b-icon icon="layers-fill" class="button-icon"></b-icon>
                   <span class="button-text">{{ $t("addTablesBulk") || "إضافة مجموعات" }}</span>
                 </button>
-                <button class="users-add-button" v-b-modal.modal-addTable>
+                <button type="button" class="users-add-button" v-b-modal.modal-addTable>
                   <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
                   <span class="button-text">{{ $t("addTable") || "إضافة طاولة" }}</span>
                 </button>
@@ -53,22 +64,69 @@
             </div>
           </div>
 
-          <!-- Filter Section -->
-          <div class="users-search-section">
-            <div class="users-search-container">
-              <b-icon icon="filter" class="search-icon"></b-icon>
-              <select v-model="statusFilter" @change="onFilterChange" class="users-search-input" style="padding-left: 2.5rem;">
-                <option value="">{{ $t("all") || "الكل" }}</option>
-                <option value="Available">{{ $t("available") || "متاحة" }}</option>
-                <option value="Occupied">{{ $t("occupied") || "مشغولة" }}</option>
-                <option value="Reserved">{{ $t("reserved") || "محجوزة" }}</option>
-                <option value="OutOfService">{{ $t("outOfService") || "خارج الخدمة" }}</option>
-              </select>
+          <div class="app-overview-grid">
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                <b-icon icon="table"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ totalItems }}</div>
+                <div class="app-overview-stat-label">{{ $t("tablesOverviewTotal") || "إجمالي الطاولات" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                <b-icon icon="check-circle-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ tablesStats.available }}</div>
+                <div class="app-overview-stat-label">{{ $t("available") || "متاحة" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--danger">
+                <b-icon icon="person-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ tablesStats.occupied }}</div>
+                <div class="app-overview-stat-label">{{ $t("occupied") || "مشغولة" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                <b-icon icon="bookmark-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ tablesStats.reserved }}</div>
+                <div class="app-overview-stat-label">{{ $t("reserved") || "محجوزة" }}</div>
+              </div>
             </div>
           </div>
 
-          <!-- جدول الطاولات — نفس أسلوب جداول الأصناف/التصنيفات -->
-          <div class="items-table-container">
+          <div class="app-section-card">
+            <div class="app-section-header app-section-header--toolbar">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap">
+                  <b-icon icon="list-ul"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("tables") || "الطاولات" }}</h3>
+                  <p class="app-section-subtitle">{{ $t("tablesListHint") || "قائمة الطاولات مع الفلترة والإجراءات" }}</p>
+                </div>
+              </div>
+              <div class="app-search-wrap">
+                <b-icon icon="filter" class="app-search-icon"></b-icon>
+                <select v-model="statusFilter" @change="onFilterChange" class="app-search-input tables-status-filter">
+                  <option value="">{{ $t("all") || "الكل" }}</option>
+                  <option value="Available">{{ $t("available") || "متاحة" }}</option>
+                  <option value="Occupied">{{ $t("occupied") || "مشغولة" }}</option>
+                  <option value="Reserved">{{ $t("reserved") || "محجوزة" }}</option>
+                  <option value="OutOfService">{{ $t("outOfService") || "خارج الخدمة" }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="app-section-body app-section-body--no-padding">
+          <div class="items-table-container report-table-container">
             <b-table
               :items="tables"
               :fields="tableFields"
@@ -149,8 +207,7 @@
               </template>
             </b-table>
 
-            <!-- Pagination -->
-            <div class="pagination-container" v-if="totalPages > 1">
+            <div class="users-pagination-section" v-if="totalPages > 1">
               <b-pagination
                 v-model="currentPage"
                 :total-rows="totalItems"
@@ -159,11 +216,13 @@
                 first-number
                 last-number
                 @change="onPageChange"
-                class="items-pagination"
+                class="users-pagination items-pagination"
               ></b-pagination>
               <div class="pagination-info">
                 <span>{{ $t('showing') || 'عرض' }} {{ ((currentPage - 1) * pageSize) + 1 }} - {{ Math.min(currentPage * pageSize, totalItems) }} {{ $t('of') || 'من' }} {{ totalItems }}</span>
               </div>
+            </div>
+          </div>
             </div>
           </div>
         </div>
@@ -487,6 +546,12 @@ export default {
       deletingTables: false,
       deleteModalMode: null,
       pendingDeleteIds: [],
+      tablesStats: {
+        available: 0,
+        occupied: 0,
+        reserved: 0,
+        outOfService: 0,
+      },
     };
   },
   computed: {
@@ -578,8 +643,29 @@ export default {
   },
   mounted() {
     this.getTables();
+    this.loadTablesOverviewStats();
   },
   methods: {
+    refreshPage() {
+      this.getTables();
+      this.loadTablesOverviewStats();
+    },
+    loadTablesOverviewStats() {
+      HTTP.get("Tables", { params: { pageNumber: 0, pageSize: 10000 } })
+        .then((response) => {
+          const items = response.data?.data?.items || response.data?.data?.Items || [];
+          const norm = (t) => String(t.status ?? t.Status ?? "");
+          this.tablesStats = {
+            available: items.filter((t) => norm(t) === "Available").length,
+            occupied: items.filter((t) => norm(t) === "Occupied").length,
+            reserved: items.filter((t) => norm(t) === "Reserved").length,
+            outOfService: items.filter((t) => norm(t) === "OutOfService").length,
+          };
+        })
+        .catch(() => {
+          this.tablesStats = { available: 0, occupied: 0, reserved: 0, outOfService: 0 };
+        });
+    },
     getTables() {
       this.show = true;
       const params = {
@@ -1071,10 +1157,21 @@ export default {
 }
 
 .tables-header-actions {
-  display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
+}
+
+.tables-status-filter {
+  border: none;
+  background: transparent;
+  width: 100%;
+  padding: 0;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.tables-status-filter:focus {
+  outline: none;
 }
 
 .tables-action-btn.tables-action-btn--danger {
