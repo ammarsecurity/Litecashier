@@ -2922,7 +2922,10 @@ namespace RestaurantPOS.Controllers
                 }
 
                 // Store old values for audit log (before any changes)
-                var oldItemsCount = existingOrder.CustomerOrderItem?.Count ?? 0;
+                var activeOrderItems = existingOrder.CustomerOrderItem?
+                    .Where(i => i != null && !i.IsDeleted)
+                    .ToList() ?? new List<CustomerOrderItem>();
+                var oldItemsCount = activeOrderItems.Count;
                 var oldOrderValues = new
                 {
                     PaymentMethod = existingOrder.PaymentMethod,
@@ -2960,9 +2963,13 @@ namespace RestaurantPOS.Controllers
                 existingOrder.OrderSubTotal = request.OrderSubTotal;
                 existingOrder.OrderTotalAfterDiscount = request.OrderTotalAfterDiscount;
 
-                // Handle order items update
-                // Remove old order items
-                _dbConfig.CustomerOrderItems.RemoveRange(existingOrder.CustomerOrderItem);
+                // Handle order items update — soft-delete active lines so ReturnedOrderItems FK stays valid
+                var now = DateTime.Now;
+                foreach (var item in activeOrderItems)
+                {
+                    item.IsDeleted = true;
+                    item.UpdateDate = now;
+                }
 
                 // Add new order items
                 var newOrderItems = new List<CustomerOrderItem>();
@@ -3016,7 +3023,8 @@ namespace RestaurantPOS.Controllers
 
                 // Log audit for order update
                 var commercialUserId = user.Role == "Commercial" ? userId : user.InsertByUserId;
-                var newItemsCount = existingOrder.CustomerOrderItem?.Count ?? 0;
+                var newItemsCount = existingOrder.CustomerOrderItem?
+                    .Count(item => item != null && !item.IsDeleted) ?? 0;
                 var newOrderValues = new
                 {
                     PaymentMethod = existingOrder.PaymentMethod,
