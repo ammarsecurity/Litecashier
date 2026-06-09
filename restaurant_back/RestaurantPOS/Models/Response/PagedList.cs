@@ -14,10 +14,7 @@ namespace RestaurantPOS.Models.Response
 
         public PagedList(List<T> items, int totalItems, int pageIndex, int pageSize)
         {
-            Items = items
-             .Skip(pageIndex * pageSize)
-             .Take(pageSize)
-             .ToList();
+            Items = items;
             TotalItems = totalItems;
             PageIndex = pageIndex;
             PageSize = pageSize;

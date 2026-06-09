@@ -39,6 +39,17 @@ namespace RestaurantPOS.Controllers
             return user?.InsertByUserId ?? userId;
         }
 
+        private static decimal ResolveOrderSalesAmount(CustomerOrder order)
+        {
+            if (order.OrderTotalAfterDiscount.HasValue)
+                return order.OrderTotalAfterDiscount.Value;
+            if (order.OrderSubTotal.HasValue)
+                return order.OrderSubTotal.Value;
+            return order.CustomerOrderItem?
+                .Where(item => !item.IsDeleted)
+                .Sum(item => item.SellingPrice * item.Quantity) ?? 0;
+        }
+
         // GET: api/DeliveryDrivers
         [AuthorizeSection("deliveryDrivers", "reports", Roles = "Commercial,Admin")]
         [HttpGet]
@@ -413,18 +424,14 @@ namespace RestaurantPOS.Controllers
                     .Where(o => o.DeliveryStatus == "Delivered" || 
                                o.DeliveryStatus == "Completed" ||
                                o.OrderStatus == "Completed")
-                    .Sum(o => o.CustomerOrderItem != null 
-                        ? o.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity) 
-                        : 0);
+                    .Sum(ResolveOrderSalesAmount);
 
                 var paidAmount = orders
                     .Where(o => (o.DeliveryStatus == "Delivered" || 
                                 o.DeliveryStatus == "Completed" ||
                                 o.OrderStatus == "Completed") 
                         && o.PaymentStatus == "Paid")
-                    .Sum(o => o.CustomerOrderItem != null 
-                        ? o.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity) 
-                        : 0);
+                    .Sum(ResolveOrderSalesAmount);
 
                 var remainingAmount = totalAmount - paidAmount;
 
@@ -504,18 +511,14 @@ namespace RestaurantPOS.Controllers
                         .Where(o => o.DeliveryStatus == "Delivered" || 
                                    o.DeliveryStatus == "Completed" ||
                                    o.OrderStatus == "Completed")
-                        .Sum(o => o.CustomerOrderItem != null 
-                            ? o.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity) 
-                            : 0);
+                        .Sum(ResolveOrderSalesAmount);
 
                     var paidAmount = driverOrders
                         .Where(o => (o.DeliveryStatus == "Delivered" || 
                                     o.DeliveryStatus == "Completed" ||
                                     o.OrderStatus == "Completed") 
                             && o.PaymentStatus == "Paid")
-                        .Sum(o => o.CustomerOrderItem != null 
-                            ? o.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity) 
-                            : 0);
+                        .Sum(ResolveOrderSalesAmount);
 
                     var remainingAmount = totalAmount - paidAmount;
 

@@ -3,6 +3,7 @@ import {
   cloneCartBaseline,
   computeKitchenPrintDelta,
 } from "@/utils/cartPrintDelta.js";
+import { mergeCartLinesForOrderPayload } from "@/utils/mergeCartLines.js";
 
 /**
  * Shared POS/Waiter order save vs update (AddOrder / UpdateOrder).
@@ -12,6 +13,7 @@ export default {
     return {
       activeOrderId: null,
       printedCartBaseline: [],
+      orderPersisting: false,
     };
   },
   methods: {
@@ -117,11 +119,9 @@ export default {
     prepareOrderPayload(isNewOrder) {
       this.orderForSend.paymentMethod =
         this.orderForSend.paymentMethod || "Cash";
-      this.orderForSend.customerOrderItem = this.carditems.map((item) => ({
-        itemId: item.id,
-        quantity: item.quantity,
-        notes: item.lineNote ? String(item.lineNote).trim() : null,
-      }));
+      this.orderForSend.customerOrderItem = mergeCartLinesForOrderPayload(
+        this.carditems
+      );
 
       if (isNewOrder) {
         const existing = String(this.orderForSend.orderCode || "").trim();
@@ -341,6 +341,10 @@ export default {
       );
     },
     async persistOrder({ skipPrint = false, isCheckout = false } = {}) {
+      if (this.orderPersisting) {
+        return;
+      }
+
       const toastPosition = this.getOrderPersistToastPosition();
 
       if (this.carditems.length <= 0) {
@@ -382,6 +386,7 @@ export default {
           ? fullCartSnapshot
           : kitchenPrintItems;
 
+      this.orderPersisting = true;
       this.show = true;
       this.prepareOrderPayload(!isUpdate);
 
@@ -497,6 +502,7 @@ export default {
         });
       } finally {
         this.show = false;
+        this.orderPersisting = false;
       }
     },
     addOrderAndClear(skipPrint = false) {

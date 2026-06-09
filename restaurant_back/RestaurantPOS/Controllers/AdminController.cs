@@ -237,6 +237,43 @@ namespace RestaurantPOS.Controllers
             return item.SellingPrice;
         }
 
+        private static List<CustomerOrderItem> GetActiveOrderItems(IEnumerable<CustomerOrderItem>? items)
+        {
+            return items?
+                .Where(item => item != null && !item.IsDeleted)
+                .ToList() ?? new List<CustomerOrderItem>();
+        }
+
+        private IQueryable<CustomerOrderItem> QueryActiveOrderItemsForCommercial(int userId, int userInsertByUserId)
+        {
+            return _dbConfig.CustomerOrderItems
+                .Where(x => !x.IsDeleted &&
+                            x.CustomerOrder != null &&
+                            !x.CustomerOrder.IsDeleted &&
+                            (x.InsertByUserId == userId ||
+                             x.User!.Id == userInsertByUserId ||
+                             x.User!.InsertByUserId == userId));
+        }
+
+        private IQueryable<CustomerOrder> QueryActiveOrdersForCommercial(int userId)
+        {
+            return _dbConfig.CustomerOrders
+                .Where(x => !x.IsDeleted &&
+                            (x.InsertByUserId == userId || x.User!.InsertByUserId == userId));
+        }
+
+        private decimal SumOrdersSalesAmount(IQueryable<CustomerOrder> ordersQuery)
+        {
+            return ordersQuery
+                .Select(o => o.OrderTotalAfterDiscount
+                    ?? o.OrderSubTotal
+                    ?? _dbConfig.CustomerOrderItems
+                        .Where(i => i.CustomerOrderId == o.Id && !i.IsDeleted)
+                        .Sum(i => (decimal?)(i.Quantity * i.SellingPrice))
+                    ?? 0m)
+                .Sum();
+        }
+
         private static ReturnedOrderItemDto MapReturnedOrderItemDto(ReturnedOrderItem entity)
         {
             return new ReturnedOrderItemDto
@@ -986,8 +1023,13 @@ namespace RestaurantPOS.Controllers
                     user = user.Where(x => x.PhoneNumber == info || x.Name.Contains(info) || x.Username.Contains(info));
                 }
                 var totalItems = user.Count();
+                var pagedUsers = user
+                    .OrderByDescending(x => x.Id)
+                    .Skip(pageNumber * pageSize)
+                    .Take(pageSize)
+                    .ToList();
 
-                var pagedResult = new PagedList<User>(user.ToList(), totalItems, pageNumber, pageSize);
+                var pagedResult = new PagedList<User>(pagedUsers, totalItems, pageNumber, pageSize);
 
                 var response = new GlobalResponse<PagedList<User>>
                 {
@@ -1008,10 +1050,13 @@ namespace RestaurantPOS.Controllers
                     user = user.Where(x => x.PhoneNumber == info || x.Name.Contains(info) || x.Username.Contains(info));
                 }
                 var totalItems = user.Count();
+                var pagedUsers = user
+                    .OrderByDescending(x => x.Id)
+                    .Skip(pageNumber * pageSize)
+                    .Take(pageSize)
+                    .ToList();
 
-
-
-                var pagedResult = new PagedList<User>(user.ToList(), totalItems, pageNumber, pageSize);
+                var pagedResult = new PagedList<User>(pagedUsers, totalItems, pageNumber, pageSize);
 
                 var response = new GlobalResponse<PagedList<User>>
                 {
@@ -1452,8 +1497,13 @@ namespace RestaurantPOS.Controllers
             }
 
             var totalItems = tag.Count();
+            var pagedTags = tag
+                .OrderBy(x => x.Name)
+                .Skip(pageNumber * pageSize)
+                .Take(pageSize)
+                .ToList();
 
-            var pagedResult = new PagedList<Tag>(tag.ToList(), totalItems, pageNumber, pageSize);
+            var pagedResult = new PagedList<Tag>(pagedTags, totalItems, pageNumber, pageSize);
 
             var response = new GlobalResponse<PagedList<Tag>>
             {
@@ -2281,7 +2331,11 @@ namespace RestaurantPOS.Controllers
             var imageBaseUrl = _configuration["ApiSettings:ImageBaseUrl"] ?? "https://pos-api.tatwer.tech/Images/";
 
             var totalItems = item.Count();
-            var itemList = item.ToList();
+            var itemList = item
+                .OrderByDescending(x => x.Id)
+                .Skip(pageNumber * pageSize)
+                .Take(pageSize)
+                .ToList();
             
             foreach(var n in itemList)
             {
@@ -2996,18 +3050,30 @@ namespace RestaurantPOS.Controllers
                             ? currentItem.DisCountPrice
                             : currentItem.SellingPrice;
 
-                        var newOrderItem = new CustomerOrderItem
+                        var normalizedNotes = string.IsNullOrWhiteSpace(itemRequest.Notes)
+                            ? null
+                            : itemRequest.Notes.Trim();
+
+                        var existingMerged = newOrderItems.FirstOrDefault(x =>
+                            x.ItemId == itemRequest.ItemId &&
+                            string.Equals(x.Notes ?? string.Empty, normalizedNotes ?? string.Empty, StringComparison.Ordinal));
+
+                        if (existingMerged != null)
+                        {
+                            existingMerged.Quantity += itemRequest.Quantity;
+                            continue;
+                        }
+
+                        newOrderItems.Add(new CustomerOrderItem
                         {
                             ItemId = itemRequest.ItemId,
                             Quantity = itemRequest.Quantity,
                             SellingPrice = sellingPrice,
-                            Notes = string.IsNullOrWhiteSpace(itemRequest.Notes) ? null : itemRequest.Notes.Trim(),
+                            Notes = normalizedNotes,
                             CustomerOrderId = existingOrder.Id,
                             InsertByUserId = userId,
                             InsertDate = DateTime.Now
-                        };
-
-                        newOrderItems.Add(newOrderItem);
+                        });
                     }
 
                     _dbConfig.CustomerOrderItems.AddRange(newOrderItems);
@@ -4120,14 +4186,14 @@ namespace RestaurantPOS.Controllers
 
         [AuthorizeSection("reports", "orderQueue", Roles = "Commercial")]
         [HttpGet("GetOrders")]
-        public ActionResult<GlobalResponse<PagedList<OrderDto>>> GetOrders(int pageNumber, int pageSize, string? info, DateTime? startDate, DateTime? endDate, string? orderType, string? paymentMethod, int? deliveryDriverId)
+        public ActionResult<GlobalResponse<OrdersPagedResult>> GetOrders(int pageNumber, int pageSize, string? info, DateTime? startDate, DateTime? endDate, string? orderType, string? paymentMethod, int? deliveryDriverId)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
             var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
             if (user == null)
             {
-                return BadRequest(new GlobalResponse<PagedList<OrderDto>>
+                return BadRequest(new GlobalResponse<OrdersPagedResult>
                 {
                     Data = null,
                     ErrorStatus = true,
@@ -4182,6 +4248,23 @@ namespace RestaurantPOS.Controllers
 
             var totalItems = items.Count();
 
+            var totalSales = SumOrdersSalesAmount(items);
+            var totalSubTotal = items.Sum(o => o.OrderSubTotal ?? 0m);
+            var totalDiscount = items.Sum(o => o.DiscountAmount ?? 0m);
+            var totalItemsSold = _dbConfig.CustomerOrderItems
+                .Where(i => !i.IsDeleted && items.Select(o => o.Id).Contains(i.CustomerOrderId))
+                .Sum(i => (int?)i.Quantity) ?? 0;
+
+            var summary = new OrdersSummaryDto
+            {
+                TotalOrders = totalItems,
+                TotalSubTotal = totalSubTotal,
+                TotalDiscount = totalDiscount,
+                TotalSales = totalSales,
+                TotalItemsSold = totalItemsSold,
+                AverageOrderValue = totalItems > 0 ? Math.Round(totalSales / totalItems, 2) : 0m
+            };
+
             // Map to OrderDto after filtering
             var ordersList = items
                 .OrderByDescending(x => x.InsertDate)
@@ -4210,14 +4293,16 @@ namespace RestaurantPOS.Controllers
                     var mergedTableNumbers = orderTables.Count > 1
                         ? string.Join("و", orderTables.OrderBy(t => t.TableNumber).Select(t => t.TableNumber))
                         : (orderTables.Count == 1 ? orderTables[0].TableNumber : null);
+
+                    var activeOrderItems = GetActiveOrderItems(x.CustomerOrderItem);
                     
                     return new OrderDto
                 {
-                    CustomerOrderItem = x.CustomerOrderItem,
-                    OrderPrice = x.CustomerOrderItem != null ? x.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity) : 0,
+                    CustomerOrderItem = activeOrderItems,
+                    OrderPrice = activeOrderItems.Sum(item => item.SellingPrice * item.Quantity),
                     OrderCode = x.OrderCode,
                     Id = x.Id,
-                    ItemsCount = x.CustomerOrderItem != null ? x.CustomerOrderItem.Count() : 0,
+                    ItemsCount = activeOrderItems.Count,
                     DailySequenceNumber = x.DailySequenceNumber,
                     InsertDate = x.InsertDate,
                     CreatedAt = x.InsertDate,
@@ -4229,7 +4314,7 @@ namespace RestaurantPOS.Controllers
                     OrderType = x.OrderType,
                     OrderStatus = x.OrderStatus,
                     Notes = x.Notes,
-                    Total = x.CustomerOrderItem != null ? x.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity) : 0,
+                    Total = activeOrderItems.Sum(item => item.SellingPrice * item.Quantity),
                     DiscountType = x.DiscountType,
                     DiscountValue = x.DiscountValue,
                     DiscountAmount = x.DiscountAmount,
@@ -4251,9 +4336,9 @@ namespace RestaurantPOS.Controllers
                 })
                 .ToList();
 
-            var pagedResult = new PagedList<OrderDto>(ordersList, totalItems, pageNumber, pageSize);
+            var pagedResult = new OrdersPagedResult(ordersList, totalItems, pageNumber, pageSize, summary);
 
-            var response = new GlobalResponse<PagedList<OrderDto>>
+            var response = new GlobalResponse<OrdersPagedResult>
             {
                 Data = pagedResult,
                 ErrorStatus = false,
@@ -4298,16 +4383,20 @@ namespace RestaurantPOS.Controllers
             var ordersList = items
                 .OrderByDescending(x => x.InsertDate)
                 .ToList()
-                .Select(x => new
+                .Select(x =>
                 {
-                    OrderCode = x.OrderCode ?? "",
-                    InsertDate = x.InsertDate,
-                    OrderType = x.OrderType ?? "",
-                    PaymentMethod = x.PaymentMethod ?? "",
-                    OrderPrice = x.CustomerOrderItem != null ? x.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity) : 0,
-                    DiscountAmount = x.DiscountAmount ?? 0,
-                    OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
-                    ItemsCount = x.CustomerOrderItem != null ? x.CustomerOrderItem.Count() : 0
+                    var activeOrderItems = GetActiveOrderItems(x.CustomerOrderItem);
+                    return new
+                    {
+                        OrderCode = x.OrderCode ?? "",
+                        InsertDate = x.InsertDate,
+                        OrderType = x.OrderType ?? "",
+                        PaymentMethod = x.PaymentMethod ?? "",
+                        OrderPrice = activeOrderItems.Sum(item => item.SellingPrice * item.Quantity),
+                        DiscountAmount = x.DiscountAmount ?? 0,
+                        OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
+                        ItemsCount = activeOrderItems.Count
+                    };
                 })
                 .ToList();
 
@@ -4362,8 +4451,7 @@ namespace RestaurantPOS.Controllers
             var customerOrdersQuery = _dbConfig.CustomerOrders
                 .Where(x => x.IsDeleted == false && (x.InsertByUserId == userId ||  x.User.InsertByUserId == userId));
 
-            var orderItemsQuery = _dbConfig.CustomerOrderItems
-                .Where(x => x.CustomerOrder!.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+            var orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId);
 
 
           
@@ -4418,8 +4506,7 @@ namespace RestaurantPOS.Controllers
                 var customerOrdersQuery = _dbConfig.CustomerOrders
                     .Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
 
-                var orderItemsQuery = _dbConfig.CustomerOrderItems
-                    .Where(x => x.CustomerOrder!.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+                var orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user.InsertByUserId);
 
                 var totalItems = customerOrdersQuery.Count();
 
@@ -4473,11 +4560,8 @@ namespace RestaurantPOS.Controllers
                 var today = DateTime.Today;
 
                 // Orders Statistics
-                var customerOrdersQuery = _dbConfig.CustomerOrders
-                    .Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.User.InsertByUserId == userId));
-
-                var orderItemsQuery = _dbConfig.CustomerOrderItems
-                    .Where(x => x.CustomerOrder!.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+                var customerOrdersQuery = QueryActiveOrdersForCommercial(userId);
+                var orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId);
 
                 // Items Statistics
                 var itemsQuery = _dbConfig.Items
@@ -4491,19 +4575,18 @@ namespace RestaurantPOS.Controllers
                 var tagsQuery = _dbConfig.Tags
                     .Where(x => x.IsDeleted == false);
 
-                // Sales Amount
+                // Sales Amount — one total per order (avoids counting replaced line items)
                 decimal CalculateSalesAmount(DateTime startDate, DateTime endDate)
                 {
-                    return orderItemsQuery
-                        .Where(x => x.CustomerOrder != null &&
-                                    x.CustomerOrder.InsertDate.Date >= startDate &&
-                                    x.CustomerOrder.InsertDate.Date <= endDate)
-                        .Sum(x => x.Quantity * x.SellingPrice);
+                    return SumOrdersSalesAmount(
+                        customerOrdersQuery.Where(x =>
+                            x.InsertDate.Date >= startDate &&
+                            x.InsertDate.Date <= endDate));
                 }
 
                 decimal TotalAmount()
                 {
-                    return orderItemsQuery.Sum(x => x.Quantity * x.SellingPrice);
+                    return SumOrdersSalesAmount(customerOrdersQuery);
                 }
 
                 var stats = new
@@ -4578,11 +4661,9 @@ namespace RestaurantPOS.Controllers
                 var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
                 var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
-                var orderItemsQuery = _dbConfig.CustomerOrderItems
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId)
                     .Include(x => x.Item)
-                    .Include(x => x.CustomerOrder)
-                    .Where(x => x.CustomerOrder!.IsDeleted == false && 
-                                (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+                    .Include(x => x.CustomerOrder);
 
                 if (startDate.HasValue)
                 {
@@ -4644,29 +4725,52 @@ namespace RestaurantPOS.Controllers
 
         [AuthorizeSection("reports", Roles = "Commercial,Admin")]
         [HttpGet("GetTopSellingItems")]
-        public ActionResult<GlobalResponse<object>> GetTopSellingItems(int topCount = 10, DateTime? startDate = null, DateTime? endDate = null)
+        public ActionResult<GlobalResponse<object>> GetTopSellingItems(
+            int topCount = 10,
+            DateTime? startDate = null,
+            DateTime? endDate = null,
+            string? orderType = null,
+            string? paymentMethod = null)
         {
             try
             {
                 var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
                 var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
-                var orderItemsQuery = _dbConfig.CustomerOrderItems
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId)
                     .Include(x => x.Item)
-                    .Include(x => x.CustomerOrder)
-                    .Where(x => x.CustomerOrder!.IsDeleted == false && 
-                                (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+                    .Include(x => x.CustomerOrder);
 
-                if (startDate.HasValue)
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
                 {
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date >= startDate.Value.Date);
+                    orderItemsQuery = orderItemsQuery.Where(x =>
+                        x.CustomerOrder != null &&
+                        x.CustomerOrder.InsertDate >= fromUtc &&
+                        x.CustomerOrder.InsertDate < toUtcEx);
                 }
 
-                if (endDate.HasValue)
+                if (!string.IsNullOrEmpty(orderType))
                 {
-                    endDate = endDate.Value.AddDays(1);
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date < endDate.Value.Date);
+                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.OrderType == orderType);
                 }
+
+                if (!string.IsNullOrEmpty(paymentMethod))
+                {
+                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.PaymentMethod == paymentMethod);
+                }
+
+                var summary = new TopSellingItemsSummaryDto
+                {
+                    TotalQuantitySold = orderItemsQuery.Sum(x => (int?)x.Quantity) ?? 0,
+                    TotalSales = orderItemsQuery.Sum(x => (decimal?)(x.SellingPrice * x.Quantity)) ?? 0m,
+                    TotalDistinctItems = orderItemsQuery.Select(x => x.ItemId).Distinct().Count(),
+                    TotalOrders = orderItemsQuery.Select(x => x.CustomerOrderId).Distinct().Count()
+                };
+
+                if (topCount < 1)
+                    topCount = 10;
+                if (topCount > 500)
+                    topCount = 500;
 
                 var topItems = orderItemsQuery
                     .GroupBy(x => new { x.ItemId, x.Item.Name, x.Item.Code })
@@ -4685,7 +4789,7 @@ namespace RestaurantPOS.Controllers
 
                 return Ok(new GlobalResponse<object>
                 {
-                    Data = topItems,
+                    Data = new { items = topItems, summary },
                     ErrorStatus = false,
                     Message = "Success"
                 });
@@ -4712,11 +4816,9 @@ namespace RestaurantPOS.Controllers
                 var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
                 var commercialUserId = GetCommercialUserId();
 
-                var orderItemsQuery = _dbConfig.CustomerOrderItems
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId)
                     .Include(x => x.Item)
-                    .Include(x => x.CustomerOrder)
-                    .Where(x => x.CustomerOrder!.IsDeleted == false && 
-                                (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+                    .Include(x => x.CustomerOrder);
 
                 if (startDate.HasValue)
                 {
@@ -4907,8 +5009,8 @@ namespace RestaurantPOS.Controllers
                         employeeId = g.Key.InsertByUserId,
                         employeeName = g.Key.Username,
                         totalOrders = g.Count(),
-                        totalSales = g.SelectMany(o => o.CustomerOrderItem).Sum(x => x.SellingPrice * x.Quantity),
-                        totalItemsSold = g.SelectMany(o => o.CustomerOrderItem).Sum(x => x.Quantity)
+                        totalSales = g.SelectMany(o => o.CustomerOrderItem.Where(i => !i.IsDeleted)).Sum(x => x.SellingPrice * x.Quantity),
+                        totalItemsSold = g.SelectMany(o => o.CustomerOrderItem.Where(i => !i.IsDeleted)).Sum(x => x.Quantity)
                     })
                     .OrderByDescending(x => x.totalSales)
                     .ToList();

@@ -88,7 +88,10 @@ namespace RestaurantPOS.Controllers
                 .OrderBy(r => r.ReservationDateTime);
 
             var totalItems = await reservations.CountAsync();
-            var reservationsList = await reservations.ToListAsync();
+            var reservationsList = await reservations
+                .Skip(pageNumber * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
 
             var pagedResult = new PagedList<Reservation>(reservationsList, totalItems, pageNumber, pageSize);
 

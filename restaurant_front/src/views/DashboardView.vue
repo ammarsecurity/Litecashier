@@ -521,6 +521,7 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "../http/api.js";
+import { formatBusinessDateTime } from "@/utils/formatBusinessDateTime.js";
 export default {
   name: "DashboardView",
   components: {
@@ -856,14 +857,7 @@ export default {
     },
     formatDate(dateString) {
       if (!dateString) return '-';
-      const date = new Date(dateString);
-      return date.toLocaleDateString('ar-EG', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      return formatBusinessDateTime(dateString);
     },
     formatPrice(price) {
       if (price !== null && price !== undefined && !isNaN(price)) {

@@ -230,21 +230,21 @@
                         </div>
                       </template>
                       <template v-if="mergedTableIds.length > 1">
-                        <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" @click="addOrderAndClear(true)">
+                        <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" :disabled="orderPersisting" @click="addOrderAndClear(true)">
                           <b-icon icon="check-circle-fill"></b-icon>
                           <span>{{ $t("saveForAllMergedTables") || "حفظ لجميع الطاولات" }}</span>
                         </button>
-                        <button class="pos-table-action-btn pos-table-action-save-print" v-if="carditems.length > 0" @click="addOrderAndClear(false)">
+                        <button class="pos-table-action-btn pos-table-action-save-print" v-if="carditems.length > 0" :disabled="orderPersisting" @click="addOrderAndClear(false)">
                           <b-icon icon="printer-fill"></b-icon>
                           <span>{{ $t("saveAndPrint") || "حفظ وطباعة" }}</span>
                         </button>
                       </template>
                       <template v-else>
-                        <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" @click="addOrderAndClear(true)">
+                        <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" :disabled="orderPersisting" @click="addOrderAndClear(true)">
                           <b-icon icon="check-circle-fill"></b-icon>
                           <span>{{ $t("save") || "حفظ" }}</span>
                         </button>
-                        <button class="pos-table-action-btn pos-table-action-save-print" v-if="carditems.length > 0" @click="addOrderAndClear(false)">
+                        <button class="pos-table-action-btn pos-table-action-save-print" v-if="carditems.length > 0" :disabled="orderPersisting" @click="addOrderAndClear(false)">
                           <b-icon icon="printer-fill"></b-icon>
                           <span>{{ $t("saveAndPrint") || "حفظ وطباعة" }}</span>
                         </button>
@@ -1530,6 +1530,7 @@ import {
 } from "@/utils/tagHierarchy.js";
 import { resolveFloorPlanOverlaps } from "@/utils/floorPlanLayout.js";
 import posOrderPersistMixin from "@/mixins/posOrderPersistMixin.js";
+import { findCartLineIndex, mergeCartLines } from "@/utils/mergeCartLines.js";
 // import store from '../store/store'; // Adjust the path based on your actual folder structure
 
 export default {
@@ -2906,7 +2907,7 @@ export default {
             if (order.customerOrderItem) {
               order.customerOrderItem.forEach(orderItem => {
                 if (orderItem.item && !orderItem.isDeleted) {
-                  // Keep one UI line per order item to support "transfer single line item" accurately.
+                  // One cart line per DB row; duplicate rows are merged after load.
                   const sellingPrice = orderItem.sellingPrice || 0;
                   const discountPrice = orderItem.item.disCountPrice || 0;
                   const finalPrice = (discountPrice > 0 && discountPrice !== sellingPrice) ? discountPrice : sellingPrice;
@@ -2930,6 +2931,7 @@ export default {
             }
           });
 
+          this.carditems = mergeCartLines(this.carditems);
           this.syncPrintedCartBaselineFromCart();
           
           this.selectedTableId = table.id;
@@ -4050,7 +4052,7 @@ export default {
           }
         
         // Check if item already exists in cart
-        const existingItemIndex = this.carditems.findIndex(cartItem => cartItem.id === item.id);
+        const existingItemIndex = findCartLineIndex(this.carditems, item.id);
         
         if (existingItemIndex !== -1) {
           // Item exists, increment quantity

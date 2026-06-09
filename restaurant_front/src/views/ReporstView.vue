@@ -278,6 +278,74 @@
                             </div>
                         </div>
 
+                        <div class="app-overview-grid reports-orders-summary">
+                            <div class="app-overview-stat">
+                                <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                                    <b-icon icon="receipt-cutoff"></b-icon>
+                                </span>
+                                <div>
+                                    <div class="app-overview-stat-value">{{ ordersSummary.totalOrders || 0 }}</div>
+                                    <div class="app-overview-stat-label">{{ $t('totalOrders') || 'إجمالي الفواتير' }}</div>
+                                </div>
+                            </div>
+                            <div class="app-overview-stat">
+                                <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                                    <b-icon icon="calculator"></b-icon>
+                                </span>
+                                <div>
+                                    <div class="app-overview-stat-value app-overview-stat-value--text">
+                                        {{ formatPrice(ordersSummary.totalSubTotal || 0) }} {{ $t('currency') }}
+                                    </div>
+                                    <div class="app-overview-stat-label">{{ $t('subtotal') || 'المجموع قبل الخصم' }}</div>
+                                </div>
+                            </div>
+                            <div class="app-overview-stat">
+                                <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                                    <b-icon icon="percent"></b-icon>
+                                </span>
+                                <div>
+                                    <div class="app-overview-stat-value app-overview-stat-value--text">
+                                        {{ formatPrice(ordersSummary.totalDiscount || 0) }} {{ $t('currency') }}
+                                    </div>
+                                    <div class="app-overview-stat-label">{{ $t('discountLabel') || 'الخصم' }}</div>
+                                </div>
+                            </div>
+                            <div class="app-overview-stat">
+                                <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                                    <b-icon icon="currency-dollar"></b-icon>
+                                </span>
+                                <div>
+                                    <div class="app-overview-stat-value app-overview-stat-value--text">
+                                        {{ formatPrice(ordersSummary.totalSales || 0) }} {{ $t('currency') }}
+                                    </div>
+                                    <div class="app-overview-stat-label">{{ $t('totalSales') || 'إجمالي المبيعات' }}</div>
+                                </div>
+                            </div>
+                            <div class="app-overview-stat">
+                                <span class="app-overview-stat-icon app-overview-stat-icon--danger">
+                                    <b-icon icon="box-seam"></b-icon>
+                                </span>
+                                <div>
+                                    <div class="app-overview-stat-value">{{ ordersSummary.totalItemsSold || 0 }}</div>
+                                    <div class="app-overview-stat-label">{{ $t('totalItemsSold') || 'المواد المباعة' }}</div>
+                                </div>
+                            </div>
+                            <div class="app-overview-stat">
+                                <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                                    <b-icon icon="graph-up-arrow"></b-icon>
+                                </span>
+                                <div>
+                                    <div class="app-overview-stat-value app-overview-stat-value--text">
+                                        {{ formatPrice(ordersSummary.averageOrderValue || 0) }} {{ $t('currency') }}
+                                    </div>
+                                    <div class="app-overview-stat-label">{{ $t('averageOrderValue') || 'متوسط قيمة الفاتورة' }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <p v-if="ordersReportPeriodColumn" class="reports-orders-summary-period">
+                            {{ $t('reportDateRange') || 'فترة التقرير' }}: {{ ordersReportPeriodColumn }}
+                        </p>
+
                         <!-- Orders Table -->
                         <div class="report-table-container">
                             <b-table
@@ -427,6 +495,52 @@
                                     {{ $t('downloadExcel') || 'تحميل Excel' }}
                                 </button>
                             </div>
+                            <div class="app-overview-grid reports-orders-summary">
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                                        <b-icon icon="currency-dollar"></b-icon>
+                                    </span>
+                                    <div>
+                                        <div class="app-overview-stat-value app-overview-stat-value--text">
+                                            {{ formatPrice(topSellingItemsSummary.totalSales) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label">{{ $t('totalSales') || 'إجمالي المبيعات' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--danger">
+                                        <b-icon icon="box-seam"></b-icon>
+                                    </span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ topSellingItemsSummary.totalQuantitySold || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('totalQuantitySold') || 'الكمية المباعة' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                                        <b-icon icon="grid-3x3-gap"></b-icon>
+                                    </span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ topSellingItemsSummary.totalDistinctItems || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('distinctItemsCount') || 'عدد الأصناف' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                                        <b-icon icon="receipt-cutoff"></b-icon>
+                                    </span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ topSellingItemsSummary.totalOrders || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('totalOrders') || 'عدد الطلبات' }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p v-if="advancedReportsPeriodColumn" class="reports-orders-summary-period">
+                                {{ $t('reportDateRange') || 'فترة التقرير' }}: {{ advancedReportsPeriodColumn }}
+                            </p>
+                            <p class="reports-orders-summary-period reports-summary-note">
+                                {{ $t('topSellingGrandTotalHint') || 'المجموع الكلي لجميع الأصناف المباعة في الفترة (وليس أعلى 10 فقط)' }}
+                            </p>
                             <div class="report-table-container">
                                 <b-table
                                     :items="topSellingItemsForTable"
@@ -1166,6 +1280,7 @@ import AppHeader from "@/components/Layout/AppHeader.vue";
 import ClockVue from "@/components/ClockVue.vue";
 import VueBarcode from "@chenfengyuan/vue-barcode";
 import { HTTP } from '../http/api.js';
+import { formatBusinessDateTime } from '@/utils/formatBusinessDateTime.js';
 export default {
     name: "OrdersView",
     components: {
@@ -1182,6 +1297,14 @@ export default {
             pageNumber: 1,
             totalOrders: 0,
             pageSize: 18,
+            ordersSummary: {
+                totalOrders: 0,
+                totalSubTotal: 0,
+                totalDiscount: 0,
+                totalSales: 0,
+                totalItemsSold: 0,
+                averageOrderValue: 0,
+            },
             search: {
                 info: "",
                 startDate: "",
@@ -1212,6 +1335,12 @@ export default {
             // Advanced Reports Data
             profitReport: {},
             topSellingItems: [],
+            topSellingItemsSummary: {
+                totalQuantitySold: 0,
+                totalSales: 0,
+                totalDistinctItems: 0,
+                totalOrders: 0,
+            },
             salesByCategory: [],
             salesByEmployee: [],
             returnedItems: [],
@@ -1713,6 +1842,8 @@ export default {
                 if (this.searchTimer) {
                     clearTimeout(this.searchTimer);
                 }
+
+                this.pageNumber = 1;
                 
                 // Set new timer - wait 500ms after user stops typing
                 this.searchTimer = setTimeout(() => {
@@ -1873,14 +2004,7 @@ export default {
             return true;
         },
         formatDate(dateTime) {
-            if (dateTime == null || dateTime === "") return "";
-            const s = String(dateTime);
-            if (!s.includes("T")) {
-                return (s.split(" ")[0] || s).trim();
-            }
-            const [date, timePart] = s.split("T");
-            const time = timePart ? timePart.split(".")[0] : "";
-            return time ? `${date} ${time}` : date;
+            return formatBusinessDateTime(dateTime);
         },
         /** عرض نطاق التواريخ المختار في تقارير الجداول */
         formatReportPeriod(startStr, endStr) {
@@ -2227,7 +2351,7 @@ export default {
         },
 
         showItemsModel(items, order) {
-            this.customerOrderItem = items;
+            this.customerOrderItem = (items || []).filter((item) => !item.isDeleted);
             this.order = order;
             this.$bvModal.show("modal-itemList");
         },
@@ -2251,7 +2375,7 @@ export default {
                 notes: order.notes || '',
                 discountType: order.discountType || null,
                 discountValue: order.discountValue ?? null,
-                items: order.customerOrderItem ? order.customerOrderItem.map(item => ({
+                items: order.customerOrderItem ? order.customerOrderItem.filter((item) => !item.isDeleted).map(item => ({
                     id: item.item?.id || item.itemId,
                     name: item.item?.name || '',
                     code: item.item?.code || '',
@@ -2417,6 +2541,15 @@ export default {
                 .then((response) => {
                     this.Orders = response.data.data.items;
                     this.totalOrders = response.data.data.totalItems;
+                    const summary = response.data.data.summary;
+                    this.ordersSummary = {
+                        totalOrders: summary?.totalOrders ?? 0,
+                        totalSubTotal: summary?.totalSubTotal ?? 0,
+                        totalDiscount: summary?.totalDiscount ?? 0,
+                        totalSales: summary?.totalSales ?? 0,
+                        totalItemsSold: summary?.totalItemsSold ?? 0,
+                        averageOrderValue: summary?.averageOrderValue ?? 0,
+                    };
                     this.show = false;
                 })
                 .catch((error) => {
@@ -2510,7 +2643,16 @@ export default {
             
             HTTP.get(`Admin/GetTopSellingItems?${params.toString()}`)
                 .then((response) => {
-                    this.topSellingItems = response.data.data || [];
+                    const payload = response.data.data;
+                    const items = Array.isArray(payload) ? payload : (payload?.items || []);
+                    const summary = payload?.summary;
+                    this.topSellingItems = items;
+                    this.topSellingItemsSummary = {
+                        totalQuantitySold: summary?.totalQuantitySold ?? 0,
+                        totalSales: summary?.totalSales ?? 0,
+                        totalDistinctItems: summary?.totalDistinctItems ?? 0,
+                        totalOrders: summary?.totalOrders ?? 0,
+                    };
                     this.show = false;
                 })
                 .catch((error) => {
@@ -2712,7 +2854,9 @@ export default {
                     if (this.reportFilters.orderType) params.append('orderType', this.reportFilters.orderType);
                     if (this.reportFilters.paymentMethod) params.append('paymentMethod', this.reportFilters.paymentMethod);
                     const res = await HTTP.get(`Admin/GetTopSellingItems?${params.toString()}`);
-                    const list = res.data?.data || [];
+                    const payload = res.data?.data;
+                    const list = Array.isArray(payload) ? payload : (payload?.items || []);
+                    const summary = payload?.summary;
                     if (!list.length) {
                         this.$toast.info(this.$t('noDataToExport') || 'لا توجد بيانات للتصدير', { position: 'top-right', timeout: 3000 });
                     } else {
@@ -2722,6 +2866,18 @@ export default {
                         list.forEach((item, i) => {
                             csv += [period, i + 1, item.itemName || '', item.itemCode || '', item.totalQuantitySold ?? '', item.totalSales ?? '', item.orderCount ?? '', item.totalQuantitySold ? (item.totalSales / item.totalQuantitySold) : ''].map(this.csvEscape).join(',') + '\r\n';
                         });
+                        if (summary) {
+                            csv += [
+                                period,
+                                this.$t('grandTotal') || 'المجموع الكلي',
+                                '',
+                                '',
+                                summary.totalQuantitySold ?? '',
+                                summary.totalSales ?? '',
+                                summary.totalOrders ?? '',
+                                ''
+                            ].map(this.csvEscape).join(',') + '\r\n';
+                        }
                         this.downloadCsv(csv, `top_selling_items_${dateStr}.csv`);
                     }
                 } else if (this.activeTab === 'byCategory') {

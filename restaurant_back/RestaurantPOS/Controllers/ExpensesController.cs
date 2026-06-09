@@ -98,12 +98,14 @@ namespace RestaurantPOS.Controllers
 
                 var totalItems = await query.CountAsync();
                 
-                var allExpenses = await query
+                var pagedExpenses = await query
                     .OrderByDescending(e => e.Date)
                     .ThenByDescending(e => e.InsertDate)
+                    .Skip(pageNumber * pageSize)
+                    .Take(pageSize)
                     .ToListAsync();
 
-                var pagedList = new PagedList<Expense>(allExpenses, totalItems, pageNumber, pageSize);
+                var pagedList = new PagedList<Expense>(pagedExpenses, totalItems, pageNumber, pageSize);
 
                 return Ok(new GlobalResponse<PagedList<Expense>>
                 {

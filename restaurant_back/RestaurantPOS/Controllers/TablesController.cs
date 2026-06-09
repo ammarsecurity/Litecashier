@@ -103,7 +103,10 @@ namespace RestaurantPOS.Controllers
             if (pageSize > 500) pageSize = 500;
 
             var totalItems = await query.CountAsync();
-            var tables = await query.ToListAsync();
+            var tables = await query
+                .Skip(pageNumber * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
 
             var pagedResult = new PagedList<Table>(tables, totalItems, pageNumber, pageSize);
 

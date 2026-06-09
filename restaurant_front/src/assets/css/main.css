@@ -4987,6 +4987,11 @@ table .b-icon,
   line-height: 1.2;
 }
 
+.app-overview-stat-value--text {
+  font-size: 1.05rem;
+  word-break: break-word;
+}
+
 .app-overview-stat-label {
   font-size: 0.72rem;
   color: var(--text-secondary);
@@ -5213,6 +5218,25 @@ table .b-icon,
 
 .reports-page-content .reports-tabs {
   justify-content: flex-start;
+}
+
+.reports-page-content .reports-orders-summary {
+  margin: 1rem 0 0.5rem;
+}
+
+.reports-page-content .reports-orders-summary .app-overview-stat {
+  min-height: 5.5rem;
+}
+
+.reports-page-content .reports-orders-summary-period {
+  margin: 0 0 1.25rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.reports-page-content .reports-summary-note {
+  margin-top: -0.75rem;
+  font-style: italic;
 }
 
 @media (max-width: 768px) {
