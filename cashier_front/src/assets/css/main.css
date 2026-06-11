@@ -10255,7 +10255,7 @@ table .b-icon,
 
 .pos-category-btn-active {
   border-color: transparent;
-  background: linear-gradient(145deg, #22d3ee 0%, #0891b2 38%, #0e7490 72%, #0c6b84 100%);
+  background: linear-gradient(145deg, #22d3ee 0%, #0891b2 38%, #0e7490 72%, #0c6b84 100%) !important;
   color: #ffffff;
   font-weight: 700;
   box-shadow:
@@ -10303,7 +10303,7 @@ table .b-icon,
 }
 
 .pos-category-btn.pos-category-btn-accent.pos-category-btn-active {
-  background: linear-gradient(145deg, #67e8f9 0%, #22d3ee 35%, #0891b2 70%, #0e7490 100%);
+  background: linear-gradient(145deg, #22d3ee 0%, #0891b2 38%, #0e7490 72%, #0c6b84 100%) !important;
   border-color: transparent;
 }
 

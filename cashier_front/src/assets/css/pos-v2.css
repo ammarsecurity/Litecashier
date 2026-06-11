@@ -2353,8 +2353,9 @@
 }
 
 :root.light-theme .pos-kbd {
-  background: rgba(241, 245, 249, 0.9);
+  background: rgb(12 39 65 / 90%);
   border-color: var(--border-color);
+  color: #f1f5f9;
 }
 
 .pos-cart-header.pos-cart-flash {
