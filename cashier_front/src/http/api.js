@@ -1,12 +1,11 @@
 import axios from "axios";
 
 export const HTTP = axios.create({
-    // baseURL: `https://pos-api.tatwer.tech/`,
-    // Use http://localhost:5189 for development (non-SSL) or https://localhost:7216 (SSL)
-    baseURL: process.env.NODE_ENV === 'production' 
-        ? `https://pos-api.tanfeeth-iq.tech/` 
-        : `https://pos-api.tanfeeth-iq.tech/`, // Changed to http for local development
-    timeout: 30000, // 30 seconds timeout
+    baseURL: process.env.VUE_APP_API_URL ||
+        (process.env.NODE_ENV === 'production'
+            ? `https://pos-api.tanfeeth-iq.tech/`
+            : `https://pos-api.tanfeeth-iq.tech/`),
+    timeout: 30000,
 });
 
 // إضافة Interceptor لتحديث Authorization Header
@@ -40,6 +39,7 @@ HTTP.interceptors.response.use(
                     localStorage.removeItem('token');
                     localStorage.removeItem('role');
                     localStorage.removeItem('info');
+                    localStorage.removeItem('allowedSections');
                     // Redirect to login if not already there
                     if (window.location.pathname !== '/login') {
                         window.location.href = '/login';

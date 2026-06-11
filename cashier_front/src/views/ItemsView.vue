@@ -6,7 +6,7 @@
     spinner-large
     rounded="sm"
   >
-    <SidebarView />
+    <AppHeader />
     <div class="main-content-wrapper">
       <div class="users-page-container">
         <div class="users-page-content">
@@ -35,7 +35,7 @@
           </div>
 
           <!-- Items Table -->
-          <div class="items-table-container">
+          <div class="items-table-container report-table-container">
             <b-table
               :items="Items"
               :fields="itemFields"
@@ -72,27 +72,30 @@
               </template>
 
               <template #cell(actions)="row">
-                <div class="item-actions-cell">
-                  <button 
-                    class="item-action-btn edit-btn" 
+                <div class="actions-cell">
+                  <button
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--edit"
                     @click="getItemInfo(row.item)"
                     :title="$t('editButtonLabel')"
                   >
-                    <b-icon icon="pencil-fill"></b-icon>
+                    <b-icon icon="pencil-fill" class="action-icon"></b-icon>
                   </button>
-                  <button 
-                    class="item-action-btn print-btn" 
+                  <button
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--print"
                     @click="printListOfCode(row.item, 30)"
                     :title="$t('printCodeButtonLabel')"
                   >
-                    <b-icon icon="printer-fill"></b-icon>
+                    <b-icon icon="printer-fill" class="action-icon"></b-icon>
                   </button>
-                  <button 
-                    class="item-action-btn delete-btn" 
+                  <button
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--delete"
                     @click="deleteItemModel(row.item.id)"
                     :title="$t('deleteButtonLabel')"
                   >
-                    <b-icon icon="trash-fill"></b-icon>
+                    <b-icon icon="trash-fill" class="action-icon"></b-icon>
                   </button>
                 </div>
               </template>
@@ -491,7 +494,7 @@
   </b-overlay>
 </template>
 <script>
-import SidebarView from "@/components/Layout/SidebarView.vue";
+import AppHeader from "@/components/Layout/AppHeader.vue";
 import ClockVue from "@/components/ClockVue.vue";
 import VueBarcode from "@chenfengyuan/vue-barcode";
 
@@ -499,7 +502,7 @@ import { HTTP } from "../http/api.js";
 export default {
   name: "ItemsView",
   components: {
-    SidebarView,
+    AppHeader,
     ClockVue,
     "vue-barcode": VueBarcode,
   },
@@ -627,7 +630,7 @@ export default {
           this.tags = response.data.data.items;
         })
         .catch((error) => {
-          this.$toast.error(this.$i18n.t("error"), {
+          this.$notify.error(this.$i18n.t("error"), {
             position: "top-right",
             timeout: 4000,
           });
@@ -733,7 +736,7 @@ export default {
 
       HTTP.post(`Admin/AddItem`, formData)
         .then((response) => {
-          this.$toast.success(this.$i18n.t("addItemToOrderSucsses"), {
+          this.$notify.success(this.$i18n.t("addItemToOrderSucsses"), {
             position: "top-right",
             timeout: 4000,
             closeOnClick: true,
@@ -762,7 +765,7 @@ export default {
         })
         .catch((error) => {
           this.show = false;
-          this.$toast.error(this.$i18n.t("error"), {
+          this.$notify.error(this.$i18n.t("error"), {
             position: "top-right",
             timeout: 4000,
             closeOnClick: true,
@@ -794,7 +797,7 @@ export default {
       HTTP.put(`Admin/UpdateItem?id=${this.editForm.id}`, formData)
         .then((response) => {
           this.show = false;
-          this.$toast.success(this.$i18n.t("itemHadbeenEditSuccessfully"), {
+          this.$notify.success(this.$i18n.t("itemHadbeenEditSuccessfully"), {
             position: "top-right",
             timeout: 4000,
             closeOnClick: true,
@@ -815,7 +818,7 @@ export default {
         })
         .catch((error) => {
           this.show = false;
-          this.$toast.error(this.$i18n.t("somethingWrong"), {
+          this.$notify.error(this.$i18n.t("somethingWrong"), {
             position: "top-right",
             timeout: 4000,
             closeOnClick: true,
@@ -836,7 +839,7 @@ export default {
       HTTP.delete(`Admin/DeleteItem?id=${this.itemId}`)
         .then((response) => {
           this.show = false;
-          this.$toast.success(this.$i18n.t("somethingWrong"), {
+          this.$notify.success(this.$i18n.t("somethingWrong"), {
             position: "top-right",
             timeout: 4000,
             closeOnClick: true,
@@ -854,7 +857,7 @@ export default {
         })
         .catch((error) => {
           this.show = false;
-          this.$toast.error(this.$i18n.t("somethingWrong"), {
+          this.$notify.error(this.$i18n.t("somethingWrong"), {
             position: "top-right",
             timeout: 4000,
             closeOnClick: true,
@@ -914,10 +917,6 @@ export default {
 
 <style scoped>
 .items-table-container {
-  background: #ffffff;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
   margin-top: 1.5rem;
 }
 
@@ -925,25 +924,9 @@ export default {
   margin: 0;
 }
 
-.items-table >>> thead th {
-  background-color: #f9fafb;
-  color: #374151;
-  font-weight: 600;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 1rem;
-  border-bottom: 2px solid #e5e7eb;
-}
-
-.items-table >>> tbody td {
-  padding: 1rem;
-  vertical-align: middle;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.items-table >>> tbody tr:hover {
-  background-color: #f9fafb;
+.items-table >>> thead th .sr-only,
+.items-table >>> thead th .visually-hidden {
+  display: none !important;
 }
 
 .item-image-column {
@@ -993,62 +976,6 @@ export default {
 .item-tags-text {
   color: var(--text-muted);
   font-size: 0.875rem;
-}
-
-.item-actions-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.item-action-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
-}
-
-.item-action-btn.edit-btn {
-  background-color: #eff6ff;
-  color: #2563eb;
-}
-
-.item-action-btn.edit-btn:hover {
-  background-color: #2563eb;
-  color: white;
-  transform: scale(1.05);
-}
-
-.item-action-btn.print-btn {
-  background-color: #f0f9ff;
-  color: #0284c7;
-}
-
-.item-action-btn.print-btn:hover {
-  background-color: #0284c7;
-  color: white;
-  transform: scale(1.05);
-}
-
-.item-action-btn.delete-btn {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-.item-action-btn.delete-btn:hover {
-  background-color: #991b1b;
-  color: white;
-  transform: scale(1.05);
-}
-
-.item-action-btn:active {
-  transform: scale(0.95);
 }
 
 .pagination-container {

@@ -1,16 +1,21 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace POS.Models.Requests
 {
     public class UserRequest
     {
-        [Required]  
+        [Required]
         public required string Name { get; set; }
         [Required]
         public required string PhoneNumber { get; set; }
-        [Required]
-        public required string Password { get; set; }
+        public string? Password { get; set; }
         public required string Username { get; set; }
         public required string Role { get; set; }
+        public IFormFile? Logo { get; set; }
+        public string? StoreName { get; set; }
+        public string? LoginCode { get; set; }
+        public string? AllowedSectionsJson { get; set; }
+        public bool? CanUseOwnLoginCodeForSensitiveActions { get; set; }
     }
 }

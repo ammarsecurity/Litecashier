@@ -1,17 +1,46 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
 using POS.Models;
-using System.Security.Claims;
+using System.Text.Json;
 
 namespace POS.Db
 {
     public class DbConfig : DbContext
     {
-      ///  private readonly IHttpContextAccessor _httpContextAccessor;
-
         public DbConfig(DbContextOptions<DbConfig> options) : base(options)
         {
-       //     _httpContextAccessor = httpContextAccessor;
+        }
+
+        public async Task LogAuditAsync(string action, string entityType, int entityId, string? entityName, int userId, int commercialUserId, object? oldValues = null, object? newValues = null, string? description = null)
+        {
+            try
+            {
+                var auditLog = new AuditLog
+                {
+                    Action = action,
+                    EntityType = entityType,
+                    EntityId = entityId,
+                    EntityName = entityName,
+                    UserId = userId,
+                    CommercialUserId = commercialUserId,
+                    Description = description,
+                    InsertDate = DateTime.UtcNow,
+                    UpdateDate = DateTime.UtcNow,
+                    IsDeleted = false
+                };
+
+                if (oldValues != null)
+                    auditLog.OldValues = JsonSerializer.Serialize(oldValues);
+
+                if (newValues != null)
+                    auditLog.NewValues = JsonSerializer.Serialize(newValues);
+
+                AuditLogs.Add(auditLog);
+                await SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error logging audit: {ex.Message}");
+            }
         }
 
         public DbSet<User> Users { get; set; }
@@ -19,12 +48,18 @@ namespace POS.Db
         public DbSet<CustomerOrder> CustomerOrders { get; set; }
         public DbSet<CustomerOrderItem> CustomerOrderItems { get; set; }
         public DbSet<Item> Items { get; set; }
-
-
+        public DbSet<Printer> Printers { get; set; }
+        public DbSet<TagPrinter> TagPrinters { get; set; }
+        public DbSet<Expense> Expenses { get; set; }
+        public DbSet<ExpenseCategory> ExpenseCategories { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<Employee> Employees { get; set; }
+        public DbSet<StockMovement> StockMovements { get; set; }
+        public DbSet<Supplier> Suppliers { get; set; }
+        public DbSet<Customer> Customers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-
             modelBuilder.Entity<CustomerOrder>().HasMany(o => o.CustomerOrderItem);
             modelBuilder.Entity<CustomerOrderItem>().HasOne(r => r.CustomerOrder).WithMany(r => r.CustomerOrderItem).HasForeignKey(x => x.CustomerOrderId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<CustomerOrder>().HasOne(r => r.User).WithMany(r => r.CustomerOrders).HasForeignKey(x => x.InsertByUserId);
@@ -33,16 +68,31 @@ namespace POS.Db
             modelBuilder.Entity<Tag>().HasOne(r => r.User).WithMany(r => r.Tags).HasForeignKey(x => x.InsertByUserId);
             modelBuilder.Entity<User>().HasMany(r => r.Tags);
 
-
-
             modelBuilder.Entity<CustomerOrderItem>()
                    .HasOne(r => r.Item)
                    .WithMany(r => r.CustomerOrderItems)
                    .HasForeignKey(x => x.ItemId)
                    .OnDelete(DeleteBehavior.NoAction);
 
+            modelBuilder.Entity<Printer>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<TagPrinter>().HasOne(r => r.Tag).WithMany().HasForeignKey(x => x.TagId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<TagPrinter>().HasOne(r => r.Printer).WithMany().HasForeignKey(x => x.PrinterId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<TagPrinter>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Employee>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Employee>().HasOne(r => r.Tag).WithMany().HasForeignKey(x => x.TagId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<Expense>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Expense>().HasOne(r => r.Employee).WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<Expense>().HasOne(r => r.Tag).WithMany().HasForeignKey(x => x.TagId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<ExpenseCategory>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<AuditLog>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<AuditLog>().HasOne(r => r.CommercialUser).WithMany().HasForeignKey(x => x.CommercialUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<StockMovement>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Supplier>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Customer>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
 
-            modelBuilder.Entity<Tag>().HasOne(r => r.User).WithMany(r => r.Tags).HasForeignKey(x => x.InsertByUserId);
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.LoginCode)
+                .IsUnique();
 
             modelBuilder.Entity<User>().HasData(
                                new User
@@ -56,10 +106,8 @@ namespace POS.Db
                     InsertByUserId = 0
                          }
                      );
-
-     
-
         }
+
         public override int SaveChanges()
         {
             AddTimestamps();
@@ -76,8 +124,6 @@ namespace POS.Db
         {
             var entities = ChangeTracker.Entries().Where(x => x.Entity is BaseEntity && (x.State == EntityState.Added || x.State == EntityState.Modified));
 
-       //     string? currentUserId = _httpContextAccessor?.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
             foreach (var entity in entities)
             {
                 if (entity.State == EntityState.Added)
@@ -85,10 +131,8 @@ namespace POS.Db
                     ((BaseEntity)entity.Entity).InsertDate = DateTime.UtcNow;
                     ((BaseEntity)entity.Entity).IsDeleted = false;
                 }
-
                 else
                 {
-                    // Only update the UpdateDate property in the Modified state
                     ((BaseEntity)entity.Entity).UpdateDate = DateTime.UtcNow;
                 }
             }

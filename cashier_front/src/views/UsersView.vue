@@ -1,6 +1,6 @@
 <template>
     <b-overlay :show="show" spinner-variant="primary" spinner-type="grow" spinner-large rounded="sm">
-        <SidebarView />
+        <AppHeader />
         <div class="main-content-wrapper">
         <div class="users-page-container">
             <div class="users-page-content">
@@ -150,12 +150,92 @@
                         <select v-model="addForm.role" class="users-form-select">
                             <option v-if="role == 'Commercial'" value="POS">{{ $t('point_of_sale') }}</option>
                             <option v-if="role == 'Commercial'" value="Reader">{{ $t('price_reader') }}</option>
+                            <option v-if="role == 'Commercial'" value="Manager">{{ $t('managerRole') || 'مدير إدارة' }}</option>
                             <option v-if="role == 'Admin'" value="Commercial">{{ $t('commercial') }}</option>
                         </select>
                     </div>
+
+                    <div
+                        v-if="role == 'Commercial' && addForm.role == 'Manager'"
+                        class="users-form-group users-sections-picker"
+                    >
+                        <label class="users-form-label">
+                            <b-icon icon="grid-3x3-gap-fill" class="form-label-icon"></b-icon>
+                            {{ $t('sectionsPermissions') || 'صلاحيات الأقسام' }}
+                        </label>
+                        <p class="text-muted small mb-2">{{ $t('selectAtLeastOneSection') || 'اختر قسماً واحداً على الأقل' }}</p>
+                        <div class="users-sections-grid">
+                            <label
+                                v-for="key in assignableSectionKeys"
+                                :key="'add-sec-' + key"
+                                class="users-section-check"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :value="key"
+                                    v-model="addForm.allowedSections"
+                                />
+                                <span>{{ sectionLabel(key) }}</span>
+                            </label>
+                        </div>
+                        <div class="users-form-group mt-3">
+                            <label class="users-section-check d-flex align-items-start gap-2">
+                                <input
+                                    type="checkbox"
+                                    v-model="addForm.canUseOwnLoginCodeForSensitiveActions"
+                                />
+                                <span>{{ $t('managerCanUseOwnLoginCode') || 'يمكنه استخدام رمز الدخول الخاص به لتأكيد الإجراءات الحساسة' }}</span>
+                            </label>
+                        </div>
+                        <div
+                            v-if="addForm.canUseOwnLoginCodeForSensitiveActions"
+                            class="users-form-group"
+                        >
+                            <label class="users-form-label">
+                                <b-icon icon="shield-lock" class="form-label-icon"></b-icon>
+                                {{ $t('managerSensitiveLoginCodeLabel') || 'رمز تأكيد الإجراءات' }}
+                            </label>
+                            <input
+                                v-model="addForm.loginCode"
+                                type="password"
+                                inputmode="numeric"
+                                maxlength="12"
+                                autocomplete="off"
+                                :placeholder="$t('managerSensitiveLoginCodePlaceholder') || '4–12 رقماً'"
+                                class="users-form-input"
+                            />
+                        </div>
+                    </div>
                     
-                    <!-- Commercial User Fields (Only for Admin) -->
                     <template v-if="role == 'Admin' && addForm.role == 'Commercial'">
+                        <div class="users-form-group">
+                            <label class="users-form-label">
+                                <b-icon icon="shop" class="form-label-icon"></b-icon>
+                                {{ $t('storeName') || 'اسم المتجر' }}
+                            </label>
+                            <input
+                                v-model="addForm.storeName"
+                                type="text"
+                                class="users-form-input"
+                                :placeholder="$t('storeName') || 'اسم المتجر'"
+                            />
+                        </div>
+                        <div class="users-form-group">
+                            <label class="users-form-label">
+                                <b-icon icon="key-fill" class="form-label-icon"></b-icon>
+                                {{ $t('accountLoginCodeLabel') || 'رمز الحساب' }}
+                            </label>
+                            <input
+                                v-model="addForm.loginCode"
+                                type="text"
+                                inputmode="numeric"
+                                maxlength="12"
+                                autocomplete="off"
+                                :placeholder="$t('accountLoginCodeAdminPlaceholder') || 'اختياري: 4–12 رقماً'"
+                                class="users-form-input"
+                            />
+                            <small class="text-muted d-block mt-1">{{ $t('accountLoginCodeAdminHint') || 'يسمح لتاجر الحساب بتسجيل الدخول بهذا الرمز فقط دون هاتف وكلمة مرور' }}</small>
+                        </div>
                     </template>
                     
                     <div class="users-form-actions">
@@ -246,12 +326,93 @@
                             <template v-else-if="role == 'Commercial'">
                                 <option value="POS">{{ $t('point_of_sale') }}</option>
                                 <option value="Reader">{{ $t('price_reader') }}</option>
+                                <option value="Manager">{{ $t('managerRole') || 'مدير إدارة' }}</option>
                             </template>
                         </select>
+                    </div>
+
+                    <div
+                        v-if="role == 'Commercial' && editForm.role == 'Manager'"
+                        class="users-form-group users-sections-picker"
+                    >
+                        <label class="users-form-label">
+                            <b-icon icon="grid-3x3-gap-fill" class="form-label-icon"></b-icon>
+                            {{ $t('sectionsPermissions') || 'صلاحيات الأقسام' }}
+                        </label>
+                        <p class="text-muted small mb-2">{{ $t('selectAtLeastOneSection') || 'اختر قسماً واحداً على الأقل' }}</p>
+                        <div class="users-sections-grid">
+                            <label
+                                v-for="key in assignableSectionKeys"
+                                :key="'edit-sec-' + key"
+                                class="users-section-check"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :value="key"
+                                    v-model="editForm.allowedSections"
+                                />
+                                <span>{{ sectionLabel(key) }}</span>
+                            </label>
+                        </div>
+                        <div class="users-form-group mt-3">
+                            <label class="users-section-check d-flex align-items-start gap-2">
+                                <input
+                                    type="checkbox"
+                                    v-model="editForm.canUseOwnLoginCodeForSensitiveActions"
+                                />
+                                <span>{{ $t('managerCanUseOwnLoginCode') || 'يمكنه استخدام رمز الدخول الخاص به لتأكيد الإجراءات الحساسة' }}</span>
+                            </label>
+                        </div>
+                        <div
+                            v-if="editForm.canUseOwnLoginCodeForSensitiveActions"
+                            class="users-form-group"
+                        >
+                            <label class="users-form-label">
+                                <b-icon icon="shield-lock" class="form-label-icon"></b-icon>
+                                {{ $t('managerSensitiveLoginCodeLabel') || 'رمز تأكيد الإجراءات' }}
+                            </label>
+                            <input
+                                v-model="editForm.loginCode"
+                                type="password"
+                                inputmode="numeric"
+                                maxlength="12"
+                                autocomplete="off"
+                                :placeholder="$t('managerSensitiveLoginCodePlaceholder') || '4–12 رقماً'"
+                                class="users-form-input"
+                            />
+                        </div>
                     </div>
                     
                     <!-- Commercial User Fields (Only for Admin) -->
                     <template v-if="role == 'Admin' && editForm.role == 'Commercial'">
+                        <div class="users-form-group">
+                            <label class="users-form-label">
+                                <b-icon icon="shop" class="form-label-icon"></b-icon>
+                                {{ $t('storeName') || 'اسم المتجر' }}
+                            </label>
+                            <input
+                                v-model="editForm.storeName"
+                                type="text"
+                                class="users-form-input"
+                                :placeholder="$t('storeName') || 'اسم المتجر'"
+                            />
+                        </div>
+                        <div class="users-form-group">
+                            <label class="users-form-label">
+                                <b-icon icon="key-fill" class="form-label-icon"></b-icon>
+                                {{ $t('accountLoginCodeLabel') || 'رمز الحساب' }}
+                            </label>
+                            <input
+                                v-model="editForm.loginCode"
+                                type="text"
+                                inputmode="numeric"
+                                maxlength="12"
+                                autocomplete="off"
+                                :placeholder="$t('accountLoginCodeAdminEditPlaceholder') || 'اتركه فارغاً لإلغاء الرمز أو أدخل رقماً جديداً'"
+                                class="users-form-input"
+                            />
+                            <small class="text-muted d-block mt-1">{{ $t('accountLoginCodeAdminHint') || 'يسمح لتاجر الحساب بتسجيل الدخول بهذا الرمز فقط دون هاتف وكلمة مرور' }}</small>
+                        </div>
                     </template>
                     
                     <div class="users-form-actions">
@@ -295,14 +456,20 @@
     </b-overlay>
 </template>
 <script>
-import SidebarView from "@/components/Layout/SidebarView.vue";
+import AppHeader from "@/components/Layout/AppHeader.vue";
 import ClockVue from "@/components/ClockVue.vue";
 import VueBarcode from "@chenfengyuan/vue-barcode";
 import { HTTP } from '../http/api.js';
+import {
+    ASSIGNABLE_SECTION_KEYS,
+    SECTION_I18N_KEYS,
+    parseAllowedSectionsJson,
+} from "@/navigation/sectionRegistry.js";
+
 export default {
     name: "UsersView",
     components: {
-        SidebarView,
+        AppHeader,
         ClockVue,
         "vue-barcode": VueBarcode,
 
@@ -326,10 +493,13 @@ export default {
                 username: "",
                 role: "",
                 id: "",
-                restaurantName: "",
+                storeName: "",
+                loginCode: "",
                 logo: null,
                 logoPreview: null,
-                logoFile: null
+                logoFile: null,
+                allowedSections: [],
+                canUseOwnLoginCodeForSensitiveActions: false
             },
             addForm: {
                 name: "",
@@ -337,9 +507,12 @@ export default {
                 password: "",
                 username: "",
                 role: "",
-                restaurantName: "",
+                storeName: "",
+                loginCode: "",
                 logoFile: null,
-                logoPreview: null
+                logoPreview: null,
+                allowedSections: [],
+                canUseOwnLoginCodeForSensitiveActions: false
             },
             UserId: '',
         };
@@ -367,6 +540,9 @@ export default {
         role() {
             return localStorage.getItem("role");
         },
+        assignableSectionKeys() {
+            return ASSIGNABLE_SECTION_KEYS;
+        },
     },
 
     methods: {
@@ -375,9 +551,29 @@ export default {
                 'Admin': 'role-admin',
                 'Commercial': 'role-commercial',
                 'POS': 'role-pos',
-                'Reader': 'role-reader'
+                'Reader': 'role-reader',
+                'Manager': 'role-manager'
             };
             return roleClasses[role] || 'role-default';
+        },
+        sectionLabel(key) {
+            const i18nKey = SECTION_I18N_KEYS[key];
+            if (i18nKey && this.$te(i18nKey)) return this.$t(i18nKey);
+            return key;
+        },
+        appendManagerSections(formData, role, allowedSections, canUseOwnLoginCode, loginCode) {
+            if (role !== 'Manager') return;
+            formData.append(
+                'allowedSectionsJson',
+                JSON.stringify(Array.isArray(allowedSections) ? allowedSections : [])
+            );
+            formData.append(
+                'canUseOwnLoginCodeForSensitiveActions',
+                canUseOwnLoginCode ? 'true' : 'false'
+            );
+            if (loginCode && String(loginCode).trim()) {
+                formData.append('loginCode', String(loginCode).trim());
+            }
         },
         deleteUserModel(id) {
             this.UserId = id;
@@ -386,7 +582,7 @@ export default {
         getUserInfo(User) {
             // Check if Commercial user is trying to edit a Commercial user
             if (this.role === 'Commercial' && User.role === 'Commercial') {
-                this.$toast.error(this.$i18n.t('noPermissionToEditCommercial') || 'ليس لديك صلاحية لتعديل المستخدمين التجاريين. فقط المدير الرئيسي يمكنه ذلك', {
+                this.$notify.error(this.$i18n.t('noPermissionToEditCommercial') || 'ليس لديك صلاحية لتعديل المستخدمين التجاريين. فقط المدير الرئيسي يمكنه ذلك', {
                     position: "top-right",
                     timeout: 4000,
                     closeOnClick: true,
@@ -402,139 +598,144 @@ export default {
                 return;
             }
             
-            const imageBaseUrl = HTTP.defaults.baseURL?.replace('/api', '') || 'https://pos-api.tatwer.tech';
             this.editForm = {
                 ...User,
-                password: ''
+                storeName: User.storeName || User.StoreName || '',
+                password: '',
+                loginCode: '',
+                allowedSections: parseAllowedSectionsJson(
+                    User.allowedSectionsJson || User.AllowedSectionsJson
+                ),
+                canUseOwnLoginCodeForSensitiveActions: !!(
+                    User.canUseOwnLoginCodeForSensitiveActions ||
+                    User.CanUseOwnLoginCodeForSensitiveActions
+                )
             };
             this.$bvModal.show("modal-editUser");
         },
         addUser() {
+            if (
+                this.addForm.role === 'Manager' &&
+                (!this.addForm.allowedSections || !this.addForm.allowedSections.length)
+            ) {
+                this.$notify.error(this.$t('selectAtLeastOneSection') || 'اختر قسماً واحداً على الأقل');
+                return;
+            }
+            if (
+                this.addForm.role === 'Manager' &&
+                this.addForm.canUseOwnLoginCodeForSensitiveActions &&
+                !String(this.addForm.loginCode || '').trim()
+            ) {
+                this.$notify.error(this.$t('managerLoginCodeRequiredForSensitiveActions') || 'رمز التأكيد مطلوب عند تفعيل الخيار');
+                return;
+            }
             this.show = true;
-            
-            // Prepare JSON data for user registration
-            const userData = {
-                name: this.addForm.name,
-                phoneNumber: this.addForm.phoneNumber,
-                password: this.addForm.password,
-                username: this.addForm.username,
-                role: this.addForm.role
-            };
-            
-            HTTP.post(`Admin/AddUser`, userData, {
-                headers: {
-                    'Content-Type': 'application/json'
+
+            const formData = new FormData();
+            formData.append('name', this.addForm.name);
+            formData.append('phoneNumber', this.addForm.phoneNumber);
+            formData.append('password', this.addForm.password);
+            formData.append('username', this.addForm.username);
+            formData.append('role', this.addForm.role);
+            if (this.role === 'Admin' && this.addForm.role === 'Commercial') {
+                if (this.addForm.storeName) {
+                    formData.append('storeName', this.addForm.storeName);
                 }
+                if (this.addForm.loginCode && String(this.addForm.loginCode).trim()) {
+                    formData.append('loginCode', String(this.addForm.loginCode).trim());
+                }
+            }
+            this.appendManagerSections(
+                formData,
+                this.addForm.role,
+                this.addForm.allowedSections,
+                this.addForm.canUseOwnLoginCodeForSensitiveActions,
+                this.addForm.loginCode
+            );
+
+            HTTP.post(`Admin/AddUser`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             })
-                .then((response) => {
+                .then(() => {
                     this.show = false;
-                    this.$toast.success(this.$i18n.t('userHasbeenAddedSuccessfully'), {
-                        position: "top-right",
-                        timeout: 4000,
-                        closeOnClick: true,
-                        pauseOnFocusLoss: true,
-                        pauseOnHover: true,
-                        draggable: true,
-                        draggablePercent: 0.6,
-                        showCloseButtonOnHover: false,
-                        hideProgressBar: true,
-                        closeButton: "button",
-                        icon: true,
-                    });
-                    // Reset form
+                    this.$notify.success(this.$i18n.t('userHasbeenAddedSuccessfully'));
                     this.addForm = {
                         name: "",
                         phoneNumber: "",
                         password: "",
                         username: "",
-                        role: ""
+                        role: "",
+                        storeName: "",
+                        loginCode: "",
+                        logoFile: null,
+                        logoPreview: null,
+                        allowedSections: [],
+                        canUseOwnLoginCodeForSensitiveActions: false
                     };
                     this.GetAllUsers();
                     this.$bvModal.hide('modal-addUser');
                 })
                 .catch((error) => {
                     this.show = false;
-                    this.$toast.error(error.response?.data?.message || this.$i18n.t('somethingWrong'), {
-                        position: "top-right",
-                        timeout: 4000,
-                        closeOnClick: true,
-                        pauseOnFocusLoss: true,
-                        pauseOnHover: true,
-                        draggable: true,
-                        draggablePercent: 0.6,
-                        showCloseButtonOnHover: false,
-                        hideProgressBar: true,
-                        closeButton: "button",
-                        icon: true,
-                    });
+                    this.$notify.error(error.response?.data?.message || this.$i18n.t('somethingWrong'));
                 });
         },
         EditUser() {
-            this.show = true;
-            
-            // Prepare JSON data for user update
-            const userData = {
-                name: this.editForm.name,
-                phoneNumber: this.editForm.phoneNumber,
-                username: this.editForm.username,
-                role: this.editForm.role
-            };
-            
-            // Add password only if provided
-            if (this.editForm.password) {
-                userData.password = this.editForm.password;
+            if (
+                this.editForm.role === 'Manager' &&
+                (!this.editForm.allowedSections || !this.editForm.allowedSections.length)
+            ) {
+                this.$notify.error(this.$t('selectAtLeastOneSection') || 'اختر قسماً واحداً على الأقل');
+                return;
             }
-            
-            HTTP.put(`Admin/UpdateUser?id=${this.editForm.id}`, userData, {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+            this.show = true;
+
+            const formData = new FormData();
+            formData.append('name', this.editForm.name);
+            formData.append('phoneNumber', this.editForm.phoneNumber);
+            formData.append('username', this.editForm.username);
+            formData.append('role', this.editForm.role);
+            if (this.role === 'Admin' && this.editForm.role === 'Commercial') {
+                formData.append('storeName', this.editForm.storeName || this.editForm.StoreName || '');
+                formData.append('loginCode', this.editForm.loginCode || '');
+            }
+            this.appendManagerSections(
+                formData,
+                this.editForm.role,
+                this.editForm.allowedSections,
+                this.editForm.canUseOwnLoginCodeForSensitiveActions,
+                this.editForm.role === 'Manager' ? this.editForm.loginCode : ''
+            );
+            if (this.editForm.password) {
+                formData.append('password', this.editForm.password);
+            }
+
+            HTTP.put(`Admin/UpdateUser?id=${this.editForm.id}`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             })
-                .then((response) => {
+                .then(() => {
                     this.show = false;
-                    this.$toast.success(this.$i18n.t('userHadbeenEditSuccessfully'), {
-                        position: "top-right",
-                        timeout: 4000,
-                        closeOnClick: true,
-                        pauseOnFocusLoss: true,
-                        pauseOnHover: true,
-                        draggable: true,
-                        draggablePercent: 0.6,
-                        showCloseButtonOnHover: false,
-                        hideProgressBar: true,
-                        closeButton: "button",
-                        icon: true,
-                    });
+                    this.$notify.success(this.$i18n.t('userHadbeenEditSuccessfully'));
                     this.GetAllUsers();
                     this.$bvModal.hide('modal-editUser');
-                    // Reset form
                     this.editForm = {
                         name: "",
                         phoneNumber: "",
                         username: "",
                         role: "",
                         id: "",
-                        restaurantName: "",
+                        storeName: "",
+                        loginCode: "",
                         logo: null,
                         logoPreview: null,
-                        logoFile: null
+                        logoFile: null,
+                        allowedSections: [],
+                        canUseOwnLoginCodeForSensitiveActions: false
                     };
                 })
                 .catch((error) => {
                     this.show = false;
-                    this.$toast.error(error.response?.data?.message || this.$i18n.t('somethingWrong'), {
-                        position: "top-right",
-                        timeout: 4000,
-                        closeOnClick: true,
-                        pauseOnFocusLoss: true,
-                        pauseOnHover: true,
-                        draggable: true,
-                        draggablePercent: 0.6,
-                        showCloseButtonOnHover: false,
-                        hideProgressBar: true,
-                        closeButton: "button",
-                        icon: true,
-                    });
+                    this.$notify.error(error.response?.data?.message || this.$i18n.t('somethingWrong'));
                 });
         },
 
@@ -543,7 +744,7 @@ export default {
             HTTP.delete(`Admin/DeleteUser?id=${this.UserId}`)
                 .then((response) => {
                     this.show = false;
-                    this.$toast.success(this.$i18n.t('userHadbeenDeleteSuccessfully'), {
+                    this.$notify.success(this.$i18n.t('userHadbeenDeleteSuccessfully'), {
                         position: "top-right",
                         timeout: 4000,
                         closeOnClick: true,
@@ -563,7 +764,7 @@ export default {
                 })
                 .catch((error) => {
                     this.show = false;
-                    this.$toast.error(this.$i18n.t('somethingWrong'), {
+                    this.$notify.error(this.$i18n.t('somethingWrong'), {
                         position: "top-right",
                         timeout: 4000,
                         closeOnClick: true,

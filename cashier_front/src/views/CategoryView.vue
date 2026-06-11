@@ -1,6 +1,6 @@
 <template>
     <b-overlay :show="show" spinner-variant="primary" spinner-type="grow" spinner-large rounded="sm">
-        <SidebarView />
+        <AppHeader />
         <div class="main-content-wrapper">
             <div class="users-page-container">
                 <div class="users-page-content">
@@ -29,7 +29,7 @@
                     </div>
 
                     <!-- Categories Table -->
-                    <div class="categories-table-container">
+                    <div class="categories-table-container report-table-container">
                         <b-table
                             :items="Tagss"
                             :fields="categoryFields"
@@ -46,20 +46,22 @@
                             </template>
 
                             <template #cell(actions)="row">
-                                <div class="category-actions-cell">
-                                    <button 
-                                        class="category-action-btn edit-btn" 
+                                <div class="actions-cell">
+                                    <button
+                                        type="button"
+                                        class="action-btn action-btn--icon action-btn--edit"
                                         @click="getTagsInfo(row.item)"
                                         :title="$t('edit')"
                                     >
-                                        <b-icon icon="pencil-fill"></b-icon>
+                                        <b-icon icon="pencil-fill" class="action-icon"></b-icon>
                                     </button>
-                                    <button 
-                                        class="category-action-btn delete-btn" 
+                                    <button
+                                        type="button"
+                                        class="action-btn action-btn--icon action-btn--delete"
                                         @click="deleteTagsModel(row.item.id)"
                                         :title="$t('delete')"
                                     >
-                                        <b-icon icon="trash-fill"></b-icon>
+                                        <b-icon icon="trash-fill" class="action-icon"></b-icon>
                                     </button>
                                 </div>
                             </template>
@@ -179,14 +181,14 @@
     </b-overlay>
 </template>
 <script>
-import SidebarView from "@/components/Layout/SidebarView.vue";
+import AppHeader from "@/components/Layout/AppHeader.vue";
 import ClockVue from "@/components/ClockVue.vue";
 import VueBarcode from "@chenfengyuan/vue-barcode";
 import { HTTP } from '../http/api.js';
 export default {
     name: "TagssView",
     components: {
-        SidebarView,
+        AppHeader,
         ClockVue,
         "vue-barcode": VueBarcode,
 
@@ -278,7 +280,7 @@ export default {
             HTTP.post(`Admin/AddTag`, this.addForm)
                 .then((response) => {
                     this.show = false;
-                    this.$toast.success(this.$i18n.t('TagsHasbeenAddedSuccessfully'), {
+                    this.$notify.success(this.$i18n.t('TagsHasbeenAddedSuccessfully'), {
                         position: "top-right",
                         timeout: 4000,
                         closeOnClick: true,
@@ -302,7 +304,7 @@ export default {
                 })
                 .catch((error) => {
                     this.show = false;
-                    this.$toast.error(this.$i18n.t('somethingWrong'), {
+                    this.$notify.error(this.$i18n.t('somethingWrong'), {
                         position: "top-right",
                         timeout: 4000,
                         closeOnClick: true,
@@ -323,7 +325,7 @@ export default {
             HTTP.put(`Admin/UpdateTag?id=${this.editForm.id}`, this.editForm)
                 .then((response) => {
                     this.show = false;
-                    this.$toast.success(this.$i18n.t('TagsHadbeenEditSuccessfully'), {
+                    this.$notify.success(this.$i18n.t('TagsHadbeenEditSuccessfully'), {
                         position: "top-right",
                         timeout: 4000,
                         closeOnClick: true,
@@ -342,7 +344,7 @@ export default {
                 })
                 .catch((error) => {
                     this.show = false;
-                    this.$toast.error(this.$i18n.t('somethingWrong'), {
+                    this.$notify.error(this.$i18n.t('somethingWrong'), {
                         position: "top-right",
                         timeout: 4000,
                         closeOnClick: true,
@@ -364,7 +366,7 @@ export default {
             HTTP.delete(`Admin/DeleteTag?id=${this.TagsId}`)
                 .then((response) => {
                     this.show = false;
-                    this.$toast.success(this.$i18n.t('TagsHadbeenDeleteSuccessfully'), {
+                    this.$notify.success(this.$i18n.t('TagsHadbeenDeleteSuccessfully'), {
                         position: "top-right",
                         timeout: 4000,
                         closeOnClick: true,
@@ -384,7 +386,7 @@ export default {
                 })
                 .catch((error) => {
                     this.show = false;
-                    this.$toast.error(this.$i18n.t('somethingWrong'), {
+                    this.$notify.error(this.$i18n.t('somethingWrong'), {
                         position: "top-right",
                         timeout: 4000,
                         closeOnClick: true,
@@ -432,10 +434,6 @@ export default {
 
 <style scoped>
 .categories-table-container {
-  background: #ffffff;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
   margin-top: 1.5rem;
 }
 
@@ -443,25 +441,9 @@ export default {
   margin: 0;
 }
 
-.categories-table >>> thead th {
-  background-color: #f9fafb;
-  color: #374151;
-  font-weight: 600;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 1rem;
-  border-bottom: 2px solid #e5e7eb;
-}
-
-.categories-table >>> tbody td {
-  padding: 1rem;
-  vertical-align: middle;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.categories-table >>> tbody tr:hover {
-  background-color: #f9fafb;
+.categories-table >>> thead th .sr-only,
+.categories-table >>> thead th .visually-hidden {
+  display: none !important;
 }
 
 .category-name-cell {
@@ -479,51 +461,6 @@ export default {
   font-weight: 600;
   font-size: 0.9375rem;
   color: #111827;
-}
-
-.category-actions-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.category-action-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
-}
-
-.category-action-btn.edit-btn {
-  background-color: #eff6ff;
-  color: #2563eb;
-}
-
-.category-action-btn.edit-btn:hover {
-  background-color: #2563eb;
-  color: white;
-  transform: scale(1.05);
-}
-
-.category-action-btn.delete-btn {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-.category-action-btn.delete-btn:hover {
-  background-color: #991b1b;
-  color: white;
-  transform: scale(1.05);
-}
-
-.category-action-btn:active {
-  transform: scale(0.95);
 }
 
 .pagination-container {

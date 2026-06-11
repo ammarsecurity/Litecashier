@@ -26,16 +26,14 @@ builder.Services.AddAutoMapper(typeof(Program));
 
 builder.Services.AddSingleton(new MapperConfiguration(cfg =>
 {
-    cfg.CreateMap<UserRequest, User>().ReverseMap();
+    cfg.CreateMap<UserRequest, User>()
+        .ForMember(dest => dest.Password, opt => opt.Ignore())
+        .ReverseMap();
     cfg.CreateMap<TagRequset, Tag>().ReverseMap();
     cfg.CreateMap<ItemRequest, Item>().ReverseMap();
     cfg.CreateMap<CustomerOrderRequest, CustomerOrder>().ReverseMap();
     cfg.CreateMap<CustomerOrderItemRequest, CustomerOrderItem>().ReverseMap();
-
-
 }).CreateMapper());
-
-
 
 var jwtSecretKey = builder.Configuration["JwtSettings:SecretKey"] 
     ?? throw new InvalidOperationException("JWT Secret Key is not configured");
@@ -55,7 +53,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey))
     };
 });
-
 
 builder.Services.AddSwaggerGen(opt =>
 {
@@ -93,18 +90,63 @@ builder.Services.AddCors(options =>
                              .AllowAnyHeader());
 });
 
-
-
-
 var app = builder.Build();
 
+var applyMigrations = app.Configuration.GetValue("DatabaseSettings:ApplyMigrationsOnStartup", true);
+if (applyMigrations)
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<DbConfig>();
+        var migrateLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        try
+        {
+            db.Database.Migrate();
+        }
+        catch (Exception ex)
+        {
+            migrateLogger.LogError(ex, "Failed to apply EF migrations on startup.");
+            throw;
+        }
+
+        var seedOnStartup = app.Configuration.GetValue("DatabaseSettings:SeedOnStartup", false);
+        if (seedOnStartup)
+        {
+            try
+            {
+                var seedDemo = app.Configuration.GetValue("DatabaseSettings:SeedDemoAccounts", true);
+                if (seedDemo)
+                {
+                    var summary = POS.Db.SeedData.SeedDemoEnvironment(db);
+                    migrateLogger.LogInformation("Database seed completed: {Message}", summary.ToMessage());
+                }
+                else
+                {
+                    var commercialUserId = app.Configuration.GetValue("DatabaseSettings:CommercialUserId", 0);
+                    if (commercialUserId <= 0)
+                    {
+                        migrateLogger.LogWarning("DatabaseSettings:SeedOnStartup is enabled but CommercialUserId is not set.");
+                    }
+                    else
+                    {
+                        var summary = POS.Db.SeedData.SeedDatabase(db, commercialUserId);
+                        migrateLogger.LogInformation("Database seed completed: {Message}", summary.ToMessage());
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                migrateLogger.LogWarning(ex, "Database seed on startup failed (app will continue).");
+            }
+        }
+    }
+}
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "EppReservations Project API"); });
 }
-
 
 app.UseSwagger();
 app.UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "EppReservations Project API"); });

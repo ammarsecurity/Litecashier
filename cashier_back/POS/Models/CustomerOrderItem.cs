@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace POS.Models
 {
-    public class CustomerOrderItem
+    public class CustomerOrderItem : BaseEntity
     {
         [Key]
         public int Id { get; set; }
@@ -21,7 +21,6 @@ namespace POS.Models
         [JsonIgnore]
         public CustomerOrder? CustomerOrder { get; set; }
 
-
         [Required]
         public int Quantity { get; set; }
 
@@ -30,9 +29,11 @@ namespace POS.Models
 
         public decimal PurchasingPrice { get; set; }
 
+        [MaxLength(500)]
+        public string? Notes { get; set; }
+
         [ForeignKey("InsertByUserId")]
         public int InsertByUserId { get; set; }
         public  User? User { get; set; }
     }
-
 }

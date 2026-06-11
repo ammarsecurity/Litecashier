@@ -1,12 +1,11 @@
 <template>
     <b-overlay :show="show" spinner-variant="primary" spinner-type="grow" spinner-large rounded="sm">
-        <SidebarView />
+        <AppHeader />
         <div class="main-content-wrapper">
-            <div class="users-page-container">
-                <div class="users-page-content">
-                    <!-- Header Section -->
+            <div class="app-page-container">
+                <div class="app-page-content reports-page-content">
                     <div class="users-header-section">
-                        <div class="users-header-content">
+                        <div class="users-header-content app-header-row">
                             <div class="header-title-wrapper">
                                 <div class="header-icon-wrapper">
                                     <b-icon icon="file-earmark-bar-graph-fill" class="header-icon"></b-icon>
@@ -16,10 +15,17 @@
                                     <p class="header-subtitle">{{ $t('reportsDescription') || 'نظام تقارير متكامل لتحليل المبيعات والأرباح' }}</p>
                                 </div>
                             </div>
+                            <div class="app-header-actions">
+                                <button type="button" class="btn-refresh" @click="refreshReports" :disabled="show">
+                                    <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: show }"></b-icon>
+                                    <span class="button-text">{{ $t('refresh') || 'تحديث' }}</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Reports Tabs -->
+                    <div class="app-section-card app-section-card--flush">
+                      <div class="app-section-body app-section-body--tabs">
                     <div class="reports-tabs-section">
                         <div class="reports-tabs">
                             <button 
@@ -73,14 +79,13 @@
                         </div>
                     </div>
 
-                    <!-- Advanced Reports Date Filter -->
                     <div class="users-search-section" v-if="activeTab !== 'orders' && activeTab !== 'lowStock'">
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                        <div class="reports-filters-grid">
                             <div class="users-search-container">
                                 <b-icon icon="calendar" class="search-icon"></b-icon>
-                                <input 
-                                    v-model="reportFilters.startDate" 
-                                    type="date" 
+                                <input
+                                    v-model="reportFilters.startDate"
+                                    type="date"
                                     :placeholder="$t('from_date')"
                                     class="users-search-input"
                                     @change="loadAdvancedReport()"
@@ -88,100 +93,207 @@
                             </div>
                             <div class="users-search-container">
                                 <b-icon icon="calendar-check" class="search-icon"></b-icon>
-                                <input 
-                                    v-model="reportFilters.endDate" 
-                                    type="date" 
+                                <input
+                                    v-model="reportFilters.endDate"
+                                    type="date"
                                     :placeholder="$t('to_date')"
                                     class="users-search-input"
                                     @change="loadAdvancedReport()"
                                 />
                             </div>
+                            <div class="users-search-container" v-if="hasAdvancedFilters">
+                                <button type="button" class="users-filter-clear-btn" @click="clearAdvancedFilters">
+                                    <b-icon icon="x-circle-fill" class="me-1"></b-icon>
+                                    {{ $t('clearFilters') || 'مسح الفلاتر' }}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Orders Grid (Default View) -->
                     <div v-if="activeTab === 'orders'">
-                        <!-- Search Section -->
                         <div class="users-search-section">
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                            <div class="reports-filters-grid">
                                 <div class="users-search-container">
                                     <b-icon icon="search" class="search-icon"></b-icon>
-                                    <input 
-                                        v-model="search.info" 
-                                        type="text" 
+                                    <input
+                                        v-model="search.info"
+                                        type="text"
                                         :placeholder="$t('invoice_number')"
                                         class="users-search-input"
                                     />
                                 </div>
                                 <div class="users-search-container">
                                     <b-icon icon="calendar" class="search-icon"></b-icon>
-                                    <input 
-                                        v-model="search.startDate" 
-                                        type="date" 
+                                    <input
+                                        v-model="search.startDate"
+                                        type="date"
                                         :placeholder="$t('from_date')"
                                         class="users-search-input"
                                     />
                                 </div>
                                 <div class="users-search-container">
                                     <b-icon icon="calendar-check" class="search-icon"></b-icon>
-                                    <input 
-                                        v-model="search.endDate" 
-                                        type="date" 
+                                    <input
+                                        v-model="search.endDate"
+                                        type="date"
                                         :placeholder="$t('to_date')"
                                         class="users-search-input"
                                     />
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- Orders Grid -->
-                        <div class="users-grid-container">
-                            <div class="users-grid">
-                                <div class="user-card" v-for="item in Orders" :key="item.id">
-                                    <div class="user-card-header">
-                                        <div class="user-avatar">
-                                            <b-icon icon="receipt-cutoff" class="avatar-icon"></b-icon>
-                                        </div>
-                                        <h3 class="user-name">{{ item.orderCode }}</h3>
-                                    </div>
-                                    <div class="user-card-body">
-                                        <div class="user-info-item">
-                                            <b-icon icon="currency-dollar" class="info-icon"></b-icon>
-                                            <span class="info-label">{{ $t('invoice_amount') }}:</span>
-                                            <span class="info-value">{{ item.orderPrice }} {{ $t('currency') }}</span>
-                                        </div>
-                                        <div class="user-info-item">
-                                            <b-icon icon="box-seam" class="info-icon"></b-icon>
-                                            <span class="info-label">{{ $t('items_count') }}:</span>
-                                            <span class="info-value">{{ item.itemsCount }} {{ $t('items') }}</span>
-                                        </div>
-                                        <div class="user-info-item" v-if="item.paymentMethod">
-                                            <b-icon :icon="getPaymentMethodIcon(item.paymentMethod)" class="info-icon"></b-icon>
-                                            <span class="info-label">{{ $t('paymentMethod') }}:</span>
-                                            <span class="info-value">{{ getPaymentMethodText(item.paymentMethod) }}</span>
-                                        </div>
-                                        <div class="user-info-item" v-if="item.orderType">
-                                            <b-icon :icon="getOrderTypeIcon(item.orderType)" class="info-icon"></b-icon>
-                                            <span class="info-label">{{ $t('orderType') }}:</span>
-                                            <span class="info-value">{{ getOrderTypeText(item.orderType) }}</span>
-                                        </div>
-                                        <div class="user-info-item" v-if="item.tags">
-                                            <b-icon icon="tags" class="info-icon"></b-icon>
-                                            <span class="info-label">{{ $t('categoryPlaceholder') }}:</span>
-                                            <span class="info-value">{{ item.tags }}</span>
-                                        </div>
-                                    </div>
-                                    <div class="user-card-footer">
-                                        <button class="user-action-button user-edit-button" @click="showItemsModel(item.customerOrderItem, item)" style="width: 100%;">
-                                            <b-icon icon="eye-fill" class="action-icon"></b-icon>
-                                            <span>{{ $t('view_items') }}</span>
-                                        </button>
-                                    </div>
+                                <div class="users-search-container">
+                                    <b-icon icon="credit-card" class="search-icon"></b-icon>
+                                    <select v-model="search.paymentMethod" class="users-search-input reports-filter-select">
+                                        <option value="">{{ $t('allPaymentMethods') || 'جميع طرق الدفع' }}</option>
+                                        <option value="Cash">{{ $t('cash') || 'نقد' }}</option>
+                                        <option value="Card">{{ $t('card') || 'بطاقة' }}</option>
+                                        <option value="Credit">{{ $t('credit') || 'دفع لاحق' }}</option>
+                                    </select>
+                                </div>
+                                <div class="users-search-container" v-if="hasActiveFilters">
+                                    <button type="button" class="users-filter-clear-btn" @click="clearFilters">
+                                        <b-icon icon="x-circle-fill" class="me-1"></b-icon>
+                                        {{ $t('clearFilters') || 'مسح الفلاتر' }}
+                                    </button>
+                                </div>
+                                <div class="users-search-container">
+                                    <button type="button" class="export-excel-btn" @click="exportCurrentReportExcel()" :disabled="exportingExcel">
+                                        <b-spinner small v-if="exportingExcel" class="me-2"></b-spinner>
+                                        <b-icon v-else icon="file-earmark-excel" class="me-2"></b-icon>
+                                        {{ $t('downloadExcel') || 'تحميل Excel' }}
+                                    </button>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Pagination -->
+                        <div class="app-overview-grid reports-orders-summary">
+                            <div class="app-overview-stat">
+                                <span class="app-overview-stat-icon app-overview-stat-icon--primary"><b-icon icon="receipt-cutoff"></b-icon></span>
+                                <div>
+                                    <div class="app-overview-stat-value">
+                                        <b-spinner small v-if="show"></b-spinner>
+                                        <template v-else>{{ ordersSummary.totalOrders || 0 }}</template>
+                                    </div>
+                                    <div class="app-overview-stat-label">{{ $t('totalOrders') || 'إجمالي الفواتير' }}</div>
+                                </div>
+                            </div>
+                            <div class="app-overview-stat">
+                                <span class="app-overview-stat-icon app-overview-stat-icon--info"><b-icon icon="calculator"></b-icon></span>
+                                <div>
+                                    <div class="app-overview-stat-value app-overview-stat-value--text">
+                                        <b-spinner small v-if="show"></b-spinner>
+                                        <template v-else>{{ formatPrice(ordersSummary.totalSubTotal || 0) }} {{ $t('currency') }}</template>
+                                    </div>
+                                    <div class="app-overview-stat-label">{{ $t('subtotal') || 'المجموع قبل الخصم' }}</div>
+                                </div>
+                            </div>
+                            <div class="app-overview-stat">
+                                <span class="app-overview-stat-icon app-overview-stat-icon--warning"><b-icon icon="percent"></b-icon></span>
+                                <div>
+                                    <div class="app-overview-stat-value app-overview-stat-value--text">
+                                        <b-spinner small v-if="show"></b-spinner>
+                                        <template v-else>{{ formatPrice(ordersSummary.totalDiscount || 0) }} {{ $t('currency') }}</template>
+                                    </div>
+                                    <div class="app-overview-stat-label">{{ $t('discountLabel') || 'الخصم' }}</div>
+                                </div>
+                            </div>
+                            <div class="app-overview-stat">
+                                <span class="app-overview-stat-icon app-overview-stat-icon--success"><b-icon icon="cash-stack"></b-icon></span>
+                                <div>
+                                    <div class="app-overview-stat-value app-overview-stat-value--text">
+                                        <b-spinner small v-if="show"></b-spinner>
+                                        <template v-else>{{ formatPrice(ordersSummary.totalSales || 0) }} {{ $t('currency') }}</template>
+                                    </div>
+                                    <div class="app-overview-stat-label">{{ $t('totalSales') || 'إجمالي المبيعات' }}</div>
+                                </div>
+                            </div>
+                            <div class="app-overview-stat">
+                                <span class="app-overview-stat-icon app-overview-stat-icon--danger"><b-icon icon="box-seam"></b-icon></span>
+                                <div>
+                                    <div class="app-overview-stat-value">
+                                        <b-spinner small v-if="show"></b-spinner>
+                                        <template v-else>{{ ordersSummary.totalItemsSold || 0 }}</template>
+                                    </div>
+                                    <div class="app-overview-stat-label">{{ $t('totalItemsSold') || 'المواد المباعة' }}</div>
+                                </div>
+                            </div>
+                            <div class="app-overview-stat">
+                                <span class="app-overview-stat-icon app-overview-stat-icon--primary"><b-icon icon="graph-up-arrow"></b-icon></span>
+                                <div>
+                                    <div class="app-overview-stat-value app-overview-stat-value--text">
+                                        <b-spinner small v-if="show"></b-spinner>
+                                        <template v-else>{{ formatPrice(ordersSummary.averageOrderValue || 0) }} {{ $t('currency') }}</template>
+                                    </div>
+                                    <div class="app-overview-stat-label">{{ $t('averageOrderValue') || 'متوسط قيمة الفاتورة' }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <p v-if="ordersReportPeriodColumn" class="reports-orders-summary-period">
+                            {{ $t('reportDateRange') || 'فترة التقرير' }}: {{ ordersReportPeriodColumn }}
+                        </p>
+
+                        <div class="report-table-container">
+                            <b-table
+                                id="orders-table"
+                                :items="Orders"
+                                :fields="ordersTableFields"
+                                striped
+                                hover
+                                responsive
+                                class="reports-table"
+                                :empty-text="$t('noInvoicesFound') || 'لا توجد فواتير'"
+                            >
+                                <template #cell(orderCode)="row">
+                                    <span class="report-item-name">{{ row.item.orderCode }}</span>
+                                </template>
+                                <template #cell(insertDate)="row">
+                                    <span>{{ formatDate(row.item.insertDate) }}</span>
+                                </template>
+                                <template #cell(paymentMethod)="row">
+                                    <span>{{ getPaymentMethodText(row.item.paymentMethod) }}</span>
+                                </template>
+                                <template #cell(orderType)="row">
+                                    <span>{{ getOrderTypeText(row.item.orderType) }}</span>
+                                </template>
+                                <template #cell(itemsCount)="row">
+                                    <span class="quantity-badge">{{ row.item.itemsCount || 0 }}</span>
+                                </template>
+                                <template #cell(discountAmount)="row">
+                                    <span v-if="Number(row.item.discountAmount || 0) > 0" class="report-discount-value">
+                                        − {{ formatPrice(row.item.discountAmount || 0) }}
+                                    </span>
+                                    <span v-else>—</span>
+                                </template>
+                                <template #cell(totalAmount)="row">
+                                    <span class="report-amount-value">
+                                        {{ formatPrice(row.item.orderTotalAfterDiscount ?? row.item.orderPrice ?? 0) }} {{ $t('currency') }}
+                                    </span>
+                                </template>
+                                <template #cell(createdByUsername)="row">
+                                    <span>{{ row.item.createdByUsername || '—' }}</span>
+                                </template>
+                                <template #cell(actions)="row">
+                                    <div class="actions-cell">
+                                        <button
+                                            type="button"
+                                            class="action-btn action-btn--icon action-btn--view"
+                                            @click="showItemsModel(row.item.customerOrderItem, row.item)"
+                                            :title="$t('view_items')"
+                                        >
+                                            <b-icon icon="eye-fill" class="action-icon"></b-icon>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="action-btn action-btn--icon action-btn--edit"
+                                            @click="editOrder(row.item)"
+                                            :title="$t('editOrder')"
+                                        >
+                                            <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                                        </button>
+                                    </div>
+                                </template>
+                            </b-table>
+                        </div>
+
                         <div class="users-pagination-section">
                             <b-pagination 
                                 v-model="pageNumber" 
@@ -256,6 +368,39 @@
                                 <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
                                 <span>{{ $t('topSellingItemsDescription') || 'عرض أفضل المنتجات مبيعاً حسب الكمية المباعة' }}</span>
                             </div>
+                            <div class="app-overview-grid reports-orders-summary">
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--success"><b-icon icon="currency-dollar"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value app-overview-stat-value--text">{{ formatPrice(topSellingItemsSummary.totalSales) }} {{ $t('currency') }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('totalSales') || 'إجمالي المبيعات' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--danger"><b-icon icon="box-seam"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ topSellingItemsSummary.totalQuantitySold || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('totalQuantitySold') || 'الكمية المباعة' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--info"><b-icon icon="grid-3x3-gap"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ topSellingItemsSummary.totalDistinctItems || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('distinctItemsCount') || 'عدد الأصناف' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--primary"><b-icon icon="receipt-cutoff"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ topSellingItemsSummary.totalOrders || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('totalOrders') || 'عدد الطلبات' }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="reports-orders-summary-period reports-summary-note">
+                                {{ $t('topSellingGrandTotalHint') || 'المجموع الكلي لجميع الأصناف المباعة في الفترة (وليس أعلى 10 فقط)' }}
+                            </p>
                             <div class="report-table-container">
                                 <table class="report-table">
                                     <thead>
@@ -364,29 +509,32 @@
 
                         <!-- Low Stock Items -->
                         <div v-if="activeTab === 'lowStock'" class="report-section">
-                            <div class="low-stock-header">
-                                <div class="users-search-section">
-                                    <div class="users-search-container">
-                                        <b-icon icon="exclamation-triangle-fill" class="search-icon"></b-icon>
-                                        <input 
-                                            v-model.number="lowStockThreshold" 
-                                            type="number" 
-                                            :placeholder="$t('threshold') || 'حد الكمية'"
-                                            class="users-search-input"
-                                            @change="loadLowStockItems()"
-                                        />
+                            <div class="reports-filters-grid reports-filters-grid--low-stock">
+                                <div class="users-search-container">
+                                    <b-icon icon="exclamation-triangle-fill" class="search-icon"></b-icon>
+                                    <input
+                                        v-model.number="lowStockThreshold"
+                                        type="number"
+                                        min="0"
+                                        :placeholder="$t('threshold') || 'حد الكمية'"
+                                        class="users-search-input"
+                                        @change="loadLowStockItems()"
+                                    />
+                                </div>
+                            </div>
+                            <div v-if="lowStockItems.length > 0" class="app-overview-grid reports-orders-summary">
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--warning"><b-icon icon="exclamation-triangle-fill"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ lowStockItems.filter(item => item.currentQuantity > 0 && item.currentQuantity <= item.threshold).length }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('lowStockCount') || 'منتجات قليلة المخزون' }}</div>
                                     </div>
                                 </div>
-                                <div class="low-stock-summary" v-if="lowStockItems.length > 0">
-                                    <div class="summary-item">
-                                        <b-icon icon="exclamation-triangle-fill" class="summary-icon warning"></b-icon>
-                                        <span class="summary-label">{{ $t('lowStockCount') || 'منتجات قليلة المخزون' }}:</span>
-                                        <span class="summary-value">{{ lowStockItems.filter(item => item.currentQuantity > 0 && item.currentQuantity <= item.threshold).length }}</span>
-                                    </div>
-                                    <div class="summary-item">
-                                        <b-icon icon="x-circle-fill" class="summary-icon danger"></b-icon>
-                                        <span class="summary-label">{{ $t('outOfStockCount') || 'منتجات منتهية' }}:</span>
-                                        <span class="summary-value">{{ lowStockItems.filter(item => item.currentQuantity === 0).length }}</span>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--danger"><b-icon icon="x-circle-fill"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ lowStockItems.filter(item => item.currentQuantity === 0).length }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('outOfStockCount') || 'منتجات منتهية' }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -423,6 +571,8 @@
                             </div>
                         </div>
                     </div>
+                      </div>
+                    </div>
                 </div>
             </div>
 
@@ -438,7 +588,7 @@
                             <div class="bill-header">
                                 <img src="../assets/logoarabic.png" class="bill-logo-img" />
                                 <h2 class="bill-store-name">نظام لايت كاشير</h2>
-                                <p class="bill-store-subtitle">نظام إدارة المطاعم</p>
+                                <p class="bill-store-subtitle">نظام نقطة البيع</p>
                             </div>
 
                             <!-- Order Info -->
@@ -535,18 +685,180 @@
                     </div>
                 </div>
             </b-modal>
+
+            <!-- Edit Order Modal -->
+            <b-modal id="modal-edit-order" :title="$t('editOrder') || 'تعديل الفاتورة'" hide-header hide-footer class="users-modal edit-order-modal" size="xl" scrollable>
+                <div class="modal-content-wrapper" v-if="editOrderData">
+                    <div class="modal-title-row">
+                        <span class="modal-title-icon">
+                            <b-icon icon="pencil-square"></b-icon>
+                        </span>
+                        <h2 class="modal-title">{{ $t('editOrder') || 'تعديل الفاتورة' }}</h2>
+                    </div>
+
+                    <div class="edit-order-section">
+                        <h3 class="edit-order-section-title">{{ $t('orderInfo') || 'معلومات الطلب' }}</h3>
+                        <div class="edit-order-form-grid">
+                            <div class="edit-order-form-group">
+                                <label class="edit-order-label">{{ $t('invoice_number') }}</label>
+                                <input type="text" :value="editOrderData.orderCode" disabled class="edit-order-input" />
+                            </div>
+                            <div class="edit-order-form-group">
+                                <label class="edit-order-label">{{ $t('paymentMethod') }}</label>
+                                <select v-model="editOrderForm.paymentMethod" class="edit-order-input">
+                                    <option value="Cash">{{ $t('cash') || 'نقد' }}</option>
+                                    <option value="Card">{{ $t('card') || 'بطاقة' }}</option>
+                                    <option value="Credit">{{ $t('credit') || 'دفع لاحق' }}</option>
+                                </select>
+                            </div>
+                            <div class="edit-order-form-group edit-order-form-group--wide">
+                                <label class="edit-order-label">{{ $t('orderDiscount') || 'خصم الطلب' }}</label>
+                                <div class="edit-order-discount-row">
+                                    <select v-model="editOrderForm.discountType" class="edit-order-input">
+                                        <option :value="null">{{ $t('noDiscount') || 'بدون خصم' }}</option>
+                                        <option value="amount">{{ $t('discountAmount') || 'مبلغ' }}</option>
+                                        <option value="percentage">{{ $t('discountPercent') || 'نسبة' }}</option>
+                                    </select>
+                                    <input
+                                        v-model.number="editOrderForm.discountValue"
+                                        type="number"
+                                        min="0"
+                                        class="edit-order-input"
+                                        :placeholder="$t('discountValuePlaceholder') || 'قيمة الخصم'"
+                                        :disabled="!editOrderForm.discountType"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="edit-order-section">
+                        <div class="edit-order-section-header">
+                            <h3 class="edit-order-section-title">{{ $t('orderItems') || 'عناصر الطلب' }}</h3>
+                            <button type="button" class="edit-order-add-item-btn" @click="showAddItemModal">
+                                <b-icon icon="plus-circle-fill" class="me-2"></b-icon>
+                                {{ $t('addItem') || 'إضافة مادة' }}
+                            </button>
+                        </div>
+                        <div class="edit-order-items-list">
+                            <div v-for="(item, index) in editOrderForm.items" :key="index" class="edit-order-item">
+                                <div class="edit-order-item-info">
+                                    <h4 class="edit-order-item-name">{{ item.name }}</h4>
+                                    <div class="edit-order-item-details">
+                                        <span v-if="item.code" class="edit-order-item-code">{{ $t('code') || 'الكود' }}: {{ item.code }}</span>
+                                        <span class="edit-order-item-price">{{ formatPrice(item.price) }} {{ $t('currency') }}</span>
+                                        <span class="edit-order-item-line-total">
+                                            {{ formatPrice((item.price || 0) * (item.quantity || 0)) }} {{ $t('currency') }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="edit-order-item-controls">
+                                    <div class="edit-order-item-quantity">
+                                        <button type="button" class="edit-order-quantity-btn" @click="decreaseEditItemQuantity(index)">
+                                            <b-icon icon="dash"></b-icon>
+                                        </button>
+                                        <input type="number" v-model.number="item.quantity" min="1" class="edit-order-quantity-input" />
+                                        <button type="button" class="edit-order-quantity-btn" @click="increaseEditItemQuantity(index)">
+                                            <b-icon icon="plus"></b-icon>
+                                        </button>
+                                    </div>
+                                    <button type="button" class="edit-order-remove-btn" @click="removeEditItem(index)" :title="$t('delete')">
+                                        <b-icon icon="trash-fill"></b-icon>
+                                    </button>
+                                </div>
+                            </div>
+                            <div v-if="editOrderForm.items.length === 0" class="edit-order-empty">
+                                <b-icon icon="inbox" class="edit-order-empty-icon"></b-icon>
+                                <p>{{ $t('noItems') || 'لا توجد عناصر' }}</p>
+                            </div>
+                        </div>
+
+                        <div class="edit-order-totals">
+                            <div class="edit-order-total-row">
+                                <span class="edit-order-total-label">{{ $t('subtotal') || 'المجموع قبل الخصم' }}</span>
+                                <span class="edit-order-total-value">{{ formatPrice(editOrderTotal) }} {{ $t('currency') }}</span>
+                            </div>
+                            <div v-if="editOrderDiscountAmount > 0" class="edit-order-total-row edit-order-total-row--discount">
+                                <span class="edit-order-total-label">{{ $t('discountLabel') }} ({{ editOrderDiscountPreviewLabel }})</span>
+                                <span class="edit-order-total-value">− {{ formatPrice(editOrderDiscountAmount) }} {{ $t('currency') }}</span>
+                            </div>
+                            <div class="edit-order-total-row edit-order-total-row--grand">
+                                <span class="edit-order-total-label">{{ $t('total') || 'المجموع' }}</span>
+                                <span class="edit-order-total-value">{{ formatPrice(editOrderFinalTotal) }} {{ $t('currency') }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="users-form-actions">
+                        <button type="button" class="users-form-submit-button" @click="updateOrder" :disabled="loadingUpdateOrder">
+                            <b-spinner small v-if="loadingUpdateOrder" class="me-2"></b-spinner>
+                            <b-icon v-else icon="check-circle-fill" class="me-2"></b-icon>
+                            {{ $t('save') || 'حفظ' }}
+                        </button>
+                        <button type="button" class="users-form-cancel-button" @click="closeEditOrderModal">
+                            <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                            {{ $t('cancel') || 'إلغاء' }}
+                        </button>
+                    </div>
+                </div>
+            </b-modal>
+
+            <b-modal id="modal-add-item" hide-header hide-footer class="users-modal" size="lg" scrollable>
+                <div class="modal-content-wrapper">
+                    <div class="modal-title-row">
+                        <span class="modal-title-icon">
+                            <b-icon icon="plus-circle-fill"></b-icon>
+                        </span>
+                        <h2 class="modal-title">{{ $t('addItem') || 'إضافة مادة' }}</h2>
+                    </div>
+                    <div class="app-search-wrap app-search-wrap--wide edit-order-search-wrap">
+                        <b-icon icon="search" class="app-search-icon"></b-icon>
+                        <input
+                            v-model="itemSearchQuery"
+                            type="search"
+                            class="app-search-input"
+                            :placeholder="$t('search') || 'بحث...'"
+                            autocomplete="off"
+                            @input="searchItems"
+                        />
+                    </div>
+                    <div class="edit-order-items-search-results">
+                        <div
+                            v-for="item in availableItems"
+                            :key="item.id"
+                            class="edit-order-search-item"
+                            @click="addItemToEditOrder(item)"
+                        >
+                            <div class="edit-order-search-item-info">
+                                <h4>{{ item.name }}</h4>
+                                <span v-if="item.code" class="edit-order-search-item-code">{{ item.code }}</span>
+                            </div>
+                            <span class="edit-order-search-item-price">{{ formatPrice(item.sellingPrice) }} {{ $t('currency') }}</span>
+                        </div>
+                        <div v-if="itemSearchQuery.length >= 2 && availableItems.length === 0" class="edit-order-empty">
+                            <b-icon icon="search" class="edit-order-empty-icon"></b-icon>
+                            <p>{{ $t('noResults') || 'لا توجد نتائج' }}</p>
+                        </div>
+                        <div v-else-if="!itemSearchQuery || itemSearchQuery.length < 2" class="edit-order-empty edit-order-empty--hint">
+                            <p>{{ $t('editOrderSearchHint') || 'اكتب حرفين على الأقل للبحث عن مادة' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </b-modal>
         </div>
     </b-overlay>
 </template>
 <script>
-import SidebarView from "@/components/Layout/SidebarView.vue";
+import AppHeader from "@/components/Layout/AppHeader.vue";
 import ClockVue from "@/components/ClockVue.vue";
 import VueBarcode from "@chenfengyuan/vue-barcode";
 import { HTTP } from '../http/api.js';
+import { formatBusinessDateTime } from '@/utils/formatBusinessDateTime.js';
+import { mergeCartLinesForOrderPayload } from '@/utils/mergeCartLines.js';
 export default {
     name: "OrdersView",
     components: {
-        SidebarView,
+        AppHeader,
         ClockVue,
         "vue-barcode": VueBarcode,
 
@@ -556,6 +868,14 @@ export default {
             show: false,
             activeTab: 'orders',
             Orders: [],
+            ordersSummary: {
+                totalOrders: 0,
+                totalSubTotal: 0,
+                totalDiscount: 0,
+                totalSales: 0,
+                totalItemsSold: 0,
+                averageOrderValue: 0,
+            },
             pageNumber: 1,
             totalOrders: 0,
             pageSize: 18,
@@ -563,6 +883,7 @@ export default {
                 info: "",
                 startDate: "",
                 endDate: "",
+                paymentMethod: "",
             },
             reportFilters: {
                 startDate: "",
@@ -579,16 +900,61 @@ export default {
             // Advanced Reports Data
             profitReport: {},
             topSellingItems: [],
+            topSellingItemsSummary: {
+                totalQuantitySold: 0,
+                totalSales: 0,
+                totalDistinctItems: 0,
+                totalOrders: 0,
+            },
             salesByCategory: [],
             salesByEmployee: [],
             lowStockItems: [],
             lowStockThreshold: 10,
+            exportingExcel: false,
+            editOrderData: null,
+            editOrderForm: {
+                paymentMethod: 'Cash',
+                discountType: null,
+                discountValue: null,
+                items: [],
+            },
+            availableItems: [],
+            itemSearchQuery: '',
+            itemSearchTimer: null,
+            loadingUpdateOrder: false,
             
             // Search debounce timer
             searchTimer: null,
         };
     },
     computed: {
+        ordersReportPeriodColumn() {
+            return this.formatReportPeriod(this.search.startDate, this.search.endDate);
+        },
+        ordersTableFields() {
+            return [
+                { key: "orderCode", label: this.$t("invoice_number") || "رقم الفاتورة", sortable: true },
+                { key: "insertDate", label: this.$t("date") || "التاريخ", sortable: true },
+                { key: "paymentMethod", label: this.$t("paymentMethod") || "طريقة الدفع", sortable: true },
+                { key: "orderType", label: this.$t("orderType") || "نوع الطلب", sortable: true },
+                { key: "itemsCount", label: this.$t("items_count") || "عدد العناصر", sortable: true },
+                { key: "discountAmount", label: this.$t("discountLabel") || "الخصم", sortable: true },
+                { key: "totalAmount", label: this.$t("invoice_amount") || "مبلغ الفاتورة", sortable: true },
+                { key: "createdByUsername", label: this.$t("employeeLabel") || "الحساب", sortable: true },
+                { key: "actions", label: this.$t("actions") || "الإجراءات", class: "text-center" },
+            ];
+        },
+        hasActiveFilters() {
+            return !!(
+                this.search.info ||
+                this.search.startDate ||
+                this.search.endDate ||
+                this.search.paymentMethod
+            );
+        },
+        hasAdvancedFilters() {
+            return !!(this.reportFilters.startDate || this.reportFilters.endDate);
+        },
         formattedNumber() {
             return this.totaPrice.toLocaleString()
         },
@@ -623,13 +989,35 @@ export default {
 
         customerOrderItemsWithTotalPrice() {
             return this.customerOrderItem.map(item => {
-                // Use discount price if available, otherwise use selling price
                 const sellingPrice = this.getSellingPrice(item);
                 return {
                     ...item,
                     totalPrice: item.quantity * sellingPrice,
                 };
             });
+        },
+        editOrderTotal() {
+            return this.editOrderForm.items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 0), 0);
+        },
+        editOrderDiscountAmount() {
+            const rawValue = Number(this.editOrderForm.discountValue) || 0;
+            if (!this.editOrderForm.discountType || rawValue <= 0) return 0;
+            if (this.editOrderForm.discountType === 'percentage') {
+                return Math.min(this.editOrderTotal, (this.editOrderTotal * Math.min(rawValue, 100)) / 100);
+            }
+            return Math.min(this.editOrderTotal, rawValue);
+        },
+        editOrderFinalTotal() {
+            return Math.max(this.editOrderTotal - this.editOrderDiscountAmount, 0);
+        },
+        editOrderDiscountPreviewLabel() {
+            if (!this.editOrderForm.discountType || !(Number(this.editOrderForm.discountValue) > 0)) {
+                return this.$t("noDiscount") || "بدون خصم";
+            }
+            if (this.editOrderForm.discountType === "percentage") {
+                return `${Math.min(Number(this.editOrderForm.discountValue) || 0, 100)}%`;
+            }
+            return `${this.formatPrice(this.editOrderForm.discountValue)} ${this.$t("currency")}`;
         },
     },
     watch: {
@@ -652,6 +1040,7 @@ export default {
                 
                 // Set new timer - wait 500ms after user stops typing
                 this.searchTimer = setTimeout(() => {
+                    this.pageNumber = 1;
                     this.GetAllOrders();
                 }, 500);
             },
@@ -676,6 +1065,38 @@ export default {
     },
 
     methods: {
+        formatReportPeriod(start, end) {
+            if (start && end) return `${start} — ${end}`;
+            if (start) return `${this.$t("from_date")}: ${start}`;
+            if (end) return `${this.$t("to_date")}: ${end}`;
+            return "";
+        },
+        refreshReports() {
+            if (this.activeTab === "orders") {
+                this.GetAllOrders();
+            } else if (this.activeTab === "lowStock") {
+                this.loadLowStockItems();
+            } else {
+                this.loadAdvancedReport();
+            }
+        },
+        clearFilters() {
+            this.search = {
+                info: "",
+                startDate: "",
+                endDate: "",
+                paymentMethod: "",
+            };
+            this.pageNumber = 1;
+            this.GetAllOrders();
+        },
+        clearAdvancedFilters() {
+            this.reportFilters = {
+                startDate: "",
+                endDate: "",
+            };
+            this.loadAdvancedReport();
+        },
         hasDiscount(item) {
             return item.item && 
                    item.item.disCountPrice && 
@@ -748,11 +1169,7 @@ export default {
             return icons[type] || 'house-door';
         },
         formatDate(dateTime) {
-            if (dateTime) {
-                const [date, time] = dateTime.split("T");
-                return date + " " + time.split(".")[0];
-            }
-            return "";
+            return formatBusinessDateTime(dateTime);
         },
         formatPrice(price) {
             if (price) {
@@ -1020,7 +1437,7 @@ export default {
         },
 
         showItemsModel(items, order) {
-            this.customerOrderItem = items;
+            this.customerOrderItem = (items || []).filter((item) => !item.isDeleted);
             this.order = order;
             this.$bvModal.show("modal-itemList");
         },
@@ -1039,15 +1456,149 @@ export default {
 
         GetAllOrders() {
             this.show = true;
-            HTTP.get(`Admin/GetOrders?pageNumber=${this.pageNumber - 1}&pageSize=${this.pageSize}&info=${this.search.info}&startDate=${this.search.startDate}&endDate=${this.search.endDate}`)
+            const params = new URLSearchParams();
+            params.append('pageNumber', (this.pageNumber - 1).toString());
+            params.append('pageSize', this.pageSize.toString());
+            if (this.search.info) params.append('info', this.search.info);
+            if (this.search.startDate) params.append('startDate', this.search.startDate);
+            if (this.search.endDate) params.append('endDate', this.search.endDate);
+            if (this.search.paymentMethod) params.append('paymentMethod', this.search.paymentMethod);
+            HTTP.get(`Admin/GetOrders?${params.toString()}`)
                 .then((response) => {
                     this.Orders = response.data.data.items;
                     this.totalOrders = response.data.data.totalItems;
+                    const summary = response.data.data.summary;
+                    this.ordersSummary = {
+                        totalOrders: summary?.totalOrders ?? 0,
+                        totalSubTotal: summary?.totalSubTotal ?? 0,
+                        totalDiscount: summary?.totalDiscount ?? 0,
+                        totalSales: summary?.totalSales ?? 0,
+                        totalItemsSold: summary?.totalItemsSold ?? 0,
+                        averageOrderValue: summary?.averageOrderValue ?? 0,
+                    };
                     this.show = false;
                 })
-                .catch((error) => {
+                .catch(() => {
                     this.show = false;
                 });
+        },
+
+        editOrder(order) {
+            this.editOrderData = order;
+            this.editOrderForm = {
+                paymentMethod: order.paymentMethod || 'Cash',
+                discountType: order.discountType || null,
+                discountValue: order.discountValue ?? null,
+                items: order.customerOrderItem ? order.customerOrderItem.filter((item) => !item.isDeleted).map(item => ({
+                    id: item.item?.id || item.itemId,
+                    name: item.item?.name || '',
+                    code: item.item?.code || '',
+                    price: item.sellingPrice,
+                    quantity: item.quantity,
+                    itemId: item.itemId,
+                })) : [],
+            };
+            this.$bvModal.show('modal-edit-order');
+        },
+        closeEditOrderModal() {
+            this.editOrderData = null;
+            this.editOrderForm = { paymentMethod: 'Cash', discountType: null, discountValue: null, items: [] };
+            this.$bvModal.hide('modal-edit-order');
+        },
+        increaseEditItemQuantity(index) {
+            if (this.editOrderForm.items[index]) this.editOrderForm.items[index].quantity++;
+        },
+        decreaseEditItemQuantity(index) {
+            if (this.editOrderForm.items[index] && this.editOrderForm.items[index].quantity > 1) {
+                this.editOrderForm.items[index].quantity--;
+            }
+        },
+        removeEditItem(index) {
+            this.editOrderForm.items.splice(index, 1);
+        },
+        showAddItemModal() {
+            this.itemSearchQuery = '';
+            this.availableItems = [];
+            this.$bvModal.show('modal-add-item');
+        },
+        searchItems() {
+            clearTimeout(this.itemSearchTimer);
+            this.itemSearchTimer = setTimeout(() => {
+                if (this.itemSearchQuery && this.itemSearchQuery.length >= 2) {
+                    HTTP.get(`Admin/GetItems?pageNumber=0&pageSize=20&info=${encodeURIComponent(this.itemSearchQuery)}`)
+                        .then((response) => { this.availableItems = response.data.data.items || []; })
+                        .catch(() => { this.availableItems = []; });
+                } else {
+                    this.availableItems = [];
+                }
+            }, 300);
+        },
+        addItemToEditOrder(item) {
+            const existingItem = this.editOrderForm.items.find(i => i.id === item.id);
+            if (existingItem) {
+                existingItem.quantity++;
+            } else {
+                const price = item.disCountPrice > 0 && item.disCountPrice < item.sellingPrice ? item.disCountPrice : item.sellingPrice;
+                this.editOrderForm.items.push({ id: item.id, name: item.name, code: item.code, price, quantity: 1, itemId: item.id });
+            }
+            this.$bvModal.hide('modal-add-item');
+        },
+        async updateOrder() {
+            if (!this.editOrderData || this.editOrderForm.items.length === 0) {
+                this.$notify.error(this.$i18n.t('emptyCartMessage') || 'السلة فارغة', { position: 'top-right', timeout: 3000 });
+                return;
+            }
+            this.loadingUpdateOrder = true;
+            try {
+                const request = {
+                    paymentMethod: this.editOrderForm.paymentMethod,
+                    discountType: this.editOrderDiscountAmount > 0 ? this.editOrderForm.discountType : null,
+                    discountValue: this.editOrderDiscountAmount > 0 ? (Number(this.editOrderForm.discountValue) || 0) : null,
+                    discountAmount: this.editOrderDiscountAmount > 0 ? this.editOrderDiscountAmount : 0,
+                    discountPercent: this.editOrderForm.discountType === 'percentage' ? (Number(this.editOrderForm.discountValue) || 0) : 0,
+                    orderSubTotal: this.editOrderTotal,
+                    orderTotalAfterDiscount: this.editOrderFinalTotal,
+                    customerOrderItem: mergeCartLinesForOrderPayload(this.editOrderForm.items.map(item => ({
+                        id: item.itemId || item.id,
+                        quantity: item.quantity,
+                    }))),
+                };
+                const response = await HTTP.put(`Admin/UpdateOrder/${this.editOrderData.id}`, request);
+                if (response.data && !response.data.errorStatus) {
+                    this.$notify.success(response.data.message || this.$i18n.t('orderUpdatedSuccessfully') || 'تم التحديث', { position: 'top-right', timeout: 3000 });
+                    this.closeEditOrderModal();
+                    this.GetAllOrders();
+                } else {
+                    this.$notify.error(response.data?.message || this.$i18n.t('error'), { position: 'top-right', timeout: 3000 });
+                }
+            } catch (error) {
+                this.$notify.error(error.response?.data?.message || this.$i18n.t('error'), { position: 'top-right', timeout: 3000 });
+            } finally {
+                this.loadingUpdateOrder = false;
+            }
+        },
+        async exportCurrentReportExcel() {
+            this.exportingExcel = true;
+            try {
+                if (this.activeTab === 'orders') {
+                    const params = new URLSearchParams();
+                    if (this.search.info) params.append('info', this.search.info);
+                    if (this.search.startDate) params.append('startDate', this.search.startDate);
+                    if (this.search.endDate) params.append('endDate', this.search.endDate);
+                    if (this.search.paymentMethod) params.append('paymentMethod', this.search.paymentMethod);
+                    const response = await HTTP.get(`Admin/ExportOrders?${params.toString()}`, { responseType: 'blob' });
+                    const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `orders_${new Date().toISOString().split('T')[0]}.csv`;
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                }
+            } catch (e) {
+                this.$notify.error(this.$t('exportError') || 'خطأ بالتصدير', { position: 'top-right', timeout: 3000 });
+            } finally {
+                this.exportingExcel = false;
+            }
         },
 
         // Advanced Reports Methods
@@ -1089,7 +1640,16 @@ export default {
             
             HTTP.get(`Admin/GetTopSellingItems?${params.toString()}`)
                 .then((response) => {
-                    this.topSellingItems = response.data.data || [];
+                    const payload = response.data.data;
+                    const items = Array.isArray(payload) ? payload : (payload?.items || []);
+                    const summary = payload?.summary;
+                    this.topSellingItems = items;
+                    this.topSellingItemsSummary = {
+                        totalQuantitySold: summary?.totalQuantitySold ?? 0,
+                        totalSales: summary?.totalSales ?? 0,
+                        totalDistinctItems: summary?.totalDistinctItems ?? 0,
+                        totalOrders: summary?.totalOrders ?? 0,
+                    };
                     this.show = false;
                 })
                 .catch((error) => {

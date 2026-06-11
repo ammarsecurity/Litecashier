@@ -1,6 +1,6 @@
 <template>
   <div class="main-content-wrapper">
-    <SidebarView />
+    <AppHeader />
     <div class="print-server-page-container">
       <div class="print-server-page-content">
         <!-- Header Section -->
@@ -385,14 +385,14 @@
 </template>
 
 <script>
-import SidebarView from "@/components/Layout/SidebarView.vue";
+import AppHeader from "@/components/Layout/AppHeader.vue";
 
 const PRINT_SERVER_URL = 'http://localhost:5000';
 
 export default {
   name: "PrintServerManagementView",
   components: {
-    SidebarView,
+    AppHeader,
   },
   data() {
     return {
@@ -451,13 +451,13 @@ Server is working correctly
           if (this.serverStatus.config) {
             this.currentDefaultPrinter = this.serverStatus.config.windows_printer_name || null;
           }
-          this.$toast.success(this.$i18n.t("serverStatusUpdated") || 'تم تحديث حالة الخادم', {
+          this.$notify.success(this.$i18n.t("serverStatusUpdated") || 'تم تحديث حالة الخادم', {
             position: "top-right",
             timeout: 2000,
           });
         } else {
           this.serverStatus = null;
-          this.$toast.error(this.$i18n.t("serverNotAvailable") || 'الخادم غير متاح', {
+          this.$notify.error(this.$i18n.t("serverNotAvailable") || 'الخادم غير متاح', {
             position: "top-right",
             timeout: 3000,
           });
@@ -465,7 +465,7 @@ Server is working correctly
       } catch (error) {
         console.error('Error checking server health:', error);
         this.serverStatus = null;
-        this.$toast.error(this.$i18n.t("serverConnectionError") || 'خطأ في الاتصال بالخادم', {
+        this.$notify.error(this.$i18n.t("serverConnectionError") || 'خطأ في الاتصال بالخادم', {
           position: "top-right",
           timeout: 3000,
         });
@@ -489,7 +489,7 @@ Server is working correctly
           this.defaultPrinter = data.default || null;
         } else {
           this.printers = [];
-          this.$toast.error(this.$i18n.t("failedToLoadPrinters") || 'فشل تحميل الطابعات', {
+          this.$notify.error(this.$i18n.t("failedToLoadPrinters") || 'فشل تحميل الطابعات', {
             position: "top-right",
             timeout: 3000,
           });
@@ -497,7 +497,7 @@ Server is working correctly
       } catch (error) {
         console.error('Error loading printers:', error);
         this.printers = [];
-        this.$toast.error(this.$i18n.t("serverConnectionError") || 'خطأ في الاتصال بالخادم', {
+        this.$notify.error(this.$i18n.t("serverConnectionError") || 'خطأ في الاتصال بالخادم', {
           position: "top-right",
           timeout: 3000,
         });
@@ -526,7 +526,7 @@ Server is working correctly
           if (this.config) {
             this.config.windows_printer_name = printerName;
           }
-          this.$toast.success(this.$i18n.t("defaultPrinterSet") || `تم تعيين "${printerName}" كطابعة افتراضية`, {
+          this.$notify.success(this.$i18n.t("defaultPrinterSet") || `تم تعيين "${printerName}" كطابعة افتراضية`, {
             position: "top-right",
             timeout: 3000,
           });
@@ -534,14 +534,14 @@ Server is working correctly
           await this.checkServerHealth();
           await this.loadConfig();
         } else {
-          this.$toast.error(result.message || this.$i18n.t("failedToSetDefaultPrinter") || 'فشل تعيين الطابعة الافتراضية', {
+          this.$notify.error(result.message || this.$i18n.t("failedToSetDefaultPrinter") || 'فشل تعيين الطابعة الافتراضية', {
             position: "top-right",
             timeout: 3000,
           });
         }
       } catch (error) {
         console.error('Error setting default printer:', error);
-        this.$toast.error(this.$i18n.t("serverConnectionError") || 'خطأ في الاتصال بالخادم', {
+        this.$notify.error(this.$i18n.t("serverConnectionError") || 'خطأ في الاتصال بالخادم', {
           position: "top-right",
           timeout: 3000,
         });
@@ -551,7 +551,7 @@ Server is working correctly
     },
     async testPrint() {
       if (!this.testContent.trim()) {
-        this.$toast.warning(this.$i18n.t("pleaseEnterTestContent") || 'يرجى إدخال محتوى للاختبار', {
+        this.$notify.warning(this.$i18n.t("pleaseEnterTestContent") || 'يرجى إدخال محتوى للاختبار', {
           position: "top-right",
           timeout: 2000,
         });
@@ -568,7 +568,7 @@ Server is working correctly
           body: JSON.stringify({
             htmlContent: `<div style="text-align: center; padding: 20px;">
               <h2>اختبار الطباعة</h2>
-              <p>${this.testContent.replace(/\n/g, '<br>')}</p>
+              <p>${this.testContent.replace(/./g, '<br>')}</p>
               <p style="margin-top: 20px;">تاريخ: ${new Date().toLocaleDateString('ar-EG')}</p>
               <p>الوقت: ${new Date().toLocaleTimeString('ar-EG')}</p>
             </div>`
@@ -578,19 +578,19 @@ Server is working correctly
         const result = await response.json();
         
         if (response.ok && result.success) {
-          this.$toast.success(this.$i18n.t("printTestSuccess") || 'تم إرسال أمر الطباعة بنجاح', {
+          this.$notify.success(this.$i18n.t("printTestSuccess") || 'تم إرسال أمر الطباعة بنجاح', {
             position: "top-right",
             timeout: 3000,
           });
         } else {
-          this.$toast.error(result.message || this.$i18n.t("printTestFailed") || 'فشلت الطباعة', {
+          this.$notify.error(result.message || this.$i18n.t("printTestFailed") || 'فشلت الطباعة', {
             position: "top-right",
             timeout: 3000,
           });
         }
       } catch (error) {
         console.error('Error testing print:', error);
-        this.$toast.error(this.$i18n.t("printTestError") || 'حدث خطأ أثناء الطباعة', {
+        this.$notify.error(this.$i18n.t("printTestError") || 'حدث خطأ أثناء الطباعة', {
           position: "top-right",
           timeout: 3000,
         });
@@ -668,19 +668,19 @@ Server is working correctly
         const result = await response.json();
         
         if (response.ok && result.success) {
-          this.$toast.success(this.$i18n.t("printTestSuccess") || 'تم إرسال أمر الطباعة بنجاح', {
+          this.$notify.success(this.$i18n.t("printTestSuccess") || 'تم إرسال أمر الطباعة بنجاح', {
             position: "top-right",
             timeout: 3000,
           });
         } else {
-          this.$toast.error(result.message || this.$i18n.t("printTestFailed") || 'فشلت الطباعة', {
+          this.$notify.error(result.message || this.$i18n.t("printTestFailed") || 'فشلت الطباعة', {
             position: "top-right",
             timeout: 3000,
           });
         }
       } catch (error) {
         console.error('Error testing print receipt:', error);
-        this.$toast.error(this.$i18n.t("printTestError") || 'حدث خطأ أثناء الطباعة', {
+        this.$notify.error(this.$i18n.t("printTestError") || 'حدث خطأ أثناء الطباعة', {
           position: "top-right",
           timeout: 3000,
         });
@@ -704,7 +704,7 @@ Server is working correctly
           this.originalConfig = JSON.parse(JSON.stringify(data.config)); // Deep copy
         } else {
           this.config = null;
-          this.$toast.error(this.$i18n.t("failedToLoadConfig") || 'فشل تحميل الإعدادات', {
+          this.$notify.error(this.$i18n.t("failedToLoadConfig") || 'فشل تحميل الإعدادات', {
             position: "top-right",
             timeout: 3000,
           });
@@ -712,7 +712,7 @@ Server is working correctly
       } catch (error) {
         console.error('Error loading config:', error);
         this.config = null;
-        this.$toast.error(this.$i18n.t("serverConnectionError") || 'خطأ في الاتصال بالخادم', {
+        this.$notify.error(this.$i18n.t("serverConnectionError") || 'خطأ في الاتصال بالخادم', {
           position: "top-right",
           timeout: 3000,
         });
@@ -737,7 +737,7 @@ Server is working correctly
         
         if (response.ok && result.success) {
           this.originalConfig = JSON.parse(JSON.stringify(this.config)); // Update original
-          this.$toast.success(this.$i18n.t("configSaved") || 'تم حفظ الإعدادات بنجاح', {
+          this.$notify.success(this.$i18n.t("configSaved") || 'تم حفظ الإعدادات بنجاح', {
             position: "top-right",
             timeout: 3000,
           });
@@ -748,14 +748,14 @@ Server is working correctly
             this.currentDefaultPrinter = this.config.windows_printer_name;
           }
         } else {
-          this.$toast.error(result.message || this.$i18n.t("failedToSaveConfig") || 'فشل حفظ الإعدادات', {
+          this.$notify.error(result.message || this.$i18n.t("failedToSaveConfig") || 'فشل حفظ الإعدادات', {
             position: "top-right",
             timeout: 3000,
           });
         }
       } catch (error) {
         console.error('Error saving config:', error);
-        this.$toast.error(this.$i18n.t("serverConnectionError") || 'خطأ في الاتصال بالخادم', {
+        this.$notify.error(this.$i18n.t("serverConnectionError") || 'خطأ في الاتصال بالخادم', {
           position: "top-right",
           timeout: 3000,
         });
@@ -766,7 +766,7 @@ Server is working correctly
     resetConfig() {
       if (this.originalConfig) {
         this.config = JSON.parse(JSON.stringify(this.originalConfig)); // Reset to original
-        this.$toast.info(this.$i18n.t("configReset") || 'تم إعادة تعيين الإعدادات', {
+        this.$notify.info(this.$i18n.t("configReset") || 'تم إعادة تعيين الإعدادات', {
           position: "top-right",
           timeout: 2000,
         });
@@ -774,7 +774,7 @@ Server is working correctly
     },
     copyCommand(command) {
       navigator.clipboard.writeText(command).then(() => {
-        this.$toast.success(this.$i18n.t("commandCopied") || 'تم نسخ الأمر', {
+        this.$notify.success(this.$i18n.t("commandCopied") || 'تم نسخ الأمر', {
           position: "top-right",
           timeout: 2000,
         });
@@ -786,7 +786,7 @@ Server is working correctly
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        this.$toast.success(this.$i18n.t("commandCopied") || 'تم نسخ الأمر', {
+        this.$notify.success(this.$i18n.t("commandCopied") || 'تم نسخ الأمر', {
           position: "top-right",
           timeout: 2000,
         });
@@ -811,7 +811,7 @@ Server is working correctly
           document.body.removeChild(link);
           window.URL.revokeObjectURL(url);
           
-          this.$toast.success(this.$i18n.t("downloadStarted") || 'تم بدء التحميل', {
+          this.$notify.success(this.$i18n.t("downloadStarted") || 'تم بدء التحميل', {
             position: "top-right",
             timeout: 2000,
           });
@@ -822,7 +822,7 @@ Server is working correctly
           }, 1000);
         } else {
           // If server is not available, show instructions to download manually
-          this.$toast.warning(this.$i18n.t("serverNotAvailableForDownload") || 'الخادم غير متاح. يرجى تحميل الملفات يدوياً من مجلد cashier_back', {
+          this.$notify.warning(this.$i18n.t("serverNotAvailableForDownload") || 'الخادم غير متاح. يرجى تحميل الملفات يدوياً من مجلد cashier_back', {
             position: "top-right",
             timeout: 4000,
           });
@@ -831,7 +831,7 @@ Server is working correctly
       } catch (error) {
         console.error('Error downloading package:', error);
         // Show manual download instructions
-        this.$toast.info(this.$i18n.t("manualDownloadInstructions") || 'يمكنك تحميل الملفات يدوياً من مجلد cashier_back', {
+        this.$notify.info(this.$i18n.t("manualDownloadInstructions") || 'يمكنك تحميل الملفات يدوياً من مجلد cashier_back', {
           position: "top-right",
           timeout: 4000,
         });

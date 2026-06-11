@@ -88,7 +88,7 @@
                                         id="inputNumber" 
                                         v-model="form.phoneNumber" 
                                         type="tel"
-                                        pattern="07\d{9}"
+                                        pattern="07.{9}"
                                         minlength="11"
                                         :placeholder="$t('phoneNumberPlaceholder')" 
                                         required
@@ -167,7 +167,7 @@ export default {
         register() {
             // Validation
             if (!this.form.name || !this.form.phoneNumber || !this.form.password) {
-                this.$toast.error(this.$i18n.t('pleaseFillAllFields') || 'Please fill all fields', {
+                this.$notify.error(this.$i18n.t('pleaseFillAllFields') || 'Please fill all fields', {
                     position: "top-right",
                     timeout: 4000,
                 });
@@ -176,7 +176,7 @@ export default {
 
             // Phone number validation (Iraqi format)
             if (this.form.phoneNumber.length < 10 || this.form.phoneNumber.length > 11) {
-                this.$toast.error(this.$i18n.t('invalidPhoneNumber') || 'Invalid phone number', {
+                this.$notify.error(this.$i18n.t('invalidPhoneNumber') || 'Invalid phone number', {
                     position: "top-right",
                     timeout: 4000,
                 });
@@ -185,7 +185,7 @@ export default {
 
             // Password validation
             if (this.form.password.length < 8) {
-                this.$toast.error(this.$i18n.t('passwordTooShort') || 'Password must be at least 8 characters', {
+                this.$notify.error(this.$i18n.t('passwordTooShort') || 'Password must be at least 8 characters', {
                     position: "top-right",
                     timeout: 4000,
                 });
@@ -193,21 +193,30 @@ export default {
             }
 
             this.show = true;
-            
-            // Prepare JSON data for registration
-            const registrationData = {
-                name: this.form.name,
-                phoneNumber: this.form.phoneNumber,
-                password: this.form.password,
-                username: this.form.username,
-                role: this.form.role
-            };
-            
-            HTTP.post('Auth/RegisterUser', registrationData)
+
+            const formData = new FormData();
+            formData.append('name', this.form.name);
+            formData.append('phoneNumber', this.form.phoneNumber);
+            formData.append('password', this.form.password);
+            formData.append('username', this.form.username);
+            formData.append('role', this.form.role || 'Commercial');
+            if (this.form.storeName) {
+              formData.append('storeName', this.form.storeName);
+            }
+            if (this.form.logoFile) {
+              formData.append('logo', this.form.logoFile);
+            }
+            if (this.form.loginCode) {
+              formData.append('loginCode', this.form.loginCode);
+            }
+
+            HTTP.post('Auth/RegisterUser', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            })
                 .then(response => {
                     this.show = false;
                     if (response.data && !response.data.errorStatus) {
-                        this.$toast.success(this.$i18n.t('sucessRegister') || 'Registration successful', {
+                        this.$notify.success(this.$i18n.t('sucessRegister') || 'Registration successful', {
                             position: "top-right",
                             timeout: 5000,
                             closeOnClick: true,
@@ -233,7 +242,7 @@ export default {
                                        this.$i18n.t('registrationError') || 
                                        'Registration failed. Please try again.';
                     
-                    this.$toast.error(errorMessage, {
+                    this.$notify.error(errorMessage, {
                         position: "top-right",
                         timeout: 5000,
                         closeOnClick: true,

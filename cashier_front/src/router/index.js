@@ -1,26 +1,52 @@
 import Vue from 'vue'
 import VueRouter from 'vue-router'
-import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/Auth/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import ItemsView from '../views/ItemsView.vue'
 import UsersView from '../views/UsersView.vue'
 import CategoryView from '../views/CategoryView.vue'
 import ReporstView from '../views/ReporstView.vue'
+import EndOfDayReportView from '../views/EndOfDayReportView.vue'
 import PosView from '../views/PosView.vue'
 import PriceReaderView from '../views/PriceReaderView.vue'
 import RegisterView from '../views/Auth/RegisterView.vue'
-import PrintServerManagementView from '../views/PrintServerManagementView.vue'
+import PrintServerManagementNewView from '../views/PrintServerManagementNewView.vue'
+import EmployeesView from '../views/EmployeesView.vue'
+import CustomersView from '../views/CustomersView.vue'
+import ExpensesView from '../views/ExpensesView.vue'
+import InventoryView from '../views/InventoryView.vue'
+import AuditLogView from '../views/AuditLogView.vue'
 import { i18n } from '../main'
+import { managerCanAccessPath } from '../navigation/sectionRegistry.js'
 Vue.use(VueRouter)
+
+export const getDefaultPathForRole = (role) => {
+  if (role === 'Admin') return '/users'
+  if (role === 'POS') return '/pos'
+  if (role === 'Manager') return '/sections'
+  if (role === 'Reader') return '/priceReader'
+  return '/dashboard'
+}
+
+function userMayAccessRoute(role, to) {
+  const roles = to.meta && to.meta.roles
+  if (!roles || !Array.isArray(roles)) return true
+  if (roles.includes(role)) return true
+  if (role === 'Manager' && managerCanAccessPath(to.path)) return true
+  return false
+}
 
 const routes = [
   {
     path: '/',
     name: 'home',
-    component: HomeView,
-    meta: {
-      requiresAuth: false
+    redirect: () => {
+      const token = localStorage.getItem('token')
+      const role = localStorage.getItem('role')
+      if (token && role) {
+        return getDefaultPathForRole(role)
+      }
+      return '/login'
     }
   },
   {
@@ -65,12 +91,20 @@ const routes = [
       requiresAuth: true,
       roles: ['Commercial', 'POS', 'Reader']
     }
-
   },
   {
     path: '/reports',
     name: 'reports',
     component: ReporstView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial']
+    }
+  },
+  {
+    path: '/end-of-day-report',
+    name: 'endOfDayReport',
+    component: EndOfDayReportView,
     meta: {
       requiresAuth: true,
       roles: ['Commercial']
@@ -104,12 +138,66 @@ const routes = [
     }
   },
   {
+    path: '/sections',
+    name: 'sections',
+    component: () => import('../views/SectionsView.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin', 'POS', 'Reader', 'Manager']
+    }
+  },
+  {
     path: '/print-server',
     name: 'printServerManagement',
-    component: PrintServerManagementView,
+    component: PrintServerManagementNewView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'POS', 'Admin', 'Manager']
+    }
+  },
+  {
+    path: '/employees',
+    name: 'employees',
+    component: EmployeesView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
+    }
+  },
+  {
+    path: '/customers',
+    name: 'customers',
+    component: CustomersView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
+    }
+  },
+  {
+    path: '/expenses',
+    name: 'expenses',
+    component: ExpensesView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
+    }
+  },
+  {
+    path: '/inventory',
+    name: 'inventory',
+    component: InventoryView,
     meta: {
       requiresAuth: true,
       roles: ['Commercial', 'POS', 'Admin']
+    }
+  },
+  {
+    path: '/audit-log',
+    name: 'auditLog',
+    component: AuditLogView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial']
     }
   },
   {
@@ -119,9 +207,6 @@ const routes = [
   {
     path: '/about',
     name: 'about',
-    // route level code-splitting
-    // this generates a separate chunk (about.[hash].js) for this route
-    // which is lazy-loaded when the route is visited.
     component: function () {
       return import(/* webpackChunkName: "about" */ '../views/AboutView.vue')
     }
@@ -129,7 +214,6 @@ const routes = [
 ]
 
 const router = new VueRouter({
-  // add mode: 'history' to remove # from url
   mode: 'history',
   routes
 })
@@ -138,54 +222,71 @@ router.beforeEach((to, from, next) => {
   try {
     i18n.locale = localStorage.getItem('language') || 'ar';
 
-    // Routes that don't require authentication
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('role');
+
+    if ((to.path === '/login' || to.path === '/register') && token && role) {
+      return next(getDefaultPathForRole(role));
+    }
+
     if (to.meta.requiresAuth === false) {
       return next();
     }
 
-    // Handle logout
     if (to.path === '/logout') {
       localStorage.removeItem('token');
       localStorage.removeItem('role');
       localStorage.removeItem('info');
+      localStorage.removeItem('allowedSections');
       return next('/login');
     }
-
-    // Check if user is authenticated
-    const token = localStorage.getItem('token');
-    const role = localStorage.getItem('role');
 
     if (to.meta.requiresAuth === true && !token) {
       return next('/login');
     }
 
-    // Check if user has required role
     if (to.meta.requiresAuth === true && token && role) {
-      if (to.meta.roles && Array.isArray(to.meta.roles) && to.meta.roles.includes(role)) {
-        // If Admin tries to access any page other than /users, redirect to /users
-        if (role === 'Admin' && to.path !== '/users' && to.path !== '/logout') {
+      if (userMayAccessRoute(role, to)) {
+        if (role === 'Manager') {
+          if (
+            to.path === '/sections' ||
+            to.path === '/logout' ||
+            managerCanAccessPath(to.path)
+          ) {
+            return next();
+          }
+          return next('/sections');
+        }
+        if (
+          role === 'Admin' &&
+          to.path !== '/users' &&
+          to.path !== '/logout' &&
+          to.path !== '/sections' &&
+          to.path !== '/customers' &&
+          to.path !== '/category'
+        ) {
           return next('/users');
         }
-        // If POS tries to access any page other than /items or /pos or /print-server, redirect to /pos
-        if (role === 'POS' && to.path !== '/items' && to.path !== '/pos' && to.path !== '/print-server' && to.path !== '/logout') {
+        if (
+          role === 'POS' &&
+          to.path !== '/items' &&
+          to.path !== '/pos' &&
+          to.path !== '/inventory' &&
+          to.path !== '/print-server' &&
+          to.path !== '/logout' &&
+          to.path !== '/sections'
+        ) {
           return next('/pos');
+        }
+        if (role === 'Reader' && to.path !== '/priceReader' && to.path !== '/logout' && to.path !== '/sections') {
+          return next('/priceReader');
         }
         return next();
       } else {
-        // User doesn't have required role, redirect to appropriate page
-        if (role === 'Admin') {
-          return next('/users');
-        } else if (role === 'POS') {
-          return next('/pos');
-        } else if (role === 'Reader') {
-          return next('/priceReader');
-        } else {
-          return next('/dashboard');
-        }
+        return next(getDefaultPathForRole(role));
       }
     }
 
-    // Default: redirect to login
     return next('/login');
   } catch (error) {
     console.error('Router navigation error:', error);

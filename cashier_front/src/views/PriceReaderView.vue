@@ -1,4 +1,6 @@
 <template>
+  <div>
+    <AppHeader />
   <div class="price-reader-fullscreen">
     <!-- Header Section -->
     <div class="price-reader-header-fullscreen">
@@ -99,15 +101,18 @@
       </div>
     </div>
   </div>
+  </div>
 </template>
 
 <script>
+import AppHeader from "@/components/Layout/AppHeader.vue";
 import LottieAnimation from "lottie-vuejs/src/LottieAnimation.vue";
 import { HTTP } from '../http/api.js';
 
 export default {
   name: "PriceReaderView",
   components: {
+    AppHeader,
     LottieAnimation,
   },
     data() {

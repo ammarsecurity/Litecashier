@@ -1,14 +1,17 @@
 ﻿using AutoMapper;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using POS.Authorization;
 using POS.Db;
 using POS.Models;
 using POS.Models.Dtos;
 using POS.Models.Requests;
 using POS.Models.Response;
 using System.Security.Claims;
+using System.Text;
 
 namespace POS.Controllers
 {
@@ -32,63 +35,650 @@ namespace POS.Controllers
             _configuration = configuration;
         }
 
-        // Add User
-        [Authorize(Roles = "Commercial,Admin")]
-        [HttpPost("AddUser")]
-        public async Task<ActionResult<GlobalResponse<User>>> AddUser(UserRequest request)
+        private int GetCommercialUserId()
         {
-            var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.PhoneNumber == request.PhoneNumber && x.IsDeleted == false);
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
-            if (user != null)
-            {
-                return BadRequest(new GlobalResponse<User>
-                {
-                    Data = user,
-                    ErrorStatus = true,
-                    Message = "phone number is already exsit"
-                });
-            }
-            var newUse = _mapper.Map<User>(request);
-            var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
-            newUse.Password = passwordHash;
-            newUse.InsertByUserId = userId;
-            _dbConfig.Users.Add(newUse);
-            await _dbConfig.SaveChangesAsync();
+            var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId && !x.IsDeleted);
 
-            return Ok(new GlobalResponse<User>
+            if (user != null && user.Role == "Commercial")
+                return userId;
+
+            return user?.InsertByUserId ?? userId;
+        }
+
+        private async Task<(bool Ok, string? ErrorKey)> TryVerifySensitiveCredentialAsync(int commercialUserId, string password)
+        {
+            var commercial = await _dbConfig.Users
+                .FirstOrDefaultAsync(u => u.Id == commercialUserId && !u.IsDeleted);
+
+            if (commercial != null
+                && !string.IsNullOrWhiteSpace(commercial.Password)
+                && BCrypt.Net.BCrypt.Verify(password, commercial.Password))
             {
-                Data = newUse,
+                return (true, null);
+            }
+
+            var managers = await _dbConfig.Users
+                .Where(u => !u.IsDeleted
+                    && u.InsertByUserId == commercialUserId
+                    && u.Role == SectionDefinitions.ManagerRole)
+                .ToListAsync();
+
+            var submittedCode = NormalizeLoginCode(password);
+
+            foreach (var manager in managers)
+            {
+                if (manager.CanUseOwnLoginCodeForSensitiveActions
+                    && !string.IsNullOrWhiteSpace(manager.LoginCode)
+                    && submittedCode != null
+                    && submittedCode == manager.LoginCode)
+                {
+                    return (true, null);
+                }
+            }
+
+            foreach (var manager in managers)
+            {
+                if (!string.IsNullOrWhiteSpace(manager.Password)
+                    && BCrypt.Net.BCrypt.Verify(password, manager.Password))
+                {
+                    return (true, null);
+                }
+            }
+
+            return (false, "invalidSensitiveAuth");
+        }
+
+        private static string? NormalizeLoginCode(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+            var s = raw.Trim();
+            if (s.Length < 4 || s.Length > 12 || !s.All(char.IsDigit)) return null;
+            return s;
+        }
+
+        private static bool IsManagerRole(string? role) =>
+            string.Equals(role, SectionDefinitions.ManagerRole, StringComparison.OrdinalIgnoreCase);
+
+        private async Task<(bool Ok, string? ErrorMessage)> ApplyManagerSensitiveLoginCodeSettingsAsync(
+            User user,
+            string role,
+            string? loginCodeRaw,
+            bool? canUseOwnLoginCode,
+            int? excludeUserId = null)
+        {
+            if (!IsManagerRole(role))
+            {
+                user.CanUseOwnLoginCodeForSensitiveActions = false;
+                if (!string.Equals(role, "Commercial", StringComparison.OrdinalIgnoreCase))
+                    user.LoginCode = null;
+                return (true, null);
+            }
+
+            user.CanUseOwnLoginCodeForSensitiveActions = canUseOwnLoginCode == true;
+
+            if (!user.CanUseOwnLoginCodeForSensitiveActions)
+                return (true, null);
+
+            string? lc = null;
+            if (!string.IsNullOrWhiteSpace(loginCodeRaw))
+            {
+                lc = NormalizeLoginCode(loginCodeRaw);
+                if (lc == null)
+                    return (false, "رمز الدخول يجب أن يكون من 4 إلى 12 رقماً");
+            }
+            else if (!string.IsNullOrWhiteSpace(user.LoginCode))
+            {
+                lc = user.LoginCode;
+            }
+
+            if (string.IsNullOrWhiteSpace(lc))
+                return (false, "managerLoginCodeRequiredForSensitiveActions");
+
+            var duplicateQuery = _dbConfig.Users.Where(u => u.LoginCode == lc && !u.IsDeleted);
+            if (excludeUserId.HasValue)
+                duplicateQuery = duplicateQuery.Where(u => u.Id != excludeUserId.Value);
+
+            if (await duplicateQuery.AnyAsync())
+                return (false, "رمز الدخول مستخدم من حساب آخر");
+
+            user.LoginCode = lc;
+            return (true, null);
+        }
+
+        private async Task<EndOfDayReportDto> BuildEndOfDayReportAsync(int commercialUserId)
+        {
+            var dayStart = DateTime.UtcNow.Date;
+            var dayEnd = dayStart.AddDays(1);
+
+            var orders = await _dbConfig.CustomerOrders
+                .Where(o =>
+                    !o.IsDeleted &&
+                    (o.InsertByUserId == commercialUserId || o.User!.InsertByUserId == commercialUserId) &&
+                    o.InsertDate >= dayStart &&
+                    o.InsertDate < dayEnd)
+                .ToListAsync();
+
+            var orderIds = orders.Select(o => o.Id).ToList();
+            var orderItems = orderIds.Any()
+                ? await _dbConfig.CustomerOrderItems
+                    .Include(oi => oi.Item)
+                    .Where(oi => !oi.IsDeleted && orderIds.Contains(oi.CustomerOrderId))
+                    .ToListAsync()
+                : new List<CustomerOrderItem>();
+
+            var itemsCount = orderItems.Count;
+            var itemsQuantity = orderItems.Sum(x => x.Quantity);
+            var grossSales = orderItems.Sum(x => x.SellingPrice * x.Quantity);
+            var discountAmount = orders.Sum(x => x.DiscountAmount ?? 0m);
+            var netSales = Math.Max(0m, grossSales - discountAmount);
+            var totalCost = orderItems.Sum(x => x.PurchasingPrice * x.Quantity);
+            var profit = netSales - totalCost;
+
+            var paymentBreakdown = orders
+                .GroupBy(x => string.IsNullOrWhiteSpace(x.PaymentMethod) ? "Cash" : x.PaymentMethod)
+                .Select(g =>
+                {
+                    var groupOrderIds = g.Select(x => x.Id).ToHashSet();
+                    var amount = orderItems
+                        .Where(oi => groupOrderIds.Contains(oi.CustomerOrderId))
+                        .Sum(oi => oi.SellingPrice * oi.Quantity);
+                    return new EndOfDayPaymentDto
+                    {
+                        Method = g.Key,
+                        OrdersCount = g.Count(),
+                        Amount = amount
+                    };
+                })
+                .OrderByDescending(x => x.Amount)
+                .ToList();
+
+            var topItems = orderItems
+                .GroupBy(x => new { x.ItemId, ItemName = x.Item != null ? x.Item.Name : $"#{x.ItemId}" })
+                .Select(g => new EndOfDayTopItemDto
+                {
+                    ItemId = g.Key.ItemId,
+                    ItemName = g.Key.ItemName ?? string.Empty,
+                    Quantity = g.Sum(x => x.Quantity),
+                    SalesAmount = g.Sum(x => x.SellingPrice * x.Quantity)
+                })
+                .OrderByDescending(x => x.Quantity)
+                .ThenByDescending(x => x.SalesAmount)
+                .Take(10)
+                .ToList();
+
+            return new EndOfDayReportDto
+            {
+                DayStart = dayStart,
+                DayEnd = dayEnd.AddSeconds(-1),
+                Totals = new EndOfDayTotalsDto
+                {
+                    OrdersCount = orders.Count,
+                    ItemsCount = itemsCount,
+                    ItemsQuantity = itemsQuantity,
+                    GrossSales = grossSales,
+                    DiscountAmount = discountAmount,
+                    NetSales = netSales,
+                    TotalCost = totalCost,
+                    Profit = profit,
+                    ReturnedAmount = 0,
+                    ReturnedCount = 0
+                },
+                PaymentBreakdown = paymentBreakdown,
+                TopItems = topItems
+            };
+        }
+
+        private bool TryGetOrderInsertUtcRange(DateTime? startDate, DateTime? endDate, out DateTime fromUtc, out DateTime toUtcExclusive)
+        {
+            fromUtc = default;
+            toUtcExclusive = default;
+
+            if (!startDate.HasValue && !endDate.HasValue)
+                return false;
+
+            DateTime startDay;
+            DateTime endDay;
+
+            if (startDate.HasValue && endDate.HasValue)
+            {
+                startDay = startDate.Value.Date;
+                endDay = endDate.Value.Date;
+                if (endDay < startDay)
+                    (startDay, endDay) = (endDay, startDay);
+            }
+            else if (startDate.HasValue)
+            {
+                startDay = endDay = startDate.Value.Date;
+            }
+            else
+                return false;
+
+            var tzId = (_configuration["BusinessSettings:TimeZoneId"] ?? "").Trim();
+            TimeZoneInfo tz;
+            try
+            {
+                tz = !string.IsNullOrEmpty(tzId)
+                    ? TimeZoneInfo.FindSystemTimeZoneById(tzId)
+                    : TimeZoneInfo.Local;
+            }
+            catch
+            {
+                tz = TimeZoneInfo.Local;
+            }
+
+            var localStart = DateTime.SpecifyKind(startDay, DateTimeKind.Unspecified);
+            var localEndExclusive = DateTime.SpecifyKind(endDay.AddDays(1), DateTimeKind.Unspecified);
+            fromUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, tz);
+            toUtcExclusive = TimeZoneInfo.ConvertTimeToUtc(localEndExclusive, tz);
+            return true;
+        }
+
+        private static List<CustomerOrderItem> GetActiveOrderItems(IEnumerable<CustomerOrderItem>? items)
+        {
+            return items?
+                .Where(item => item != null && !item.IsDeleted)
+                .ToList() ?? new List<CustomerOrderItem>();
+        }
+
+        private IQueryable<CustomerOrderItem> QueryActiveOrderItemsForCommercial(int userId, int userInsertByUserId)
+        {
+            return _dbConfig.CustomerOrderItems
+                .Where(x => !x.IsDeleted &&
+                            x.CustomerOrder != null &&
+                            !x.CustomerOrder.IsDeleted &&
+                            (x.InsertByUserId == userId ||
+                             x.User!.Id == userInsertByUserId ||
+                             x.User!.InsertByUserId == userId));
+        }
+
+        private IQueryable<CustomerOrder> QueryActiveOrdersForCommercial(int userId)
+        {
+            return _dbConfig.CustomerOrders
+                .Where(x => !x.IsDeleted &&
+                            (x.InsertByUserId == userId || x.User!.InsertByUserId == userId));
+        }
+
+        private decimal SumOrdersSalesAmount(IQueryable<CustomerOrder> ordersQuery)
+        {
+            return ordersQuery
+                .Select(o => o.OrderTotalAfterDiscount
+                    ?? o.OrderSubTotal
+                    ?? _dbConfig.CustomerOrderItems
+                        .Where(i => i.CustomerOrderId == o.Id && !i.IsDeleted)
+                        .Sum(i => (decimal?)(i.Quantity * i.SellingPrice))
+                    ?? 0m)
+                .Sum();
+        }
+
+        private static string EscapeCsv(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            return value.Replace("\"", "\"\"");
+        }
+
+        [Authorize(Roles = "Commercial,Admin")]
+        [HttpGet("assignable-sections")]
+        public ActionResult<GlobalResponse<object>> GetAssignableSections()
+        {
+            return Ok(new GlobalResponse<object>
+            {
+                Data = new { keys = SectionDefinitions.AssignableSectionKeys },
                 ErrorStatus = false,
                 Message = "done"
             });
         }
 
+        // Add User
         [Authorize(Roles = "Commercial,Admin")]
-        [HttpPut("UpdateUser")]
-        public async Task<ActionResult<GlobalResponse<User>>> UpdateUser(UserRequest request, int id)
+        [HttpPost("AddUser")]
+        public async Task<ActionResult<GlobalResponse<User>>> AddUser([FromForm] UserRequest request)
         {
-            var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == id && x.IsDeleted == false);
-            if (user == null)
+            try
             {
-                return BadRequest(new GlobalResponse<User>
+                var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var currentUser = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == currentUserId);
+
+                if (request.Role == "Commercial" && currentUser?.Role != "Admin")
                 {
-                    Data = user,
-                    ErrorStatus = true,
-                    Message = "user not exsit"
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "ليس لديك صلاحية لإضافة مستخدمين تجاريين. فقط المدير الرئيسي يمكنه ذلك"
+                    });
+                }
+
+                var commercialUserId = GetCommercialUserId();
+                var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.PhoneNumber == request.PhoneNumber && x.IsDeleted == false);
+
+                if (currentUser?.Role == "Admin")
+                {
+                    if (user != null)
+                    {
+                        return BadRequest(new GlobalResponse<User>
+                        {
+                            Data = user,
+                            ErrorStatus = true,
+                            Message = "رقم الهاتف موجود بالفعل"
+                        });
+                    }
+                }
+                else if (user != null && user.InsertByUserId == commercialUserId)
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = user,
+                        ErrorStatus = true,
+                        Message = "رقم الهاتف موجود بالفعل"
+                    });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.Password))
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "كلمة المرور مطلوبة لإضافة مستخدم جديد"
+                    });
+                }
+
+                var newUse = _mapper.Map<User>(request);
+                newUse.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
+
+                var (sectionsOk, sectionsError, sectionsJson) =
+                    SectionPermissionService.ResolveManagerSectionsForSave(request.Role, request.AllowedSectionsJson);
+                if (!sectionsOk)
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = sectionsError ?? "selectAtLeastOneSection"
+                    });
+                }
+                newUse.AllowedSectionsJson = sectionsJson;
+
+                if (request.Role == "Commercial" && currentUser?.Role == "Admin")
+                    newUse.InsertByUserId = currentUserId;
+                else
+                    newUse.InsertByUserId = commercialUserId;
+
+                if (request.Role == "Commercial" && currentUser?.Role == "Admin" && request.Logo != null && request.Logo.Length > 0)
+                {
+                    try
+                    {
+                        newUse.Logo = await UploadIamgesAsync(request.Logo);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error uploading logo for new Commercial user");
+                        return BadRequest(new GlobalResponse<User>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = $"خطأ في رفع الشعار: {ex.Message}"
+                        });
+                    }
+                }
+
+                if (request.Role == "Commercial" && currentUser?.Role == "Admin" && !string.IsNullOrEmpty(request.StoreName))
+                    newUse.StoreName = request.StoreName;
+
+                if (request.Role == "Commercial" && currentUser?.Role == "Admin" && !string.IsNullOrWhiteSpace(request.LoginCode))
+                {
+                    var lc = NormalizeLoginCode(request.LoginCode);
+                    if (lc == null)
+                    {
+                        return BadRequest(new GlobalResponse<User>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "رمز الدخول يجب أن يكون من 4 إلى 12 رقماً"
+                        });
+                    }
+                    if (await _dbConfig.Users.AnyAsync(u => u.LoginCode == lc && !u.IsDeleted))
+                    {
+                        return BadRequest(new GlobalResponse<User>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "رمز الدخول مستخدم من حساب آخر"
+                        });
+                    }
+                    newUse.LoginCode = lc;
+                }
+
+                var (managerLoginOk, managerLoginError) = await ApplyManagerSensitiveLoginCodeSettingsAsync(
+                    newUse,
+                    request.Role,
+                    request.LoginCode,
+                    request.CanUseOwnLoginCodeForSensitiveActions);
+                if (!managerLoginOk)
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = managerLoginError ?? "managerLoginCodeRequiredForSensitiveActions"
+                    });
+                }
+
+                _dbConfig.Users.Add(newUse);
+                await _dbConfig.SaveChangesAsync();
+
+                return Ok(new GlobalResponse<User>
+                {
+                    Data = newUse,
+                    ErrorStatus = false,
+                    Message = "تم إضافة المستخدم بنجاح"
                 });
             }
-            var uUser = _mapper.Map(request, user);
-            var passwordHash = request.Password == null ? user!.Password : BCrypt.Net.BCrypt.HashPassword(request.Password);
-            uUser!.Password = passwordHash;
-            _dbConfig.Users.Update(uUser);
-            await _dbConfig.SaveChangesAsync();
-
-            return Ok(new GlobalResponse<User>
+            catch (Exception ex)
             {
-                Data = user,
-                ErrorStatus = false,
-                Message = "done"
-            });
+                _logger.LogError(ex, "Error adding user");
+                return StatusCode(500, new GlobalResponse<User>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ أثناء إضافة المستخدم: {ex.Message}"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial,Admin")]
+        [HttpPut("UpdateUser")]
+        public async Task<ActionResult<GlobalResponse<User>>> UpdateUser([FromForm] UserRequest request, int id)
+        {
+            try
+            {
+                var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var currentUser = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == currentUserId);
+
+                var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == id && x.IsDeleted == false);
+                if (user == null)
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "المستخدم غير موجود"
+                    });
+                }
+
+                if (user.Role == "Commercial" && currentUser?.Role != "Admin")
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "ليس لديك صلاحية لتعديل المستخدمين التجاريين. فقط المدير الرئيسي يمكنه ذلك"
+                    });
+                }
+
+                var commercialUserId = GetCommercialUserId();
+                if (currentUser?.Role != "Admin" && user.Role != "Commercial" && user.InsertByUserId != commercialUserId)
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "ليس لديك صلاحية لتعديل هذا المستخدم"
+                    });
+                }
+
+                if (currentUser?.Role != "Admin" && request.Role == "Commercial")
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "ليس لديك صلاحية لتغيير الدور إلى تجاري. فقط المدير الرئيسي يمكنه ذلك"
+                    });
+                }
+
+                var oldValues = new
+                {
+                    user.Name,
+                    user.PhoneNumber,
+                    user.Username,
+                    user.Role,
+                    user.StoreName,
+                    user.Logo,
+                    user.LoginCode
+                };
+
+                user.Name = request.Name;
+                user.PhoneNumber = request.PhoneNumber;
+                user.Username = request.Username;
+                user.Role = request.Role;
+
+                var (sectionsOk, sectionsError, sectionsJson) =
+                    SectionPermissionService.ResolveManagerSectionsForSave(request.Role, request.AllowedSectionsJson);
+                if (!sectionsOk)
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = sectionsError ?? "selectAtLeastOneSection"
+                    });
+                }
+                user.AllowedSectionsJson = sectionsJson;
+
+                var (managerLoginOk, managerLoginError) = await ApplyManagerSensitiveLoginCodeSettingsAsync(
+                    user,
+                    request.Role,
+                    request.LoginCode,
+                    request.CanUseOwnLoginCodeForSensitiveActions,
+                    id);
+                if (!managerLoginOk)
+                {
+                    return BadRequest(new GlobalResponse<User>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = managerLoginError ?? "managerLoginCodeRequiredForSensitiveActions"
+                    });
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Password))
+                    user.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
+
+                if (currentUser?.Role == "Admin" && user.Role == "Commercial")
+                {
+                    if (request.Logo != null && request.Logo.Length > 0)
+                    {
+                        try
+                        {
+                            user.Logo = await UploadIamgesAsync(request.Logo);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error uploading logo for user {UserId}", id);
+                            return BadRequest(new GlobalResponse<User>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = $"خطأ في رفع الشعار: {ex.Message}"
+                            });
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(request.StoreName))
+                        user.StoreName = request.StoreName;
+
+                    if (string.IsNullOrWhiteSpace(request.LoginCode))
+                        user.LoginCode = null;
+                    else
+                    {
+                        var lc = NormalizeLoginCode(request.LoginCode);
+                        if (lc == null)
+                        {
+                            return BadRequest(new GlobalResponse<User>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = "رمز الدخول يجب أن يكون من 4 إلى 12 رقماً"
+                            });
+                        }
+                        if (await _dbConfig.Users.AnyAsync(u => u.LoginCode == lc && u.Id != id && !u.IsDeleted))
+                        {
+                            return BadRequest(new GlobalResponse<User>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = "رمز الدخول مستخدم من حساب آخر"
+                            });
+                        }
+                        user.LoginCode = lc;
+                    }
+                }
+
+                var newValues = new
+                {
+                    user.Name,
+                    user.PhoneNumber,
+                    user.Username,
+                    user.Role,
+                    user.StoreName,
+                    user.Logo,
+                    user.LoginCode
+                };
+
+                _dbConfig.Users.Update(user);
+                await _dbConfig.SaveChangesAsync();
+
+                await _dbConfig.LogAuditAsync(
+                    "Update",
+                    "User",
+                    user.Id,
+                    user.Name,
+                    currentUserId,
+                    commercialUserId,
+                    oldValues,
+                    newValues,
+                    $"تم تعديل المستخدم: {user.Name}"
+                );
+
+                return Ok(new GlobalResponse<User>
+                {
+                    Data = user,
+                    ErrorStatus = false,
+                    Message = "تم تحديث المستخدم بنجاح"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating user {UserId}", id);
+                return StatusCode(500, new GlobalResponse<User>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ أثناء تحديث المستخدم: {ex.Message}"
+                });
+            }
         }
 
         [Authorize(Roles = "Commercial,Admin")]
@@ -136,9 +726,13 @@ namespace POS.Controllers
                 }
                 var totalItems = user.Count();
 
+                var pagedItems = user
+                    .OrderByDescending(x => x.Id)
+                    .Skip(pageNumber * pageSize)
+                    .Take(pageSize)
+                    .ToList();
 
-
-                var pagedResult = new PagedList<User>(user.ToList(), totalItems, pageNumber, pageSize);
+                var pagedResult = new PagedList<User>(pagedItems, totalItems, pageNumber, pageSize);
 
                 var response = new GlobalResponse<PagedList<User>>
                 {
@@ -159,9 +753,13 @@ namespace POS.Controllers
                 }
                 var totalItems = user.Count();
 
+                var pagedItems = user
+                    .OrderByDescending(x => x.Id)
+                    .Skip(pageNumber * pageSize)
+                    .Take(pageSize)
+                    .ToList();
 
-
-                var pagedResult = new PagedList<User>(user.ToList(), totalItems, pageNumber, pageSize);
+                var pagedResult = new PagedList<User>(pagedItems, totalItems, pageNumber, pageSize);
 
                 var response = new GlobalResponse<PagedList<User>>
                 {
@@ -322,7 +920,13 @@ namespace POS.Controllers
 
             var totalItems = tag.Count();
 
-            var pagedResult = new PagedList<Tag>(tag.ToList(), totalItems, pageNumber, pageSize);
+            var pagedItems = tag
+                .OrderByDescending(x => x.Id)
+                .Skip(pageNumber * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            var pagedResult = new PagedList<Tag>(pagedItems, totalItems, pageNumber, pageSize);
 
             var response = new GlobalResponse<PagedList<Tag>>
             {
@@ -483,19 +1087,24 @@ namespace POS.Controllers
                 item = item.Where(x => x.Code == info || x.Name.Contains(info) || x.Description!.Contains(info) || x.Tags!.Contains(info));
             }
 
-            var imageBaseUrl = _configuration["ApiSettings:ImageBaseUrl"] ?? "https://pos-api.tatwer.tech/Images/";
+            var totalItems = item.Count();
 
-            foreach(var n in item)
+            var pagedItems = item
+                .OrderByDescending(x => x.Id)
+                .Skip(pageNumber * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            var imageBaseUrl = _configuration["ApiSettings:ImageBaseUrl"] ?? "https://pos-api.tatwer.tech/Images/";
+            foreach (var n in pagedItems)
             {
                 if (!string.IsNullOrEmpty(n.Image))
                 {
                     n.Image = imageBaseUrl + n.Image;
                 }
             }
-            var totalItems = item.Count();
 
-
-            var pagedResult = new PagedList<Item>(item.ToList(), totalItems, pageNumber, pageSize);
+            var pagedResult = new PagedList<Item>(pagedItems, totalItems, pageNumber, pageSize);
 
             var response = new GlobalResponse<PagedList<Item>>
             {
@@ -597,7 +1206,12 @@ namespace POS.Controllers
                     OrderCode = orderCode,
                     PaymentMethod = request.PaymentMethod ?? "Cash",
                     InsertByUserId = userId,
-                    
+                    DiscountType = request.DiscountType,
+                    DiscountValue = request.DiscountValue,
+                    DiscountAmount = request.DiscountAmount,
+                    DiscountPercent = request.DiscountPercent,
+                    OrderSubTotal = request.OrderSubTotal,
+                    OrderTotalAfterDiscount = request.OrderTotalAfterDiscount,
                 };
                 _dbConfig.CustomerOrders.Add(newOrder);
                 await _dbConfig.SaveChangesAsync();
@@ -648,10 +1262,16 @@ namespace POS.Controllers
 
                     foreach (var itemRequest in request.CustomerOrderItem)
                     {
-                        var existingItem = insertItems.FirstOrDefault(x => x.ItemId == itemRequest.ItemId);
+                        var normalizedNotes = string.IsNullOrWhiteSpace(itemRequest.Notes)
+                            ? null
+                            : itemRequest.Notes.Trim();
+
+                        var existingItem = insertItems.FirstOrDefault(x =>
+                            x.ItemId == itemRequest.ItemId &&
+                            string.Equals(x.Notes ?? string.Empty, normalizedNotes ?? string.Empty, StringComparison.Ordinal));
+
                         if (existingItem != null)
                         {
-                            // Increment the quantity of an existing item
                             existingItem.Quantity += itemRequest.Quantity;
                         }
                         else
@@ -680,6 +1300,7 @@ namespace POS.Controllers
                                 PurchasingPrice = currentItem.PurchasingPrice,
                                 Quantity = itemRequest.Quantity,
                                 ItemId = itemRequest.ItemId,
+                                Notes = normalizedNotes,
                                 InsertByUserId = userId,
                             };
 
@@ -761,14 +1382,14 @@ namespace POS.Controllers
 
         [Authorize(Roles = "Commercial")]
         [HttpGet("GetOrders")]
-        public ActionResult<GlobalResponse<PagedList<OrderDto>>> GetOrders(int pageNumber, int pageSize, string? info, DateTime? startDate, DateTime? endDate)
+        public ActionResult<GlobalResponse<OrdersPagedResult>> GetOrders(int pageNumber, int pageSize, string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
             var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
             if (user == null)
             {
-                return BadRequest(new GlobalResponse<PagedList<OrderDto>>
+                return BadRequest(new GlobalResponse<OrdersPagedResult>
                 {
                     Data = null,
                     ErrorStatus = true,
@@ -781,50 +1402,318 @@ namespace POS.Controllers
                     .Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId))
                     .Include(x => x.CustomerOrderItem)
                     .ThenInclude(x => x.Item)
-                    .AsQueryable()
-                    .Select(x => new OrderDto
-                    {
-                        CustomerOrderItem = x.CustomerOrderItem,
-                        OrderPrice = x.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity), // Fixed: Use actual selling price from order item with quantity
-                        OrderCode = x.OrderCode,
-                        Id = x.Id,
-                        ItemsCount = x.CustomerOrderItem.Count(),
-                        InsertDate = x.InsertDate
-                    });
+                    .Include(x => x.User)
+                    .AsQueryable();
 
-           
-            
-
-            if (info != null)
+            if (!string.IsNullOrEmpty(info))
             {
                 items = items.Where(x => x.OrderCode == info);
             }
 
-            if (startDate.HasValue && endDate.HasValue)
+            if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
             {
-                endDate = endDate.Value.AddDays(1); // Include the end date in the search
-                items = items.Where(x => x.InsertDate >= startDate && x.InsertDate < endDate);
+                items = items.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
             }
 
-            if (startDate.HasValue && !endDate.HasValue)
+            if (!string.IsNullOrEmpty(paymentMethod))
             {
-                items = items.Where(x => x.InsertDate.Date == startDate.Value.Date);
+                items = items.Where(x => x.PaymentMethod == paymentMethod);
             }
 
             var totalItems = items.Count();
+            var totalSales = SumOrdersSalesAmount(items);
+            var totalSubTotal = items.Sum(o => o.OrderSubTotal ?? 0m);
+            var totalDiscount = items.Sum(o => o.DiscountAmount ?? 0m);
+            var orderIds = items.Select(o => o.Id);
+            var totalItemsSold = _dbConfig.CustomerOrderItems
+                .Where(i => !i.IsDeleted && orderIds.Contains(i.CustomerOrderId))
+                .Sum(i => (int?)i.Quantity) ?? 0;
 
-            var pagedResult = new PagedList<OrderDto>(items.ToList(), totalItems, pageNumber, pageSize);
+            var summary = new OrdersSummaryDto
+            {
+                TotalOrders = totalItems,
+                TotalSubTotal = totalSubTotal,
+                TotalDiscount = totalDiscount,
+                TotalSales = totalSales,
+                TotalItemsSold = totalItemsSold,
+                AverageOrderValue = totalItems > 0 ? Math.Round(totalSales / totalItems, 2) : 0m
+            };
 
-            var response = new GlobalResponse<PagedList<OrderDto>>
+            var ordersList = items
+                .OrderByDescending(x => x.InsertDate)
+                .Skip(pageNumber * pageSize)
+                .Take(pageSize)
+                .ToList()
+                .Select(x =>
+                {
+                    var activeOrderItems = GetActiveOrderItems(x.CustomerOrderItem);
+                    var lineTotal = activeOrderItems.Sum(item => item.SellingPrice * item.Quantity);
+                    return new OrderDto
+                    {
+                        CustomerOrderItem = activeOrderItems,
+                        OrderPrice = lineTotal,
+                        OrderCode = x.OrderCode,
+                        Id = x.Id,
+                        ItemsCount = activeOrderItems.Count,
+                        InsertDate = x.InsertDate,
+                        PaymentMethod = x.PaymentMethod,
+                        CreatedByUserId = x.User != null ? x.User.Id : null,
+                        CreatedByUsername = x.User != null ? x.User.Username : null,
+                        DiscountType = x.DiscountType,
+                        DiscountValue = x.DiscountValue,
+                        DiscountAmount = x.DiscountAmount,
+                        DiscountPercent = x.DiscountPercent,
+                        OrderSubTotal = x.OrderSubTotal,
+                        OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
+                    };
+                })
+                .ToList();
+
+            var pagedResult = new OrdersPagedResult(ordersList, totalItems, pageNumber, pageSize, summary);
+
+            return Ok(new GlobalResponse<OrdersPagedResult>
             {
                 Data = pagedResult,
                 ErrorStatus = false,
                 Message = "Success"
-            };
+            });
+        }
 
-            return response;
+        [Authorize(Roles = "Commercial")]
+        [HttpGet("ExportOrders")]
+        public ActionResult ExportOrders(string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+            var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+            if (user == null)
+                return BadRequest();
 
-     
+            var userInsertByUserId = user.InsertByUserId;
+            var items = _dbConfig.CustomerOrders
+                .Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId))
+                .Include(x => x.CustomerOrderItem)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(info))
+                items = items.Where(x => x.OrderCode == info);
+            if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
+                items = items.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
+            if (!string.IsNullOrEmpty(paymentMethod))
+                items = items.Where(x => x.PaymentMethod == paymentMethod);
+
+            var ordersList = items
+                .OrderByDescending(x => x.InsertDate)
+                .ToList()
+                .Select(x =>
+                {
+                    var activeOrderItems = GetActiveOrderItems(x.CustomerOrderItem);
+                    return new
+                    {
+                        OrderCode = x.OrderCode ?? "",
+                        InsertDate = x.InsertDate,
+                        PaymentMethod = x.PaymentMethod ?? "",
+                        OrderPrice = activeOrderItems.Sum(item => item.SellingPrice * item.Quantity),
+                        DiscountAmount = x.DiscountAmount ?? 0,
+                        OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
+                        ItemsCount = activeOrderItems.Count
+                    };
+                })
+                .ToList();
+
+            var csv = new StringBuilder();
+            csv.AppendLine("OrderCode,InsertDate,PaymentMethod,OrderPrice,DiscountAmount,FinalTotal,ItemsCount");
+            foreach (var o in ordersList)
+            {
+                var dateStr = o.InsertDate.ToString("yyyy-MM-dd HH:mm");
+                var finalTotal = o.OrderTotalAfterDiscount ?? o.OrderPrice;
+                csv.AppendLine($"\"{EscapeCsv(o.OrderCode)}\",\"{dateStr}\",\"{EscapeCsv(o.PaymentMethod)}\",{o.OrderPrice},{o.DiscountAmount},{finalTotal},{o.ItemsCount}");
+            }
+
+            var csvContent = csv.ToString();
+            var preamble = Encoding.UTF8.GetPreamble();
+            var contentBytes = Encoding.UTF8.GetBytes(csvContent);
+            var bytes = new byte[preamble.Length + contentBytes.Length];
+            Buffer.BlockCopy(preamble, 0, bytes, 0, preamble.Length);
+            Buffer.BlockCopy(contentBytes, 0, bytes, preamble.Length, contentBytes.Length);
+            var fileName = $"orders_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
+            return File(bytes, "text/csv", fileName);
+        }
+
+        [Authorize(Roles = "Commercial,Admin,POS")]
+        [HttpPut("UpdateOrder/{id}")]
+        public async Task<ActionResult<GlobalResponse<CustomerOrder>>> UpdateOrder(int id, CustomerOrderRequest request)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+
+                if (user == null)
+                {
+                    return BadRequest(new GlobalResponse<CustomerOrder>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "User not found"
+                    });
+                }
+
+                var userInsertByUserId = user.InsertByUserId;
+                var existingOrder = await _dbConfig.CustomerOrders
+                    .Include(x => x.CustomerOrderItem)
+                    .ThenInclude(x => x.Item)
+                    .FirstOrDefaultAsync(x => x.Id == id && x.IsDeleted == false &&
+                        (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId));
+
+                if (existingOrder == null)
+                {
+                    return NotFound(new GlobalResponse<CustomerOrder>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "الفاتورة غير موجودة"
+                    });
+                }
+
+                var activeOrderItems = existingOrder.CustomerOrderItem?
+                    .Where(i => i != null && !i.IsDeleted)
+                    .ToList() ?? new List<CustomerOrderItem>();
+
+                var oldQtyByItem = activeOrderItems
+                    .GroupBy(i => i.ItemId)
+                    .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+                existingOrder.PaymentMethod = request.PaymentMethod ?? existingOrder.PaymentMethod;
+                existingOrder.DiscountType = request.DiscountType;
+                existingOrder.DiscountValue = request.DiscountValue;
+                existingOrder.DiscountAmount = request.DiscountAmount;
+                existingOrder.DiscountPercent = request.DiscountPercent;
+                existingOrder.OrderSubTotal = request.OrderSubTotal;
+                existingOrder.OrderTotalAfterDiscount = request.OrderTotalAfterDiscount;
+
+                var now = DateTime.UtcNow;
+                foreach (var item in activeOrderItems)
+                {
+                    item.IsDeleted = true;
+                    item.UpdateDate = now;
+                }
+
+                var newOrderItems = new List<CustomerOrderItem>();
+                var newQtyByItem = new Dictionary<int, int>();
+
+                if (request.CustomerOrderItem != null && request.CustomerOrderItem.Count > 0)
+                {
+                    foreach (var itemRequest in request.CustomerOrderItem)
+                    {
+                        var currentItem = await _dbConfig.Items
+                            .FirstOrDefaultAsync(x => x.Id == itemRequest.ItemId && x.IsDeleted == false &&
+                                (x.InsertByUserId == userId || x.User!.Id == userInsertByUserId || x.User!.InsertByUserId == userId));
+
+                        if (currentItem == null)
+                        {
+                            return BadRequest(new GlobalResponse<CustomerOrder>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = $"المنتج برقم {itemRequest.ItemId} غير موجود"
+                            });
+                        }
+
+                        var sellingPrice = currentItem.DisCountPrice > 0 && currentItem.DisCountPrice < currentItem.SellingPrice
+                            ? currentItem.DisCountPrice
+                            : currentItem.SellingPrice;
+
+                        var normalizedNotes = string.IsNullOrWhiteSpace(itemRequest.Notes)
+                            ? null
+                            : itemRequest.Notes.Trim();
+
+                        var existingMerged = newOrderItems.FirstOrDefault(x =>
+                            x.ItemId == itemRequest.ItemId &&
+                            string.Equals(x.Notes ?? string.Empty, normalizedNotes ?? string.Empty, StringComparison.Ordinal));
+
+                        if (existingMerged != null)
+                        {
+                            existingMerged.Quantity += itemRequest.Quantity;
+                        }
+                        else
+                        {
+                            newOrderItems.Add(new CustomerOrderItem
+                            {
+                                ItemId = itemRequest.ItemId,
+                                Quantity = itemRequest.Quantity,
+                                SellingPrice = sellingPrice,
+                                PurchasingPrice = currentItem.PurchasingPrice,
+                                Notes = normalizedNotes,
+                                CustomerOrderId = existingOrder.Id,
+                                InsertByUserId = userId,
+                            });
+                        }
+
+                        if (!newQtyByItem.ContainsKey(itemRequest.ItemId))
+                            newQtyByItem[itemRequest.ItemId] = 0;
+                        newQtyByItem[itemRequest.ItemId] += itemRequest.Quantity;
+                    }
+
+                    var allItemIds = oldQtyByItem.Keys.Union(newQtyByItem.Keys).Distinct();
+                    foreach (var itemId in allItemIds)
+                    {
+                        oldQtyByItem.TryGetValue(itemId, out var oldQty);
+                        newQtyByItem.TryGetValue(itemId, out var newQty);
+                        var delta = newQty - oldQty;
+                        if (delta == 0) continue;
+
+                        var stockItem = await _dbConfig.Items.FirstOrDefaultAsync(i => i.Id == itemId && !i.IsDeleted);
+                        if (stockItem == null) continue;
+
+                        if (delta > 0 && stockItem.Quantity < delta)
+                        {
+                            return BadRequest(new GlobalResponse<CustomerOrder>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = $"Insufficient inventory for item '{stockItem.Name}'. Available: {stockItem.Quantity}, Required: {delta}"
+                            });
+                        }
+
+                        stockItem.Quantity -= delta;
+                        _dbConfig.Items.Update(stockItem);
+                    }
+
+                    _dbConfig.CustomerOrderItems.AddRange(newOrderItems);
+                }
+                else
+                {
+                    foreach (var kvp in oldQtyByItem)
+                    {
+                        var stockItem = await _dbConfig.Items.FirstOrDefaultAsync(i => i.Id == kvp.Key && !i.IsDeleted);
+                        if (stockItem != null)
+                        {
+                            stockItem.Quantity += kvp.Value;
+                            _dbConfig.Items.Update(stockItem);
+                        }
+                    }
+                }
+
+                _dbConfig.CustomerOrders.Update(existingOrder);
+                await _dbConfig.SaveChangesAsync();
+
+                return Ok(new GlobalResponse<CustomerOrder>
+                {
+                    Data = existingOrder,
+                    ErrorStatus = false,
+                    Message = "Order updated successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating order {OrderId}", id);
+                return StatusCode(500, new GlobalResponse<CustomerOrder>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "An error occurred while updating the order"
+                });
+            }
         }
 
 
@@ -972,12 +1861,8 @@ namespace POS.Controllers
 
                 var today = DateTime.Today;
 
-                // Orders Statistics
-                var customerOrdersQuery = _dbConfig.CustomerOrders
-                    .Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.User.InsertByUserId == userId));
-
-                var orderItemsQuery = _dbConfig.CustomerOrderItems
-                    .Where(x => x.CustomerOrder!.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+                var customerOrdersQuery = QueryActiveOrdersForCommercial(userId);
+                var orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId);
 
                 // Items Statistics
                 var itemsQuery = _dbConfig.Items
@@ -991,19 +1876,18 @@ namespace POS.Controllers
                 var tagsQuery = _dbConfig.Tags
                     .Where(x => x.IsDeleted == false);
 
-                // Sales Amount
+                // Sales Amount — one total per order
                 decimal CalculateSalesAmount(DateTime startDate, DateTime endDate)
                 {
-                    return orderItemsQuery
-                        .Where(x => x.CustomerOrder != null &&
-                                    x.CustomerOrder.InsertDate.Date >= startDate &&
-                                    x.CustomerOrder.InsertDate.Date <= endDate)
-                        .Sum(x => x.Quantity * x.SellingPrice);
+                    return SumOrdersSalesAmount(
+                        customerOrdersQuery.Where(x =>
+                            x.InsertDate.Date >= startDate &&
+                            x.InsertDate.Date <= endDate));
                 }
 
                 decimal TotalAmount()
                 {
-                    return orderItemsQuery.Sum(x => x.Quantity * x.SellingPrice);
+                    return SumOrdersSalesAmount(customerOrdersQuery);
                 }
 
                 var stats = new
@@ -1078,21 +1962,16 @@ namespace POS.Controllers
                 var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
                 var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
-                var orderItemsQuery = _dbConfig.CustomerOrderItems
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId)
                     .Include(x => x.Item)
-                    .Include(x => x.CustomerOrder)
-                    .Where(x => x.CustomerOrder!.IsDeleted == false && 
-                                (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+                    .Include(x => x.CustomerOrder);
 
-                if (startDate.HasValue)
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
                 {
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date >= startDate.Value.Date);
-                }
-
-                if (endDate.HasValue)
-                {
-                    endDate = endDate.Value.AddDays(1);
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date < endDate.Value.Date);
+                    orderItemsQuery = orderItemsQuery.Where(x =>
+                        x.CustomerOrder != null &&
+                        x.CustomerOrder.InsertDate >= fromUtc &&
+                        x.CustomerOrder.InsertDate < toUtcEx);
                 }
 
                 var profitData = orderItemsQuery
@@ -1151,22 +2030,28 @@ namespace POS.Controllers
                 var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
                 var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
-                var orderItemsQuery = _dbConfig.CustomerOrderItems
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId)
                     .Include(x => x.Item)
-                    .Include(x => x.CustomerOrder)
-                    .Where(x => x.CustomerOrder!.IsDeleted == false && 
-                                (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+                    .Include(x => x.CustomerOrder);
 
-                if (startDate.HasValue)
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
                 {
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date >= startDate.Value.Date);
+                    orderItemsQuery = orderItemsQuery.Where(x =>
+                        x.CustomerOrder != null &&
+                        x.CustomerOrder.InsertDate >= fromUtc &&
+                        x.CustomerOrder.InsertDate < toUtcEx);
                 }
 
-                if (endDate.HasValue)
+                if (topCount < 1) topCount = 10;
+                if (topCount > 500) topCount = 500;
+
+                var summary = new TopSellingItemsSummaryDto
                 {
-                    endDate = endDate.Value.AddDays(1);
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date < endDate.Value.Date);
-                }
+                    TotalQuantitySold = orderItemsQuery.Sum(x => (int?)x.Quantity) ?? 0,
+                    TotalSales = orderItemsQuery.Sum(x => (decimal?)(x.SellingPrice * x.Quantity)) ?? 0m,
+                    TotalDistinctItems = orderItemsQuery.Select(x => x.ItemId).Distinct().Count(),
+                    TotalOrders = orderItemsQuery.Select(x => x.CustomerOrderId).Distinct().Count()
+                };
 
                 var topItems = orderItemsQuery
                     .GroupBy(x => new { x.ItemId, x.Item.Name, x.Item.Code })
@@ -1185,7 +2070,7 @@ namespace POS.Controllers
 
                 return Ok(new GlobalResponse<object>
                 {
-                    Data = topItems,
+                    Data = new { items = topItems, summary },
                     ErrorStatus = false,
                     Message = "Success"
                 });
@@ -1211,21 +2096,16 @@ namespace POS.Controllers
                 var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
                 var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
-                var orderItemsQuery = _dbConfig.CustomerOrderItems
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId)
                     .Include(x => x.Item)
-                    .Include(x => x.CustomerOrder)
-                    .Where(x => x.CustomerOrder!.IsDeleted == false && 
-                                (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+                    .Include(x => x.CustomerOrder);
 
-                if (startDate.HasValue)
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
                 {
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date >= startDate.Value.Date);
-                }
-
-                if (endDate.HasValue)
-                {
-                    endDate = endDate.Value.AddDays(1);
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date < endDate.Value.Date);
+                    orderItemsQuery = orderItemsQuery.Where(x =>
+                        x.CustomerOrder != null &&
+                        x.CustomerOrder.InsertDate >= fromUtc &&
+                        x.CustomerOrder.InsertDate < toUtcEx);
                 }
 
                 var salesByCategory = orderItemsQuery
@@ -1270,32 +2150,27 @@ namespace POS.Controllers
                 var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
                 var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
-                var ordersQuery = _dbConfig.CustomerOrders
+                IQueryable<CustomerOrder> ordersQuery = QueryActiveOrdersForCommercial(userId)
                     .Include(x => x.User)
-                    .Include(x => x.CustomerOrderItem)
-                    .Where(x => x.IsDeleted == false && 
-                                (x.InsertByUserId == userId || x.User.InsertByUserId == userId));
+                    .Include(x => x.CustomerOrderItem);
 
-                if (startDate.HasValue)
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
                 {
-                    ordersQuery = ordersQuery.Where(x => x.InsertDate.Date >= startDate.Value.Date);
-                }
-
-                if (endDate.HasValue)
-                {
-                    endDate = endDate.Value.AddDays(1);
-                    ordersQuery = ordersQuery.Where(x => x.InsertDate.Date < endDate.Value.Date);
+                    ordersQuery = ordersQuery.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
                 }
 
                 var salesByEmployee = ordersQuery
-                    .GroupBy(x => new { x.InsertByUserId, x.User.Username })
+                    .ToList()
+                    .GroupBy(x => new { x.InsertByUserId, Username = x.User?.Username ?? "" })
                     .Select(g => new
                     {
                         employeeId = g.Key.InsertByUserId,
                         employeeName = g.Key.Username,
                         totalOrders = g.Count(),
-                        totalSales = g.SelectMany(o => o.CustomerOrderItem).Sum(x => x.SellingPrice * x.Quantity),
-                        totalItemsSold = g.SelectMany(o => o.CustomerOrderItem).Sum(x => x.Quantity)
+                        totalSales = g.Sum(o =>
+                            GetActiveOrderItems(o.CustomerOrderItem).Sum(x => x.SellingPrice * x.Quantity)),
+                        totalItemsSold = g.Sum(o =>
+                            GetActiveOrderItems(o.CustomerOrderItem).Sum(x => x.Quantity))
                     })
                     .OrderByDescending(x => x.totalSales)
                     .ToList();
@@ -1365,12 +2240,10 @@ namespace POS.Controllers
             }
         }
 
-        // get Item Price 
         [Authorize(Roles = "Commercial,POS,Reader")]
         [HttpGet("ItemPrice")]
         public async Task<ActionResult<GlobalResponse<Item>>> ItemPrice(string code)
         {
-
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
             var user = _dbConfig.Users.Where(x => x.InsertByUserId == userId).FirstOrDefault();
 
@@ -1384,7 +2257,7 @@ namespace POS.Controllers
                 });
             }
 
-            var item = await _dbConfig.Items.FirstOrDefaultAsync(x => x.Code == code && (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+            var item = await _dbConfig.Items.FirstOrDefaultAsync(x => x.Code == code && (x.InsertByUserId == userId || x.User!.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
             if (item == null)
             {
                 return BadRequest(new GlobalResponse<Item>
@@ -1402,8 +2275,248 @@ namespace POS.Controllers
             });
         }
 
+        [Authorize(Roles = "Commercial,POS,Admin")]
+        [HttpGet("CommercialUserInfo")]
+        public async Task<ActionResult<GlobalResponse<CommercialUserInfoDto>>> GetCommercialUserInfo()
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var commercialUser = await _dbConfig.Users
+                    .FirstOrDefaultAsync(u => u.Id == commercialUserId && !u.IsDeleted);
 
-        // upload images 
+                if (commercialUser == null)
+                {
+                    return NotFound(new GlobalResponse<CommercialUserInfoDto>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "المستخدم غير موجود"
+                    });
+                }
+
+                var imageBaseUrl = _configuration["ApiSettings:ImageBaseUrl"] ?? "https://pos-api.tatwer.tech/Images/";
+
+                var userInfo = new CommercialUserInfoDto
+                {
+                    StoreName = commercialUser.StoreName ?? commercialUser.Name,
+                    Logo = string.IsNullOrEmpty(commercialUser.Logo) ? null : imageBaseUrl + commercialUser.Logo
+                };
+
+                return Ok(new GlobalResponse<CommercialUserInfoDto>
+                {
+                    Data = userInfo,
+                    ErrorStatus = false,
+                    Message = "تم جلب المعلومات بنجاح"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting commercial user info");
+                return StatusCode(500, new GlobalResponse<CommercialUserInfoDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ أثناء جلب المعلومات: {ex.Message}"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial,POS,Manager")]
+        [HttpPost("VerifySensitiveActionPassword")]
+        public async Task<ActionResult<GlobalResponse<object>>> VerifySensitiveActionPassword([FromBody] SensitiveActionPasswordRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "كلمة المرور مطلوبة"
+                });
+            }
+
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+            var currentUser = await _dbConfig.Users
+                .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
+
+            if (currentUser == null)
+            {
+                return Unauthorized(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "المستخدم غير موجود"
+                });
+            }
+
+            if (IsManagerRole(currentUser.Role) && currentUser.CanUseOwnLoginCodeForSensitiveActions)
+            {
+                if (string.IsNullOrWhiteSpace(currentUser.LoginCode))
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "managerLoginCodeNotConfigured"
+                    });
+                }
+
+                var submittedCode = NormalizeLoginCode(request.Password);
+                if (submittedCode == null || submittedCode != currentUser.LoginCode)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "invalidManagerLoginCode"
+                    });
+                }
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new { action = request.ActionKey ?? "general", verified = true },
+                    ErrorStatus = false,
+                    Message = "تم التحقق بنجاح"
+                });
+            }
+
+            var commercialUserId = GetCommercialUserId();
+            var (verified, errorKey) = await TryVerifySensitiveCredentialAsync(commercialUserId, request.Password);
+            if (!verified)
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = errorKey ?? "invalidSensitiveAuth"
+                });
+            }
+
+            return Ok(new GlobalResponse<object>
+            {
+                Data = new { action = request.ActionKey ?? "general", verified = true },
+                ErrorStatus = false,
+                Message = "تم التحقق بنجاح"
+            });
+        }
+
+        [AuthorizeSection("endOfDayReport", Roles = "Commercial")]
+        [HttpGet("GetEndOfDaySummary")]
+        public async Task<ActionResult<GlobalResponse<EndOfDayReportDto>>> GetEndOfDaySummary()
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var report = await BuildEndOfDayReportAsync(commercialUserId);
+
+                return Ok(new GlobalResponse<EndOfDayReportDto>
+                {
+                    Data = report,
+                    ErrorStatus = false,
+                    Message = "Success"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting end of day summary");
+                return StatusCode(500, new GlobalResponse<EndOfDayReportDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "حدث خطأ أثناء استخراج تقرير نهاية اليوم"
+                });
+            }
+        }
+
+        [AuthorizeSection("endOfDayReport", Roles = "Commercial")]
+        [HttpGet("ExportEndOfDaySummary")]
+        public async Task<IActionResult> ExportEndOfDaySummary()
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var r = await BuildEndOfDayReportAsync(commercialUserId);
+
+                using var workbook = new XLWorkbook();
+
+                var summarySheet = workbook.Worksheets.Add("Summary");
+                summarySheet.Cell(1, 1).Value = "Key";
+                summarySheet.Cell(1, 2).Value = "Value";
+                summarySheet.Cell(2, 1).Value = "DayStart";
+                summarySheet.Cell(2, 2).Value = r.DayStart;
+                summarySheet.Cell(3, 1).Value = "DayEnd";
+                summarySheet.Cell(3, 2).Value = r.DayEnd;
+                summarySheet.Cell(4, 1).Value = "OrdersCount";
+                summarySheet.Cell(4, 2).Value = r.Totals.OrdersCount;
+                summarySheet.Cell(5, 1).Value = "ItemsCount";
+                summarySheet.Cell(5, 2).Value = r.Totals.ItemsCount;
+                summarySheet.Cell(6, 1).Value = "ItemsQuantity";
+                summarySheet.Cell(6, 2).Value = r.Totals.ItemsQuantity;
+                summarySheet.Cell(7, 1).Value = "GrossSales";
+                summarySheet.Cell(7, 2).Value = r.Totals.GrossSales;
+                summarySheet.Cell(8, 1).Value = "DiscountAmount";
+                summarySheet.Cell(8, 2).Value = r.Totals.DiscountAmount;
+                summarySheet.Cell(9, 1).Value = "NetSales";
+                summarySheet.Cell(9, 2).Value = r.Totals.NetSales;
+                summarySheet.Cell(10, 1).Value = "TotalCost";
+                summarySheet.Cell(10, 2).Value = r.Totals.TotalCost;
+                summarySheet.Cell(11, 1).Value = "Profit";
+                summarySheet.Cell(11, 2).Value = r.Totals.Profit;
+
+                var paymentsSheet = workbook.Worksheets.Add("PaymentBreakdown");
+                paymentsSheet.Cell(1, 1).Value = "Method";
+                paymentsSheet.Cell(1, 2).Value = "OrdersCount";
+                paymentsSheet.Cell(1, 3).Value = "Amount";
+                var paymentRow = 2;
+                foreach (var p in r.PaymentBreakdown)
+                {
+                    paymentsSheet.Cell(paymentRow, 1).Value = p.Method ?? string.Empty;
+                    paymentsSheet.Cell(paymentRow, 2).Value = p.OrdersCount;
+                    paymentsSheet.Cell(paymentRow, 3).Value = p.Amount;
+                    paymentRow++;
+                }
+
+                var topItemsSheet = workbook.Worksheets.Add("TopItems");
+                topItemsSheet.Cell(1, 1).Value = "ItemName";
+                topItemsSheet.Cell(1, 2).Value = "Quantity";
+                topItemsSheet.Cell(1, 3).Value = "SalesAmount";
+                var topItemsRow = 2;
+                foreach (var i in r.TopItems)
+                {
+                    topItemsSheet.Cell(topItemsRow, 1).Value = i.ItemName ?? string.Empty;
+                    topItemsSheet.Cell(topItemsRow, 2).Value = i.Quantity;
+                    topItemsSheet.Cell(topItemsRow, 3).Value = i.SalesAmount;
+                    topItemsRow++;
+                }
+
+                foreach (var sheet in workbook.Worksheets)
+                {
+                    var headerRange = sheet.Range(1, 1, 1, sheet.LastColumnUsed()?.ColumnNumber() ?? 1);
+                    headerRange.Style.Font.Bold = true;
+                    sheet.Columns().AdjustToContents();
+                }
+
+                using var stream = new MemoryStream();
+                workbook.SaveAs(stream);
+                var fileName = $"end_of_day_{DateTime.UtcNow:yyyyMMdd}.xlsx";
+                return File(
+                    stream.ToArray(),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting end of day summary");
+                return StatusCode(500, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "حدث خطأ أثناء تنزيل تقرير نهاية اليوم"
+                });
+            }
+        }
+
         private async Task<string> UploadIamgesAsync(IFormFile imageFile)
         {
             var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Images");
@@ -1411,7 +2524,6 @@ namespace POS.Controllers
                 Directory.CreateDirectory(path);
 
             var validImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
-          
 
             var fileExtension = Path.GetExtension(imageFile.FileName);
             if (!validImageExtensions.Contains(fileExtension.ToLower()))
@@ -1437,17 +2549,31 @@ namespace POS.Controllers
         {
             try
             {
-                int commercialUserId = request.CommercialUserId;
-                POS.Db.SeedData.SeedDatabase(_dbConfig, commercialUserId);
+                POS.Db.SeedData.SeedSummary summary;
+                if (request.SeedDemoAccounts)
+                {
+                    summary = POS.Db.SeedData.SeedDemoEnvironment(_dbConfig);
+                }
+                else if (request.CatalogOnly)
+                {
+                    var catalog = POS.Db.SeedData.SeedCatalogOnly(_dbConfig, request.CommercialUserId);
+                    summary = new POS.Db.SeedData.SeedSummary
+                    {
+                        CommercialUserId = request.CommercialUserId,
+                        Tags = catalog.Tags,
+                        Items = catalog.Items
+                    };
+                }
+                else
+                {
+                    summary = POS.Db.SeedData.SeedDatabase(_dbConfig, request.CommercialUserId);
+                }
 
-                var message =
-                    $"تم إضافة البيانات بنجاح للمستخدم التجاري رقم {commercialUserId}";
-                
                 return Ok(new GlobalResponse<string>
                 {
-                    Data = "Database seeded successfully",
+                    Data = summary.ToMessage(),
                     ErrorStatus = false,
-                    Message = message
+                    Message = summary.ToMessage()
                 });
             }
             catch (Exception ex)

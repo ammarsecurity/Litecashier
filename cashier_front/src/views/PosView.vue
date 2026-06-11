@@ -7,174 +7,357 @@
       spinner-large
       rounded="sm"
     >
-      <SidebarView />
-      <div class="main-content-wrapper">
+      <AppHeader
+        :show-pos-fullscreen-button="true"
+        :pos-fullscreen-active="isFullscreen"
+        @toggle-pos-fullscreen="toggleFullscreen"
+      >
+        <template #pos-center>
+          <div class="pos-quick-search pos-quick-search--header">
+            <b-icon icon="search" class="pos-quick-search-icon"></b-icon>
+            <input
+              v-model="quickSearch"
+              ref="posQuickSearchInput"
+              type="search"
+              :placeholder="$t('searchPlaceholder')"
+              class="pos-quick-search-input"
+            />
+          </div>
+        </template>
+      </AppHeader>
+      <div
+        class="main-content-wrapper pos-route pos-route--v2"
+        :class="{
+          'pos-fullscreen': isFullscreen,
+          'pos-has-checkout-bar': showPosCheckoutBar,
+          'pos-has-checkout-bar--with-discounts': carditems.length > 0,
+        }"
+      >
         <b-container fluid class="pos-container-fluid">
-          <div class="pos-page-container">
-            <!-- Left Side: Products -->
-            <div class="pos-main-section">
-            <!-- Header Section -->
-            <div class="pos-header-section">
-              <div class="pos-header-top">
-                <div class="pos-logo-section">
-                  <img src="../assets/logoarabic.png" alt="logo" class="pos-logo" />
-                </div>
-                <div class="pos-employee-info">
-                  <b-icon icon="person-circle" class="me-2"></b-icon>
-                  <span class="pos-employee-label">{{ $t("employeeLabel") }}</span>
-                  <span class="pos-employee-name">{{ userInfo.name }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Quick Actions Bar -->
-            <div class="pos-quick-actions">
-              <div class="pos-quick-search">
-                <b-icon icon="search" class="pos-quick-search-icon"></b-icon>
-                <input
-                  v-model="search.info"
-                  type="search"
-                  :placeholder="$t('searchPlaceholder')"
-                  class="pos-quick-search-input"
-                />
-              </div>
-              <div class="pos-quick-barcode">
-                <b-icon icon="upc-scan" class="me-2"></b-icon>
-                <input
-                  v-model="searchCode"
-                  ref="codeNumber"
-                  type="text"
-                  :placeholder="$t('itemCodeLabel') || 'مسح الباركود أو QR'"
-                  class="pos-quick-barcode-input"
-                  autofocus
-                  @keyup.enter="handleBarcodeSearch"
-                  @input="handleBarcodeInput"
-                />
-              </div>
-            </div>
-
-            <!-- Categories Section -->
-            <div class="pos-categories-scroll">
-                <div class="pos-categories-list">
-                  <button
-                    v-for="tag in tags"
-                    :key="tag.id"
-                    class="pos-category-btn"
-                    :class="{ 'pos-category-btn-active': search.info === tag.name }"
-                    @click="search.info = tag.name"
-                  >
-                    {{ tag.name }}
-                  </button>
-                  <button
-                    class="pos-category-btn"
-                    :class="{ 'pos-category-btn-active': search.info === '' }"
-                    @click="search.info = ''"
-                  >
-                    {{ $t("all") }}
-                  </button>
-              </div>
-            </div>
-
-            <!-- Products Grid -->
-            <div class="pos-products-grid-section">
-              <div class="pos-products-grid">
-                <div
-                  class="pos-product-card"
-                  :class="{ 'pos-product-card-disabled': !item.quantity || item.quantity <= 0 }"
-                  v-for="item in Items"
-                  :key="item.id"
-                  @click="item.quantity > 0 ? addToCartList(item) : null"
-                >
-                  <!-- Discount Badge -->
-                  <div
-                    v-if="item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
-                    class="pos-product-discount-badge"
-                  >
-                    <b-icon icon="tag-fill" class="me-1"></b-icon>
-                    {{ $t("discountLabel") }}
+          <div class="pos-page-container pos-page-container--v2">
+            <div class="pos-workspace pos-workspace--v2">
+              <main class="pos-workspace-main">
+                <div class="pos-main-section pos-main-section--v2">
+                  <div class="pos-quick-actions pos-quick-actions--barcode">
+                    <label class="pos-quick-barcode">
+                      <span class="pos-quick-barcode-icon" aria-hidden="true">
+                        <b-icon icon="upc-scan"></b-icon>
+                      </span>
+                      <span class="pos-quick-barcode-field">
+                        <span class="pos-quick-barcode-label">{{ $t("barcodeScanLabel") || "مسح الباركود" }}</span>
+                        <input
+                          v-model="searchCode"
+                          ref="codeNumber"
+                          type="text"
+                          :placeholder="$t('barcodeScanPlaceholder') || 'امسح أو اكتب كود المنتج...'"
+                          class="pos-quick-barcode-input"
+                          :aria-label="$t('itemCodeLabel') || 'كود المنتج'"
+                          autocomplete="off"
+                          spellcheck="false"
+                          autofocus
+                          @keyup.enter="handleBarcodeSearch"
+                          @input="handleBarcodeInput"
+                        />
+                      </span>
+                      <span class="pos-quick-barcode-actions">
+                        <kbd class="pos-kbd pos-kbd--barcode">F2</kbd>
+                        <span class="pos-quick-barcode-enter-hint" aria-hidden="true">
+                          <span class="pos-quick-barcode-enter-text">Enter</span>
+                          <b-icon icon="arrow-return-left"></b-icon>
+                        </span>
+                      </span>
+                    </label>
                   </div>
 
-                  <!-- Product Image/Barcode -->
-                  <div class="pos-product-media">
-                    <vue-barcode
-                      v-if="showbarCode"
-                      ref="BarImg"
-                      tag="img"
-                      class="pos-product-barcode"
-                      :value="item.code.toString()"
-                      :options="{
-                        displayValue: true,
-                        lineColor: '#2B2B2C',
-                        width: 1.5,
-                        height: 60,
-                      }"
-                    />
-                    <div v-else class="pos-product-image-container">
-                      <img
-                        v-if="item.image && !item.imageError"
-                        :src="item.image"
-                        :alt="item.name"
-                        class="pos-product-image"
-                        @error="item.imageError = true"
-                      />
-                      <div v-else class="pos-product-image-placeholder">
-                        <b-icon icon="box-fill" class="pos-product-placeholder-icon"></b-icon>
+                  <div class="pos-shortcuts-panel" :aria-label="$t('posShortcutsTitle')">
+                    <div class="pos-shortcuts-panel-head">
+                      <b-icon icon="keyboard-fill" class="pos-shortcuts-panel-icon" aria-hidden="true"></b-icon>
+                      <span class="pos-shortcuts-panel-title">{{ $t("posShortcutsTitle") || "اختصارات لوحة المفاتيح" }}</span>
+                    </div>
+                    <div class="pos-shortcuts-groups">
+                      <div class="pos-shortcuts-group">
+                        <span class="pos-shortcuts-group-label">{{ $t("posShortcutGroupPayment") || "الدفع" }}</span>
+                        <div class="pos-shortcuts-group-chips">
+                          <span class="pos-shortcut-chip pos-shortcut-chip--pay">
+                            <kbd class="pos-kbd">F4</kbd>
+                            <span class="pos-shortcut-chip-label">{{ $t("payNow") || "دفع" }}</span>
+                          </span>
+                          <span class="pos-shortcut-chip pos-shortcut-chip--pay">
+                            <kbd class="pos-kbd">F5</kbd>
+                            <span class="pos-shortcut-chip-label">{{ $t("payAndPrint") || "دفع وطباعة" }}</span>
+                          </span>
+                        </div>
+                      </div>
+                      <div class="pos-shortcuts-group">
+                        <span class="pos-shortcuts-group-label">{{ $t("posShortcutGroupOrder") || "الطلب" }}</span>
+                        <div class="pos-shortcuts-group-chips">
+                          <span class="pos-shortcut-chip">
+                            <kbd class="pos-kbd">F8</kbd>
+                            <span class="pos-shortcut-chip-label">{{ $t("discountAndNotes") || "خصم وملاحظات" }}</span>
+                          </span>
+                        </div>
+                      </div>
+                      <div class="pos-shortcuts-group">
+                        <span class="pos-shortcuts-group-label">{{ $t("posShortcutGroupCart") || "السلة" }}</span>
+                        <div class="pos-shortcuts-group-chips">
+                          <span class="pos-shortcut-chip">
+                            <kbd class="pos-kbd">+</kbd>
+                            <kbd class="pos-kbd">−</kbd>
+                            <span class="pos-shortcut-chip-label">{{ $t("quantity") || "الكمية" }}</span>
+                          </span>
+                          <span class="pos-shortcut-chip pos-shortcut-chip--danger">
+                            <kbd class="pos-kbd">Del</kbd>
+                            <span class="pos-shortcut-chip-label">{{ $t("posShortcutRemoveLast") || "حذف آخر منتج" }}</span>
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <!-- Product Info -->
-                  <div class="pos-product-info">
-                    <h4 class="pos-product-name">{{ item.name }}</h4>
-                    <div class="pos-product-meta">
-                      <div class="pos-product-category">
-                        <b-icon icon="tags" class="me-1"></b-icon>
-                        {{ item.tags }}
-                      </div>
-                      <div class="pos-product-price">
+                  <div class="pos-categories-scroll">
+                    <div class="pos-categories-list">
+                      <button
+                        type="button"
+                        class="pos-category-btn pos-category-btn-accent"
+                        :class="{ 'pos-category-btn-active': activeCategory === '' }"
+                        @click="selectCategory('')"
+                      >
+                        {{ $t("all") }}
+                      </button>
+                      <button
+                        v-for="tag in tags"
+                        :key="tag.id"
+                        type="button"
+                        class="pos-category-btn"
+                        :class="{ 'pos-category-btn-active': activeCategory === tag.name }"
+                        @click="selectCategory(tag.name)"
+                      >
+                        {{ tag.name }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div ref="posProductsGridSection" class="pos-products-grid-section">
+                    <div class="pos-products-grid">
+                      <div
+                        class="pos-product-card"
+                        :class="{ 'pos-product-card-disabled': !item.quantity || item.quantity <= 0 }"
+                        v-for="item in Items"
+                        :key="item.id"
+                        @click="item.quantity > 0 ? addToCartList(item) : null"
+                      >
                         <div
                           v-if="item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
-                          class="pos-product-price-discounted"
+                          class="pos-product-discount-badge"
                         >
-                          <span class="pos-product-price-current">
-                            {{ formatPrice(item.disCountPrice) }} {{ $t("currency") }}
-                          </span>
-                          <span class="pos-product-price-old">
-                            {{ formatPrice(item.sellingPrice) }} {{ $t("currency") }}
-                          </span>
+                          <b-icon icon="tag-fill" class="me-1"></b-icon>
+                          {{ $t("discountLabel") }}
                         </div>
-                        <div v-else class="pos-product-price-regular">
-                          {{ formatPrice(item.sellingPrice) }} {{ $t("currency") }}
+
+                        <div class="pos-product-media">
+                          <vue-barcode
+                            v-if="showbarCode"
+                            ref="BarImg"
+                            tag="img"
+                            class="pos-product-barcode"
+                            :value="item.code.toString()"
+                            :options="{
+                              displayValue: true,
+                              lineColor: '#2B2B2C',
+                              width: 1.5,
+                              height: 48,
+                            }"
+                          />
+                          <div v-else class="pos-product-image-container">
+                            <img
+                              v-if="item.image && !item.imageError"
+                              :src="item.image"
+                              :alt="item.name"
+                              class="pos-product-image"
+                              @error="item.imageError = true"
+                            />
+                            <div v-else class="pos-product-image-placeholder">
+                              <b-icon icon="box-fill" class="pos-product-placeholder-icon"></b-icon>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="pos-product-info">
+                          <h4 class="pos-product-name">{{ item.name }}</h4>
+                          <div class="pos-product-meta">
+                            <div class="pos-product-price">
+                              <div
+                                v-if="item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
+                                class="pos-product-price-discounted"
+                              >
+                                <span class="pos-product-price-current">
+                                  {{ formatPrice(item.disCountPrice) }} {{ $t("currency") }}
+                                </span>
+                                <span class="pos-product-price-old">
+                                  {{ formatPrice(item.sellingPrice) }} {{ $t("currency") }}
+                                </span>
+                              </div>
+                              <div v-else class="pos-product-price-regular">
+                                {{ formatPrice(item.sellingPrice) }} {{ $t("currency") }}
+                              </div>
+                            </div>
+                          </div>
+                          <div class="pos-product-add-badge" v-if="item.quantity && item.quantity > 0">
+                            <b-icon icon="plus-circle-fill" class="me-1"></b-icon>
+                            {{ $t("addButton") || "أضف" }}
+                          </div>
+                          <div class="pos-product-out-of-stock-badge" v-if="!item.quantity || item.quantity <= 0">
+                            <b-icon icon="x-circle-fill" class="me-1"></b-icon>
+                            {{ $t("itemOutOfStock") || "غير متوفر" }}
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div class="pos-product-add-badge" v-if="item.quantity && item.quantity > 0">
-                      <b-icon icon="plus-circle-fill" class="me-1"></b-icon>
-                      {{ $t("addButton") || "أضف" }}
-                    </div>
-                    <div class="pos-product-out-of-stock-badge" v-if="!item.quantity || item.quantity <= 0">
-                      <b-icon icon="x-circle-fill" class="me-1"></b-icon>
-                      {{ $t("itemOutOfStock") || "غير متوفر" }}
+
+                    <div class="pos-pagination-section">
+                      <b-pagination
+                        v-model="pageNumber"
+                        :total-rows="totalItems"
+                        :per-page="pageSize"
+                        aria-controls="pos-products"
+                        class="pos-pagination"
+                      >
+                      </b-pagination>
                     </div>
                   </div>
                 </div>
-              </div>
+              </main>
 
-              <!-- Pagination -->
-              <div class="pos-pagination-section">
-                <b-pagination
-                  v-model="pageNumber"
-                  :total-rows="totalItems"
-                  :per-page="pageSize"
-                  aria-controls="pos-products"
-                  class="pos-pagination"
-                >
-                </b-pagination>
-              </div>
-            </div>
+              <aside
+                class="pos-cart-shell"
+                :class="{ 'pos-cart-shell--open': posMobileCartOpen }"
+                :aria-label="$t('cart')"
+              >
+                <div
+                  class="pos-cart-backdrop d-lg-none"
+                  aria-hidden="true"
+                  @click="closePosMobileCart"
+                />
+                <div class="pos-cart-panel pos-cart-panel--v2">
+                  <header class="pos-cart-panel-head d-lg-none">
+                    <span class="pos-cart-panel-brand">{{ $t("cart") }}</span>
+                    <button type="button" class="pos-cart-panel-dismiss" @click="closePosMobileCart">
+                      <b-icon icon="x-lg" />
+                    </button>
+                  </header>
+                  <div class="pos-cart-container" ref="posCartScrollArea">
+                    <div class="pos-cart-items-section">
+                      <div class="pos-cart-header" ref="posCartHeader">
+                        <h3 class="pos-cart-title">
+                          <b-icon icon="cart-fill" class="me-2"></b-icon>
+                          {{ $t("cart") || "السلة" }}
+                          <span v-if="carditems.length > 0" class="pos-cart-count-badge pos-cart-count-badge--inline">
+                            {{ totalCardItems }}
+                          </span>
+                        </h3>
+                        <div class="pos-cart-header-actions" v-if="carditems.length > 0">
+                          <button
+                            type="button"
+                            class="pos-cart-header-clear-btn"
+                            v-b-modal.modal-empty
+                            :disabled="totalCardItems <= 0"
+                            :title="$t('emptyButton') || 'افراغ فقط'"
+                          >
+                            <b-icon icon="trash-fill" class="pos-cart-header-clear-ic"></b-icon>
+                            <span class="pos-cart-header-clear-label">{{ $t("emptyButton") || "افراغ فقط" }}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        class="pos-cart-items-list"
+                        v-if="carditems.length > 0"
+                        ref="posCartItemsList"
+                      >
+                        <div
+                          class="pos-cart-item pos-cart-item--v2 pos-cart-item--row"
+                          v-for="(item, index) in carditems"
+                          :key="index"
+                          @dblclick="increaseQuantity(index)"
+                        >
+                          <div class="pos-cart-item-qty-row">
+                            <button
+                              type="button"
+                              class="pos-quantity-btn pos-quantity-decrease"
+                              @click.stop="decreaseQuantity(index)"
+                              :title="$t('decrease') || 'تقليل'"
+                            >
+                              <b-icon icon="dash-lg"></b-icon>
+                            </button>
+                            <span class="pos-cart-item-qty-num">{{ item.quantity }}</span>
+                            <button
+                              type="button"
+                              class="pos-quantity-btn pos-quantity-increase"
+                              @click.stop="increaseQuantity(index)"
+                              :title="$t('increase') || 'زيادة'"
+                            >
+                              <b-icon icon="plus-lg"></b-icon>
+                            </button>
+                          </div>
+                          <div class="pos-cart-item-body">
+                            <div class="pos-cart-item-name">{{ item.name }}</div>
+                            <div class="pos-cart-item-meta">
+                              <span class="pos-cart-item-unit-line">
+                                {{ formatPrice(cartLineUnitPrice(item)) }} × {{ item.quantity }}
+                              </span>
+                              <span v-if="cartLineHasDiscount(item)" class="pos-cart-item-discount-tag">
+                                {{ $t("discountLabel") }}
+                              </span>
+                            </div>
+                          </div>
+                          <div class="pos-cart-item-end">
+                            <span class="pos-cart-item-line-total">
+                              {{ formatPrice(item.total) }}
+                              <span class="pos-cart-currency">{{ $t("currency") }}</span>
+                            </span>
+                            <button
+                              type="button"
+                              class="pos-cart-item-delete"
+                              @click.stop="deleteItem(index, { silent: true })"
+                              :title="$t('delete') || 'حذف'"
+                            >
+                              <b-icon icon="x-lg"></b-icon>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        class="pos-cart-empty"
+                        v-if="carditems.length === 0"
+                      >
+                        <div class="pos-cart-empty-inner">
+                          <b-icon icon="cart-x" class="pos-cart-empty-icon"></b-icon>
+                          <p class="pos-cart-empty-text">{{ $t("emptyCart") || "السلة فارغة" }}</p>
+                          <p class="pos-cart-empty-hint">{{ $t("emptyCartHint") || "اختر منتجات من القائمة لإضافتها" }}</p>
+                        </div>
+                      </div>
+                      <div v-if="carditems.length > 0" class="pos-cart-total-strip">
+                        <div class="pos-cart-total-strip-row">
+                          <span class="pos-cart-total-strip-label">{{ $t("countLabel") }}</span>
+                          <strong>{{ totalCardItems }} {{ $t("itemLabel") }}</strong>
+                        </div>
+                        <div
+                          v-if="orderDiscountAmount > 0"
+                          class="pos-cart-total-strip-row pos-cart-total-strip-row--discount"
+                        >
+                          <span class="pos-cart-total-strip-label">{{ $t("discountLabel") }}</span>
+                          <strong>− {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}</strong>
+                        </div>
+                        <div class="pos-cart-total-strip-row pos-cart-total-strip-row--grand">
+                          <span class="pos-cart-total-strip-label">{{ $t("totalLabel") }}</span>
+                          <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </aside>
             </div>
 
-            <!-- Empty Cart Modal -->
             <b-modal id="modal-empty" :title="$t('confirmClearCartTitle')" hide-header hide-footer class="users-modal">
               <div class="modal-content-wrapper">
                 <div class="delete-confirmation-content">
@@ -197,231 +380,300 @@
               </div>
             </b-modal>
 
-            <!-- Cart Section -->
-            <div class="pos-cart-section">
-              <div class="pos-cart-container">
-                <!-- Cart Items List -->
-                <div class="pos-cart-items-section">
-                  <div class="pos-cart-header">
-                    <h3 class="pos-cart-title">
-                      <b-icon icon="cart-fill" class="me-2"></b-icon>
-                      {{ $t("cart") || 'السلة' }}
-                    </h3>
-                    <span class="pos-cart-count-badge" v-if="carditems.length > 0">
-                      {{ carditems.length }}
-                    </span>
+            <b-modal
+              id="modal-order-notes"
+              :title="$t('orderNotes') || 'ملاحظات الطلب'"
+              hide-header
+              hide-footer
+              centered
+              size="lg"
+              class="users-modal pos-order-modal"
+            >
+              <div class="modal-content-wrapper">
+                <h2 class="modal-title">
+                  <b-icon icon="tag-fill"></b-icon>
+                  {{ $t("discountAndNotes") || "خصم وملاحظات" }}
+                </h2>
+                <form class="order-notes-content" @submit.prevent="applyOrderExtras">
+                  <div class="order-notes-input-wrapper">
+                    <label class="order-notes-label" for="pos-order-notes">{{ $t("notesLabel") || "الملاحظات (اختياري)" }}</label>
+                    <textarea
+                      id="pos-order-notes"
+                      v-model="orderForSend.notes"
+                      class="order-notes-textarea"
+                      :placeholder="$t('notesPlaceholder') || 'اكتب ملاحظاتك هنا...'"
+                      rows="3"
+                    ></textarea>
                   </div>
-                  <div class="pos-cart-items-list" v-if="carditems.length > 0">
-                    <div
-                      class="pos-cart-item"
-                      v-for="(item, index) in carditems"
-                      :key="index"
-                    >
-                      <!-- Item Name and Price -->
-                      <div class="pos-cart-item-info">
-                        <h4 class="pos-cart-item-name">{{ item.name }}</h4>
-                        <div class="pos-cart-item-price-row">
-                          <span class="pos-cart-item-price">
-                            {{ formatPrice(item.price !== item.disCountPrice ? item.disCountPrice : item.price) }} {{ $t("currency") }}
-                          </span>
-                          <span class="pos-cart-item-total">
-                            {{ formatPrice(item.total) }} {{ $t("currency") }}
-                          </span>
-                        </div>
+                  <div class="order-notes-input-wrapper order-discount-wrapper">
+                    <label class="order-notes-label">{{ $t("orderDiscount") || "خصم الطلب" }}</label>
+                    <div class="order-discount-type-toggle">
+                      <button
+                        type="button"
+                        class="order-discount-type-btn"
+                        :class="{ 'order-discount-type-btn-active': orderDiscountType === 'amount' }"
+                        @click="orderDiscountType = 'amount'"
+                      >
+                        {{ $t("discountByAmount") || "مبلغ" }}
+                      </button>
+                      <button
+                        type="button"
+                        class="order-discount-type-btn"
+                        :class="{ 'order-discount-type-btn-active': orderDiscountType === 'percentage' }"
+                        @click="orderDiscountType = 'percentage'"
+                      >
+                        {{ $t("discountByPercentage") || "نسبة" }}
+                      </button>
+                    </div>
+                    <div class="order-discount-input-row">
+                      <input
+                        v-model.number="orderDiscountValue"
+                        type="number"
+                        min="0"
+                        :max="orderDiscountType === 'percentage' ? 100 : null"
+                        class="order-notes-input"
+                        :placeholder="orderDiscountType === 'percentage' ? (($t('discountPercentPlaceholder') || 'ادخل النسبة %')) : (($t('discountAmountPlaceholder') || 'ادخل مبلغ الخصم'))"
+                      />
+                      <button type="button" class="order-discount-clear-btn" @click="clearOrderDiscount">
+                        {{ $t("clear") || "مسح" }}
+                      </button>
+                    </div>
+                    <div class="order-discount-presets">
+                      <button
+                        v-for="preset in orderDiscountPresets"
+                        :key="preset.id"
+                        type="button"
+                        class="order-discount-preset-btn"
+                        @click="applyOrderDiscountPreset(preset)"
+                      >
+                        {{ preset.label }} {{ preset.type === "amount" ? $t("currency") : "" }}
+                      </button>
+                    </div>
+                    <div class="order-discount-preview">
+                      <div class="order-discount-preview-row">
+                        <span>{{ $t("subtotal") || "المجموع قبل الخصم" }}</span>
+                        <strong>{{ formatPrice(totaPrice) }} {{ $t("currency") }}</strong>
                       </div>
-                      
-                      <!-- Quantity Controls and Delete -->
-                      <div class="pos-cart-item-controls">
-                        <div class="pos-cart-item-quantity">
-                          <button
-                            class="pos-quantity-btn pos-quantity-decrease"
-                            @click.stop="decreaseQuantity(index)"
-                            :title="$t('decrease') || 'تقليل'"
-                          >
-                            <b-icon icon="dash-lg"></b-icon>
-                          </button>
-                          <input
-                            type="number"
-                            :value="item.quantity"
-                            @input="updateQuantity(index, $event.target.value)"
-                            @click.stop
-                            class="pos-quantity-input"
-                            min="1"
-                          />
-                          <button
-                            class="pos-quantity-btn pos-quantity-increase"
-                            @click.stop="increaseQuantity(index)"
-                            :title="$t('increase') || 'زيادة'"
-                          >
-                            <b-icon icon="plus-lg"></b-icon>
-                          </button>
-                        </div>
-                        <button
-                          class="pos-cart-item-delete"
-                          @click.stop="deleteItem(index)"
-                          :title="$t('delete') || 'حذف'"
+                      <div class="order-discount-preview-row">
+                        <span>{{ $t("discountLabel") || "الخصم" }} ({{ orderDiscountPreviewLabel }})</span>
+                        <strong>- {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}</strong>
+                      </div>
+                      <div class="order-discount-preview-row order-discount-preview-row-total">
+                        <span>{{ $t("totalLabel") || "الإجمالي" }}</span>
+                        <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="order-notes-actions">
+                    <button type="submit" class="order-notes-confirm-button">
+                      <b-icon icon="check-circle-fill"></b-icon>
+                      {{ $t("apply") || "تطبيق" }}
+                    </button>
+                    <button type="button" class="order-notes-cancel-button" @click="closeModel('modal-order-notes')">
+                      <b-icon icon="x-circle-fill"></b-icon>
+                      {{ $t("cancelButton") || "تراجع" }}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </b-modal>
+
+            <b-modal id="modal-print-only-confirm" :title="$t('printOnly')" hide-header hide-footer class="users-modal">
+              <div class="modal-content-wrapper">
+                <div class="delete-confirmation-content">
+                  <div class="delete-icon-wrapper">
+                    <b-icon icon="printer-fill" class="delete-warning-icon"></b-icon>
+                  </div>
+                  <h3 class="delete-confirmation-title">{{ $t("printOnly") || "طباعة فقط" }}</h3>
+                  <p class="delete-confirmation-text">
+                    {{ $t("confirmPrintOnlyMessage") || "هل أنت متأكد من تنفيذ الطباعة فقط؟" }}
+                  </p>
+                  <div class="delete-confirmation-actions">
+                    <button class="delete-confirm-button" @click="confirmPrintCartOnly">
+                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                      {{ $t("confirm") }}
+                    </button>
+                    <button class="delete-cancel-button" @click="closeModel('modal-print-only-confirm')">
+                      <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                      {{ $t("cancelButton") }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </b-modal>
+
+            <div v-if="showPosCheckoutBar" class="pos-cart-checkout-bar">
+              <div class="pos-cart-checkout-bar-inner">
+                <div v-if="carditems.length > 0" class="pos-checkout-quick-row">
+                  <span class="pos-cart-checkout-segment-label">{{ $t("quickDiscount") || "خصم سريع" }}</span>
+                  <div class="pos-checkout-discount-presets">
+                    <button
+                      v-for="preset in orderDiscountPresets"
+                      :key="preset.id"
+                      type="button"
+                      class="order-discount-preset-btn"
+                      @click="applyOrderDiscountPreset(preset)"
+                    >
+                      {{ preset.label }}{{ preset.type === "amount" ? ` ${$t("currency")}` : "" }}
+                    </button>
+                    <button
+                      v-if="orderDiscountAmount > 0"
+                      type="button"
+                      class="order-discount-clear-btn"
+                      @click="clearOrderDiscount"
+                    >
+                      {{ $t("clear") || "مسح" }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="pos-cart-checkout-strip">
+                  <template v-if="carditems.length > 0">
+                    <div class="pos-cart-checkout-segment pos-cart-checkout-segment--stats">
+                      <span class="pos-cart-checkout-segment-label">{{ $t("checkoutSummary") }}</span>
+                      <div class="pos-cart-checkout-btn-row pos-cart-checkout-stats-row">
+                        <span class="pos-cart-checkout-stat pos-cart-checkout-stat--pill">
+                          <b-icon icon="box-seam" class="pos-cart-checkout-ic"></b-icon>
+                          <span class="pos-cart-checkout-stat-text">{{ $t("countLabel") }}</span>
+                          <strong>{{ totalCardItems }} {{ $t("itemLabel") }}</strong>
+                        </span>
+                        <span
+                          v-if="orderDiscountAmount > 0"
+                          class="pos-cart-checkout-stat pos-cart-checkout-stat--pill pos-cart-checkout-stat--pill-discount"
                         >
-                          <b-icon icon="x-lg"></b-icon>
+                          <b-icon icon="tag-fill" class="pos-cart-checkout-ic"></b-icon>
+                          <span class="pos-cart-checkout-stat-text">− {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}</span>
+                        </span>
+                        <span class="pos-cart-checkout-stat pos-cart-checkout-stat--pill pos-cart-checkout-stat--pill-total">
+                          <span class="pos-cart-checkout-stat-text">{{ $t("totalLabel") }}</span>
+                          <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div class="pos-cart-checkout-segment pos-cart-checkout-segment--actions">
+                      <span class="pos-cart-checkout-segment-label">{{ $t("checkoutActions") }}</span>
+                      <div class="pos-cart-checkout-btn-row pos-cart-checkout-summary-actions">
+                        <button
+                          type="button"
+                          class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn"
+                          @click="quickPay(false)"
+                          :disabled="totalCardItems <= 0 || orderPersisting"
+                          :title="`${$t('payNow') || 'دفع'} (F4)`"
+                        >
+                          <b-icon icon="check-circle-fill" class="me-1"></b-icon>
+                          {{ $t("payNow") || "دفع" }}
+                          <kbd class="pos-kbd">F4</kbd>
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-action-btn pos-action-btn-success pos-cart-checkout-action-btn"
+                          @click="quickPay(true)"
+                          :disabled="totalCardItems <= 0 || orderPersisting"
+                          :title="`${$t('payAndPrint') || 'دفع وطباعة'} (F5)`"
+                        >
+                          <b-icon icon="receipt-cutoff" class="me-1"></b-icon>
+                          {{ $t("payAndPrint") || "دفع وطباعة" }}
+                          <kbd class="pos-kbd">F5</kbd>
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
+                          @click="openPrintOnlyConfirm"
+                          :disabled="totalCardItems <= 0"
+                          :title="$t('printOnly')"
+                        >
+                          <b-icon icon="printer-fill" class="me-1"></b-icon>
+                          {{ $t("printOnly") || "طباعة فقط" }}
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
+                          @click="openOrderExtrasModal"
+                          :disabled="totalCardItems <= 0"
+                          :title="`${$t('discountAndNotes') || 'خصم وملاحظات'} (F8)`"
+                        >
+                          <b-icon icon="tag-fill" class="me-1"></b-icon>
+                          {{ $t("discountAndNotes") || "خصم وملاحظات" }}
+                          <kbd class="pos-kbd">F8</kbd>
                         </button>
                       </div>
                     </div>
-                  </div>
-                  <div class="pos-cart-empty" v-else>
-                    <b-icon icon="cart-x" class="pos-cart-empty-icon"></b-icon>
-                    <p class="pos-cart-empty-text">{{ $t("emptyCart") || 'السلة فارغة' }}</p>
-                  </div>
-                </div>
 
-                <!-- Cart Summary -->
-                <div class="pos-cart-summary" v-if="carditems.length > 0">
-                  <div class="pos-cart-summary-row">
-                    <span class="pos-cart-summary-label">
-                      <b-icon icon="box-seam" class="me-2"></b-icon>
-                      {{ $t("countLabel") }}:
-                    </span>
-                    <span class="pos-cart-summary-value">{{ totalCardItems }} {{ $t("itemLabel") }}</span>
-                  </div>
-                  <div class="pos-cart-summary-row pos-cart-total-row">
-                    <span class="pos-cart-summary-label">
-                      <b-icon icon="currency-dollar" class="me-2"></b-icon>
-                      {{ $t("totalLabel") }}:
-                    </span>
-                    <span class="pos-cart-summary-value pos-cart-total-value">
-                      {{ formattedNumber }} {{ $t("currency") }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Order Type Selection -->
-                <div class="pos-printer-section" v-if="carditems.length > 0">
-                  <div class="pos-printer-header">
-                    <b-icon icon="shop" class="me-2"></b-icon>
-                    <span>{{ $t("orderType") || "نوع الطلب" }}</span>
-                  </div>
-                  <div class="pos-order-types-grid">
-                    <button
-                      class="pos-order-type-btn"
-                      :class="{ 'pos-order-type-active': orderForSend.orderType === 'Takeaway' }"
-                      @click="orderForSend.orderType = 'Takeaway'"
-                    >
-                      <b-icon icon="bag" class="pos-order-type-icon"></b-icon>
-                      <span class="pos-order-type-label">{{ $t("takeaway") || "طلب خارجي" }}</span>
-                    </button>
-                      <button
-                      class="pos-order-type-btn"
-                        :class="{ 'pos-order-type-active': orderForSend.orderType === 'Delivery' }"
-                        @click="orderForSend.orderType = 'Delivery'"
-                      >
-                        <b-icon icon="truck" class="pos-order-type-icon"></b-icon>
-                        <span class="pos-order-type-label">{{ $t("delivery") || "توصيل" }}</span>
-                      </button>
-                  </div>
-                </div>
-
-                <!-- Payment Method Selection -->
-                <div class="pos-printer-section" v-if="carditems.length > 0">
-                  <div class="pos-printer-header">
-                    <b-icon icon="credit-card-fill" class="me-2"></b-icon>
-                    <span>{{ $t("paymentMethod") || "طريقة الدفع" }}</span>
-                  </div>
-                  <div class="pos-payment-methods-grid">
-                    <button
-                      class="pos-payment-method-btn"
-                      :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Cash' }"
-                      @click="orderForSend.paymentMethod = 'Cash'"
-                    >
-                      <b-icon icon="cash-stack" class="pos-payment-icon"></b-icon>
-                      <span class="pos-payment-label">{{ $t("cash") || "نقد" }}</span>
-                    </button>
-                    <button
-                      class="pos-payment-method-btn"
-                      :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Card' }"
-                      @click="orderForSend.paymentMethod = 'Card'"
-                    >
-                      <b-icon icon="credit-card" class="pos-payment-icon"></b-icon>
-                      <span class="pos-payment-label">{{ $t("card") || "بطاقة" }}</span>
-                    </button>
-                    <button
-                      class="pos-payment-method-btn"
-                      :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Credit' }"
-                      @click="orderForSend.paymentMethod = 'Credit'"
-                    >
-                      <b-icon icon="clock-history" class="pos-payment-icon"></b-icon>
-                      <span class="pos-payment-label">{{ $t("credit") || "دفع لاحق" }}</span>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Printer Selection Section -->
-                <div class="pos-printer-section" v-if="availablePrinters.length > 0 || webPrintAPISupported">
-                  <div class="pos-printer-header">
-                    <b-icon icon="printer-fill" class="me-2"></b-icon>
-                    <span>{{ $t("printerSettings") || "إعدادات الطابعة" }}</span>
-                  </div>
-                  
-                  <!-- Web Print API Support Status -->
-                  <div class="pos-printer-status" v-if="webPrintAPISupported">
-                    <div class="pos-printer-status-badge pos-printer-status-supported">
-                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                      <span>{{ $t("webPrintAPISupported") || "المتصفح يدعم الطباعة المباشرة" }}</span>
+                    <div class="pos-cart-checkout-segment pos-cart-checkout-segment--pay">
+                      <span class="pos-cart-checkout-segment-label">{{ $t("paymentMethod") }}</span>
+                      <div class="pos-cart-checkout-btn-row pos-cart-checkout-pay-row">
+                        <button
+                          type="button"
+                          class="pos-payment-method-btn"
+                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Cash' }"
+                          @click="setPosPaymentMethod('Cash')"
+                        >
+                          <b-icon icon="cash-stack" class="pos-payment-icon"></b-icon>
+                          <span class="pos-payment-label">{{ $t("cash") || "نقد" }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-payment-method-btn"
+                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Card' }"
+                          @click="setPosPaymentMethod('Card')"
+                        >
+                          <b-icon icon="credit-card" class="pos-payment-icon"></b-icon>
+                          <span class="pos-payment-label">{{ $t("card") || "بطاقة" }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-payment-method-btn"
+                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Credit' }"
+                          @click="setPosPaymentMethod('Credit')"
+                        >
+                          <b-icon icon="clock-history" class="pos-payment-icon"></b-icon>
+                          <span class="pos-payment-label">{{ $t("credit") || "دفع لاحق" }}</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div class="pos-printer-status" v-else>
-                    <div class="pos-printer-status-badge pos-printer-status-not-supported">
-                      <b-icon icon="info-circle-fill" class="me-2"></b-icon>
-                      <span>{{ $t("webPrintAPINotSupported") || "سيتم استخدام نافذة الطباعة العادية" }}</span>
-                    </div>
-                  </div>
+                  </template>
 
-                  <!-- Printer Selection Dropdown -->
-                  <div class="pos-printer-select-wrapper" v-if="availablePrinters.length > 0">
-                    <label class="pos-printer-select-label">
-                      {{ $t("selectPrinter") || "اختر الطابعة" }}
-                    </label>
-                    <select 
-                      v-model="selectedPrinterId" 
-                      @change="onPrinterChange"
-                      class="pos-printer-select"
+                  <div
+                    v-if="activeCheckoutPrinters.length > 0 || loadingManagedPrinters"
+                    class="pos-cart-checkout-segment pos-cart-checkout-segment--printer"
+                  >
+                    <span class="pos-cart-checkout-segment-label">{{ $t("selectPrinter") || "الطابعة" }}</span>
+                    <select
+                      v-if="activeCheckoutPrinters.length > 0"
+                      v-model="selectedManagedPrinterId"
+                      @change="onManagedPrinterChange"
+                      class="pos-cart-checkout-printer-select"
                     >
-                      <option 
-                        v-for="printer in availablePrinters" 
-                        :key="printer.id" 
+                      <option
+                        v-for="printer in activeCheckoutPrinters"
+                        :key="printer.id"
                         :value="printer.id"
                       >
-                        {{ printer.name }} {{ printer.isDefault ? ' (افتراضي)' : '' }}
+                        {{ printer.name }}{{ printer.isMain ? ` (${$t("mainPrinter") || "رئيسية"})` : "" }}
                       </option>
                     </select>
-                  </div>
-                  <div class="pos-printer-select-wrapper" v-else-if="webPrintAPISupported">
-                    <label class="pos-printer-select-label">
+                    <span v-else class="pos-cart-checkout-printer-loading">
                       {{ $t("loadingPrinters") || "جاري تحميل الطابعات..." }}
-                    </label>
+                    </span>
                   </div>
-                </div>
-
-                <!-- Cart Actions -->
-                <div class="pos-cart-actions">
-                  <button
-                    class="pos-action-btn pos-action-btn-primary"
-                    @click="addOrderAndClear"
-                    :disabled="totalCardItems <= 0"
-                  >
-                    <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                    {{ $t("saveAndClear") || "حفظ وافراغ" }}
-                  </button>
-                  <button
-                    class="pos-action-btn pos-action-btn-danger"
-                    v-b-modal.modal-empty
-                    :disabled="totalCardItems <= 0"
-                  >
-                    <b-icon icon="trash-fill" class="me-2"></b-icon>
-                    {{ $t("emptyButton") || "افراغ فقط" }}
-                  </button>
                 </div>
               </div>
             </div>
           </div>
         </b-container>
+
+        <button
+          v-show="!posMobileCartOpen"
+          type="button"
+          class="pos-mobile-cart-fab d-lg-none"
+          @click="openPosMobileCart"
+          :aria-label="$t('posOpenCart')"
+          :title="$t('posOpenCart')"
+        >
+          <b-icon icon="cart-fill" class="pos-mobile-cart-fab-icon"></b-icon>
+          <span v-if="carditems.length > 0" class="pos-mobile-cart-fab-badge">{{ carditems.length }}</span>
+        </button>
       </div>
       <b-sidebar id="sidebar-right" title="Sidebar" no-header right shadow>
         <div class="px-3 py-2">
@@ -430,7 +682,7 @@
       </b-sidebar>
     </b-overlay>
 
-    <!-- Print Section (Hidden) -->
+<!-- Print Section (Hidden) -->
     <div class="print_hide" id="print" style="display: none;">
       <div class="bill-container">
         <!-- Header Section -->
@@ -461,7 +713,7 @@
             <span class="bill-info-label">{{ $t("invoice_number") }}:</span>
             <span class="bill-info-value">{{ orderForSend.orderCode || '---' }}</span>
           </div>
-          image.png          <!-- Barcode for Order Number -->
+          <!-- Barcode for Order Number -->
           <div class="bill-barcode-section" v-if="orderForSend.orderCode">
             <vue-barcode
               tag="img"
@@ -497,28 +749,51 @@
         <div class="bill-divider"></div>
 
         <!-- Items Table -->
-        <table class="bill-table">
-          <thead>
-            <tr class="bill-table-header">
-              <th class="bill-table-cell bill-col-item">{{ $t("itemLabel") }}</th>
-              <th class="bill-table-cell bill-col-qty">{{ $t("countLabel") }}</th>
-              <th class="bill-table-cell bill-col-price">{{ $t("price") }}</th>
-              <th class="bill-table-cell bill-col-total">{{ $t("totalLabel") }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, index) in carditems" :key="index" class="bill-table-row">
-              <td class="bill-table-cell bill-col-item">{{ item.name }}</td>
-              <td class="bill-table-cell bill-col-qty">{{ item.quantity }}</td>
-              <td class="bill-table-cell bill-col-price">
-                {{ formatPrice(item.price !== item.disCountPrice ? item.disCountPrice : item.price) }}
-              </td>
-              <td class="bill-table-cell bill-col-total">
-                {{ formatPrice((item.price !== item.disCountPrice ? item.disCountPrice : item.price) * item.quantity) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="bill-items-section">
+          <table class="bill-items-table">
+            <thead>
+              <tr>
+                <th class="bill-item-name-col">{{ $t("item_name_label") }}</th>
+                <th class="bill-item-qty-col">{{ $t("quantity_label") }}</th>
+                <th class="bill-item-price-col">{{ $t("selling_price_label") }}</th>
+                <th class="bill-item-total-col">{{ $t("total_label") }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, index) in carditems" :key="index">
+                <td class="bill-item-name">
+                  {{ item.name }}
+                  <span
+                    v-if="item.disCountPrice > 0 && item.disCountPrice !== item.price"
+                    class="bill-discount-badge"
+                  >{{ $t("discountLabel") || "خصم" }}</span>
+                </td>
+                <td class="bill-item-qty">{{ item.quantity }}</td>
+                <td class="bill-item-price">
+                  <span
+                    v-if="item.disCountPrice > 0 && item.disCountPrice !== item.price"
+                    class="bill-price-discounted"
+                  >
+                    <span class="bill-original-price">{{ formatPrice(item.price || 0) }}</span>
+                    <span class="bill-discount-price">{{ formatPrice(item.disCountPrice) }}</span>
+                  </span>
+                  <span v-else>{{ formatPrice(item.price || 0) }}</span>
+                </td>
+                <td class="bill-item-total">
+                  {{
+                    formatPrice(
+                      (item.disCountPrice > 0 && item.disCountPrice !== item.price
+                        ? item.disCountPrice
+                        : (item.price || 0)) * (item.quantity || 1)
+                    )
+                  }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="bill-divider"></div>
 
         <!-- Summary Section -->
         <div class="bill-summary-section">
@@ -526,11 +801,21 @@
             <span class="bill-summary-label">{{ $t("countLabel") }}:</span>
             <span class="bill-summary-value">{{ totalCardItems }} {{ $t("itemLabel") }}</span>
           </div>
-          <div class="bill-summary-row bill-total-row">
+          <div class="bill-summary-row" v-if="orderDiscountAmount > 0">
+            <span class="bill-summary-label">{{ $t("discountLabel") }}:</span>
+            <span class="bill-summary-value">− {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}</span>
+          </div>
+          <div class="bill-summary-row bill-summary-total">
             <span class="bill-summary-label">{{ $t("totalLabel") }}:</span>
-            <span class="bill-summary-value bill-total-amount">
-              {{ formattedNumber }} {{ $t("currency") }}
-            </span>
+            <span class="bill-summary-value">{{ formattedNumber }} {{ $t("currency") }}</span>
+          </div>
+        </div>
+
+        <div class="bill-notes-section" v-if="orderForSend.notes">
+          <div class="bill-divider"></div>
+          <div class="bill-notes-content">
+            <div class="bill-notes-label">{{ $t("notesLabel") || "ملاحظات" }}:</div>
+            <div class="bill-notes-text">{{ orderForSend.notes }}</div>
           </div>
         </div>
 
@@ -545,18 +830,26 @@
 </template>
 
 <script>
-import SidebarView from "@/components/Layout/SidebarView.vue";
+import AppHeader from "@/components/Layout/AppHeader.vue";
 import CalculatorComp from "@/components/CalculatorComp.vue";
 import ClockVue from "@/components/ClockVue.vue";
 import VueBarcode from "@chenfengyuan/vue-barcode";
 import { HTTP } from "../http/api.js";
-import { htmlToPaper } from 'vue-html-to-paper';
-// import store from '../store/store'; // Adjust the path based on your actual folder structure
+import posOrderPersistMixin from "@/mixins/posOrderPersistMixin.js";
+import posPrintMixin from "@/mixins/posPrintMixin.js";
+import {
+  findCartLineIndex,
+  getCartLineUnitPrice,
+  getCartLineTotal,
+  hasCartLineDiscount,
+} from "@/utils/mergeCartLines.js";
+import { applyPosPageSize } from "@/utils/posPageSize.js";
 
 export default {
   name: "PosView",
+  mixins: [posOrderPersistMixin, posPrintMixin],
   components: {
-    SidebarView,
+    AppHeader,
     ClockVue,
     "vue-barcode": VueBarcode,
     CalculatorComp,
@@ -568,21 +861,18 @@ export default {
       totaPrice: 0,
       carditems: [],
       typingTimer: null,
-      doneTypingInterval: 500,
+      doneTypingInterval: 300,
+      silentCartToasts: true,
       isSearching: false,
       searchAbortController: null,
       lastAddedItem: null,
       itemsAddedCount: 0,
       addItemTimer: null,
-      selectedPrinter: null,
-      selectedPrinterId: null,
-      availablePrinters: [],
-      webPrintAPISupported: false,
       Items: [],
       tags: [],
       pageNumber: 1,
       totalItems: 0,
-      pageSize: 12,
+      pageSize: 36,
       search: {
         info: "",
       },
@@ -599,14 +889,54 @@ export default {
         orderCode: "",
         paymentMethod: "Cash",
         customerOrderItem: [],
-        orderType: "Takeaway"
+        orderType: "Takeaway",
+        notes: "",
       },
+      isFullscreen: false,
+      posMobileCartOpen: false,
+      quickSearch: "",
+      quickSearchTimer: null,
+      posSuppressQuickSearchSync: false,
+      activeCategory: "",
+      orderDiscountType: "amount",
+      orderDiscountValue: null,
+      orderDiscountPresets: [
+        { id: "p5", type: "percentage", value: 5, label: "5%" },
+        { id: "p10", type: "percentage", value: 10, label: "10%" },
+        { id: "p15", type: "percentage", value: 15, label: "15%" },
+        { id: "a5000", type: "amount", value: 5000, label: "5,000" },
+        { id: "a10000", type: "amount", value: 10000, label: "10,000" },
+      ],
     };
   },
 
   computed: {
+    orderDiscountAmount() {
+      const rawValue = Number(this.orderDiscountValue) || 0;
+      if (rawValue <= 0) return 0;
+      if (this.orderDiscountType === "percentage") {
+        return Math.min(this.totaPrice, (this.totaPrice * Math.min(rawValue, 100)) / 100);
+      }
+      return Math.min(this.totaPrice, rawValue);
+    },
+    finalOrderTotal() {
+      return Math.max(this.totaPrice - this.orderDiscountAmount, 0);
+    },
     formattedNumber() {
-      return this.totaPrice.toLocaleString();
+      return this.finalOrderTotal.toLocaleString();
+    },
+    orderDiscountPreviewLabel() {
+      if (!this.orderDiscountAmount) {
+        return this.$t("noDiscount") || "بدون خصم";
+      }
+      if (this.orderDiscountType === "percentage") {
+        return `${Number(this.orderDiscountValue) || 0}%`;
+      }
+      return `${this.formatPrice(this.orderDiscountValue)} ${this.$t("currency")}`;
+    },
+    showPosCheckoutBar() {
+      if (Array.isArray(this.carditems) && this.carditems.length > 0) return true;
+      return this.activeCheckoutPrinters.length > 0;
     },
     cardfields() {
       const lang = this.$i18n.locale;
@@ -666,14 +996,13 @@ export default {
       handler() {
         this.totaPrice = 0;
         this.carditems.forEach((item) => {
-          // Ensure total is calculated if missing
-          if (item.total === undefined || isNaN(item.total)) {
-            const finalPrice = item.price !== item.disCountPrice ? item.disCountPrice : item.price;
-            item.total = finalPrice * (item.quantity || 1);
-          }
+          item.total = getCartLineTotal(item);
           this.totaPrice += item.total || 0;
         });
-        this.totalCardItems = this.carditems.length;
+        this.totalCardItems = this.carditems.reduce(
+          (sum, item) => sum + (Number(item.quantity) || 0),
+          0
+        );
       },
       deep: true,
     },
@@ -686,18 +1015,54 @@ export default {
     pageNumber() {
       this.GetAllItems();
     },
-
+    quickSearch(newVal) {
+      if (this.posSuppressQuickSearchSync) {
+        return;
+      }
+      clearTimeout(this.quickSearchTimer);
+      this.quickSearchTimer = setTimeout(() => {
+        this.activeCategory = "";
+        this.search.info = newVal;
+        this.GetAllItems();
+      }, this.doneTypingInterval);
+    },
+    posMobileCartOpen(val) {
+      if (typeof document === "undefined") return;
+      const isNarrowViewport =
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 1200px)").matches;
+      document.body.style.overflow = val && isNarrowViewport ? "hidden" : "";
+    },
+    isFullscreen() {
+      this.$nextTick(() => {
+        applyPosPageSize(this);
+      });
+    },
   },
 
   mounted() {
     try {
+      const savedFullscreen = localStorage.getItem("posFullscreen");
+      if (savedFullscreen === "true") {
+        this.isFullscreen = true;
+      }
+
       this.getTags();
       this.$nextTick(() => {
         if (this.$refs.codeNumber) {
           this.$refs.codeNumber.focus();
         }
+        applyPosPageSize(this, false);
+        this.GetAllItems();
       });
-      this.GetAllItems();
+      this._posResizeHandler = () => {
+        if (this._isDestroyed) return;
+        clearTimeout(this._posResizeTimer);
+        this._posResizeTimer = setTimeout(() => {
+          if (!this._isDestroyed) applyPosPageSize(this);
+        }, 150);
+      };
+      window.addEventListener("resize", this._posResizeHandler);
       
       const userInfoStr = localStorage.getItem("info");
       if (userInfoStr) {
@@ -707,18 +1072,31 @@ export default {
       // Load commercial user info for printing
       this.loadCommercialUserInfo();
 
-      // Initialize printers on mount
-      this.initializePrinters();
-      
-      // Add keyboard shortcut listener
+      this.loadManagedPrinters();
+
+      const savedPayment = localStorage.getItem("posPaymentMethod");
+      if (savedPayment && ["Cash", "Card", "Credit"].includes(savedPayment)) {
+        this.orderForSend.paymentMethod = savedPayment;
+      }
+
       this.handleKeyup = (e) => {
         if (e.ctrlKey && e.keyCode === 38) {
           this.$root.$emit("bv::toggle::collapse", "sidebar-right");
         }
       };
       window.addEventListener("keyup", this.handleKeyup);
+
+      this.posKeyboardHandler = (e) => this.handlePosKeyboard(e);
+      window.addEventListener("keydown", this.posKeyboardHandler);
+
+      this.posMobileCartEscape = (e) => {
+        if (e.key === "Escape" && this.posMobileCartOpen) {
+          this.closePosMobileCart();
+        }
+      };
+      window.addEventListener("keydown", this.posMobileCartEscape);
     } catch (error) {
-      this.$toast.error(this.$i18n.t("error") || "An error occurred", {
+      this.$notify.error(this.$i18n.t("error") || "An error occurred", {
         position: "top-right",
         timeout: 2000,
         maxToasts: 1,
@@ -727,20 +1105,241 @@ export default {
   },
   
   beforeDestroy() {
-    // Cleanup: Remove event listener
+    clearTimeout(this.quickSearchTimer);
+    clearTimeout(this._posResizeTimer);
+    if (this._posResizeHandler) {
+      window.removeEventListener("resize", this._posResizeHandler);
+    }
+    if (typeof document !== "undefined") {
+      document.body.style.overflow = "";
+    }
     if (this.handleKeyup) {
       window.removeEventListener("keyup", this.handleKeyup);
+    }
+    if (this.posMobileCartEscape) {
+      window.removeEventListener("keydown", this.posMobileCartEscape);
+    }
+    if (this.posKeyboardHandler) {
+      window.removeEventListener("keydown", this.posKeyboardHandler);
     }
   },
 
   methods: {
     loadCommercialUserInfo() {
-      // CommercialUserInfo endpoint is not available in cashier_back
-      // Using default values instead
-      this.commercialUserInfo = {
-        storeName: 'LiteCashier',
-        logo: null
-      };
+      HTTP.get("Admin/CommercialUserInfo")
+        .then((response) => {
+          if (response.data && response.data.data) {
+            this.commercialUserInfo = {
+              storeName: response.data.data.storeName || response.data.data.StoreName || 'LiteCashier',
+              logo: response.data.data.logo || response.data.data.Logo || null
+            };
+          }
+        })
+        .catch((error) => {
+          console.error('Error loading commercial user info:', error);
+          this.commercialUserInfo = {
+            storeName: 'LiteCashier',
+            logo: null
+          };
+        });
+    },
+    applyOrderDiscountPreset(preset) {
+      if (!preset) return;
+      this.orderDiscountType = preset.type;
+      this.orderDiscountValue = preset.value;
+    },
+    selectCategory(name) {
+      this.posSuppressQuickSearchSync = true;
+      this.quickSearch = "";
+      this.activeCategory = name;
+      this.search.info = name;
+      this.pageNumber = 1;
+      this.$nextTick(() => {
+        this.posSuppressQuickSearchSync = false;
+      });
+    },
+    updatePosPageSize(reload = true) {
+      applyPosPageSize(this, reload);
+    },
+    setPosPaymentMethod(method) {
+      this.orderForSend.paymentMethod = method;
+      localStorage.setItem("posPaymentMethod", method);
+    },
+    focusPosBarcode() {
+      if (this.$refs.codeNumber) {
+        this.$refs.codeNumber.focus();
+        this.$refs.codeNumber.select?.();
+      }
+    },
+    flashCart() {
+      const el = this.$refs.posCartHeader;
+      if (!el) return;
+      el.classList.add("pos-cart-flash");
+      setTimeout(() => el.classList.remove("pos-cart-flash"), 350);
+    },
+    isPosShortcutBlocked() {
+      const el = document.activeElement;
+      if (!el) return false;
+      if (el.classList?.contains("pos-quantity-input")) return true;
+      if (el.tagName === "TEXTAREA") return true;
+      if (el.tagName === "SELECT") return true;
+      if (el === this.$refs.posQuickSearchInput) return true;
+      return false;
+    },
+    handlePosKeyboard(e) {
+      if (e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey) return;
+
+      const key = e.key;
+      const modalOpen = !!document.querySelector(".modal.show");
+
+      if (key === "F2") {
+        e.preventDefault();
+        this.focusPosBarcode();
+        return;
+      }
+
+      if (modalOpen && key !== "Escape") return;
+
+      if (this.isPosShortcutBlocked()) {
+        if (key === "Escape") {
+          this.closeModel("modal-order-notes");
+          this.$bvModal.hide("modal-empty");
+          this.$bvModal.hide("modal-print-only-confirm");
+        }
+        return;
+      }
+
+      if (key === "F4") {
+        e.preventDefault();
+        this.quickPay(false);
+        return;
+      }
+      if (key === "F5") {
+        e.preventDefault();
+        this.quickPay(true);
+        return;
+      }
+      if (key === "F8") {
+        e.preventDefault();
+        this.openOrderExtrasModal();
+        return;
+      }
+      if (key === "Escape") {
+        this.closeModel("modal-order-notes");
+        this.$bvModal.hide("modal-empty");
+        this.$bvModal.hide("modal-print-only-confirm");
+        if (this.posMobileCartOpen) this.closePosMobileCart();
+        return;
+      }
+      if ((key === "+" || key === "=") && this.carditems.length > 0) {
+        e.preventDefault();
+        this.increaseQuantity(this.carditems.length - 1);
+        return;
+      }
+      if (key === "-" && this.carditems.length > 0) {
+        e.preventDefault();
+        this.decreaseQuantity(this.carditems.length - 1);
+        return;
+      }
+      if (key === "Delete" && this.carditems.length > 0) {
+        e.preventDefault();
+        this.deleteItem(this.carditems.length - 1, { silent: true });
+      }
+    },
+    async quickPay(withPrint = false) {
+      if (this.carditems.length <= 0) {
+        this.$notify.error(this.$i18n.t("emptyCartMessage") || this.$i18n.t("emptyCart"), {
+          position: "top-right",
+          timeout: 2500,
+          maxToasts: 1,
+        });
+        return;
+      }
+      await this.addOrder(withPrint);
+      this.$nextTick(() => this.focusPosBarcode());
+    },
+    openOrderExtrasModal() {
+      if (this.carditems.length <= 0) {
+        this.$notify.error(this.$i18n.t("emptyCartMessage") || this.$i18n.t("emptyCart"), {
+          position: "top-right",
+          timeout: 2500,
+          maxToasts: 1,
+        });
+        return;
+      }
+      this.$bvModal.show("modal-order-notes");
+    },
+    applyOrderExtras() {
+      this.$bvModal.hide("modal-order-notes");
+      this.focusPosBarcode();
+    },
+    toggleFullscreen() {
+      this.isFullscreen = !this.isFullscreen;
+      localStorage.setItem("posFullscreen", this.isFullscreen);
+      const message = this.isFullscreen
+        ? this.$i18n.t("fullscreenEnabled") || "تم تفعيل الوضع الكامل"
+        : this.$i18n.t("fullscreenDisabled") || "تم إلغاء الوضع الكامل";
+      this.$notify.info(message, {
+        position: "top-right",
+        timeout: 2000,
+        maxToasts: 1,
+      });
+    },
+    openPosMobileCart() {
+      this.posMobileCartOpen = true;
+      this.$nextTick(() => {
+        requestAnimationFrame(() => {
+          const sc = this.$refs.posCartScrollArea;
+          if (sc) {
+            sc.scrollTop = 0;
+          }
+        });
+      });
+    },
+    closePosMobileCart() {
+      this.posMobileCartOpen = false;
+    },
+    openPrintOnlyConfirm() {
+      if (this.carditems.length <= 0) {
+        this.$notify.error(this.$i18n.t("emptyCartMessage") || this.$i18n.t("emptyCart"), {
+          position: "top-right",
+          timeout: 2500,
+          maxToasts: 1,
+        });
+        return;
+      }
+      this.$bvModal.show("modal-print-only-confirm");
+    },
+    async confirmPrintCartOnly() {
+      this.$bvModal.hide("modal-print-only-confirm");
+      await this.printCartOnly();
+    },
+    ensureOrderCodeForPrint() {
+      const existing = String(this.orderForSend?.orderCode || "").trim();
+      if (existing && existing !== "---") {
+        return existing;
+      }
+      this.orderForSend.orderCode = Math.floor(Math.random() * 1000000000)
+        .toString()
+        .padStart(9, "0");
+      return this.orderForSend.orderCode;
+    },
+    async printCartOnly() {
+      if (this.carditems.length <= 0) {
+        this.$notify.error(this.$i18n.t("emptyCartMessage") || this.$i18n.t("emptyCart"), {
+          position: "top-right",
+          timeout: 2500,
+          maxToasts: 1,
+        });
+        return;
+      }
+      const result = await this.printCard(null, { raiseOnError: false });
+      if (!result?.ok) {
+        this.$notify.warning(
+          this.$t("printError") || "تعذرت الطباعة — تحقق من خادم الطباعة أو استخدم نافذة المتصفح",
+          { position: "top-right", timeout: 3500, maxToasts: 1 }
+        );
+      }
     },
     getTags() {
       HTTP.get(`Admin/GetTags?pageNumber=0&pageSize=10000`)
@@ -748,7 +1347,7 @@ export default {
           this.tags = response.data.data.items;
         })
         .catch((error) => {
-          this.$toast.error(this.$i18n.t("error"), {
+          this.$notify.error(this.$i18n.t("error"), {
             position: "top-right",
             timeout: 2000,
             maxToasts: 1,
@@ -756,176 +1355,35 @@ export default {
         });
     },
     formatPrice(price) {
-      if (price) {
-        return price.toLocaleString("en-EG");
-      }
-      return "";
+      const n = Number(price);
+      if (!Number.isFinite(n)) return "0";
+      return n.toLocaleString("en-EG");
     },
-    addOrderAndClear() {
-      const textDirection = document.documentElement.dir;
-      const toastPosition = textDirection === "rtl" ? "top-right" : "top-left";
-
-      if (this.carditems.length <= 0) {
-        this.$toast.error(this.$i18n.t("emptyCartMessage"), {
-          position: toastPosition,
-          timeout: 2500,
-          maxToasts: 1,
-        });
-        return;
-      }
-      this.show = true;
-      this.orderForSend.orderCode = "";
-      this.orderForSend.paymentMethod = this.orderForSend.paymentMethod || "Cash";
-      this.orderForSend.customerOrderItem = [];
-      for (const item of this.carditems) {
-        this.orderForSend.customerOrderItem.push({
-          itemId: item.id,
-          quantity: item.quantity,
-        });
-      }
-      this.orderForSend.orderCode = Math.floor(
-        Math.random() * 1000000000
-      ).toString().padStart(9, '0');
-      
-      HTTP.post(`Admin/AddOrder`, this.orderForSend)
-        .then((response) => {
-          if (response) {
-            this.show = false;
-            // Save a copy of carditems for printing before clearing
-            const itemsForPrint = JSON.parse(JSON.stringify(this.carditems));
-            // Clear cart after successful save
-            this.carditems = [];
-            this.orderForSend.orderType = 'Takeaway'; // Reset to default when clearing
-            
-            this.$toast.success(this.$i18n.t("orderSavedAndCleared") || "تم حفظ الطلب وافراغ السلة بنجاح", {
-              position: "top-right",
-              timeout: 2000,
-              maxToasts: 1,
-            });
-            
-            // Print automatically after saving
-            setTimeout(() => {
-              try {
-                this.printCard(itemsForPrint);
-              } catch (printError) {
-                console.error('Print error:', printError);
-                // Don't show error to user, printing is optional
-                // The order was saved successfully
-              }
-            }, 100);
-          }
-        })
-        .catch((error) => {
-          this.show = false;
-          console.error('Order save error:', error);
-          let errorMessage = this.$i18n.t("error") || "حدث خطأ ما";
-          
-          if (error.response) {
-            if (error.response.data && error.response.data.message) {
-              errorMessage = error.response.data.message;
-            } else if (error.response.status === 400) {
-              errorMessage = this.$i18n.t("badRequest") || "طلب غير صحيح";
-            } else if (error.response.status === 401) {
-              errorMessage = this.$i18n.t("unauthorized") || "غير مصرح";
-            } else if (error.response.status === 500) {
-              errorMessage = this.$i18n.t("serverError") || "خطأ في الخادم";
-            }
-          } else if (error.request) {
-            errorMessage = this.$i18n.t("networkError") || "خطأ في الاتصال بالخادم";
-          }
-          
-          this.$toast.error(errorMessage, {
-            position: "top-right",
-            timeout: 3000,
-            maxToasts: 1,
-          });
-        });
+    cartLineUnitPrice(item) {
+      return getCartLineUnitPrice(item);
     },
-    addOrder(isPrint) {
-      const textDirection = document.documentElement.dir;
-      const toastPosition = textDirection === "rtl" ? "top-right" : "top-left";
-
-      if (this.carditems.length <= 0) {
-        this.$toast.error(this.$i18n.t("emptyCartMessage"), {
-          position: toastPosition,
-          timeout: 2500,
-          maxToasts: 1,
-        });
-        return;
-      }
-      this.show = true;
-      this.orderForSend.orderCode = "";
-      this.orderForSend.paymentMethod = this.orderForSend.paymentMethod || "Cash";
-      this.orderForSend.customerOrderItem = [];
-      for (const item of this.carditems) {
-        this.orderForSend.customerOrderItem.push({
-          itemId: item.id,
-          quantity: item.quantity,
-        });
-      }
-      this.orderForSend.orderCode = Math.floor(
-        Math.random() * 1000000000
-      ).toString().padStart(9, '0');
-      
-      HTTP.post(`Admin/AddOrder`, this.orderForSend)
-        .then((response) => {
-          if (response) {
-            this.show = false;
-            this.$toast.warning(this.$i18n.t("addOrderSucsses"), {
-              position: "top-right",
-              timeout: 2000,
-              maxToasts: 1,
-            });
-            // Save a copy of carditems for printing before clearing
-            const itemsForPrint = JSON.parse(JSON.stringify(this.carditems));
-            this.carditems = [];
-            this.$refs.codeNumber.focus();
-            
-            
-            if (isPrint) {
-              // Use setTimeout to ensure print happens after UI updates
-              setTimeout(() => {
-                try {
-                  this.printCard(itemsForPrint);
-                } catch (printError) {
-                  console.error('Print error:', printError);
-                  // Don't show error to user, printing is optional
-                  // The order was saved successfully
-                }
-              }, 100);
-            }
-          }
-        })
-        .catch((error) => {
-          this.show = false;
-          console.error('Order save error:', error);
-          let errorMessage = this.$i18n.t("error") || "حدث خطأ ما";
-          
-          if (error.response) {
-            // Server responded with error status
-            if (error.response.data && error.response.data.message) {
-              errorMessage = error.response.data.message;
-            } else if (error.response.status === 400) {
-              errorMessage = this.$i18n.t("badRequest") || "طلب غير صحيح";
-            } else if (error.response.status === 401) {
-              errorMessage = this.$i18n.t("unauthorized") || "غير مصرح";
-            } else if (error.response.status === 500) {
-              errorMessage = this.$i18n.t("serverError") || "خطأ في الخادم";
-            }
-          } else if (error.request) {
-            // Request was made but no response received
-            errorMessage = this.$i18n.t("networkError") || "خطأ في الاتصال بالخادم";
-          }
-          
-          this.$toast.error(errorMessage, {
-            position: "top-right",
-            timeout: 3000,
-            maxToasts: 1,
-          });
-        });
+    cartLineHasDiscount(item) {
+      return hasCartLineDiscount(item);
     },
-
-    
+    clearOrderDiscount() {
+      this.orderDiscountType = "amount";
+      this.orderDiscountValue = null;
+    },
+    buildOrderDiscountPayload() {
+      const discountAmount = Number(this.orderDiscountAmount) || 0;
+      const discountPercent =
+        this.orderDiscountType === "percentage"
+          ? Math.min(Math.max(Number(this.orderDiscountValue) || 0, 0), 100)
+          : 0;
+      return {
+        discountType: discountAmount > 0 ? this.orderDiscountType : null,
+        discountValue: discountAmount > 0 ? Number(this.orderDiscountValue) || 0 : null,
+        discountAmount: discountAmount > 0 ? discountAmount : 0,
+        discountPercent: discountAmount > 0 ? discountPercent : 0,
+        orderSubTotal: Number(this.totaPrice) || 0,
+        orderTotalAfterDiscount: Number(this.finalOrderTotal) || 0,
+      };
+    },
     getCurrentDateTime() {
       const now = new Date();
       const date = now.toLocaleDateString('ar-IQ', { 
@@ -967,792 +1425,14 @@ export default {
       };
       return methods[method] || method;
     },
-    async initializePrinters() {
-      // Check if Web Print API is supported (experimental)
-      if ('navigator' in window && 'printer' in navigator) {
-        this.webPrintAPISupported = true;
-        try {
-          // Get available printers
-          const printers = await navigator.printer.getPrinters();
-          this.availablePrinters = printers;
-          
-          // Try to get saved printer preference
-          const savedPrinterId = localStorage.getItem('selectedPrinter');
-          if (savedPrinterId) {
-            const printer = printers.find(p => p.id === savedPrinterId);
-            if (printer) {
-              this.selectedPrinter = printer;
-              this.selectedPrinterId = printer.id;
-            }
-          }
-          
-          // If no saved printer, use default
-          if (!this.selectedPrinter && printers.length > 0) {
-            const defaultPrinter = printers.find(p => p.isDefault) || printers[0];
-            this.selectedPrinter = defaultPrinter;
-            this.selectedPrinterId = defaultPrinter.id;
-            localStorage.setItem('selectedPrinter', defaultPrinter.id);
-          }
-        } catch (error) {
-          console.warn('Web Print API not fully supported:', error);
-          this.webPrintAPISupported = false;
-          // Web Print API not available, will use standard print
-        }
-      } else {
-        // Web Print API not supported, use standard print
-        this.webPrintAPISupported = false;
-        console.log('Web Print API not supported, using standard print dialog');
-      }
-    },
-    onPrinterChange() {
-      const printer = this.availablePrinters.find(p => p.id === this.selectedPrinterId);
-      if (printer) {
-        this.selectedPrinter = printer;
-        localStorage.setItem('selectedPrinter', printer.id);
-      }
-    },
-    async printWithWebPrintAPI(printContent, stylesHtml) {
-      try {
-        // Check if Web Print API is supported
-        if (!('navigator' in window && 'printer' in navigator)) {
-          throw new Error('Web Print API not supported');
-        }
-
-        // Get printer (use selected or default)
-        let printer = this.selectedPrinter;
-        if (!printer && this.selectedPrinterId) {
-          const printers = await navigator.printer.getPrinters();
-          printer = printers.find(p => p.id === this.selectedPrinterId);
-        }
-        
-        if (!printer) {
-          const printers = await navigator.printer.getPrinters();
-          printer = printers.find(p => p.isDefault) || printers[0];
-          if (!printer) {
-            throw new Error('No printer available');
-          }
-        }
-
-        // Create print job
-        const printJob = await navigator.printer.print({
-          printer: printer.id,
-          pages: [{
-            html: printContent,
-            css: stylesHtml
-          }]
-        });
-
-        // Wait for print job to complete
-        await printJob.complete;
-        return true;
-      } catch (error) {
-        console.error('Web Print API error:', error);
-        throw error;
-      }
-    },
-    async checkPythonServerHealth() {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 seconds timeout for health check
-        
-        const response = await fetch('http://localhost:5000/health', {
-          method: 'GET',
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-          const health = await response.json();
-          return health.status === 'ok' && health.printer?.available;
-        }
-        return false;
-      } catch (error) {
-        console.warn('Python print server health check failed:', error);
-        return false;
-      }
-    },
-    async printWithPythonServer(itemsToPrint = null) {
-      try {
-        const printItems = itemsToPrint || this.carditems;
-        
-        if (!printItems || printItems.length === 0) {
-          console.warn('No items to print');
-          return;
-        }
-        
-        // Check if Python server is available
-        const serverAvailable = await this.checkPythonServerHealth();
-        if (!serverAvailable) {
-          console.warn('Python print server is not available, skipping...');
-          return false; // Return false to fallback to other print methods
-        }
-        
-        // Prepare print data
-        const printData = {
-          storeName: this.commercialUserInfo.storeName || 'متجر',
-          storeAddress: '',
-          storePhone: '',
-          orderCode: this.orderForSend.orderCode || '',
-          date: new Date().toLocaleDateString('ar-EG'),
-          time: new Date().toLocaleTimeString('ar-EG'),
-          employeeName: this.userInfo.name || '',
-          items: printItems.map(item => ({
-            name: item.name || '',
-            quantity: item.quantity || 0,
-            price: item.price ? item.price.toLocaleString() : '0',
-            total: item.total ? item.total.toLocaleString() : '0',
-            discount: item.discount || null
-          })),
-          subtotal: this.totaPrice.toLocaleString(),
-          discount: '0',
-          tax: '0',
-          total: this.totaPrice.toLocaleString(),
-          paymentMethod: this.orderForSend.paymentMethod === 'Cash' ? 'نقدي' : 
-                        this.orderForSend.paymentMethod === 'Card' ? 'بطاقة' : 
-                        this.orderForSend.paymentMethod || 'نقدي'
-        };
-        
-        // Get HTML content if needed
-        await this.$nextTick();
-        const printElement = document.getElementById("print");
-        if (printElement) {
-          printData.htmlContent = printElement.innerHTML;
-        }
-        
-        // Send to Python print server with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
-        
-        try {
-          const response = await fetch('http://localhost:5000/print', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(printData),
-            signal: controller.signal
-          });
-          
-          clearTimeout(timeoutId);
-          
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-          }
-          
-          const result = await response.json();
-          console.log("Print result:", result);  
-          
-          if (result.success) {
-            this.$toast.success(this.$i18n.t("printSuccess") || 'تم الطباعة بنجاح', {
-              position: "top-right",
-              timeout: 2000,
-              maxToasts: 1,
-            });
-            return true;
-          } else {
-            throw new Error(result.message || 'فشلت الطباعة');
-          }
-        } catch (fetchError) {
-          clearTimeout(timeoutId);
-          
-          // Don't show error toast, just return false to allow fallback
-          if (fetchError.name === 'AbortError') {
-            console.warn('Python print server timeout - falling back to other methods');
-          } else if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('NetworkError')) {
-            console.warn('Python print server not available - falling back to other methods');
-          } else {
-            console.warn('Python print server error - falling back to other methods:', fetchError);
-          }
-          return false; // Return false to allow fallback to other print methods
-        }
-      } catch (error) {
-        console.warn('Python print server error - falling back to other methods:', error);
-        return false; // Return false to allow fallback to other print methods
-      }
-    },
-    async printCard(itemsToPrint = null) {
-      try {
-        // Use provided items or fallback to current carditems
-        const printItems = itemsToPrint || this.carditems;
-        
-        // Temporarily replace carditems for printing if needed
-        const originalCarditems = this.carditems;
-        if (itemsToPrint) {
-          this.carditems = itemsToPrint;
-        }
-        
-        // Wait for Vue to update the DOM
-        await this.$nextTick();
-        
-        // Get the print content
-        const printElement = document.getElementById("print");
-        if (!printElement) {
-          console.error("Print element not found");
-          // Restore original carditems if we changed it
-          if (itemsToPrint) {
-            this.carditems = originalCarditems;
-          }
-          return;
-        }
-
-        // Professional print styles optimized for POS printers (58mm/80mm)
-        const stylesHtml = `
-    <style>
-      @page {
-        size: 80mm auto;
-        margin: 0;
-      }
-      
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      
-      body {
-        font-family: 'Cairo', 'Arial', sans-serif;
-        direction: rtl;
-        font-size: 12px;
-        line-height: 1.4;
-        color: #000;
-        background: #fff;
-        padding: 8mm;
-        width: 80mm;
-      }
-      
-      .bill-container {
-        width: 100%;
-        max-width: 80mm;
-        margin: 0 auto;
-      }
-      
-      .bill-header {
-        text-align: center;
-        margin-bottom: 8px;
-        padding-bottom: 8px;
-        border-bottom: 1px dashed #000;
-      }
-      
-      .bill-logo-img {
-        max-width: 60px;
-        height: auto;
-        margin-bottom: 4px;
-      }
-      
-      .bill-store-name {
-        font-size: 16px;
-        font-weight: 800;
-        margin: 4px 0 2px 0;
-        color: #000;
-      }
-      
-      .bill-store-subtitle {
-        font-size: 10px;
-        color: #666;
-        margin: 0;
-      }
-      
-      .bill-info-section {
-        margin: 8px 0;
-        font-size: 10px;
-      }
-      
-      .bill-info-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 4px;
-      }
-      
-      .bill-info-label {
-        font-weight: 600;
-      }
-      
-      .bill-info-value {
-        font-weight: 400;
-      }
-      
-      .bill-barcode-section {
-        text-align: center;
-        margin: 8px 0;
-        padding: 4px 0;
-      }
-      
-      .bill-barcode-img {
-        max-width: 100%;
-        height: auto;
-        display: block;
-        margin: 0 auto;
-      }
-      
-      .bill-divider {
-        border: none;
-        border-top: 1px dashed #000;
-        margin: 8px 0;
-      }
-      
-      .bill-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 8px 0;
-        font-size: 10px;
-      }
-      
-      .bill-table-header {
-        background: #f5f5f5;
-        border-bottom: 2px solid #000;
-      }
-      
-      .bill-table-cell {
-        padding: 4px 2px;
-        text-align: right;
-        border-bottom: 1px dotted #ccc;
-      }
-      
-      .bill-table-header .bill-table-cell {
-        font-weight: 700;
-        font-size: 10px;
-        padding: 6px 2px;
-      }
-      
-      .bill-col-item {
-        width: 40%;
-        text-align: right;
-      }
-      
-      .bill-col-qty {
-        width: 15%;
-        text-align: center;
-      }
-      
-      .bill-col-price {
-        width: 20%;
-        text-align: left;
-      }
-      
-      .bill-col-total {
-        width: 25%;
-        text-align: left;
-        font-weight: 600;
-      }
-      
-      .bill-summary-section {
-        margin-top: 12px;
-        padding-top: 8px;
-        border-top: 2px solid #000;
-        font-size: 11px;
-      }
-      
-      .bill-summary-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 6px;
-      }
-      
-      .bill-summary-label {
-        font-weight: 600;
-      }
-      
-      .bill-summary-value {
-        font-weight: 400;
-      }
-      
-      .bill-total-row {
-        margin-top: 8px;
-        padding-top: 8px;
-        border-top: 1px dashed #000;
-        font-size: 14px;
-      }
-      
-      .bill-total-amount {
-        font-weight: 800;
-        font-size: 16px;
-      }
-      
-      .bill-footer {
-        text-align: center;
-        margin-top: 16px;
-        padding-top: 12px;
-        border-top: 1px dashed #000;
-        font-size: 10px;
-      }
-      
-      .bill-footer-text {
-        margin: 4px 0;
-        font-weight: 600;
-      }
-      
-      .bill-footer-date {
-        margin: 4px 0;
-        color: #666;
-        font-size: 9px;
-      }
-      
-      @media print {
-        body {
-          padding: 0;
-        }
-        
-        .bill-container {
-          width: 80mm;
-        }
-        
-        .bill-table-cell {
-          padding: 3px 2px;
-        }
-      }
-    </style>
-  `;
-
-        // Try Python print server first (if available)
-        try {
-          const pythonPrintSuccess = await this.printWithPythonServer(itemsToPrint);
-          if (pythonPrintSuccess) {
-            // Restore original carditems if we changed it
-            if (itemsToPrint) {
-              this.carditems = originalCarditems;
-            }
-            return; // Success - exit early
-          }
-        } catch (pythonError) {
-          console.warn('Python print server not available, trying other methods:', pythonError);
-          // Fall through to other print methods
-        }
-
-        // Check if Web Print API is truly supported and printer is selected
-        const isWebPrintAPISupported = 'navigator' in window && 
-                                       'printer' in navigator && 
-                                       typeof navigator.printer !== 'undefined' &&
-                                       this.selectedPrinter &&
-                                       this.webPrintAPISupported;
-
-        // Try Web Print API (if truly supported)
-        if (isWebPrintAPISupported) {
-          try {
-            const printContent = printElement.innerHTML;
-            await this.printWithWebPrintAPI(printContent, stylesHtml);
-            // Restore original carditems if we changed it
-            if (itemsToPrint) {
-              this.carditems = originalCarditems;
-            }
-            return; // Success - exit early
-          } catch (webPrintError) {
-            console.warn('Web Print API failed, falling back to standard print:', webPrintError);
-            // Fall through to standard print methods
-          }
-        }
-
-        // Use standard browser print dialog (works in Chrome, Firefox, Edge, etc.)
-        // Create a new window for printing
-        const printWindow = window.open('', '_blank', 'width=800,height=600');
-        if (printWindow) {
-          // Build HTML content
-          const invoiceTitle = (this.$t("invoice_number") || "فاتورة") + ' - ' + (this.orderForSend.orderCode || 'Invoice');
-          const htmlContent = '<!DOCTYPE html><html><head><title>' + invoiceTitle +
-            '</title><meta charset="UTF-8">' + stylesHtml +
-            '</head><body>' + printElement.innerHTML + '</body></html>';
-          
-          printWindow.document.write(htmlContent);
-          printWindow.document.close();
-          
-          // Wait for content to load, then print
-          setTimeout(() => {
-            printWindow.focus();
-            printWindow.print();
-            // Close window after printing
-            setTimeout(() => {
-              printWindow.close();
-              // Restore original carditems if we changed it
-              if (itemsToPrint) {
-                this.carditems = originalCarditems;
-              }
-            }, 500);
-          }, 500);
-        } else {
-          // If popup blocked, use fallback method with iframe
-          console.warn('Popup blocked, using fallback print method');
-          this.fallbackPrint(itemsToPrint);
-        }
-      } catch (error) {
-        console.error('Print card error:', error);
-        // Restore original carditems if we changed it
-        if (itemsToPrint) {
-          this.carditems = originalCarditems;
-        }
-        // Silently fail - order was saved successfully, printing is optional
-      }
-    },
-    async fallbackPrint(itemsToPrint = null) {
-      // Use provided items or fallback to current carditems
-      const printItems = itemsToPrint || this.carditems;
-      
-      // Temporarily replace carditems for printing if needed
-      const originalCarditems = this.carditems;
-      if (itemsToPrint) {
-        this.carditems = itemsToPrint;
-      }
-      
-      // Wait for Vue to update the DOM
-      await this.$nextTick();
-      
-      // Fallback method using iframe (original method)
-      const prtHtml = document.getElementById("print").innerHTML;
-      const stylesHtml = `
-    <style>
-      @page {
-        size: 80mm auto;
-        margin: 0;
-      }
-      
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      
-      body {
-        font-family: 'Cairo', 'Arial', sans-serif;
-        direction: rtl;
-        font-size: 12px;
-        line-height: 1.4;
-        color: #000;
-        background: #fff;
-        padding: 8mm;
-        width: 80mm;
-      }
-      
-      .bill-container {
-        width: 100%;
-        max-width: 80mm;
-        margin: 0 auto;
-      }
-      
-      .bill-header {
-        text-align: center;
-        margin-bottom: 8px;
-        padding-bottom: 8px;
-        border-bottom: 1px dashed #000;
-      }
-      
-      .bill-logo-img {
-        max-width: 60px;
-        height: auto;
-        margin-bottom: 4px;
-      }
-      
-      .bill-store-name {
-        font-size: 16px;
-        font-weight: 800;
-        margin: 4px 0 2px 0;
-        color: #000;
-      }
-      
-      .bill-store-subtitle {
-        font-size: 10px;
-        color: #666;
-        margin: 0;
-      }
-      
-      .bill-info-section {
-        margin: 8px 0;
-        font-size: 10px;
-      }
-      
-      .bill-info-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 4px;
-      }
-      
-      .bill-info-label {
-        font-weight: 600;
-      }
-      
-      .bill-info-value {
-        font-weight: 400;
-      }
-      
-      .bill-barcode-section {
-        text-align: center;
-        margin: 8px 0;
-        padding: 4px 0;
-      }
-      
-      .bill-barcode-img {
-        max-width: 100%;
-        height: auto;
-        display: block;
-        margin: 0 auto;
-      }
-      
-      .bill-divider {
-        border: none;
-        border-top: 1px dashed #000;
-        margin: 8px 0;
-      }
-      
-      .bill-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 8px 0;
-        font-size: 10px;
-      }
-      
-      .bill-table-header {
-        background: #f5f5f5;
-        border-bottom: 2px solid #000;
-      }
-      
-      .bill-table-cell {
-        padding: 4px 2px;
-        text-align: right;
-        border-bottom: 1px dotted #ccc;
-      }
-      
-      .bill-table-header .bill-table-cell {
-        font-weight: 700;
-        font-size: 10px;
-        padding: 6px 2px;
-      }
-      
-      .bill-col-item {
-        width: 40%;
-        text-align: right;
-      }
-      
-      .bill-col-qty {
-        width: 15%;
-        text-align: center;
-      }
-      
-      .bill-col-price {
-        width: 20%;
-        text-align: left;
-      }
-      
-      .bill-col-total {
-        width: 25%;
-        text-align: left;
-        font-weight: 600;
-      }
-      
-      .bill-summary-section {
-        margin-top: 12px;
-        padding-top: 8px;
-        border-top: 2px solid #000;
-        font-size: 11px;
-      }
-      
-      .bill-summary-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 6px;
-      }
-      
-      .bill-summary-label {
-        font-weight: 600;
-      }
-      
-      .bill-summary-value {
-        font-weight: 400;
-      }
-      
-      .bill-total-row {
-        margin-top: 8px;
-        padding-top: 8px;
-        border-top: 1px dashed #000;
-        font-size: 14px;
-      }
-      
-      .bill-total-amount {
-        font-weight: 800;
-        font-size: 16px;
-      }
-      
-      .bill-footer {
-        text-align: center;
-        margin-top: 16px;
-        padding-top: 12px;
-        border-top: 1px dashed #000;
-        font-size: 10px;
-      }
-      
-      .bill-footer-text {
-        margin: 4px 0;
-        font-weight: 600;
-      }
-      
-      .bill-footer-date {
-        margin: 4px 0;
-        color: #666;
-        font-size: 9px;
-      }
-      
-      @media print {
-        body {
-          padding: 0;
-        }
-        
-        .bill-container {
-          width: 80mm;
-        }
-        
-        .bill-table-cell {
-          padding: 3px 2px;
-        }
-      }
-    </style>
-  `;
-
-      const content = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>فاتورة - ${this.orderForSend.orderCode || 'Invoice'}</title>
-      ${stylesHtml}
-    </head>
-    <body>
-      ${prtHtml}
-    </body>
-    </html>
-  `;
-
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "absolute";
-      iframe.style.top = "-10000px";
-      iframe.style.width = "80mm";
-      iframe.style.height = "1000px";
-      document.body.appendChild(iframe);
-
-      const doc = iframe.contentWindow.document;
-      doc.open();
-      doc.write(content);
-      doc.close();
-
-      setTimeout(() => {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-        
-        setTimeout(() => {
-          if (document.body.contains(iframe)) {
-            document.body.removeChild(iframe);
-          }
-          // Restore original carditems if we changed it
-          if (itemsToPrint) {
-            this.carditems = originalCarditems;
-          }
-        }, 1000);
-      }, 250);
-    },
 
     EmptycardList(id) {
       this.carditems = [];
       this.$bvModal.hide(id);
-      // Reset order type when clearing cart
-      this.orderForSend.orderType = 'Takeaway';
-      this.$refs.codeNumber.focus();
+      this.orderForSend.orderType = "Takeaway";
+      this.clearOrderDiscount();
+      this.orderForSend.notes = "";
+      this.focusPosBarcode();
     },
     closeModel(id) {
       this.$bvModal.hide(id);
@@ -1765,7 +1445,7 @@ export default {
         
         // Check if item has available quantity
         if (!item.quantity || item.quantity <= 0) {
-          this.$toast.error(
+          this.$notify.error(
             this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر في المخزون",
             {
               position: toastPosition,
@@ -1777,29 +1457,22 @@ export default {
         }
         
         // Check if item already exists in cart
-        const existingItemIndex = this.carditems.findIndex(cartItem => cartItem.id === item.id);
+        const existingItemIndex = findCartLineIndex(this.carditems, item.id);
         
         if (existingItemIndex !== -1) {
-          // Item exists, increment quantity
           this.carditems[existingItemIndex].quantity += 1;
-          this.carditems[existingItemIndex].total = 
-            (this.carditems[existingItemIndex].price !== this.carditems[existingItemIndex].disCountPrice
-              ? this.carditems[existingItemIndex].disCountPrice
-              : this.carditems[existingItemIndex].price) * this.carditems[existingItemIndex].quantity;
+          this.carditems[existingItemIndex].total = getCartLineTotal(
+            this.carditems[existingItemIndex]
+          );
         } else {
-          // New item, add to cart
           const cartItem = {
             name: item.name,
             quantity: 1,
-            price: item.sellingPrice,
-            disCountPrice: item.disCountPrice,
-            total:
-              item.sellingPrice !== item.disCountPrice
-                ? item.disCountPrice
-                : item.sellingPrice,
+            price: Number(item.sellingPrice) || 0,
+            disCountPrice: Number(item.disCountPrice) || 0,
             id: item.id,
           };
-
+          cartItem.total = getCartLineTotal(cartItem);
           this.carditems.push(cartItem);
         }
 
@@ -1807,11 +1480,10 @@ export default {
           this.$refs.codeNumber.focus();
         }
 
-        // Show compact notification
-        this.showItemAddedNotification(item.name);
+        this.feedbackItemAdded(item.name);
       } catch (error) {
         console.error("Error adding item to cart:", error);
-        this.$toast.error(this.$i18n.t("error"), {
+        this.$notify.error(this.$i18n.t("error"), {
           position: "top-right",
           timeout: 2000,
           maxToasts: 1,
@@ -1820,24 +1492,29 @@ export default {
       }
     },
 
-    deleteItem(index) {
+    deleteItem(index, { silent = false } = {}) {
       this.carditems.splice(index, 1);
-      this.$toast.error(this.$i18n.t("deleteItemFromOrderSucsses"), {
-        position: "top-right",
-        timeout: 2000,
-        maxToasts: 1,
-      });
+      if (!silent) {
+        this.$notify.error(this.$i18n.t("deleteItemFromOrderSucsses"), {
+          position: "top-right",
+          timeout: 2000,
+          maxToasts: 1,
+        });
+      }
+      this.focusPosBarcode();
     },
     increaseQuantity(index) {
       if (this.carditems[index]) {
         this.carditems[index].quantity += 1;
         this.updateItemTotal(index);
+        this.flashCart();
       }
     },
     decreaseQuantity(index) {
       if (this.carditems[index] && this.carditems[index].quantity > 1) {
         this.carditems[index].quantity -= 1;
         this.updateItemTotal(index);
+        this.flashCart();
       }
     },
     updateQuantity(index, value) {
@@ -1849,9 +1526,7 @@ export default {
     },
     updateItemTotal(index) {
       if (this.carditems[index]) {
-        const item = this.carditems[index];
-        const finalPrice = item.price !== item.disCountPrice ? item.disCountPrice : item.price;
-        this.carditems[index].total = finalPrice * item.quantity;
+        this.carditems[index].total = getCartLineTotal(this.carditems[index]);
       }
     },
     GetAllItems() {
@@ -1929,20 +1604,18 @@ export default {
             this.SearchItems = response.data.data;
             
             // Check if item already exists in cart
-            const existingItemIndex = this.carditems.findIndex(cartItem => cartItem.id === this.SearchItems.id);
+            const existingItemIndex = findCartLineIndex(this.carditems, this.SearchItems.id);
             
             if (existingItemIndex !== -1) {
-              // Item exists, increment quantity
               this.carditems[existingItemIndex].quantity += 1;
-              this.carditems[existingItemIndex].total = 
-                (this.carditems[existingItemIndex].price !== this.carditems[existingItemIndex].disCountPrice
-                  ? this.carditems[existingItemIndex].disCountPrice
-                  : this.carditems[existingItemIndex].price) * this.carditems[existingItemIndex].quantity;
+              this.carditems[existingItemIndex].total = getCartLineTotal(
+                this.carditems[existingItemIndex]
+              );
             } else {
               // Check if item has available quantity
               if (!this.SearchItems.quantity || this.SearchItems.quantity <= 0) {
                 const toastPosition = document.documentElement.dir === "rtl" ? "top-right" : "top-left";
-                this.$toast.error(
+                this.$notify.error(
                   this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر في المخزون",
                   {
                     position: toastPosition,
@@ -1959,23 +1632,18 @@ export default {
               }
               
               // New item, add to cart
-              const finalPrice = this.SearchItems.disCountPrice > 0 && this.SearchItems.disCountPrice !== this.SearchItems.sellingPrice
-                ? this.SearchItems.disCountPrice
-                : this.SearchItems.sellingPrice;
-                
-              var item = {
+              const item = {
                 name: this.SearchItems.name,
                 quantity: 1,
-                price: this.SearchItems.sellingPrice,
-                disCountPrice: this.SearchItems.disCountPrice,
-                total: finalPrice * 1,
+                price: Number(this.SearchItems.sellingPrice) || 0,
+                disCountPrice: Number(this.SearchItems.disCountPrice) || 0,
                 id: this.SearchItems.id,
               };
+              item.total = getCartLineTotal(item);
               this.carditems.push(item);
             }
             
-            // Show compact notification for quick additions
-            this.showItemAddedNotification(this.SearchItems.name);
+            this.feedbackItemAdded(this.SearchItems.name);
             
             this.searchCode = "";
             if (this.$refs.codeNumber) {
@@ -1993,7 +1661,7 @@ export default {
           
           this.searchCode = "";
           // Show error notification (only one at a time)
-          this.$toast.error(this.$i18n.t("itemNotFound") || "Item not found", {
+          this.$notify.error(this.$i18n.t("itemNotFound") || "Item not found", {
             position: "top-right",
             timeout: 2000,
             closeOnClick: true,
@@ -2006,38 +1674,27 @@ export default {
           });
         });
     },
-    showItemAddedNotification(itemName) {
-      // Clear any existing timer
-      if (this.addItemTimer) {
-        clearTimeout(this.addItemTimer);
-      }
-      
-      // Increment counter
+    feedbackItemAdded(itemName) {
+      this.flashCart();
+      if (this.silentCartToasts) return;
+
+      if (this.addItemTimer) clearTimeout(this.addItemTimer);
       this.itemsAddedCount++;
       this.lastAddedItem = itemName;
-      
-      // Clear previous success toasts
-      this.$toast.clear();
-      
-      // Show aggregated notification
-      const message = this.itemsAddedCount > 1 
-        ? `${this.itemsAddedCount} ${this.$i18n.t("itemsAdded") || "مواد مضافة"}`
-        : `${itemName} : ${this.$i18n.t("itemToCard")}`;
-      
-      this.$toast.success(message, {
+      this.$notify.clear();
+
+      const message =
+        this.itemsAddedCount > 1
+          ? `${this.itemsAddedCount} ${this.$i18n.t("itemsAdded") || "مواد مضافة"}`
+          : `${itemName} : ${this.$i18n.t("itemToCard")}`;
+
+      this.$notify.success(message, {
         position: "top-right",
-        timeout: 1500,
-        closeOnClick: true,
-        pauseOnFocusLoss: false,
-        pauseOnHover: false,
-        draggable: false,
-        hideProgressBar: true,
+        timeout: 1200,
         maxToasts: 1,
         newestOnTop: true,
-        icon: true,
       });
-      
-      // Reset counter after 2 seconds of inactivity
+
       this.addItemTimer = setTimeout(() => {
         this.itemsAddedCount = 0;
         this.lastAddedItem = null;

@@ -19,5 +19,11 @@ namespace POS.Models
         public int InsertByUserId { get; set; }
         public  User User { get; set; }
 
+        public string? DiscountType { get; set; } // amount, percentage
+        public decimal? DiscountValue { get; set; }
+        public decimal? DiscountAmount { get; set; }
+        public decimal? DiscountPercent { get; set; }
+        public decimal? OrderSubTotal { get; set; }
+        public decimal? OrderTotalAfterDiscount { get; set; }
     }
 }

@@ -10,10 +10,21 @@ namespace POS.Models
         public int Id { get; set; }
         public required string Name { get; set; }
         public required string PhoneNumber { get; set; }
-        public required string Password { get; set; }
+        [JsonIgnore]
+        public string Password { get; set; } = string.Empty;
         public required string Username { get; set; }
         public required string Role { get; set; }
         public int InsertByUserId { get; set; }
+        public string? Logo { get; set; }
+        public string? StoreName { get; set; }
+
+        [StringLength(20)]
+        public string? LoginCode { get; set; }
+
+        [StringLength(2000)]
+        public string? AllowedSectionsJson { get; set; }
+
+        public bool CanUseOwnLoginCodeForSensitiveActions { get; set; }
 
         [JsonIgnore]
         public List<Item>? Items { get; set; }
@@ -23,6 +34,5 @@ namespace POS.Models
         public List<Tag>? Tags { get; set; }
         [JsonIgnore]
         public List<CustomerOrderItem>? CustomerOrderItem { get; set; }
-        
     }
 }
