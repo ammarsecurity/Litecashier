@@ -314,7 +314,9 @@
                               {{ formatPrice(item.total) }}
                               <span class="pos-cart-currency">{{ $t("currency") }}</span>
                             </span>
-                            <button
+                        
+                          </div>
+                          <button
                               type="button"
                               class="pos-cart-item-delete"
                               @click.stop="deleteItem(index, { silent: true })"
@@ -322,7 +324,6 @@
                             >
                               <b-icon icon="x-lg"></b-icon>
                             </button>
-                          </div>
                         </div>
                       </div>
                       <div

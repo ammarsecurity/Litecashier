@@ -511,5 +511,85 @@ export default {
     addOrder(isPrint) {
       return this.persistOrder({ skipPrint: !isPrint, isCheckout: true });
     },
+    canCancelDineInOrder() {
+      return (
+        this.orderForSend?.orderType === "DineIn" &&
+        !!this.selectedTableId &&
+        !!this.resolveActiveOrderId()
+      );
+    },
+    mapCancelOrderErrorMessage(error) {
+      const apiMessage = error?.response?.data?.message;
+      if (apiMessage === "cannotCancelPaidOrder") {
+        return (
+          this.$t("cannotCancelPaidOrder") ||
+          "لا يمكن إلغاء طلب مدفوع"
+        );
+      }
+      if (apiMessage) {
+        return apiMessage;
+      }
+      return (
+        this.$t("errorCancellingOrder") ||
+        "حدث خطأ أثناء إلغاء الطلب"
+      );
+    },
+    resetLocalStateAfterDineInCancel() {
+      this.carditems = [];
+      this.selectedTableId = null;
+      this.selectedTableIds = [];
+      this.orderForSend.tableId = null;
+      this.orderForSend.tableIds = null;
+      this.orderForSend.orderType = "Takeaway";
+      this.orderForSend.numberOfGuests = 0;
+      this.orderForSend.notes = "";
+      this.orderForSend.pagerNumber = "";
+      this.orderForSend.orderCode = "";
+      this.clearOrderDiscount();
+      this.activeOrderId = null;
+      this.tableOrders = [];
+      this.resetPrintedCartBaseline();
+      const quickSearchRef = this.$refs.posQuickSearchInput;
+      if (quickSearchRef) {
+        quickSearchRef.focus();
+      }
+    },
+    async cancelDineInTableOrderAfterAuth() {
+      const toastPosition = this.getOrderPersistToastPosition();
+      let tableIdsToCancel = this.getTableIdsForOrderPayload();
+      if (tableIdsToCancel.length === 0 && this.selectedTableId) {
+        tableIdsToCancel.push(this.selectedTableId);
+      }
+      if (tableIdsToCancel.length === 0) {
+        this.$toast.error(
+          this.$t("errorCancellingOrder") || "حدث خطأ أثناء إلغاء الطلب",
+          { position: toastPosition, timeout: 2500, maxToasts: 1 }
+        );
+        return;
+      }
+
+      try {
+        if (tableIdsToCancel.length > 1) {
+          await HTTP.put("Admin/CancelTableOrder", tableIdsToCancel);
+        } else {
+          await HTTP.put(`Admin/CancelTableOrder?tableId=${tableIdsToCancel[0]}`);
+        }
+
+        this.resetLocalStateAfterDineInCancel();
+        await this.getTables();
+
+        this.$toast.success(
+          this.$t("orderCancelledSuccessfully") || "تم إلغاء الطلب بنجاح",
+          { position: toastPosition, timeout: 2000, maxToasts: 1 }
+        );
+      } catch (error) {
+        console.error("Cancel table order error:", error);
+        this.$toast.error(this.mapCancelOrderErrorMessage(error), {
+          position: toastPosition,
+          timeout: 3000,
+          maxToasts: 1,
+        });
+      }
+    },
   },
 };

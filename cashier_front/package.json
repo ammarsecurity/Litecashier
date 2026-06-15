@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@chenfengyuan/vue-barcode": "2.0.2",
+    "@fontsource/cairo": "^5.2.7",
     "@lottiefiles/vue-lottie-player": "^1.1.0",
     "axios": "^1.4.0",
     "bootstrap": "^5.3.0",

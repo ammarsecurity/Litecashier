@@ -5,6 +5,8 @@ namespace PrintServer.Services;
 /// </summary>
 public static class ReceiptPrintStyles
 {
+    public const string CairoFontLink = "<link rel=\"stylesheet\" href=\"http://127.0.0.1:5000/fonts/cairo.css\">";
+
     public const string CssBlock = """
         <style>
           @page { size: 72mm auto; margin: 2mm 4mm; }
@@ -89,7 +91,7 @@ public static class ReceiptPrintStyles
             {
                 return htmlContent.Replace(
                     "<head>",
-                    "<head>" + CssBlock,
+                    "<head>" + CairoFontLink + CssBlock,
                     StringComparison.OrdinalIgnoreCase);
             }
             return htmlContent;
@@ -102,6 +104,7 @@ public static class ReceiptPrintStyles
             + "  <meta charset=\"UTF-8\">\n"
             + "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n"
             + "  <title>" + safeTitle + "</title>\n"
+            + "  " + CairoFontLink + "\n"
             + CssBlock + "\n"
             + "</head>\n"
             + "<body>\n"

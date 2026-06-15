@@ -9,6 +9,9 @@ export const PRINT_SERVER_FETCH_TIMEOUT_MS = 90000;
 /** Axios timeout for api/Printers/{id}/print (API returns quickly after queueing). */
 export const PRINT_API_TIMEOUT_MS = 60000;
 
+/** Local Cairo font for print HTML (Print Server serves /fonts on :5000; file:// receipts cannot use relative /fonts). */
+export const RECEIPT_PRINT_CAIRO_FONT_HTML = '<link rel="stylesheet" href="http://127.0.0.1:5000/fonts/cairo.css">';
+
 export const RECEIPT_PRINT_STYLES_HTML = `
     <style>
       @page {
@@ -380,7 +383,7 @@ export function buildReceiptPrintDocument(innerHtml, title = 'Receipt') {
   const trimmed = body.trim();
   if (/^<!DOCTYPE/i.test(trimmed) || /^<html/i.test(trimmed)) {
     if (!/<style[\s>]/i.test(body)) {
-      return body.replace(/<head([^>]*)>/i, `<head$1>${RECEIPT_PRINT_STYLES_HTML}`);
+      return body.replace(/<head([^>]*)>/i, `<head$1>${RECEIPT_PRINT_CAIRO_FONT_HTML}${RECEIPT_PRINT_STYLES_HTML}`);
     }
     return body;
   }
@@ -396,6 +399,7 @@ export function buildReceiptPrintDocument(innerHtml, title = 'Receipt') {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${safeTitle}</title>
+  ${RECEIPT_PRINT_CAIRO_FONT_HTML}
   ${RECEIPT_PRINT_STYLES_HTML}
 </head>
 <body>

@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@chenfengyuan/vue-barcode": "1.0.1",
+    "@fontsource/cairo": "^5.2.7",
     "@lottiefiles/vue-lottie-player": "^1.1.0",
     "@microsoft/signalr": "^8.0.17",
     "axios": "^1.4.0",

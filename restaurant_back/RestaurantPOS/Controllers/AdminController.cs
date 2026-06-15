@@ -244,6 +244,71 @@ namespace RestaurantPOS.Controllers
                 .ToList() ?? new List<CustomerOrderItem>();
         }
 
+        private static bool IsUnpaidOrder(CustomerOrder order)
+        {
+            return !string.Equals(order.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Finds the latest unpaid DineIn order linked to a table (OrderTables or TableId).
+        /// </summary>
+        private async Task<CustomerOrder?> FindUnpaidDineInOrderForTableAsync(int tableId, int commercialUserId)
+        {
+            var orderIdsFromLinks = await _dbConfig.OrderTables
+                .Where(ot => ot.TableId == tableId && !ot.IsDeleted)
+                .Select(ot => ot.OrderId)
+                .Distinct()
+                .ToListAsync();
+
+            if (orderIdsFromLinks.Count > 0)
+            {
+                var fromLinks = await _dbConfig.CustomerOrders
+                    .Where(o => orderIdsFromLinks.Contains(o.Id)
+                        && !o.IsDeleted
+                        && o.OrderType == "DineIn"
+                        && o.PaymentStatus != "Paid")
+                    .OrderByDescending(o => o.InsertDate)
+                    .FirstOrDefaultAsync();
+
+                if (fromLinks != null)
+                {
+                    return fromLinks;
+                }
+            }
+
+            return await _dbConfig.CustomerOrders
+                .Where(o => !o.IsDeleted
+                    && o.OrderType == "DineIn"
+                    && o.PaymentStatus != "Paid"
+                    && o.TableId == tableId
+                    && (o.InsertByUserId == commercialUserId || o.User!.InsertByUserId == commercialUserId))
+                .OrderByDescending(o => o.InsertDate)
+                .FirstOrDefaultAsync();
+        }
+
+        private async Task<CustomerOrder?> LoadOrderWithItemsAsync(int orderId)
+        {
+            return await _dbConfig.CustomerOrders
+                .Include(o => o.CustomerOrderItem!)
+                .ThenInclude(oi => oi.Item)
+                .FirstOrDefaultAsync(o => o.Id == orderId && !o.IsDeleted);
+        }
+
+        private async Task RepairTableActiveOrderLinkAsync(Table table, CustomerOrder order)
+        {
+            if (table.CurrentOrderId == order.Id
+                && string.Equals(table.Status, "Occupied", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            table.CurrentOrderId = order.Id;
+            table.Status = "Occupied";
+            table.UpdateDate = DateTime.Now;
+            _dbConfig.Tables.Update(table);
+            await _dbConfig.SaveChangesAsync();
+        }
+
         private IQueryable<CustomerOrderItem> QueryActiveOrderItemsForCommercial(int userId, int userInsertByUserId)
         {
             return _dbConfig.CustomerOrderItems
@@ -2437,22 +2502,18 @@ namespace RestaurantPOS.Controllers
 
                 foreach (var tableIdToGuard in tableIdsToGuard.Distinct())
                 {
-                    var guardedTable = await _dbConfig.Tables
-                        .FirstOrDefaultAsync(t => t.Id == tableIdToGuard && !t.IsDeleted && t.InsertByUserId == commercialUserIdForTableGuard);
-                    if (guardedTable?.CurrentOrderId.HasValue == true)
+                    var unpaidOnTable = await FindUnpaidDineInOrderForTableAsync(
+                        tableIdToGuard,
+                        commercialUserIdForTableGuard);
+
+                    if (unpaidOnTable != null && IsUnpaidOrder(unpaidOnTable))
                     {
-                        var activeTableOrder = await _dbConfig.CustomerOrders
-                            .FirstOrDefaultAsync(o => o.Id == guardedTable.CurrentOrderId.Value && !o.IsDeleted);
-                        if (activeTableOrder != null &&
-                            !string.Equals(activeTableOrder.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+                        return BadRequest(new GlobalResponse<CustomerOrder>
                         {
-                            return BadRequest(new GlobalResponse<CustomerOrder>
-                            {
-                                Data = null,
-                                ErrorStatus = true,
-                                Message = "activeTableOrderExists"
-                            });
-                        }
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "activeTableOrderExists"
+                        });
                     }
                 }
                 
@@ -2790,41 +2851,6 @@ namespace RestaurantPOS.Controllers
                             catch (Exception signalEx)
                             {
                                 _logger.LogError(signalEx, "AddOrder table-merge TableUpdated signal failed after save");
-                            }
-                            
-                            // If merged tables and order is from POS (not Waiter), return all merged tables to Available
-                            // This allows the tables to be used again immediately after order completion in POS
-                            if (request.TableIds != null && request.TableIds.Count > 1 && 
-                                (user.Role == "POS" || user.Role == "Commercial") && 
-                                (newOrder.OrderType == "DineIn" || string.IsNullOrEmpty(newOrder.OrderType)))
-                            {
-                                foreach (var table in tablesToUpdate)
-                                {
-                                    table.Status = "Available";
-                                    table.CurrentOrderId = null;
-                                    _dbConfig.Tables.Update(table);
-                                }
-                                await _dbConfig.SaveChangesAsync();
-                                
-                                // SignalR side-effects should not fail successful order creation
-                                try
-                                {
-                                    foreach (var table in tablesToUpdate)
-                                    {
-                                        await _hubContext.Clients.All.SendAsync("TableUpdated", new
-                                        {
-                                            TableId = table.Id,
-                                            Status = table.Status,
-                                            TableNumber = table.TableNumber,
-                                            Zone = table.Zone,
-                                            CurrentOrderId = (int?)null
-                                        });
-                                    }
-                                }
-                                catch (Exception signalEx)
-                                {
-                                    _logger.LogError(signalEx, "AddOrder merged tables reset TableUpdated signal failed after save");
-                                }
                             }
                             }
                         }
@@ -3268,6 +3294,19 @@ namespace RestaurantPOS.Controllers
                 if (table.CurrentOrderId.HasValue && table.CurrentOrder != null && !table.CurrentOrder.IsDeleted)
                 {
                     orders.Add(table.CurrentOrder);
+                }
+                else
+                {
+                    var fallbackOrder = await FindUnpaidDineInOrderForTableAsync(tableId, commercialUserId);
+                    if (fallbackOrder != null)
+                    {
+                        var loaded = await LoadOrderWithItemsAsync(fallbackOrder.Id);
+                        if (loaded != null)
+                        {
+                            orders.Add(loaded);
+                            await RepairTableActiveOrderLinkAsync(table, loaded);
+                        }
+                    }
                 }
 
                 if (!orders.Any())
@@ -3774,6 +3813,192 @@ namespace RestaurantPOS.Controllers
                     Data = null,
                     ErrorStatus = true,
                     Message = "حدث خطأ أثناء إغلاق حساب الطاولة"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial,POS,Waiter")]
+        [HttpPut("CancelTableOrder")]
+        public async Task<ActionResult<GlobalResponse<object>>> CancelTableOrder([FromQuery] int? tableId, [FromBody] List<int>? tableIds = null)
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+
+                var tablesToCancel = new List<int>();
+                if (tableIds != null && tableIds.Any())
+                {
+                    tablesToCancel = tableIds.Distinct().ToList();
+                }
+                else if (tableId.HasValue)
+                {
+                    tablesToCancel = new List<int> { tableId.Value };
+                }
+                else
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "يرجى تحديد طاولة واحدة على الأقل"
+                    });
+                }
+
+                int? orderId = null;
+                CustomerOrder? orderToCancel = null;
+
+                foreach (var tid in tablesToCancel)
+                {
+                    var table = await _dbConfig.Tables
+                        .FirstOrDefaultAsync(t => t.Id == tid && !t.IsDeleted && t.InsertByUserId == commercialUserId);
+
+                    if (table == null)
+                    {
+                        continue;
+                    }
+
+                    if (table.CurrentOrderId.HasValue)
+                    {
+                        orderId = table.CurrentOrderId.Value;
+                        break;
+                    }
+
+                    var orderTable = await _dbConfig.OrderTables
+                        .Include(ot => ot.Order)
+                        .FirstOrDefaultAsync(ot => ot.TableId == tid && !ot.IsDeleted);
+
+                    if (orderTable?.Order != null && !orderTable.Order.IsDeleted)
+                    {
+                        orderId = orderTable.Order.Id;
+                        break;
+                    }
+                }
+
+                if (orderId.HasValue)
+                {
+                    orderToCancel = await _dbConfig.CustomerOrders
+                        .FirstOrDefaultAsync(o => o.Id == orderId.Value && !o.IsDeleted);
+
+                    if (orderToCancel == null)
+                    {
+                        return NotFound(new GlobalResponse<object>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "الفاتورة غير موجودة"
+                        });
+                    }
+
+                    if (string.Equals(orderToCancel.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return BadRequest(new GlobalResponse<object>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "cannotCancelPaidOrder"
+                        });
+                    }
+                }
+
+                var cancelledTables = new List<object>();
+                var tableIdsToFree = new HashSet<int>(tablesToCancel);
+
+                if (orderToCancel != null)
+                {
+                    var linkedOrderTables = await _dbConfig.OrderTables
+                        .Where(ot => ot.OrderId == orderToCancel.Id && !ot.IsDeleted)
+                        .ToListAsync();
+
+                    foreach (var ot in linkedOrderTables)
+                    {
+                        ot.IsDeleted = true;
+                        _dbConfig.OrderTables.Update(ot);
+                        tableIdsToFree.Add(ot.TableId);
+                    }
+
+                    orderToCancel.OrderStatus = "Cancelled";
+                    orderToCancel.IsDeleted = true;
+                    _dbConfig.CustomerOrders.Update(orderToCancel);
+                }
+
+                foreach (var tid in tableIdsToFree)
+                {
+                    var table = await _dbConfig.Tables
+                        .FirstOrDefaultAsync(t => t.Id == tid && !t.IsDeleted && t.InsertByUserId == commercialUserId);
+
+                    if (table == null)
+                    {
+                        continue;
+                    }
+
+                    table.Status = "Available";
+                    table.CurrentOrderId = null;
+                    _dbConfig.Tables.Update(table);
+                    cancelledTables.Add(new { TableId = table.Id, TableNumber = table.TableNumber });
+                }
+
+                await _dbConfig.SaveChangesAsync();
+
+                if (orderToCancel != null)
+                {
+                    await _dbConfig.LogAuditAsync(
+                        "Cancel",
+                        "Order",
+                        orderToCancel.Id,
+                        orderToCancel.OrderCode,
+                        userId,
+                        commercialUserId,
+                        null,
+                        null,
+                        $"تم إلغاء طلب الصالة: {orderToCancel.OrderCode}"
+                    );
+                }
+
+                foreach (var tid in tableIdsToFree)
+                {
+                    try
+                    {
+                        var table = await _dbConfig.Tables
+                            .FirstOrDefaultAsync(t => t.Id == tid && !t.IsDeleted && t.InsertByUserId == commercialUserId);
+
+                        if (table != null)
+                        {
+                            await _hubContext.Clients.All.SendAsync("TableUpdated", new
+                            {
+                                TableId = table.Id,
+                                Status = table.Status,
+                                TableNumber = table.TableNumber,
+                                Zone = table.Zone,
+                                CurrentOrderId = (int?)null
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error sending SignalR notification for TableUpdated: TableId={TableId}", tid);
+                    }
+                }
+
+                var message = tablesToCancel.Count > 1
+                    ? $"تم إلغاء طلب {tablesToCancel.Count} طاولات بنجاح"
+                    : "تم إلغاء الطلب بنجاح";
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new { CancelledTables = cancelledTables, Count = cancelledTables.Count, OrderId = orderToCancel?.Id },
+                    ErrorStatus = false,
+                    Message = message
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cancelling table order");
+                return StatusCode(500, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "حدث خطأ أثناء إلغاء الطلب"
                 });
             }
         }

@@ -412,6 +412,17 @@
                         {{ carditems.length }}
                       </span>
                       <button
+                        v-if="canCancelDineInOrder()"
+                        type="button"
+                        class="pos-cart-header-clear-btn pos-cart-header-cancel-btn"
+                        v-b-modal.modal-cancel-order
+                        :title="$t('cancelOrder') || 'إلغاء الطلب'"
+                      >
+                        <b-icon icon="x-circle-fill" class="pos-cart-header-clear-ic"></b-icon>
+                        <span class="pos-cart-header-clear-label">{{ $t("cancelOrder") || "إلغاء الطلب" }}</span>
+                      </button>
+                      <button
+                        v-if="!canCancelDineInOrder()"
                         type="button"
                         class="pos-cart-header-clear-btn"
                         v-b-modal.modal-empty
@@ -701,29 +712,25 @@
               </div>
             </b-modal>
 
-            <!-- Close Table Order Modal -->
-            <b-modal id="modal-close-table" :title="$t('confirmCloseTableOrder')" hide-header hide-footer class="users-modal">
+            <!-- Cancel DineIn Order Modal -->
+            <b-modal id="modal-cancel-order" :title="$t('confirmCancelOrderTitle')" hide-header hide-footer class="users-modal">
               <div class="modal-content-wrapper">
                 <div class="delete-confirmation-content">
                   <div class="delete-icon-wrapper">
-                    <b-icon icon="door-open" class="delete-warning-icon"></b-icon>
+                    <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
                   </div>
-                  <h3 class="delete-confirmation-title">{{ $t("confirmCloseTableOrder") || "إغلاق حساب الطاولة" }}</h3>
+                  <h3 class="delete-confirmation-title">{{ $t("confirmCancelOrderTitle") || "تأكيد إلغاء الطلب" }}</h3>
                   <p class="delete-confirmation-text">
-                    {{ $t("confirmCloseTableOrderMessage") || "اختر الإجراء المطلوب:" }}
+                    {{ $t("confirmCancelOrderMessage") || "سيتم إلغاء فاتورة الطاولة بالكامل وتحريرها. لن تُحسب كمبيع." }}
                   </p>
-                  <div class="table-close-actions">
-                    <button class="table-close-action-btn table-close-action-print" @click="closeTableOrderWithPrint">
-                      <b-icon icon="printer-fill" class="me-2"></b-icon>
-                      {{ $t("closeAndPrint") || "إغلاق وطباعة" }}
+                  <div class="delete-confirmation-actions">
+                    <button class="delete-confirm-button" @click="confirmCancelDineInOrder">
+                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                      {{ $t("confirmButton") }}
                     </button>
-                    <button class="table-close-action-btn table-close-action-close" @click="closeTableOrderOnly">
-                      <b-icon icon="door-closed" class="me-2"></b-icon>
-                      {{ $t("closeOnly") || "إغلاق فقط" }}
-                    </button>
-                    <button class="delete-cancel-button" @click="closeModel('modal-close-table')">
+                    <button class="delete-cancel-button" @click="closeModel('modal-cancel-order')">
                       <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-                      {{ $t("cancelButton") || "إلغاء" }}
+                      {{ $t("cancelButton") }}
                     </button>
                   </div>
                 </div>
@@ -1688,13 +1695,6 @@
               <div class="pos-table-zone-compact" v-if="table.zone">
                 {{ table.zone }}
               </div>
-              <div
-                class="pos-table-close-compact"
-                v-if="table.status === 'Occupied' && !(mergedTableIds.includes(table.id) && mergedTableIds.length > 1)"
-                @click.stop="closeTableOrder(table.id)"
-              >
-                <b-icon icon="x-circle-fill"></b-icon>
-              </div>
             </div>
           </div>
         </div>
@@ -2434,6 +2434,7 @@ export default {
         transfer_full: this.$t("sensitiveActionTransferFullOrder") || "نقل الطلب كامل",
         merge_invoices: this.$t("sensitiveActionMergeInvoices") || "دمج فاتورتين",
         order_discount: this.$t("sensitiveActionOrderDiscount") || "تطبيق الخصم",
+        cancel_order: this.$t("sensitiveActionCancelOrder") || "إلغاء الطلب",
       };
       return labels[key] || (this.$t("sensitiveActionGeneral") || "إجراء حساس");
     },
@@ -3478,93 +3479,11 @@ export default {
         });
       }
     },
-    async closeTableOrder(tableId) {
-      // If merged tables, use mergedTableIds, otherwise use single tableId
-      const tablesToClose = this.mergedTableIds.length > 1 ? this.mergedTableIds : [tableId];
-      this.tableToClose = tableId; // Keep for modal display
-      this.tablesToClose = tablesToClose; // Store all tables to close
-      this.$bvModal.show('modal-close-table');
-    },
-    async closeTableOrderWithPrint() {
-      if (!this.tableToClose) {
-        return;
-      }
-      
-      const tableId = this.tableToClose;
-      
-      // Print first if there are items
-      if (this.carditems.length > 0) {
-        try {
-          await this.printCard();
-          // Wait a bit for print dialog to open
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (error) {
-          console.error('Error printing:', error);
-        }
-      }
-      
-      // Then close table (don't clear cart)
-      await this.performCloseTableOrder(tableId, false);
-    },
-    async closeTableOrderOnly() {
-      if (!this.tableToClose) {
-        return;
-      }
-      
-      const tableId = this.tableToClose;
-      await this.performCloseTableOrder(tableId, false);
-    },
-    async performCloseTableOrder(tableId, clearCart = false) {
-      this.$bvModal.hide('modal-close-table');
-      
-      try {
-        // Use tablesToClose if available (for merged tables), otherwise use single tableId
-        const tablesToClose = this.tablesToClose && this.tablesToClose.length > 1 
-          ? this.tablesToClose 
-          : [tableId];
-        
-        let response;
-        if (tablesToClose.length > 1) {
-          // Multiple tables - send as body
-          response = await HTTP.put(`Admin/CloseTableOrder`, tablesToClose);
-        } else {
-          // Single table - use query parameter for backward compatibility
-          response = await HTTP.put(`Admin/CloseTableOrder?tableId=${tableId}`);
-        }
-        
-        this.selectedTableId = null;
-        this.selectedTableIds = [];
-        this.orderForSend.tableId = null;
-        this.orderForSend.tableIds = null;
-        this.orderForSend.orderType = 'Takeaway'; // Reset to default when closing table
-        this.orderForSend.numberOfGuests = 0;
-        if (clearCart) {
-          this.carditems = [];
-        }
-        this.tableOrders = [];
-        this.activeOrderId = null;
-        this.resetPrintedCartBaseline();
-        this.tableToClose = null;
-        this.tablesToClose = null;
-        await this.getTables();
-        
-        const message = tablesToClose.length > 1 
-          ? (this.$i18n.t("mergedTablesClosed") || `تم إغلاق حساب ${tablesToClose.length} طاولات بنجاح`)
-          : (this.$i18n.t("tableOrderClosed") || "تم إغلاق حساب الطاولة بنجاح");
-        
-        this.$toast.success(message, {
-          position: "top-right",
-          timeout: 2000,
-          maxToasts: 1,
-        });
-      } catch (error) {
-        console.error('Error closing table order:', error);
-        this.$toast.error(this.$i18n.t("errorClosingTableOrder") || "خطأ في إغلاق حساب الطاولة", {
-          position: "top-right",
-          timeout: 2000,
-          maxToasts: 1,
-        });
-      }
+    async confirmCancelDineInOrder() {
+      this.$bvModal.hide("modal-cancel-order");
+      const canProceed = await this.requestSensitiveActionPassword("cancel_order");
+      if (!canProceed) return;
+      await this.cancelDineInTableOrderAfterAuth();
     },
     getTableNumberById(tableId) {
       const table = this.allTables.find(t => t.id === tableId);

@@ -649,8 +649,8 @@ public class PrintService
         html.AppendLine("<meta charset='UTF-8'>");
         html.AppendLine("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
         html.AppendLine("<title>فاتورة</title>");
+        html.AppendLine(ReceiptPrintStyles.CairoFontLink);
         html.AppendLine("<style>");
-        html.AppendLine("@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');");
         html.AppendLine("* { margin: 0; padding: 0; box-sizing: border-box; }");
         html.AppendLine("body { font-family: 'Cairo', 'Arial', sans-serif; direction: rtl; font-size: 12px; line-height: 1.6; color: #000; background: #fff; padding: 10mm; width: 80mm; margin: 0 auto; }");
         html.AppendLine(".receipt-container { width: 100%; max-width: 80mm; margin: 0 auto; }");
