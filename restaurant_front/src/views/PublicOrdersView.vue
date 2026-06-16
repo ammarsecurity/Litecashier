@@ -153,6 +153,17 @@
               </template>
               <template #cell(actions)="row">
                 <div class="actions-cell">
+                  <button
+                    v-if="canPrintOrder(row.item.orderStatus)"
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--print"
+                    :disabled="printingOrderId === row.item.id"
+                    @click="printOrder(row.item)"
+                    :title="$t('printOrder') || 'طباعة الطلب'"
+                  >
+                    <b-spinner v-if="printingOrderId === row.item.id" small></b-spinner>
+                    <b-icon v-else icon="printer-fill" class="action-icon"></b-icon>
+                  </button>
                   <button type="button" class="action-btn action-btn--icon action-btn--view" @click="showItemsModal(row.item)">
                     <b-icon icon="eye-fill" class="action-icon"></b-icon>
                   </button>
@@ -330,6 +341,17 @@
           </div>
         </div>
         <div class="users-form-actions">
+          <button
+            v-if="selectedOrder && canPrintOrder(selectedOrder.orderStatus)"
+            type="button"
+            class="users-form-submit-button"
+            :disabled="printingOrderId === selectedOrder.id"
+            @click="printOrder(selectedOrder)"
+          >
+            <b-spinner v-if="printingOrderId === selectedOrder.id" small class="me-1"></b-spinner>
+            <b-icon v-else icon="printer-fill" class="me-1"></b-icon>
+            {{ $t('printOrder') || 'طباعة الطلب' }}
+          </button>
           <button type="button" class="users-form-cancel-button" @click="showItemsModalValue = false">
             {{ $t("close") || "إغلاق" }}
           </button>
@@ -343,6 +365,20 @@
 import AppHeader from '../components/Layout/AppHeader.vue';
 import { HTTP } from '../http/api.js';
 import signalRService from '../services/signalr.js';
+import {
+  todayBusinessDateString,
+  formatBusinessDate,
+  businessDateStringFrom,
+} from '../utils/formatBusinessDateTime.js';
+import { resolveCommercialUserIdFromStorage } from '../utils/queueOrders.js';
+import {
+  printPublicOrderLikePos,
+  canPrintOrderStatus,
+  shouldAutoPrintOnStatusChange,
+  notifyPrintOrderResult,
+  resolvePrintFailureMessage,
+} from '../utils/orderPrintService.js';
+import notify from '../utils/notify.js';
 
 export default {
   name: 'PublicOrdersView',
@@ -358,15 +394,16 @@ export default {
       pageSize: 10,
       searchQuery: '',
       orderCodeQuery: '',
-      startDate: this.getTodayDate(),
-      endDate: this.getTodayDate(),
+      startDate: todayBusinessDateString(),
+      endDate: todayBusinessDateString(),
       orderTypeFilter: '',
       driverFilter: '',
       deliveryDrivers: [],
       searchTimer: null,
       showItemsModalValue: false,
       selectedOrder: null,
-      commercialUserId: null
+      commercialUserId: null,
+      printingOrderId: null,
     };
   },
   computed: {
@@ -386,13 +423,11 @@ export default {
     }
   },
   mounted() {
-    // Set default dates to today
-    this.startDate = this.getTodayDate();
-    this.endDate = this.getTodayDate();
-    
-    // Get commercialUserId from user info
-    const userInfo = JSON.parse(localStorage.getItem('info') || '{}');
-    this.commercialUserId = userInfo.id || userInfo.commercialUserId;
+    const today = todayBusinessDateString();
+    this.startDate = today;
+    this.endDate = today;
+
+    this.commercialUserId = resolveCommercialUserIdFromStorage();
     
     if (!this.commercialUserId) {
       this.$bvToast.toast('معرف المطعم غير موجود', {
@@ -479,6 +514,14 @@ export default {
       }, 500);
     },
     async updateOrderStatus(orderId, statusType, statusValue) {
+      const orderIndex = this.Orders.findIndex(o => o.id === orderId);
+      const previousStatus =
+        orderIndex !== -1
+          ? this.Orders[orderIndex].orderStatus
+          : this.selectedOrder?.id === orderId
+            ? this.selectedOrder.orderStatus
+            : null;
+
       try {
         const updateData = {};
         if (statusType === 'orderStatus') {
@@ -493,8 +536,6 @@ export default {
         );
 
         if (response.data && !response.data.errorStatus) {
-          // Update the order in the list
-          const orderIndex = this.Orders.findIndex(o => o.id === orderId);
           if (orderIndex !== -1) {
             if (statusType === 'orderStatus') {
               this.Orders[orderIndex].orderStatus = statusValue;
@@ -502,8 +543,7 @@ export default {
               this.Orders[orderIndex].paymentStatus = statusValue;
             }
           }
-          
-          // Update selected order if it's the same
+
           if (this.selectedOrder && this.selectedOrder.id === orderId) {
             if (statusType === 'orderStatus') {
               this.selectedOrder.orderStatus = statusValue;
@@ -517,6 +557,19 @@ export default {
             variant: 'success',
             solid: true
           });
+
+          if (
+            statusType === 'orderStatus' &&
+            shouldAutoPrintOnStatusChange(previousStatus, statusValue)
+          ) {
+            const orderToPrint =
+              this.selectedOrder?.id === orderId
+                ? this.selectedOrder
+                : this.Orders[orderIndex] || null;
+            if (orderToPrint) {
+              await this.printOrder(orderToPrint, { silent: false });
+            }
+          }
         } else {
           // Revert the change on error
           const orderIndex = this.Orders.findIndex(o => o.id === orderId);
@@ -555,6 +608,38 @@ export default {
     showItemsModal(order) {
       this.selectedOrder = order;
       this.showItemsModalValue = true;
+    },
+    canPrintOrder(status) {
+      return canPrintOrderStatus(status);
+    },
+    async printOrder(order, options = {}) {
+      if (!order || !this.commercialUserId) return;
+      const silent = options.silent === true;
+      this.printingOrderId = order.id;
+      if (!silent) {
+        notify.info(this.$t('printingOrder') || 'جاري الطباعة...', {
+          timeout: 1500,
+          maxToasts: 1,
+        });
+      }
+      try {
+        const result = await printPublicOrderLikePos(order, {
+          http: HTTP,
+          commercialUserId: this.commercialUserId,
+          t: (key) => this.$t(key),
+        });
+
+        notifyPrintOrderResult(result, notify, (key) => this.$t(key), options);
+      } catch (error) {
+        console.error('Error printing public order:', error);
+        notify.error(
+          error.response?.data?.message ||
+            resolvePrintFailureMessage({ errors: ['unknown'] }, (key) => this.$t(key)),
+          { timeout: 4500, maxToasts: 1 }
+        );
+      } finally {
+        this.printingOrderId = null;
+      }
     },
     getPaymentMethodIcon(method) {
       const icons = {
@@ -663,22 +748,7 @@ export default {
       return new Intl.NumberFormat('ar-IQ').format(price);
     },
     formatDate(date) {
-      if (!date) return '';
-      const d = new Date(date);
-      return d.toLocaleDateString('ar-IQ', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    },
-    getTodayDate() {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      return formatBusinessDate(date);
     },
     initializeSignalR() {
       signalRService.startConnection()
@@ -689,11 +759,10 @@ export default {
             // Only reload if the order belongs to this commercial user
             if (data.CommercialUserId === this.commercialUserId) {
               // Check if order matches current filters (date range and type)
-              const orderDate = new Date(data.InsertDate);
-              const startDate = this.startDate ? new Date(this.startDate) : null;
-              const endDate = this.endDate ? new Date(this.endDate + 'T23:59:59') : null;
-              
-              const matchesDate = (!startDate || orderDate >= startDate) && (!endDate || orderDate <= endDate);
+              const orderDay = businessDateStringFrom(data.InsertDate);
+              const matchesDate =
+                (!this.startDate || orderDay >= this.startDate) &&
+                (!this.endDate || orderDay <= this.endDate);
               const matchesType = data.OrderType === 'Takeaway' || data.OrderType === 'Delivery';
               
               if (matchesDate && matchesType && !this.searchQuery && !this.orderCodeQuery) {

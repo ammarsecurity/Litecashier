@@ -2,6 +2,57 @@
 export const BUSINESS_TIME_ZONE =
   process.env.VUE_APP_TIME_ZONE || "Asia/Baghdad";
 
+/** Today's calendar date in business TZ as YYYY-MM-DD (for API date filters). */
+export function todayBusinessDateString() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const get = (type) => parts.find((p) => p.type === type)?.value || "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+/** YYYY-MM-DD in business TZ for a given timestamp (date-filter comparisons). */
+export function businessDateStringFrom(dateTime) {
+  if (dateTime == null || dateTime === "") return "";
+
+  const d = new Date(dateTime);
+  if (Number.isNaN(d.getTime())) {
+    const s = String(dateTime);
+    return (s.split("T")[0] || s.split(" ")[0] || s).trim();
+  }
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+
+  const get = (type) => parts.find((p) => p.type === type)?.value || "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+/** Display date only (no time) in business TZ. */
+export function formatBusinessDate(dateTime) {
+  if (dateTime == null || dateTime === "") return "";
+
+  const d = new Date(dateTime);
+  if (Number.isNaN(d.getTime())) {
+    return businessDateStringFrom(dateTime);
+  }
+
+  return new Intl.DateTimeFormat("ar-IQ", {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(d);
+}
+
 /**
  * Format a UTC (or ISO) timestamp in the business timezone for display.
  * Returns "YYYY-MM-DD HH:mm:ss" so report dates align with date-filter inputs.

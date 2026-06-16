@@ -146,6 +146,9 @@ namespace RestaurantPOS.Migrations
                     b.Property<int?>("DailySequenceNumber")
                         .HasColumnType("int");
 
+                    b.Property<bool>("HiddenFromQueueDisplay")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("DeliveryAddress")
                         .HasColumnType("longtext");
 

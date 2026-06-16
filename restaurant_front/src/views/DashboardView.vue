@@ -522,6 +522,7 @@
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "../http/api.js";
 import { formatBusinessDateTime } from "@/utils/formatBusinessDateTime.js";
+import { resolveCommercialUserIdFromStorage } from "@/utils/queueOrders.js";
 export default {
   name: "DashboardView",
   components: {
@@ -686,16 +687,7 @@ export default {
       }
     },
     getCommercialUserId() {
-      // Get user ID from localStorage
-      const userInfoStr = localStorage.getItem("info");
-      if (userInfoStr) {
-        try {
-          const userInfo = JSON.parse(userInfoStr);
-          this.commercialUserId = userInfo.id || null;
-        } catch (error) {
-          console.error("Error parsing user info:", error);
-        }
-      }
+      this.commercialUserId = resolveCommercialUserIdFromStorage();
     },
     loadCommercialUserInfo() {
       HTTP.get("Admin/CommercialUserInfo")

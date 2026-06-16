@@ -46,7 +46,7 @@ HTTP.interceptors.response.use(
             const status = error.response.status;
             
             // Check if current route is a public route (doesn't require auth)
-            const publicRoutes = ['/menu/', '/order/', '/login', '/register', '/'];
+            const publicRoutes = ['/menu/', '/order/', '/order-status/', '/public-queue/', '/login', '/register', '/'];
             const isPublicRoute = publicRoutes.some(route => window.location.pathname.startsWith(route));
             
             switch (status) {

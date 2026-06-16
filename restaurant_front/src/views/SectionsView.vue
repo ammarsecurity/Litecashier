@@ -21,6 +21,13 @@
               >
                 <div class="hub-module-icon-wrap">
                   <b-icon :icon="item.icon" class="hub-module-icon"></b-icon>
+                  <span
+                    v-if="sectionBadgeCount(item)"
+                    class="hub-module-badge"
+                    :title="$t('pending') || 'قيد الانتظار'"
+                  >
+                    {{ sectionBadgeCount(item) }}
+                  </span>
                 </div>
                 <span class="hub-module-label">{{ item.label }}</span>
               </router-link>
@@ -34,12 +41,27 @@
 
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
+import { HTTP } from "@/http/api.js";
+import signalRService from "@/services/signalr.js";
 import { flatNavItemsForHub } from "@/navigation/navItems.js";
 import { getAllowedSections } from "@/navigation/sectionRegistry.js";
+import {
+  resolveCommercialUserIdFromStorage,
+  fetchPendingPublicOrderCount,
+  PUBLIC_ORDER_BADGE_SECTIONS,
+} from "@/utils/queueOrders.js";
 
 export default {
   name: "SectionsView",
   components: { AppHeader },
+  data() {
+    return {
+      pendingOrderCount: 0,
+      commercialUserId: null,
+      refreshInterval: null,
+      signalRHandlers: [],
+    };
+  },
   computed: {
     role() {
       return localStorage.getItem("role");
@@ -63,6 +85,77 @@ export default {
         icon: "house-door-fill",
       };
       return [dashboardEntry, ...modules];
+    },
+    shouldTrackPendingOrders() {
+      return this.flatHubItems.some((item) =>
+        PUBLIC_ORDER_BADGE_SECTIONS.has(item.name)
+      );
+    },
+  },
+  mounted() {
+    this.commercialUserId = resolveCommercialUserIdFromStorage();
+    if (this.shouldTrackPendingOrders && this.commercialUserId) {
+      this.refreshPendingCount();
+      this.initializeSignalR();
+      this.refreshInterval = setInterval(() => {
+        this.refreshPendingCount({ silent: true });
+      }, 15000);
+    }
+  },
+  beforeDestroy() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+    }
+    this.cleanupSignalR();
+  },
+  methods: {
+    sectionBadgeCount(item) {
+      if (!this.pendingOrderCount || !PUBLIC_ORDER_BADGE_SECTIONS.has(item.name)) {
+        return 0;
+      }
+      return this.pendingOrderCount;
+    },
+    async refreshPendingCount(options = {}) {
+      if (!this.commercialUserId || !this.shouldTrackPendingOrders) return;
+      try {
+        const count = await fetchPendingPublicOrderCount(
+          HTTP,
+          this.commercialUserId
+        );
+        this.pendingOrderCount = count;
+      } catch (error) {
+        if (!options.silent) {
+          console.error("Failed to load pending order count:", error);
+        }
+      }
+    },
+    initializeSignalR() {
+      const onRefresh = (data) => {
+        const commercialId =
+          data?.CommercialUserId ?? data?.commercialUserId ?? null;
+        if (
+          commercialId != null &&
+          Number(commercialId) !== Number(this.commercialUserId)
+        ) {
+          return;
+        }
+        this.refreshPendingCount({ silent: true });
+      };
+
+      signalRService.startConnection().then(() => {
+        const events = ["PublicOrderAdded", "PublicOrderUpdated", "OrderAdded"];
+        events.forEach((eventName) => {
+          signalRService.on(eventName, onRefresh);
+          this.signalRHandlers.push({ eventName, handler: onRefresh });
+        });
+      });
+    },
+    cleanupSignalR() {
+      this.signalRHandlers.forEach(({ eventName, handler }) => {
+        signalRService.off(eventName, handler);
+      });
+      this.signalRHandlers = [];
     },
   },
 };
@@ -126,6 +219,7 @@ export default {
 }
 
 .hub-module-icon-wrap {
+  position: relative;
   width: 48px;
   height: 48px;
   border-radius: 12px;
@@ -139,6 +233,26 @@ export default {
 .hub-module-icon {
   font-size: 1.35rem;
   color: var(--primary-color);
+}
+
+.hub-module-badge {
+  position: absolute;
+  top: -6px;
+  inset-inline-end: -6px;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #f59e0b;
+  color: #fff;
+  border: 2px solid var(--bg-tertiary);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.45);
 }
 
 .hub-module-label {

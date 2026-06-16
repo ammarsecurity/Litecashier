@@ -32,6 +32,54 @@ namespace RestaurantPOS.Controllers
             _hubContext = hubContext;
         }
 
+        /// <summary>
+        /// Calendar day(s) from the client → UTC [from, to) for InsertDate comparison.
+        /// </summary>
+        private bool TryGetOrderInsertUtcRange(DateTime? startDate, DateTime? endDate, out DateTime fromUtc, out DateTime toUtcExclusive)
+        {
+            fromUtc = default;
+            toUtcExclusive = default;
+
+            if (!startDate.HasValue && !endDate.HasValue)
+                return false;
+
+            DateTime startDay;
+            DateTime endDay;
+
+            if (startDate.HasValue && endDate.HasValue)
+            {
+                startDay = startDate.Value.Date;
+                endDay = endDate.Value.Date;
+                if (endDay < startDay)
+                    (startDay, endDay) = (endDay, startDay);
+            }
+            else if (startDate.HasValue)
+            {
+                startDay = endDay = startDate.Value.Date;
+            }
+            else
+                return false;
+
+            var tzId = (_configuration["BusinessSettings:TimeZoneId"] ?? "").Trim();
+            TimeZoneInfo tz;
+            try
+            {
+                tz = !string.IsNullOrEmpty(tzId)
+                    ? TimeZoneInfo.FindSystemTimeZoneById(tzId)
+                    : TimeZoneInfo.Local;
+            }
+            catch
+            {
+                tz = TimeZoneInfo.Local;
+            }
+
+            var localStart = DateTime.SpecifyKind(startDay, DateTimeKind.Unspecified);
+            var localEndExclusive = DateTime.SpecifyKind(endDay.AddDays(1), DateTimeKind.Unspecified);
+            fromUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, tz);
+            toUtcExclusive = TimeZoneInfo.ConvertTimeToUtc(localEndExclusive, tz);
+            return true;
+        }
+
         // GET: api/PublicMenu/{commercialUserId}
         [AllowAnonymous]
         [HttpGet("{commercialUserId}")]
@@ -440,7 +488,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/PublicMenu/{commercialUserId}/orders
-        [AuthorizeSection("publicOrders", Roles = "Commercial")]
+        [AuthorizeSection("publicOrders", "orderQueue", Roles = "Commercial,Admin,POS")]
         [HttpGet("{commercialUserId}/orders")]
         public async Task<ActionResult<GlobalResponse<object>>> GetPublicOrders(int commercialUserId, int pageNumber = 0, int pageSize = 10, DateTime? startDate = null, DateTime? endDate = null, int? dailySequenceNumber = null, string? orderCode = null, string? orderType = null, int? deliveryDriverId = null)
         {
@@ -492,17 +540,9 @@ namespace RestaurantPOS.Controllers
                             || (x.User != null && x.User.InsertByUserId == commercialUserId)))
                     .AsQueryable();
 
-                // Filter by date range
-                if (startDate.HasValue)
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcExclusive))
                 {
-                    var start = startDate.Value.Date;
-                    ordersQuery = ordersQuery.Where(x => x.InsertDate >= start);
-                }
-
-                if (endDate.HasValue)
-                {
-                    var end = endDate.Value.Date.AddDays(1);
-                    ordersQuery = ordersQuery.Where(x => x.InsertDate < end);
+                    ordersQuery = ordersQuery.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcExclusive);
                 }
 
                 // Filter by dailySequenceNumber
@@ -544,6 +584,7 @@ namespace RestaurantPOS.Controllers
                         OrderType = x.OrderType,
                         OrderStatus = x.OrderStatus ?? "Pending",
                         PaymentStatus = x.PaymentStatus ?? "Pending",
+                        HiddenFromQueueDisplay = x.HiddenFromQueueDisplay,
                         DailySequenceNumber = x.DailySequenceNumber ?? 0,
                         InsertDate = x.InsertDate,
                         Notes = x.Notes,
@@ -576,6 +617,8 @@ namespace RestaurantPOS.Controllers
                             Id = item.Id,
                             ItemId = item.ItemId,
                             ItemName = item.Item != null ? item.Item.Name : "",
+                            Tags = item.Item != null ? item.Item.Tags : null,
+                            Notes = item.Notes,
                             Quantity = item.Quantity,
                             SellingPrice = item.SellingPrice,
                             Total = item.SellingPrice * item.Quantity
@@ -602,6 +645,81 @@ namespace RestaurantPOS.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting public orders for Commercial user {CommercialUserId}", commercialUserId);
+                return StatusCode(500, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ أثناء جلب الطلبات: {ex.Message}"
+                });
+            }
+        }
+
+        // GET: api/PublicMenu/{commercialUserId}/queue-display
+        [AllowAnonymous]
+        [HttpGet("{commercialUserId}/queue-display")]
+        public async Task<ActionResult<GlobalResponse<object>>> GetQueueDisplayOrders(
+            int commercialUserId,
+            DateTime? startDate = null,
+            DateTime? endDate = null)
+        {
+            try
+            {
+                var commercialUser = await _dbConfig.Users
+                    .FirstOrDefaultAsync(u => u.Id == commercialUserId && u.Role == "Commercial" && !u.IsDeleted);
+
+                if (commercialUser == null)
+                {
+                    return NotFound(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "المطعم غير موجود"
+                    });
+                }
+
+                var ordersQuery = _dbConfig.CustomerOrders
+                    .Include(x => x.CustomerOrderItem)
+                    .Include(x => x.User)
+                    .Where(x => !x.IsDeleted
+                        && !x.HiddenFromQueueDisplay
+                        && (x.OrderType == "Takeaway" || x.OrderType == "Delivery")
+                        && (x.InsertByUserId == commercialUserId
+                            || (x.User != null && x.User.InsertByUserId == commercialUserId)))
+                    .AsQueryable();
+
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcExclusive))
+                {
+                    ordersQuery = ordersQuery.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcExclusive);
+                }
+
+                var activeStatuses = new[] { "Pending", "Processing", "Ready", "Completed" };
+                ordersQuery = ordersQuery.Where(x =>
+                    activeStatuses.Contains(x.OrderStatus ?? "Pending"));
+
+                var orders = await ordersQuery
+                    .OrderByDescending(x => x.InsertDate)
+                    .Select(x => new
+                    {
+                        Id = x.Id,
+                        OrderCode = x.OrderCode,
+                        OrderType = x.OrderType,
+                        OrderStatus = x.OrderStatus ?? "Pending",
+                        DailySequenceNumber = x.DailySequenceNumber ?? 0,
+                        InsertDate = x.InsertDate,
+                        ItemsCount = x.CustomerOrderItem.Count(i => !i.IsDeleted),
+                    })
+                    .ToListAsync();
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new { Items = orders },
+                    ErrorStatus = false,
+                    Message = "تم جلب الطلبات بنجاح"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting queue display for Commercial user {CommercialUserId}", commercialUserId);
                 return StatusCode(500, new GlobalResponse<object>
                 {
                     Data = null,
@@ -720,7 +838,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // PUT: api/PublicMenu/{commercialUserId}/orders/{orderId}/status
-        [AuthorizeSection("publicOrders", Roles = "Commercial")]
+        [AuthorizeSection("publicOrders", "orderQueue", Roles = "Commercial,Admin,POS")]
         [HttpPut("{commercialUserId}/orders/{orderId}/status")]
         public async Task<ActionResult<GlobalResponse<object>>> UpdateOrderStatus(int commercialUserId, int orderId, UpdateOrderStatusRequest request)
         {
@@ -778,6 +896,7 @@ namespace RestaurantPOS.Controllers
                 var oldOrderStatus = order.OrderStatus;
                 var oldPaymentStatus = order.PaymentStatus;
                 var oldDeliveryStatus = order.DeliveryStatus;
+                var oldHiddenFromQueueDisplay = order.HiddenFromQueueDisplay;
 
                 if (!string.IsNullOrEmpty(request.OrderStatus))
                 {
@@ -799,13 +918,18 @@ namespace RestaurantPOS.Controllers
                     order.PaymentStatus = request.PaymentStatus;
                 }
 
+                if (request.HiddenFromQueueDisplay.HasValue)
+                {
+                    order.HiddenFromQueueDisplay = request.HiddenFromQueueDisplay.Value;
+                }
+
                 _dbConfig.CustomerOrders.Update(order);
                 await _dbConfig.SaveChangesAsync();
 
                 // Log audit for order status/payment status/delivery status update
                 var changesDescription = new List<string>();
-                var oldValues = new { OrderStatus = oldOrderStatus, PaymentStatus = oldPaymentStatus, DeliveryStatus = oldDeliveryStatus };
-                var newValues = new { OrderStatus = order.OrderStatus, PaymentStatus = order.PaymentStatus, DeliveryStatus = order.DeliveryStatus };
+                var oldValues = new { OrderStatus = oldOrderStatus, PaymentStatus = oldPaymentStatus, DeliveryStatus = oldDeliveryStatus, HiddenFromQueueDisplay = oldHiddenFromQueueDisplay };
+                var newValues = new { OrderStatus = order.OrderStatus, PaymentStatus = order.PaymentStatus, DeliveryStatus = order.DeliveryStatus, HiddenFromQueueDisplay = order.HiddenFromQueueDisplay };
 
                 if (oldOrderStatus != order.OrderStatus)
                 {
@@ -818,6 +942,12 @@ namespace RestaurantPOS.Controllers
                 if (oldDeliveryStatus != order.DeliveryStatus)
                 {
                     changesDescription.Add($"حالة التوصيل: {oldDeliveryStatus} → {order.DeliveryStatus}");
+                }
+                if (oldHiddenFromQueueDisplay != order.HiddenFromQueueDisplay)
+                {
+                    changesDescription.Add(order.HiddenFromQueueDisplay
+                        ? "تم إخفاء الطلب من شاشة الانتظار"
+                        : "تم إظهار الطلب على شاشة الانتظار");
                 }
 
                 if (changesDescription.Count > 0)
@@ -844,7 +974,8 @@ namespace RestaurantPOS.Controllers
                         OrderId = order.Id,
                         OrderCode = order.OrderCode,
                         OrderStatus = order.OrderStatus,
-                        PaymentStatus = order.PaymentStatus
+                        PaymentStatus = order.PaymentStatus,
+                        HiddenFromQueueDisplay = order.HiddenFromQueueDisplay
                     });
                     _logger.LogInformation("SignalR notification sent for PublicOrderUpdated: OrderId={OrderId}, CommercialUserId={CommercialUserId}", order.Id, commercialUserId);
                 }
@@ -855,7 +986,7 @@ namespace RestaurantPOS.Controllers
 
                 return Ok(new GlobalResponse<object>
                 {
-                    Data = new { Id = order.Id, OrderStatus = order.OrderStatus, PaymentStatus = order.PaymentStatus },
+                    Data = new { Id = order.Id, OrderStatus = order.OrderStatus, PaymentStatus = order.PaymentStatus, HiddenFromQueueDisplay = order.HiddenFromQueueDisplay },
                     ErrorStatus = false,
                     Message = "تم تحديث حالة الطلب بنجاح"
                 });
@@ -878,6 +1009,7 @@ namespace RestaurantPOS.Controllers
     {
         public string? OrderStatus { get; set; } // Pending, Processing, Ready, Completed, Cancelled
         public string? PaymentStatus { get; set; } // Pending, Paid, Refunded
+        public bool? HiddenFromQueueDisplay { get; set; }
         public int? DeliveryPointsPerOrder { get; set; } // عدد النقاط لكل عملية توصيل مكتملة
     }
 

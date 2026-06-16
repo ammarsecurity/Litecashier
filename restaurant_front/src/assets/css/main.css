@@ -1742,6 +1742,125 @@ img, svg, video, canvas, audio, iframe, embed, object {
 }
 
 /* ============================================
+   Bootstrap-Vue Toast (b-toast) — match AppNotify
+   Used by public orders / order queue pages
+   ============================================ */
+.b-toaster {
+  z-index: 10050 !important;
+  padding: 14px;
+  max-width: min(92vw, 400px);
+}
+
+.b-toaster-top-right,
+.b-toaster-top-left,
+.b-toaster-bottom-right,
+.b-toaster-bottom-left {
+  margin: 0 !important;
+}
+
+.b-toaster-top-right,
+.b-toaster-top-left {
+  top: 14px !important;
+}
+
+.b-toaster-top-right {
+  right: 14px !important;
+  left: auto !important;
+}
+
+.b-toaster-top-left {
+  left: 14px !important;
+  right: auto !important;
+}
+
+.b-toast {
+  --toast-accent: var(--info-color);
+  overflow: hidden;
+  border-radius: var(--radius-xl) !important;
+  border: 1px solid var(--border-color) !important;
+  border-inline-start: 4px solid var(--toast-accent) !important;
+  background: var(--bg-tertiary) !important;
+  box-shadow: var(--shadow-lg) !important;
+  font-family: 'Cairo', sans-serif;
+  color: var(--text-primary) !important;
+  min-width: min(92vw, 360px);
+  max-width: 400px;
+  opacity: 1 !important;
+}
+
+.b-toast-solid.b-toast-success {
+  --toast-accent: var(--success-color);
+}
+
+.b-toast-solid.b-toast-danger {
+  --toast-accent: var(--danger-color);
+}
+
+.b-toast-solid.b-toast-warning {
+  --toast-accent: var(--warning-color);
+}
+
+.b-toast-solid.b-toast-info {
+  --toast-accent: var(--info-color);
+}
+
+.b-toast-solid.b-toast-success,
+.b-toast-solid.b-toast-danger,
+.b-toast-solid.b-toast-warning,
+.b-toast-solid.b-toast-info,
+.b-toast-solid.b-toast-default {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+}
+
+.b-toast .toast-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent !important;
+  border-bottom: 1px solid var(--border-light) !important;
+  color: var(--text-primary) !important;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  padding: 0.75rem 1rem 0.5rem !important;
+}
+
+.b-toast .toast-header strong {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.b-toast .toast-header .close {
+  margin-inline-start: auto !important;
+  margin-inline-end: 0 !important;
+  padding: 0.15rem 0.35rem;
+  color: var(--text-muted) !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+  font-size: 1.25rem;
+  line-height: 1;
+  border-radius: var(--radius-md);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.b-toast .toast-header .close:hover {
+  color: var(--text-primary) !important;
+  background: var(--border-light);
+}
+
+.b-toast .toast-body {
+  padding: 0.5rem 1rem 0.85rem !important;
+  color: var(--text-secondary) !important;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+[dir='rtl'] .b-toast .toast-header .close {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+/* ============================================
    Utilities
    ============================================ */
 .shadow-lg {

@@ -191,6 +191,33 @@
               </div>
             </div>
 
+            <!-- Orders by type -->
+            <div class="eod-section-card">
+              <div class="eod-section-header">
+                <div class="eod-section-title-wrap">
+                  <div class="eod-section-icon-wrap eod-section-icon-wrap--top">
+                    <b-icon icon="diagram-3-fill"></b-icon>
+                  </div>
+                  <div>
+                    <h3 class="eod-section-title">{{ $t("ordersByType") || "الفواتير حسب نوع الطلب" }}</h3>
+                  </div>
+                </div>
+              </div>
+              <div class="eod-section-body">
+                <b-table
+                  v-if="(report.ordersByType || []).length"
+                  :items="ordersByTypeRows"
+                  :fields="ordersByTypeFields"
+                  small
+                  responsive
+                  class="reports-table"
+                  striped
+                  hover
+                />
+                <p v-else class="eod-section-empty">{{ $t("noDataForSection") || "لا توجد بيانات" }}</p>
+              </div>
+            </div>
+
             <!-- Invoices by table -->
             <div class="eod-section-card">
               <div class="eod-section-header">
@@ -281,6 +308,7 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "../http/api.js";
+import { formatBusinessDate } from "../utils/formatBusinessDateTime.js";
 
 export default {
   name: "EndOfDayReportView",
@@ -298,9 +326,7 @@ export default {
     },
     reportPeriodLabel() {
       if (!this.report) return "";
-      const start = this.formatDateTime(this.report.dayStart);
-      const end = this.formatDateTime(this.report.dayEnd);
-      return `${start} — ${end}`;
+      return formatBusinessDate(this.report.dayStart);
     },
     profitMargin() {
       const net = Number(this.report?.totals?.netSales || 0);
@@ -327,6 +353,14 @@ export default {
     invoicesByTableRows() {
       return (this.report?.invoicesByTable || []).map((row) => ({
         ...row,
+        tableNumber: this.formatInvoiceTableLabel(row.tableNumber),
+        totalAmount: this.formatPrice(row.totalAmount),
+      }));
+    },
+    ordersByTypeRows() {
+      return (this.report?.ordersByType || []).map((row) => ({
+        ...row,
+        orderType: this.getOrderTypeText(row.orderType),
         totalAmount: this.formatPrice(row.totalAmount),
       }));
     },
@@ -358,6 +392,13 @@ export default {
         { key: "amount", label: this.$t("totalAmount") || "المبلغ" },
       ];
     },
+    ordersByTypeFields() {
+      return [
+        { key: "orderType", label: this.$t("orderType") || "نوع الطلب" },
+        { key: "ordersCount", label: this.$t("orders") || "الفواتير" },
+        { key: "totalAmount", label: this.$t("totalAmount") || "المبلغ" },
+      ];
+    },
     invoicesByTableFields() {
       return [
         { key: "tableNumber", label: this.$t("table") || "الطاولة" },
@@ -383,6 +424,21 @@ export default {
     },
   },
   methods: {
+    getOrderTypeText(type) {
+      const texts = {
+        DineIn: this.$t("dineIn") || "داخل المطعم",
+        Takeaway: this.$t("takeaway") || "خارجي",
+        Delivery: this.$t("delivery") || "توصيل",
+      };
+      return texts[type] || type || "—";
+    },
+    formatInvoiceTableLabel(value) {
+      if (!value || value === "-") return "—";
+      if (value === "Takeaway" || value === "Delivery" || value === "DineIn") {
+        return this.getOrderTypeText(value);
+      }
+      return value;
+    },
     formatPrice(value) {
       const n = Number(value || 0);
       return Number.isFinite(n) ? n.toLocaleString("en-EG") : "0";

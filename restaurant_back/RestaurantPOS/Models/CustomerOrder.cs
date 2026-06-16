@@ -53,6 +53,8 @@ namespace RestaurantPOS.Models
 
         public int? DailySequenceNumber { get; set; } // رقم تسلسلي يومي يبدأ من 1 كل يوم
 
+        public bool HiddenFromQueueDisplay { get; set; } = false; // إخفاء من شاشة عرض الطلبات العامة
+
         // Delivery fields
         public int? DeliveryDriverId { get; set; } // سائق التوصيل
 

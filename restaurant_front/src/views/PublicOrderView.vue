@@ -1,244 +1,296 @@
 <template>
-  <div class="public-order-container">
-    <!-- Header Section -->
-    <header class="public-order-header">
-      <div class="header-content">
-        <div class="logo-section">
-          <img 
-            v-if="restaurantLogo && !logoError" 
-            :src="restaurantLogo" 
-            alt="Logo" 
-            class="order-logo"
-            @error="logoError = true"
-          />
-          <img 
-            v-else-if="!restaurantLogo && !logoError"
-            src="../assets/logoarabicdark.png" 
-            alt="Logo" 
-            class="order-logo"
-            @error="logoError = true"
-          />
-          <div v-else class="logo-placeholder">
-            <b-icon icon="shop" class="logo-icon"></b-icon>
+  <div class="po">
+    <!-- Hero -->
+    <header class="po-hero">
+      <div class="po-hero-bg"></div>
+      <div class="po-hero-inner">
+        <div class="po-brand">
+          <div class="po-logo-wrap">
+            <img
+              v-if="restaurantLogo && !logoError"
+              :src="restaurantLogo"
+              alt=""
+              class="po-logo"
+              @error="logoError = true"
+            />
+            <div v-else class="po-logo-fallback">
+              <b-icon icon="shop"></b-icon>
+            </div>
+          </div>
+          <div class="po-brand-text">
+            <p class="po-eyebrow">{{ $t('publicOrder') || 'الطلب' }}</p>
+            <h1 class="po-title">{{ restaurantName || 'اطلب الآن' }}</h1>
+            <p class="po-tagline">{{ $t('orderOnlineHint') || 'اختر أصنافك وأكّد طلبك' }}</p>
           </div>
         </div>
-        <h1 class="restaurant-name">{{ restaurantName || 'الطلب' }}</h1>
+        <router-link :to="menuLink" class="po-menu-link">
+          <b-icon icon="book"></b-icon>
+          {{ $t('viewMenu') || 'عرض المنيو' }}
+        </router-link>
       </div>
     </header>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="loading-container">
-      <div class="loading-spinner"></div>
-      <p class="loading-text">جاري تحميل القائمة...</p>
+    <!-- Loading -->
+    <div v-if="loading" class="po-state">
+      <div class="po-spinner"></div>
+      <p>{{ $t('loadingMenu') || 'جاري تحميل القائمة...' }}</p>
     </div>
 
-    <!-- Error State -->
-    <div v-else-if="error" class="error-container">
-      <b-icon icon="exclamation-triangle-fill" class="error-icon"></b-icon>
-      <p class="error-text">{{ error }}</p>
+    <!-- Error -->
+    <div v-else-if="error" class="po-state po-state--error">
+      <b-icon icon="exclamation-triangle-fill"></b-icon>
+      <p>{{ error }}</p>
     </div>
 
-    <!-- Order Content -->
-    <div v-else class="order-content">
-      <!-- Category Filter -->
-      <div v-if="categories.length > 0" class="category-filter-wrapper">
-        <div class="category-filter">
-          <button 
-            class="category-btn" 
-            :class="{ active: selectedCategory === null }"
-            @click="selectedCategory = null"
-          >
-            <b-icon icon="grid-fill" class="me-2"></b-icon>
-            الكل
-          </button>
-          <button 
-            v-for="category in sortedCategories" 
-            :key="category"
-            class="category-btn"
-            :class="{ active: selectedCategory === category }"
-            @click="selectedCategory = category"
-          >
-            {{ category }}
-          </button>
+    <!-- Menu + order -->
+    <template v-else>
+      <!-- Toolbar -->
+      <div class="po-toolbar">
+        <div class="po-toolbar-inner">
+          <div class="po-search">
+            <b-icon icon="search" class="po-search-icon"></b-icon>
+            <input
+              v-model="searchQuery"
+              type="search"
+              class="po-search-input"
+              :placeholder="$t('searchMenu') || 'ابحث عن صنف...'"
+              autocomplete="off"
+            />
+            <button
+              v-if="searchQuery"
+              type="button"
+              class="po-search-clear"
+              @click="searchQuery = ''"
+            >
+              <b-icon icon="x-lg"></b-icon>
+            </button>
+          </div>
+
+          <div v-if="categories.length" class="po-cats">
+            <button
+              type="button"
+              class="po-cat"
+              :class="{ 'po-cat--active': selectedCategory === null }"
+              @click="selectedCategory = null"
+            >
+              {{ $t('all') || 'الكل' }}
+              <span class="po-cat-count">{{ items.length }}</span>
+            </button>
+            <button
+              v-for="cat in sortedCategories"
+              :key="cat"
+              type="button"
+              class="po-cat"
+              :class="{ 'po-cat--active': selectedCategory === cat }"
+              @click="selectedCategory = cat"
+            >
+              {{ cat }}
+              <span class="po-cat-count">{{ categoryCounts[cat] || 0 }}</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Menu Items Grid -->
-      <div class="menu-items-grid">
-        <div 
-          v-for="item in filteredItems" 
-          :key="item.id"
-          class="menu-item-card"
-          @click="addToCart(item)"
+      <main class="po-main" :class="{ 'po-main--cart': cartItems.length > 0 }">
+        <section
+          v-for="section in menuSections"
+          :key="section.name"
+          class="po-section"
         >
-          <div class="item-image-container">
-            <img 
-              v-if="item.image && !item.imageError" 
-              :src="item.image" 
-              :alt="item.name"
-              class="item-image"
-              @error="item.imageError = true"
-            />
-            <div v-else class="item-image-placeholder">
-              <b-icon icon="image" class="placeholder-icon"></b-icon>
-            </div>
-            <div v-if="item.discountPrice" class="discount-badge">
-              <span>خصم</span>
-            </div>
+          <div class="po-section-head">
+            <h2 class="po-section-title">{{ section.name }}</h2>
+            <span class="po-section-line"></span>
+            <span class="po-section-count">{{ section.items.length }}</span>
           </div>
-          
-          <div class="item-content">
-            <div class="item-header">
-              <h3 class="item-name">{{ item.name }}</h3>
-            </div>
-            
-            <p v-if="item.description" class="item-description">{{ item.description }}</p>
-            
-            <div class="item-footer">
-              <div class="item-price">
-                <span v-if="item.discountPrice" class="original-price">
-                  {{ formatPrice(item.sellingPrice) }} د.ع
-                </span>
-                <span class="current-price">
-                  {{ formatPrice(item.discountPrice || item.sellingPrice) }} د.ع
+
+          <div class="po-grid">
+            <article
+              v-for="item in section.items"
+              :key="item.id"
+              class="po-card"
+              :class="{ 'po-card--in-cart': getCartQty(item.id) > 0 }"
+            >
+              <div class="po-card-media">
+                <img
+                  v-if="item.image && !item.imageError"
+                  :src="item.image"
+                  :alt="item.name"
+                  class="po-card-img"
+                  loading="lazy"
+                  @error="item.imageError = true"
+                />
+                <div v-else class="po-card-img-fallback">
+                  <b-icon icon="cup-hot-fill"></b-icon>
+                </div>
+                <span v-if="discountPercent(item)" class="po-badge">
+                  -{{ discountPercent(item) }}%
                 </span>
               </div>
-              <button class="add-btn">
-                <b-icon icon="plus-circle-fill"></b-icon>
-              </button>
-            </div>
+
+              <div class="po-card-body">
+                <h3 class="po-card-name">{{ item.name }}</h3>
+                <p v-if="item.description" class="po-card-desc">{{ item.description }}</p>
+                <div class="po-card-foot">
+                  <div class="po-price-block">
+                    <span v-if="item.discountPrice" class="po-price-old">
+                      {{ formatPrice(item.sellingPrice) }}
+                    </span>
+                    <span class="po-price">
+                      {{ formatPrice(item.discountPrice || item.sellingPrice) }}
+                      <small>د.ع</small>
+                    </span>
+                  </div>
+
+                  <div v-if="getCartQty(item.id) > 0" class="po-qty-ctrl">
+                    <button type="button" class="po-qty-btn" @click.stop="decreaseItem(item)">
+                      <b-icon icon="dash"></b-icon>
+                    </button>
+                    <span class="po-qty-val">{{ getCartQty(item.id) }}</span>
+                    <button type="button" class="po-qty-btn" @click.stop="addToCart(item)">
+                      <b-icon icon="plus"></b-icon>
+                    </button>
+                  </div>
+                  <button v-else type="button" class="po-add-btn" @click.stop="addToCart(item)">
+                    <b-icon icon="plus-lg"></b-icon>
+                  </button>
+                </div>
+              </div>
+            </article>
           </div>
+        </section>
+
+        <div v-if="menuSections.length === 0" class="po-empty">
+          <b-icon icon="inbox"></b-icon>
+          <p>{{ searchQuery ? ($t('noSearchResults') || 'لا توجد نتائج') : ($t('noItemsInCategory') || 'لا توجد عناصر') }}</p>
         </div>
+      </main>
+    </template>
+
+    <!-- Cart bar -->
+    <div v-if="cartItems.length > 0" class="po-cart">
+      <div class="po-cart-bar" @click="showCart = !showCart">
+        <div class="po-cart-bar-left">
+          <span class="po-cart-badge">{{ totalItems }}</span>
+          <span class="po-cart-label">{{ $t('cart') || 'السلة' }}</span>
+        </div>
+        <div class="po-cart-bar-total">
+          {{ formatPrice(cartTotal) }} <small>د.ع</small>
+        </div>
+        <b-icon :icon="showCart ? 'chevron-down' : 'chevron-up'" class="po-cart-chevron"></b-icon>
       </div>
 
-      <!-- Empty State -->
-      <div v-if="filteredItems.length === 0" class="empty-state">
-        <b-icon icon="inbox" class="empty-icon"></b-icon>
-        <p class="empty-text">لا توجد عناصر في هذه الفئة</p>
-      </div>
+      <transition name="po-slide">
+        <div v-if="showCart" class="po-cart-panel">
+          <div class="po-cart-items">
+            <div v-for="(cartItem, index) in cartItems" :key="index" class="po-cart-row">
+              <div class="po-cart-row-info">
+                <span class="po-cart-row-name">{{ cartItem.name }}</span>
+                <span class="po-cart-row-price">{{ formatPrice(cartItem.price * cartItem.quantity) }} د.ع</span>
+              </div>
+              <div class="po-qty-ctrl po-qty-ctrl--sm">
+                <button type="button" class="po-qty-btn" @click="decreaseQuantity(index)">
+                  <b-icon icon="dash"></b-icon>
+                </button>
+                <span class="po-qty-val">{{ cartItem.quantity }}</span>
+                <button type="button" class="po-qty-btn" @click="increaseQuantity(index)">
+                  <b-icon icon="plus"></b-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="po-checkout">
+            <p class="po-checkout-label">{{ $t('paymentMethod') || 'طريقة الدفع' }}</p>
+            <div class="po-pay-options">
+              <button
+                type="button"
+                class="po-pay-opt"
+                :class="{ 'po-pay-opt--active': paymentMethod === 'Cash' }"
+                @click="paymentMethod = 'Cash'"
+              >
+                <b-icon icon="cash-coin"></b-icon>
+                {{ $t('cash') || 'كاش' }}
+              </button>
+              <button
+                type="button"
+                class="po-pay-opt"
+                :class="{ 'po-pay-opt--active': paymentMethod === 'Card' }"
+                @click="paymentMethod = 'Card'"
+              >
+                <b-icon icon="credit-card"></b-icon>
+                {{ $t('card') || 'بطاقة' }}
+              </button>
+            </div>
+
+            <label class="po-notes-label">{{ $t('notes') || 'ملاحظات' }} ({{ $t('optional') || 'اختياري' }})</label>
+            <textarea
+              v-model="orderNotes"
+              class="po-notes"
+              :placeholder="$t('notesPlaceholder') || 'أضف ملاحظات للطلب...'"
+              rows="2"
+            ></textarea>
+
+            <button
+              type="button"
+              class="po-submit"
+              :disabled="submitting"
+              @click="submitOrder"
+            >
+              <b-spinner small v-if="submitting"></b-spinner>
+              <template v-else>
+                <b-icon icon="bag-check-fill"></b-icon>
+                {{ $t('confirmOrder') || 'تأكيد الطلب' }}
+                · {{ formatPrice(cartTotal) }} د.ع
+              </template>
+            </button>
+          </div>
+        </div>
+      </transition>
     </div>
 
-    <!-- Cart Section (Fixed at Bottom) -->
-    <div v-if="cartItems.length > 0" class="cart-section">
-      <div class="cart-header" @click="showCart = !showCart">
-        <div class="cart-info">
-          <b-icon icon="cart-fill" class="cart-icon"></b-icon>
-          <span class="cart-count">{{ totalItems }}</span>
-          <span class="cart-label">عنصر</span>
-        </div>
-        <div class="cart-total">
-          <span class="total-label">المجموع:</span>
-          <span class="total-amount">{{ formatPrice(cartTotal) }} د.ع</span>
-        </div>
-        <b-icon :icon="showCart ? 'chevron-up' : 'chevron-down'" class="cart-toggle-icon"></b-icon>
-      </div>
-
-      <div v-if="showCart" class="cart-content">
-        <div class="cart-items">
-          <div 
-            v-for="(cartItem, index) in cartItems" 
-            :key="index"
-            class="cart-item"
-          >
-            <div class="cart-item-info">
-              <h4 class="cart-item-name">{{ cartItem.name }}</h4>
-              <p class="cart-item-price">{{ formatPrice(cartItem.price * cartItem.quantity) }} د.ع</p>
-            </div>
-            <div class="cart-item-controls">
-              <button class="quantity-btn" @click="decreaseQuantity(index)">
-                <b-icon icon="dash"></b-icon>
-              </button>
-              <span class="quantity-value">{{ cartItem.quantity }}</span>
-              <button class="quantity-btn" @click="increaseQuantity(index)">
-                <b-icon icon="plus"></b-icon>
-              </button>
-              <button class="remove-btn" @click="removeFromCart(index)">
-                <b-icon icon="x"></b-icon>
-              </button>
-            </div>
+    <!-- Success -->
+    <transition name="po-fade">
+      <div v-if="showSuccessModal" class="po-success-backdrop">
+        <div class="po-success">
+          <div class="po-success-icon">
+            <b-icon icon="check-circle-fill"></b-icon>
           </div>
-        </div>
+          <h2 class="po-success-title">{{ $t('orderSubmitted') || 'تم إرسال الطلب بنجاح!' }}</h2>
+          <p class="po-success-sub">{{ $t('orderSuccessMessage') || 'شكراً لك، سيتم تحضير طلبك قريباً' }}</p>
 
-        <!-- Payment Method Selection -->
-        <div class="payment-section">
-          <h3 class="payment-title">طريقة الدفع</h3>
-          <div class="payment-options">
-            <button 
-              class="payment-option"
-              :class="{ active: paymentMethod === 'Cash' }"
-              @click="paymentMethod = 'Cash'"
+          <div class="po-success-code">
+            <span class="po-success-code-lbl">{{ $t('orderNumber') || 'رقم الطلب' }}</span>
+            <span class="po-success-code-val">{{ orderCode }}</span>
+          </div>
+
+          <div class="po-success-actions">
+            <router-link
+              :to="trackLink"
+              class="po-btn po-btn--primary"
+              @click.native="showSuccessModal = false"
             >
-              <b-icon icon="cash-coin" class="payment-icon"></b-icon>
-              <span>كاش</span>
-            </button>
-            <button 
-              class="payment-option"
-              :class="{ active: paymentMethod === 'Card' }"
-              @click="paymentMethod = 'Card'"
-            >
-              <b-icon icon="credit-card" class="payment-icon"></b-icon>
-              <span>بطاقة</span>
+              <b-icon icon="geo-alt"></b-icon>
+              {{ $t('trackOrder') || 'تتبع الطلب' }}
+            </router-link>
+            <button type="button" class="po-btn po-btn--ghost" @click="resetOrder">
+              {{ $t('newOrder') || 'طلب جديد' }}
             </button>
           </div>
         </div>
-
-        <!-- Notes Section -->
-        <div class="notes-section">
-          <label class="notes-label">ملاحظات (اختياري)</label>
-          <textarea 
-            v-model="orderNotes" 
-            class="notes-input"
-            placeholder="أضف ملاحظات للطلب..."
-            rows="2"
-          ></textarea>
-        </div>
-
-        <!-- Order Button -->
-        <button 
-          class="order-btn"
-          :disabled="submitting"
-          @click="submitOrder"
-        >
-          <b-icon v-if="!submitting" icon="check-circle-fill" class="me-2"></b-icon>
-          <span v-if="submitting">جاري إرسال الطلب...</span>
-          <span v-else>تأكيد الطلب</span>
-        </button>
       </div>
-    </div>
+    </transition>
 
-    <!-- Success Modal -->
-    <b-modal 
-      v-model="showSuccessModal" 
-      title="تم بنجاح" 
-      ok-only
-      @ok="resetOrder"
-      centered
-      modal-class="success-modal"
-      header-class="success-modal-header"
-      body-class="success-modal-body"
-      footer-class="success-modal-footer"
-      ok-title="حسناً"
-      ok-variant="primary"
-      hide-header-close
-    >
-      <div class="success-content">
-        <div class="success-icon-wrapper">
-          <b-icon icon="check-circle-fill" class="success-icon"></b-icon>
-          <div class="success-icon-ring"></div>
-        </div>
-        <h3 class="success-title">تم إرسال الطلب بنجاح!</h3>
-        <div class="order-code-wrapper">
-          <span class="order-code-label">رقم الطلب:</span>
-          <span class="order-code-value">{{ orderCode }}</span>
-        </div>
-        <p class="success-message">شكراً لك، سيتم تحضير طلبك قريباً</p>
-      </div>
-    </b-modal>
+    <footer class="po-footer">
+      <p>{{ restaurantName }}</p>
+      <span>Lite Casher</span>
+    </footer>
   </div>
 </template>
 
 <script>
 import { HTTP } from '../http/api.js';
+
+const UNCategorized = 'أخرى';
 
 export default {
   name: 'PublicOrderView',
@@ -249,108 +301,159 @@ export default {
       items: [],
       categories: [],
       selectedCategory: null,
+      searchQuery: '',
       restaurantName: '',
       restaurantLogo: null,
       logoError: false,
       commercialUserId: null,
       cartItems: [],
-      showCart: true,
+      showCart: false,
       paymentMethod: 'Cash',
       orderNotes: '',
       submitting: false,
       showSuccessModal: false,
-      orderCode: ''
+      orderCode: '',
     };
   },
   computed: {
+    menuLink() {
+      return `/menu/${this.commercialUserId}`;
+    },
+    trackLink() {
+      return `/order-status/${this.commercialUserId}/${this.orderCode}`;
+    },
+    categoryCounts() {
+      const counts = {};
+      this.items.forEach((item) => {
+        const cat = item.tags || UNCategorized;
+        counts[cat] = (counts[cat] || 0) + 1;
+      });
+      return counts;
+    },
     filteredItems() {
-      if (!this.selectedCategory) {
-        return this.items;
+      let list = this.items;
+      if (this.selectedCategory) {
+        list = list.filter((item) => (item.tags || UNCategorized) === this.selectedCategory);
       }
-      return this.items.filter(item => item.tags === this.selectedCategory);
+      const q = this.searchQuery.trim().toLowerCase();
+      if (!q) return list;
+      return list.filter(
+        (item) =>
+          (item.name && item.name.toLowerCase().includes(q)) ||
+          (item.description && item.description.toLowerCase().includes(q)) ||
+          (item.tags && item.tags.toLowerCase().includes(q))
+      );
+    },
+    menuSections() {
+      const items = this.filteredItems;
+      if (!items.length) return [];
+
+      if (this.selectedCategory || this.searchQuery.trim()) {
+        const name = this.selectedCategory || (this.$t('searchResults') || 'نتائج البحث');
+        return [{ name, items }];
+      }
+
+      const groups = {};
+      items.forEach((item) => {
+        const cat = item.tags || UNCategorized;
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push(item);
+      });
+
+      return Object.keys(groups)
+        .sort((a, b) => a.localeCompare(b, 'ar'))
+        .map((name) => ({ name, items: groups[name] }));
     },
     sortedCategories() {
-      return [...this.categories].sort((a, b) => {
-        return a.localeCompare(b, 'ar');
-      });
+      return [...this.categories].sort((a, b) => a.localeCompare(b, 'ar'));
     },
     totalItems() {
       return this.cartItems.reduce((sum, item) => sum + item.quantity, 0);
     },
     cartTotal() {
-      return this.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    }
+      return this.cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    },
   },
   mounted() {
     this.commercialUserId = this.$route.params.commercialUserId || this.$route.query.commercialUserId;
-    
+
     if (!this.commercialUserId) {
-      this.error = 'معرف المطعم غير موجود';
+      this.error = this.$t('restaurantNotFound') || 'معرف المطعم غير موجود';
       this.loading = false;
       return;
     }
 
     this.loadMenu();
     this.loadCategories();
+    document.documentElement.classList.add('public-order-page');
+  },
+  beforeDestroy() {
+    document.documentElement.classList.remove('public-order-page');
   },
   methods: {
     async loadMenu() {
       try {
         this.loading = true;
         this.error = null;
-        
+
         const response = await HTTP.get(`PublicMenu/${this.commercialUserId}`);
-        
+
         if (response.data && response.data.data) {
           const menuData = response.data.data;
           this.restaurantName = menuData.restaurantName || '';
           this.restaurantLogo = menuData.logo || null;
-          this.items = (menuData.items || []).map(item => ({
+          this.items = (menuData.items || []).map((item) => ({
             ...item,
-            imageError: false
+            imageError: false,
           }));
+
+          if (!this.categories.length) {
+            this.categories = [...new Set(this.items.map((i) => i.tags).filter(Boolean))];
+          }
         } else {
-          this.error = 'فشل تحميل القائمة';
+          this.error = this.$t('errorFetchingMenuItems') || 'فشل تحميل القائمة';
         }
       } catch (err) {
         console.error('Error loading menu:', err);
-        this.error = err.response?.data?.message || 'حدث خطأ أثناء تحميل القائمة';
+        this.error = err.response?.data?.message || this.$t('errorFetchingMenuItems') || 'حدث خطأ أثناء تحميل القائمة';
       } finally {
         this.loading = false;
       }
     },
     async loadCategories() {
-      if (!this.commercialUserId) {
-        return;
-      }
-      
+      if (!this.commercialUserId) return;
+
       try {
         const response = await HTTP.get(`PublicMenu/${this.commercialUserId}/categories`);
-        
-        if (response.data && response.data.data) {
+        if (response.data && response.data.data && response.data.data.length) {
           this.categories = response.data.data;
         }
       } catch (err) {
         console.error('Error loading categories:', err);
-        this.categories = [];
       }
     },
+    getCartQty(itemId) {
+      const found = this.cartItems.find((c) => c.id === itemId);
+      return found ? found.quantity : 0;
+    },
     addToCart(item) {
-      const existingItem = this.cartItems.find(cartItem => cartItem.id === item.id);
       const price = item.discountPrice || item.sellingPrice;
-      
-      if (existingItem) {
-        existingItem.quantity++;
+      const existing = this.cartItems.find((c) => c.id === item.id);
+
+      if (existing) {
+        existing.quantity++;
       } else {
         this.cartItems.push({
           id: item.id,
           name: item.name,
-          price: price,
-          quantity: 1
+          price,
+          quantity: 1,
         });
       }
-      
-      // Don't auto-open cart - let user decide when to view it
+    },
+    decreaseItem(item) {
+      const idx = this.cartItems.findIndex((c) => c.id === item.id);
+      if (idx >= 0) this.decreaseQuantity(idx);
     },
     increaseQuantity(index) {
       this.cartItems[index].quantity++;
@@ -364,46 +467,51 @@ export default {
     },
     removeFromCart(index) {
       this.cartItems.splice(index, 1);
+      if (this.cartItems.length === 0) {
+        this.showCart = false;
+      }
+    },
+    discountPercent(item) {
+      if (!item?.discountPrice || !item.sellingPrice || item.discountPrice >= item.sellingPrice) {
+        return 0;
+      }
+      return Math.round(((item.sellingPrice - item.discountPrice) / item.sellingPrice) * 100);
     },
     async submitOrder() {
-      if (this.cartItems.length === 0) {
-        return;
-      }
+      if (this.cartItems.length === 0) return;
 
       try {
         this.submitting = true;
 
-        const orderItems = this.cartItems.map(item => ({
-          ItemId: item.id,
-          Quantity: item.quantity
-        }));
-
         const orderRequest = {
           PaymentMethod: this.paymentMethod,
-          CustomerOrderItem: orderItems,
+          CustomerOrderItem: this.cartItems.map((item) => ({
+            ItemId: item.id,
+            Quantity: item.quantity,
+          })),
           OrderType: 'Takeaway',
-          Notes: this.orderNotes || null
+          Notes: this.orderNotes || null,
         };
 
         const response = await HTTP.post(`PublicMenu/${this.commercialUserId}/order`, orderRequest);
 
         if (response.data && !response.data.errorStatus) {
-          // Handle both OrderCode and orderCode formats
           this.orderCode = response.data.data?.OrderCode || response.data.data?.orderCode || '';
           this.showSuccessModal = true;
+          this.showCart = false;
         } else {
-          this.$bvToast.toast(response.data?.message || 'حدث خطأ أثناء إرسال الطلب', {
-            title: 'خطأ',
+          this.$bvToast.toast(response.data?.message || this.$t('orderSubmitError') || 'حدث خطأ أثناء إرسال الطلب', {
+            title: this.$t('error') || 'خطأ',
             variant: 'danger',
-            solid: true
+            solid: true,
           });
         }
       } catch (err) {
         console.error('Error submitting order:', err);
-        this.$bvToast.toast(err.response?.data?.message || 'حدث خطأ أثناء إرسال الطلب', {
-          title: 'خطأ',
+        this.$bvToast.toast(err.response?.data?.message || this.$t('orderSubmitError') || 'حدث خطأ أثناء إرسال الطلب', {
+          title: this.$t('error') || 'خطأ',
           variant: 'danger',
-          solid: true
+          solid: true,
         });
       } finally {
         this.submitting = false;
@@ -415,972 +523,852 @@ export default {
       this.paymentMethod = 'Cash';
       this.showSuccessModal = false;
       this.orderCode = '';
+      this.showCart = false;
     },
     formatPrice(price) {
       return new Intl.NumberFormat('ar-IQ').format(price);
-    }
-  }
+    },
+  },
 };
 </script>
 
 <style scoped>
-.public-order-container {
+.po {
+  --po-bg: #f7f3ee;
+  --po-surface: #ffffff;
+  --po-accent: #b8864a;
+  --po-accent-dark: #966b35;
+  --po-accent-soft: rgba(184, 134, 74, 0.12);
+  --po-text: #1c1917;
+  --po-muted: #78716c;
+  --po-border: #e7e0d8;
+  --po-shadow: 0 4px 24px rgba(28, 25, 23, 0.08);
+  --po-radius: 16px;
+
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-  color: #ffffff;
-  padding-bottom: 200px; /* Space for cart */
+  background: var(--po-bg);
+  color: var(--po-text);
+  font-family: 'Cairo', sans-serif;
+  padding-bottom: 1rem;
 }
 
-/* Header Styles */
-.public-order-header {
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-tertiary) 50%, var(--bg-primary) 100%);
-  padding: 1.5rem 1rem;
-  text-align: center;
-  box-shadow: var(--shadow-lg);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  border-bottom: 2px solid var(--border-color);
+/* Hero */
+.po-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, #2c2419 0%, #1a1612 55%, #0f0d0b 100%);
+  color: #fff;
 }
 
-.header-content {
-  max-width: 100%;
+.po-hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 80% 20%, rgba(184, 134, 74, 0.25), transparent),
+    radial-gradient(ellipse 60% 50% at 10% 80%, rgba(184, 134, 74, 0.12), transparent);
+  pointer-events: none;
+}
+
+.po-hero-inner {
+  position: relative;
+  max-width: 920px;
   margin: 0 auto;
+  padding: 2rem 1.25rem 1.5rem;
 }
 
-.logo-section {
-  margin-bottom: 0.75rem;
+.po-brand {
+  display: flex;
+  align-items: center;
+  gap: 1.125rem;
 }
 
-.order-logo {
-  max-width: 80px;
-  max-height: 80px;
-  height: auto;
-  width: auto;
+.po-logo {
+  width: 76px;
+  height: 76px;
   object-fit: contain;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+  border-radius: 50%;
+  background: #fff;
+  padding: 0.4rem;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
 }
 
-.logo-placeholder {
-  width: 70px;
-  height: 70px;
-  margin: 0 auto;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%);
+.po-logo-fallback {
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
+  background: var(--po-accent-soft);
+  border: 2px solid rgba(184, 134, 74, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--primary-color);
+  font-size: 1.75rem;
+  color: var(--po-accent);
 }
 
-.logo-icon {
-  font-size: 2rem;
-  color: var(--primary-color);
+.po-eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
 }
 
-.restaurant-name {
-  font-size: 1.5rem;
+.po-title {
+  margin: 0 0 0.3rem;
+  font-size: clamp(1.375rem, 4vw, 1.875rem);
   font-weight: 800;
-  margin: 0;
-  background: linear-gradient(135deg, #ffffff 0%, var(--primary-color) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  line-height: 1.25;
+  color: #fff8f0;
+  background: none;
+  -webkit-text-fill-color: #fff8f0;
 }
 
-/* Loading & Error States */
-.loading-container,
-.error-container {
+.po-tagline {
+  margin: 0;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.po-menu-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  padding: 0.45rem 0.875rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.po-menu-link:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+/* States */
+.po-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 50vh;
-  padding: 2rem;
+  min-height: 40vh;
+  gap: 1rem;
+  color: var(--po-muted);
 }
 
-.loading-spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid rgba(129, 140, 248, 0.3);
-  border-top-color: #818cf8;
+.po-state--error {
+  color: #b91c1c;
+}
+
+.po-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid var(--po-border);
+  border-top-color: var(--po-accent);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: po-spin 0.8s linear infinite;
 }
 
-@keyframes spin {
+@keyframes po-spin {
   to { transform: rotate(360deg); }
 }
 
-.loading-text,
-.error-text {
-  margin-top: 1rem;
-  font-size: 1.125rem;
-  color: rgba(255, 255, 255, 0.8);
+/* Toolbar */
+.po-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(247, 243, 238, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--po-border);
 }
 
-.error-icon {
-  font-size: 3rem;
-  color: #ef4444;
+.po-toolbar-inner {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0.875rem 1.25rem 1rem;
+}
+
+.po-search {
+  position: relative;
+  margin-bottom: 0.75rem;
+}
+
+.po-search-icon {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--po-muted);
+}
+
+.po-search-input {
+  width: 100%;
+  padding: 0.75rem 2.75rem 0.75rem 2.5rem;
+  border: 1.5px solid var(--po-border);
+  border-radius: 999px;
+  background: var(--po-surface);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  color: var(--po-text);
+}
+
+.po-search-input:focus {
+  outline: none;
+  border-color: var(--po-accent);
+  box-shadow: 0 0 0 3px var(--po-accent-soft);
+}
+
+.po-search-clear {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--po-muted);
+  cursor: pointer;
+}
+
+.po-cats {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.po-cats::-webkit-scrollbar {
+  display: none;
+}
+
+.po-cat {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border: 1.5px solid var(--po-border);
+  border-radius: 999px;
+  background: var(--po-surface);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--po-muted);
+  cursor: pointer;
+}
+
+.po-cat--active {
+  background: var(--po-accent);
+  border-color: var(--po-accent);
+  color: #fff;
+}
+
+.po-cat-count {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+/* Main */
+.po-main {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 2rem;
+  transition: padding-bottom 0.3s;
+}
+
+.po-main--cart {
+  padding-bottom: 5.5rem;
+}
+
+.po-section {
+  margin-bottom: 2rem;
+}
+
+.po-section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   margin-bottom: 1rem;
 }
 
-/* Category Filter */
-.category-filter-wrapper {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(15px);
-  border-bottom: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.category-filter {
-  display: flex;
-  gap: 0.5rem;
-  padding: 1rem;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-}
-
-.category-btn {
-  padding: 0.75rem 1.25rem;
-  background: var(--bg-tertiary);
-  border: 2px solid var(--border-color);
-  border-radius: 1.5rem;
-  color: var(--text-primary);
-  font-weight: 600;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.po-section-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 800;
   white-space: nowrap;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
 }
 
-.category-btn:hover {
-  background: rgba(129, 140, 248, 0.15);
-  border-color: var(--primary-color);
+.po-section-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to left, transparent, var(--po-border), transparent);
 }
 
-.category-btn.active {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-  border-color: var(--primary-color);
-  color: #ffffff;
+.po-section-count {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--po-accent);
+  background: var(--po-accent-soft);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
 }
 
-/* Menu Content */
-.order-content {
-  padding: 1rem;
-  max-width: 100%;
-  margin: 0 auto;
-}
-
-.menu-items-grid {
+/* Grid */
+.po-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 0.75rem;
-  margin-top: 1rem;
 }
 
-/* Menu Item Card */
-.menu-item-card {
-  background: rgba(30, 41, 59, 0.8);
-  border-radius: 0.75rem;
+.po-card {
+  background: var(--po-surface);
+  border: 1px solid var(--po-border);
+  border-radius: 14px;
   overflow: hidden;
-  transition: all 0.3s ease;
-  border: 1px solid rgba(129, 140, 248, 0.2);
-  backdrop-filter: blur(10px);
+  box-shadow: var(--po-shadow);
   display: flex;
   flex-direction: column;
-  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.menu-item-card:active {
-  transform: scale(0.98);
+.po-card--in-cart {
+  border-color: rgba(184, 134, 74, 0.55);
+  box-shadow: 0 4px 20px rgba(184, 134, 74, 0.15);
 }
 
-.item-image-container {
+.po-card-media {
   position: relative;
-  width: 100%;
-  height: 120px;
-  overflow: hidden;
-  background: rgba(15, 23, 42, 0.5);
+  height: 110px;
+  background: var(--po-bg);
 }
 
-.item-image {
+.po-card-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.item-image-placeholder {
+.po-card-img-fallback {
   width: 100%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(129, 140, 248, 0.1);
+  color: var(--po-accent);
+  font-size: 1.75rem;
+  opacity: 0.5;
 }
 
-.placeholder-icon {
-  font-size: 2rem;
-  color: rgba(129, 140, 248, 0.4);
-}
-
-.discount-badge {
+.po-badge {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: #ffffff;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
-  font-size: 0.625rem;
-  font-weight: 700;
+  top: 0.4rem;
+  right: 0.4rem;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
 }
 
-.item-content {
+.po-card-body {
   padding: 0.75rem;
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 0.35rem;
 }
 
-.item-header {
-  margin-bottom: 0.5rem;
-}
-
-.item-name {
+.po-card-name {
+  margin: 0;
   font-size: 0.9375rem;
   font-weight: 700;
-  color: #ffffff;
-  margin: 0;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
-.item-description {
-  color: rgba(255, 255, 255, 0.6);
+.po-card-desc {
+  margin: 0;
   font-size: 0.75rem;
-  line-height: 1.4;
-  margin-bottom: 0.5rem;
+  color: var(--po-muted);
+  line-height: 1.45;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.item-footer {
+.po-card-foot {
   margin-top: auto;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
+  padding-top: 0.35rem;
 }
 
-.item-price {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.original-price {
-  color: rgba(255, 255, 255, 0.5);
+.po-price-old {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--po-muted);
   text-decoration: line-through;
-  font-size: 0.625rem;
 }
 
-.current-price {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #818cf8;
+.po-price {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: var(--po-accent-dark);
 }
 
-.add-btn {
-  background: var(--primary-color);
+.po-price small {
+  font-size: 0.6875rem;
+}
+
+.po-add-btn {
+  width: 36px;
+  height: 36px;
   border: none;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  background: linear-gradient(135deg, var(--po-accent), var(--po-accent-dark));
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
   cursor: pointer;
-  transition: all 0.3s ease;
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(184, 134, 74, 0.35);
+}
+
+.po-qty-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--po-bg);
+  border-radius: 999px;
+  padding: 0.2rem;
+  border: 1px solid var(--po-border);
+}
+
+.po-qty-ctrl--sm {
   flex-shrink: 0;
 }
 
-.add-btn:active {
-  transform: scale(0.9);
+.po-qty-btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: var(--po-surface);
+  color: var(--po-accent-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.875rem;
 }
 
-/* Cart Section */
-.cart-section {
+.po-qty-val {
+  min-width: 1.25rem;
+  text-align: center;
+  font-weight: 800;
+  font-size: 0.9375rem;
+}
+
+.po-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #78716c;
+}
+
+.po-empty .b-icon {
+  font-size: 3rem;
+  color: #b8864a;
+  opacity: 0.35;
+  margin-bottom: 0.75rem;
+}
+
+.po-empty p {
+  margin: 0;
+  color: #78716c;
+  font-weight: 600;
+  -webkit-text-fill-color: #78716c;
+}
+
+/* Cart */
+.po-cart {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(15, 23, 42, 0.98);
-  backdrop-filter: blur(20px);
-  border-top: 2px solid var(--primary-color);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
-  z-index: 1000;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  animation: slideUpCart 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  transform-origin: bottom;
+  z-index: 100;
+  max-width: 920px;
+  margin: 0 auto;
 }
 
-@keyframes slideUpCart {
-  0% {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  60% {
-    transform: translateY(-5px);
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.cart-section::before {
-  content: '';
-  position: absolute;
-  top: -2px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, 
-    transparent, 
-    var(--primary-color), 
-    var(--primary-color), 
-    transparent
-  );
-  animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-  0%, 100% {
-    opacity: 0.5;
-    transform: scaleX(0.8);
-  }
-  50% {
-    opacity: 1;
-    transform: scaleX(1);
-  }
-}
-
-.cart-header {
-  padding: 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  border-bottom: 1px solid var(--border-color);
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-.cart-header:hover {
-  background: rgba(129, 140, 248, 0.05);
-}
-
-.cart-header:active {
-  transform: scale(0.98);
-}
-
-.cart-info {
+.po-cart-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-.cart-icon {
-  font-size: 1.5rem;
-  color: var(--primary-color);
-}
-
-.cart-count {
-  background: var(--primary-color);
-  color: #ffffff;
-  padding: 0.25rem 0.5rem;
-  border-radius: 1rem;
-  font-weight: 700;
-  font-size: 0.875rem;
-  animation: pulseCount 2s infinite;
-  box-shadow: 0 0 10px rgba(129, 140, 248, 0.5);
-}
-
-@keyframes pulseCount {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 10px rgba(129, 140, 248, 0.5);
-  }
-  50% {
-    transform: scale(1.1);
-    box-shadow: 0 0 20px rgba(129, 140, 248, 0.8);
-  }
-}
-
-.cart-label {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.cart-total {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-
-.total-label {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.total-amount {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--primary-color);
-  animation: glowText 2s ease-in-out infinite;
-}
-
-@keyframes glowText {
-  0%, 100% {
-    text-shadow: 0 0 5px rgba(129, 140, 248, 0.5);
-  }
-  50% {
-    text-shadow: 0 0 15px rgba(129, 140, 248, 0.8), 0 0 25px rgba(129, 140, 248, 0.5);
-  }
-}
-
-.cart-toggle-icon {
-  font-size: 1.25rem;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.cart-content {
-  max-height: calc(90vh - 80px);
-  overflow-y: auto;
-  padding: 1rem;
-  animation: fadeInContent 0.3s ease-in;
-}
-
-@keyframes fadeInContent {
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.cart-items {
-  margin-bottom: 1rem;
-}
-
-.cart-item {
-  background: rgba(30, 41, 59, 0.8);
-  border-radius: 0.75rem;
-  padding: 1rem;
-  margin-bottom: 0.75rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
-
-.cart-item-info {
-  flex: 1;
-}
-
-.cart-item-name {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: #ffffff;
-  margin: 0 0 0.25rem 0;
-}
-
-.cart-item-price {
-  font-size: 0.875rem;
-  color: var(--primary-color);
-  font-weight: 600;
-  margin: 0;
-}
-
-.cart-item-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.quantity-btn {
-  background: rgba(129, 140, 248, 0.2);
-  border: 1px solid var(--primary-color);
-  border-radius: 0.5rem;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.quantity-btn:active {
-  transform: scale(0.9);
-}
-
-.quantity-value {
-  min-width: 30px;
-  text-align: center;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.remove-btn {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid #ef4444;
-  border-radius: 0.5rem;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ef4444;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.remove-btn:active {
-  transform: scale(0.9);
-}
-
-/* Payment Section */
-.payment-section {
-  margin-bottom: 1rem;
-  padding: 1rem;
-  background: rgba(30, 41, 59, 0.5);
-  border-radius: 0.75rem;
-}
-
-.payment-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #ffffff;
-  margin: 0 0 0.75rem 0;
-}
-
-.payment-options {
-  display: flex;
   gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  background: linear-gradient(135deg, var(--po-accent) 0%, var(--po-accent-dark) 100%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 -4px 24px rgba(28, 25, 23, 0.15);
 }
 
-.payment-option {
-  flex: 1;
-  padding: 1rem;
-  background: rgba(30, 41, 59, 0.8);
-  border: 2px solid var(--border-color);
-  border-radius: 0.75rem;
-  color: #ffffff;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.po-cart-bar-left {
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 0.5rem;
 }
 
-.payment-option:active {
-  transform: scale(0.98);
+.po-cart-badge {
+  background: #fff;
+  color: var(--po-accent-dark);
+  font-weight: 800;
+  font-size: 0.875rem;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.payment-option.active {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-  border-color: var(--primary-color);
+.po-cart-label {
+  font-weight: 700;
+  font-size: 0.9375rem;
 }
 
-.payment-icon {
-  font-size: 1.5rem;
+.po-cart-bar-total {
+  margin-right: auto;
+  font-size: 1.125rem;
+  font-weight: 800;
 }
 
-/* Notes Section */
-.notes-section {
+.po-cart-bar-total small {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.po-cart-chevron {
+  font-size: 1.125rem;
+  opacity: 0.85;
+}
+
+.po-cart-panel {
+  background: var(--po-surface);
+  border-top: 1px solid var(--po-border);
+  max-height: 70vh;
+  overflow-y: auto;
+  box-shadow: 0 -8px 32px rgba(28, 25, 23, 0.12);
+}
+
+.po-cart-items {
+  padding: 1rem 1.25rem 0;
+}
+
+.po-cart-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--po-border);
+}
+
+.po-cart-row-name {
+  display: block;
+  font-weight: 700;
+  font-size: 0.9375rem;
+}
+
+.po-cart-row-price {
+  font-size: 0.8125rem;
+  color: var(--po-accent-dark);
+  font-weight: 700;
+}
+
+.po-checkout {
+  padding: 1rem 1.25rem 1.25rem;
+  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0));
+}
+
+.po-checkout-label,
+.po-notes-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--po-text);
+}
+
+.po-pay-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.625rem;
   margin-bottom: 1rem;
 }
 
-.notes-label {
-  display: block;
+.po-pay-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.875rem;
+  border: 1.5px solid var(--po-border);
+  border-radius: 12px;
+  background: var(--po-bg);
+  font-family: inherit;
   font-size: 0.875rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.8);
-  margin-bottom: 0.5rem;
+  font-weight: 700;
+  color: var(--po-muted);
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.notes-input {
+.po-pay-opt--active {
+  background: var(--po-accent-soft);
+  border-color: var(--po-accent);
+  color: var(--po-accent-dark);
+}
+
+.po-notes {
   width: 100%;
   padding: 0.75rem;
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
-  color: #ffffff;
+  border: 1.5px solid var(--po-border);
+  border-radius: 12px;
+  font-family: inherit;
   font-size: 0.875rem;
   resize: vertical;
-  font-family: inherit;
+  margin-bottom: 1rem;
+  background: var(--po-bg);
+  color: var(--po-text);
 }
 
-.notes-input:focus {
+.po-notes:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: var(--po-accent);
 }
 
-.notes-input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-/* Order Button */
-.order-btn {
+.po-submit {
   width: 100%;
-  padding: 1rem;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-  border: none;
-  border-radius: 0.75rem;
-  color: #ffffff;
-  font-size: 1.125rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 4px 15px rgba(129, 140, 248, 0.4);
-  animation: buttonPulse 2s ease-in-out infinite;
-}
-
-@keyframes buttonPulse {
-  0%, 100% {
-    box-shadow: 0 4px 15px rgba(129, 140, 248, 0.4);
-  }
-  50% {
-    box-shadow: 0 4px 25px rgba(129, 140, 248, 0.7), 0 0 30px rgba(129, 140, 248, 0.3);
-  }
-}
-
-.order-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s ease;
-}
-
-.order-btn:hover::before {
-  left: 100%;
-}
-
-.order-btn:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-.order-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  animation: none;
-}
-
-/* Success Modal - Enhanced Styles */
-::v-deep .success-modal .modal-content {
+  padding: 1rem;
   border: none;
-  border-radius: 1.5rem;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 40px rgba(129, 140, 248, 0.2);
-  animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes modalSlideIn {
-  0% {
-    transform: scale(0.8) translateY(-20px);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-  }
-}
-
-::v-deep .success-modal-header {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-  color: #ffffff;
-  border-bottom: none;
-  padding: 1.5rem;
-  position: relative;
-  overflow: hidden;
-}
-
-::v-deep .success-modal-header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  animation: shimmerHeader 3s infinite;
-}
-
-@keyframes shimmerHeader {
-  0% {
-    left: -100%;
-  }
-  100% {
-    left: 100%;
-  }
-}
-
-::v-deep .success-modal-header .modal-title {
-  font-family: 'Cairo', sans-serif;
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #ffffff;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-}
-
-::v-deep .success-modal-header .close {
-  display: none !important;
-}
-
-::v-deep .success-modal-body {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  padding: 2.5rem 2rem;
-  color: #ffffff;
-  font-family: 'Cairo', sans-serif;
-}
-
-::v-deep .success-modal-footer {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border-top: 1px solid rgba(129, 140, 248, 0.2);
-  padding: 1rem 1.5rem;
-  display: flex;
-  justify-content: center;
-}
-
-::v-deep .success-modal-footer .btn-primary {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-  border: none;
-  border-radius: 0.75rem;
-  padding: 0.875rem 2.5rem;
-  font-family: 'Cairo', sans-serif;
-  font-weight: 700;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--po-accent) 0%, var(--po-accent-dark) 100%);
+  color: #fff;
+  font-family: inherit;
   font-size: 1rem;
-  box-shadow: 0 4px 15px rgba(129, 140, 248, 0.4);
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-::v-deep .success-modal-footer .btn-primary::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s ease;
-}
-
-::v-deep .success-modal-footer .btn-primary:hover::before {
-  left: 100%;
-}
-
-::v-deep .success-modal-footer .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(129, 140, 248, 0.6);
-}
-
-::v-deep .success-modal-footer .btn-primary:active {
-  transform: translateY(0);
-}
-
-.success-content {
-  text-align: center;
-  padding: 0;
-  position: relative;
-}
-
-.success-icon-wrapper {
-  position: relative;
-  display: inline-block;
-  margin-bottom: 1.5rem;
-}
-
-.success-icon {
-  font-size: 5rem;
-  color: #10b981;
-  position: relative;
-  z-index: 2;
-  animation: successIconPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-  filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.5));
-}
-
-@keyframes successIconPop {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1.2);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-.success-icon-ring {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 120px;
-  height: 120px;
-  border: 3px solid rgba(16, 185, 129, 0.3);
-  border-radius: 50%;
-  animation: ringPulse 2s ease-in-out infinite;
-}
-
-@keyframes ringPulse {
-  0%, 100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0.5;
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.2);
-    opacity: 0.2;
-  }
-}
-
-.success-title {
-  font-family: 'Cairo', sans-serif;
-  color: #10b981;
-  font-size: 1.75rem;
   font-weight: 800;
-  margin: 0 0 1.5rem 0;
-  animation: fadeInUp 0.5s ease 0.2s both;
-  text-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(184, 134, 74, 0.4);
 }
 
-@keyframes fadeInUp {
-  0% {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.po-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
-.order-code-wrapper {
-  background: rgba(129, 140, 248, 0.1);
-  border: 2px solid rgba(129, 140, 248, 0.3);
-  border-radius: 1rem;
-  padding: 1rem 1.5rem;
-  margin: 1.5rem 0;
+/* Success */
+.po-success-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 13, 11, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.po-success {
+  width: 100%;
+  max-width: 400px;
+  background: var(--po-surface);
+  border-radius: 20px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+}
+
+.po-success-icon {
+  font-size: 3.5rem;
+  color: #059669;
+  margin-bottom: 0.75rem;
+}
+
+.po-success-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: var(--po-text);
+}
+
+.po-success-sub {
+  margin: 0 0 1.25rem;
+  font-size: 0.9375rem;
+  color: var(--po-muted);
+  line-height: 1.55;
+}
+
+.po-success-code {
+  background: var(--po-accent-soft);
+  border: 1.5px solid rgba(184, 134, 74, 0.3);
+  border-radius: 14px;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.po-success-code-lbl {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--po-muted);
+  margin-bottom: 0.25rem;
+}
+
+.po-success-code-val {
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--po-accent-dark);
+}
+
+.po-success-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.po-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  animation: fadeInUp 0.5s ease 0.4s both;
-  backdrop-filter: blur(10px);
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
 }
 
-.order-code-label {
-  font-family: 'Cairo', sans-serif;
-  font-size: 1rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.8);
+.po-btn--primary {
+  background: linear-gradient(135deg, var(--po-accent), var(--po-accent-dark));
+  color: #fff;
 }
 
-.order-code-value {
-  font-family: 'Cairo', sans-serif;
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--primary-color);
-  text-shadow: 0 0 10px rgba(129, 140, 248, 0.5);
-  letter-spacing: 0.05em;
+.po-btn--ghost {
+  background: var(--po-bg);
+  color: var(--po-text);
+  border: 1.5px solid var(--po-border);
 }
 
-.success-message {
-  font-family: 'Cairo', sans-serif;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.125rem;
-  margin-top: 1.5rem;
-  line-height: 1.6;
-  animation: fadeInUp 0.5s ease 0.6s both;
-}
-
-/* Empty State */
-.empty-state {
+/* Footer */
+.po-footer {
   text-align: center;
-  padding: 4rem 2rem;
+  padding: 2rem 1rem 1rem;
+  color: var(--po-muted);
+  font-size: 0.8125rem;
 }
 
-.empty-icon {
-  font-size: 4rem;
-  color: rgba(129, 140, 248, 0.4);
-  margin-bottom: 1rem;
+.po-footer p {
+  margin: 0 0 0.2rem;
+  font-weight: 600;
+  color: var(--po-text);
 }
 
-.empty-text {
-  font-size: 1.125rem;
-  color: rgba(255, 255, 255, 0.6);
+/* Transitions */
+.po-slide-enter-active,
+.po-slide-leave-active {
+  transition: max-height 0.3s ease, opacity 0.25s;
+  overflow: hidden;
 }
 
-/* Responsive - Landscape orientation */
-@media (orientation: landscape) and (max-height: 600px) {
-  .menu-items-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  
-  .item-image-container {
-    height: 100px;
-  }
+.po-slide-enter,
+.po-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
 }
 
-/* Larger screens */
-@media (min-width: 768px) {
-  .menu-items-grid {
+.po-fade-enter-active,
+.po-fade-leave-active {
+  transition: opacity 0.25s;
+}
+
+.po-fade-enter,
+.po-fade-leave-to {
+  opacity: 0;
+}
+
+/* Responsive */
+@media (min-width: 640px) {
+  .po-grid {
     grid-template-columns: repeat(3, 1fr);
     gap: 1rem;
   }
-  
-  .item-image-container {
-    height: 160px;
+
+  .po-card-media {
+    height: 130px;
   }
-  
-  .cart-section {
-    max-width: 500px;
-    left: 50%;
-    transform: translateX(-50%);
+
+  .po-main--cart {
+    padding-bottom: 6rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .po-brand {
+    flex-direction: column;
+    text-align: center;
   }
 }
 </style>
 
+<style>
+html.public-order-page,
+html.public-order-page body {
+  background: #f7f3ee !important;
+  color: #1c1917 !important;
+}
+
+html.public-order-page #app {
+  background: #f7f3ee;
+}
+
+html.public-order-page .po-hero h1,
+html.public-order-page .po-hero p {
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  -webkit-text-fill-color: unset !important;
+}
+
+html.public-order-page .po-title {
+  color: #fff8f0 !important;
+  -webkit-text-fill-color: #fff8f0 !important;
+}
+
+html.public-order-page .po-empty p,
+html.public-order-page .po-tagline,
+html.public-order-page .po-eyebrow,
+html.public-order-page .po-footer,
+html.public-order-page .po-state,
+html.public-order-page .po-hint {
+  -webkit-text-fill-color: unset !important;
+  background: none !important;
+}
+
+html.public-order-page .po-empty p {
+  color: #78716c !important;
+}
+</style>

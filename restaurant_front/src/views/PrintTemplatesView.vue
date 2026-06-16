@@ -1,362 +1,64 @@
 <template>
-  <div>
+  <div class="main-content-wrapper">
     <AppHeader />
-    <div class="main-content-wrapper">
-      <div class="users-page-container">
-        <div class="users-page-content">
-          <!-- Header Section -->
-          <div class="users-header-section">
-            <div class="users-header-content">
-              <div class="header-title-wrapper">
-                <div class="header-icon-wrapper">
-                  <b-icon icon="printer-fill" class="header-icon"></b-icon>
-                </div>
-                <div>
-                  <h1 class="users-page-title">{{ $t('printTemplates') || 'نماذج الطباعة' }}</h1>
-                  <p class="header-subtitle">{{ $t('printTemplatesDescription') || 'عرض جميع نماذج الطباعة المتاحة في النظام' }}</p>
-                </div>
+    <div class="pt-page-container">
+      <div class="pt-page-content">
+        <div class="users-header-section">
+          <div class="users-header-content">
+            <div class="header-title-wrapper">
+              <div class="header-icon-wrapper">
+                <b-icon icon="printer-fill" class="header-icon"></b-icon>
+              </div>
+              <div>
+                <h1 class="users-page-title">
+                  {{ $t("printTemplates") || "نماذج الطباعة" }}
+                </h1>
+                <p class="header-subtitle">
+                  {{
+                    $t("printTemplatesDescription") ||
+                    "معاينة نماذج الإيصال كما تُطبَع من POS والتقارير والويتر"
+                  }}
+                </p>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Print Templates Section -->
-          <div class="print-templates-section">
-            <div class="print-templates-grid">
-              <!-- POS Print Template -->
-              <div class="print-template-card">
-                <div class="print-template-header">
-                  <b-icon icon="cash-stack" class="template-icon"></b-icon>
-                  <h3 class="template-title">{{ $t('posPrintTemplate') || 'نموذج طباعة POS' }}</h3>
-                </div>
-                <div class="print-template-preview" id="pos-print-preview">
-                  <div class="bill-container">
-                    <!-- Header Section -->
-                    <div class="bill-header">
-                      <img
-                        src="../assets/logoarabic.png"
-                        alt="logo"
-                        class="bill-logo-img"
-                      />
-                      <h2 class="bill-store-name">نظام لايت كاشير</h2>
-                      <p class="bill-store-subtitle">نظام إدارة المطاعم</p>
-                    </div>
-
-                    <!-- Invoice Info Section -->
-                    <div class="bill-info-section">
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t("invoice_number") }}:</span>
-                        <span class="bill-info-value">123456789</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t("from_date") }}:</span>
-                        <span class="bill-info-value">2024-01-15 14:30</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t("orderType") }}:</span>
-                        <span class="bill-info-value">{{ $t("dineIn") }}</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t("paymentMethod") }}:</span>
-                        <span class="bill-info-value">{{ $t("cash") }}</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t("table") || "الطاولة" }}:</span>
-                        <span class="bill-info-value">5</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t("employeeLabel") }}:</span>
-                        <span class="bill-info-value">أحمد محمد</span>
-                      </div>
-                    </div>
-
-                    <!-- Divider -->
-                    <div class="bill-divider"></div>
-
-                    <!-- Items Table -->
-                    <div class="bill-items-section">
-                      <table class="bill-items-table">
-                        <thead>
-                          <tr>
-                            <th class="bill-item-name-col">{{ $t("item_name_label") }}</th>
-                            <th class="bill-item-qty-col">{{ $t("quantity_label") }}</th>
-                            <th class="bill-item-price-col">{{ $t("selling_price_label") }}</th>
-                            <th class="bill-item-total-col">{{ $t("total_label") }}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td class="bill-item-name">
-                              شاورما دجاج
-                              <span class="bill-discount-badge">خصم</span>
-                            </td>
-                            <td class="bill-item-qty">2</td>
-                            <td class="bill-item-price">
-                              <span class="bill-price-discounted">
-                                <span class="bill-original-price">15,000</span>
-                                <span class="bill-discount-price">12,000</span>
-                              </span>
-                            </td>
-                            <td class="bill-item-total">24,000</td>
-                          </tr>
-                          <tr>
-                            <td class="bill-item-name">بيتزا كبيرة</td>
-                            <td class="bill-item-qty">1</td>
-                            <td class="bill-item-price">25,000</td>
-                            <td class="bill-item-total">25,000</td>
-                          </tr>
-                          <tr>
-                            <td class="bill-item-name">كولا</td>
-                            <td class="bill-item-qty">3</td>
-                            <td class="bill-item-price">2,000</td>
-                            <td class="bill-item-total">6,000</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <!-- Divider -->
-                    <div class="bill-divider"></div>
-
-                    <!-- Summary Section -->
-                    <div class="bill-summary-section">
-                      <div class="bill-summary-row">
-                        <span class="bill-summary-label">{{ $t("count") }}:</span>
-                        <span class="bill-summary-value">6 {{ $t("items") }}</span>
-                      </div>
-                      <div class="bill-summary-row bill-summary-total">
-                        <span class="bill-summary-label">{{ $t("total") }}:</span>
-                        <span class="bill-summary-value">55,000 {{ $t("currency") }}</span>
-                      </div>
-                    </div>
-
-                    <!-- Footer Section -->
-                    <div class="bill-footer">
-                      <p class="bill-footer-text">شكراً لزيارتكم</p>
-                      <p class="bill-footer-text">Thank you for your visit</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="print-template-actions">
-                  <button class="template-print-btn" @click="printTemplate('pos')">
-                    <b-icon icon="printer-fill" class="me-2"></b-icon>
-                    {{ $t('print') }}
-                  </button>
-                </div>
+        <div class="pt-templates-grid">
+          <article
+            v-for="tpl in templateCards"
+            :key="tpl.id"
+            class="pt-template-card app-section-card"
+          >
+            <header class="pt-template-head">
+              <span class="pt-template-icon" :class="`pt-template-icon--${tpl.id}`">
+                <b-icon :icon="tpl.icon"></b-icon>
+              </span>
+              <div class="pt-template-head-text">
+                <h2 class="pt-template-title">{{ tpl.title }}</h2>
+                <p class="pt-template-desc">{{ tpl.description }}</p>
               </div>
+            </header>
 
-              <!-- Reports Print Template -->
-              <div class="print-template-card">
-                <div class="print-template-header">
-                  <b-icon icon="file-earmark-bar-graph-fill" class="template-icon"></b-icon>
-                  <h3 class="template-title">{{ $t('reportsPrintTemplate') || 'نموذج طباعة التقارير' }}</h3>
-                </div>
-                <div class="print-template-preview" id="reports-print-preview">
-                  <div class="bill-container">
-                    <!-- Header -->
-                    <div class="bill-header">
-                      <img src="../assets/logoarabic.png" class="bill-logo-img" />
-                      <h2 class="bill-store-name">نظام لايت كاشير</h2>
-                      <p class="bill-store-subtitle">نظام إدارة المطاعم</p>
-                    </div>
-
-                    <!-- Order Info -->
-                    <div class="bill-info-section">
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t('invoice_number') }}:</span>
-                        <span class="bill-info-value">987654321</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t('from_date') }}:</span>
-                        <span class="bill-info-value">2024-01-15 16:45</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t('paymentMethod') }}:</span>
-                        <span class="bill-info-value">{{ $t('card') }}</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t('orderType') }}:</span>
-                        <span class="bill-info-value">{{ $t('dineIn') }}</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t('table') || 'الطاولة' }}:</span>
-                        <span class="bill-info-value">3</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t('employeeLabel') }}:</span>
-                        <span class="bill-info-value">سارة علي</span>
-                      </div>
-                    </div>
-
-                    <!-- Divider -->
-                    <div class="bill-divider"></div>
-
-                    <!-- Items Table -->
-                    <div class="bill-items-section">
-                      <table class="bill-items-table">
-                        <thead>
-                          <tr>
-                            <th class="bill-item-name-col">{{ $t('item_name_label') }}</th>
-                            <th class="bill-item-qty-col">{{ $t('quantity_label') }}</th>
-                            <th class="bill-item-price-col">{{ $t('selling_price_label') }}</th>
-                            <th class="bill-item-total-col">{{ $t('total_label') }}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td class="bill-item-name">برجر لحم</td>
-                            <td class="bill-item-qty">2</td>
-                            <td class="bill-item-price">18,000</td>
-                            <td class="bill-item-total">36,000</td>
-                          </tr>
-                          <tr>
-                            <td class="bill-item-name">بطاطس مقلية</td>
-                            <td class="bill-item-qty">2</td>
-                            <td class="bill-item-price">5,000</td>
-                            <td class="bill-item-total">10,000</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <!-- Divider -->
-                    <div class="bill-divider"></div>
-
-                    <!-- Summary -->
-                    <div class="bill-summary-section">
-                      <div class="bill-summary-row">
-                        <span class="bill-summary-label">{{ $t('count') }}:</span>
-                        <span class="bill-summary-value">4 {{ $t('items') }}</span>
-                      </div>
-                      <div class="bill-summary-row bill-summary-total">
-                        <span class="bill-summary-label">{{ $t('total') }}:</span>
-                        <span class="bill-summary-value">46,000 {{ $t('currency') }}</span>
-                      </div>
-                    </div>
-
-                    <!-- Footer -->
-                    <div class="bill-footer">
-                      <p class="bill-footer-text">شكراً لزيارتكم</p>
-                      <p class="bill-footer-text">Thank you for your visit</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="print-template-actions">
-                  <button class="template-print-btn" @click="printTemplate('reports')">
-                    <b-icon icon="printer-fill" class="me-2"></b-icon>
-                    {{ $t('print') }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Waiter Print Template -->
-              <div class="print-template-card">
-                <div class="print-template-header">
-                  <b-icon icon="person-badge-fill" class="template-icon"></b-icon>
-                  <h3 class="template-title">{{ $t('waiterPrintTemplate') || 'نموذج طباعة الويتر' }}</h3>
-                </div>
-                <div class="print-template-preview" id="waiter-print-preview">
-                  <div class="bill-container">
-                    <!-- Header Section -->
-                    <div class="bill-header">
-                      <img
-                        src="../assets/logoarabic.png"
-                        alt="logo"
-                        class="bill-logo-img"
-                      />
-                      <h2 class="bill-store-name">نظام لايت كاشير</h2>
-                      <p class="bill-store-subtitle">نظام إدارة المطاعم</p>
-                    </div>
-
-                    <!-- Order Info Section -->
-                    <div class="bill-info-section">
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t("invoice_number") }}:</span>
-                        <span class="bill-info-value">555666777</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t("from_date") }}:</span>
-                        <span class="bill-info-value">2024-01-15 18:20</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t("orderType") }}:</span>
-                        <span class="bill-info-value">{{ $t("dineIn") }}</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t("paymentMethod") }}:</span>
-                        <span class="bill-info-value">{{ $t("cash") }}</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t("table") || "الطاولة" }}:</span>
-                        <span class="bill-info-value">7</span>
-                      </div>
-                      <div class="bill-info-row">
-                        <span class="bill-info-label">{{ $t("employeeLabel") }}:</span>
-                        <span class="bill-info-value">خالد أحمد</span>
-                      </div>
-                    </div>
-
-                    <!-- Divider -->
-                    <div class="bill-divider"></div>
-
-                    <!-- Items Table -->
-                    <div class="bill-items-section">
-                      <table class="bill-items-table">
-                        <thead>
-                          <tr>
-                            <th class="bill-item-name-col">{{ $t("item_name_label") }}</th>
-                            <th class="bill-item-qty-col">{{ $t("quantity_label") }}</th>
-                            <th class="bill-item-price-col">{{ $t("selling_price_label") }}</th>
-                            <th class="bill-item-total-col">{{ $t("total_label") }}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td class="bill-item-name">سلطة خضار</td>
-                            <td class="bill-item-qty">1</td>
-                            <td class="bill-item-price">8,000</td>
-                            <td class="bill-item-total">8,000</td>
-                          </tr>
-                          <tr>
-                            <td class="bill-item-name">شاي</td>
-                            <td class="bill-item-qty">2</td>
-                            <td class="bill-item-price">1,500</td>
-                            <td class="bill-item-total">3,000</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <!-- Divider -->
-                    <div class="bill-divider"></div>
-
-                    <!-- Summary Section -->
-                    <div class="bill-summary-section">
-                      <div class="bill-summary-row">
-                        <span class="bill-summary-label">{{ $t("count") }}:</span>
-                        <span class="bill-summary-value">3 {{ $t("items") }}</span>
-                      </div>
-                      <div class="bill-summary-row bill-summary-total">
-                        <span class="bill-summary-label">{{ $t("total") }}:</span>
-                        <span class="bill-summary-value">11,000 {{ $t("currency") }}</span>
-                      </div>
-                    </div>
-
-                    <!-- Footer Section -->
-                    <div class="bill-footer">
-                      <p class="bill-footer-text">شكراً لزيارتكم</p>
-                      <p class="bill-footer-text">Thank you for your visit</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="print-template-actions">
-                  <button class="template-print-btn" @click="printTemplate('waiter')">
-                    <b-icon icon="printer-fill" class="me-2"></b-icon>
-                    {{ $t('print') }}
-                  </button>
-                </div>
-              </div>
+            <div class="pt-preview-shell">
+              <div
+                class="pt-receipt-paper"
+                :id="`${tpl.id}-print-preview`"
+                v-html="tpl.innerHtml"
+              ></div>
             </div>
-          </div>
+
+            <footer class="pt-template-footer">
+              <button
+                type="button"
+                class="action-btn action-btn--print pt-print-btn"
+                @click="printTemplate(tpl)"
+              >
+                <b-icon icon="printer-fill" class="me-2"></b-icon>
+                {{ $t("print") || "طباعة" }}
+              </button>
+            </footer>
+          </article>
         </div>
       </div>
     </div>
@@ -364,581 +66,517 @@
 </template>
 
 <script>
-import AppHeader from '../components/Layout/AppHeader.vue';
-import HTTP from '../http/api';
+import AppHeader from "@/components/Layout/AppHeader.vue";
+import {
+  buildStandaloneOrderReceiptHtml,
+  RECEIPT_PRINT_CAIRO_FONT_HTML,
+  RECEIPT_PRINT_STYLES_HTML,
+} from "@/utils/receiptPrint.js";
+import logoUrl from "@/assets/logoarabic.png";
+
+const SAMPLE_STORE = "مطعم لايت كاشير";
+
+function sampleItems(variant) {
+  if (variant === "kitchen") {
+    return [
+      { name: "شاورما دجاج", quantity: 2, price: 12000, total: 24000, tags: "مطبخ", notes: "بدون بصل" },
+      { name: "بطاطس مقلية", quantity: 1, price: 5000, total: 5000, tags: "مطبخ", notes: "" },
+    ];
+  }
+  if (variant === "waiter") {
+    return [
+      { name: "سلطة خضار", quantity: 1, price: 8000, total: 8000, tags: "بار", notes: "" },
+      { name: "شاي", quantity: 2, price: 1500, total: 3000, tags: "بار", notes: "سكر خفيف" },
+    ];
+  }
+  if (variant === "reports") {
+    return [
+      { name: "برجر لحم", quantity: 2, price: 18000, total: 36000, tags: "مطبخ", notes: "" },
+      { name: "بطاطس مقلية", quantity: 2, price: 5000, total: 10000, tags: "مطبخ", notes: "" },
+    ];
+  }
+  return [
+    { name: "شاورما دجاج", quantity: 2, price: 12000, total: 24000, tags: "مطبخ", notes: "" },
+    { name: "بيتزا كبيرة", quantity: 1, price: 25000, total: 25000, tags: "مطبخ", notes: "" },
+      { name: "كولا", quantity: 3, price: 2000, total: 6000, tags: "بار", notes: "" },
+  ];
+}
+
+function sampleOrder(variant) {
+  const base = {
+    orderCode: "ORD-2024-001",
+    dailySequenceNumber: 42,
+    orderSubTotal: 0,
+    discountAmount: 0,
+    orderTotalAfterDiscount: 0,
+    notes: "",
+  };
+
+  if (variant === "kitchen") {
+    return {
+      ...base,
+      orderCode: "ORD-KIT-007",
+      dailySequenceNumber: 7,
+      orderType: "DineIn",
+      paymentMethod: "Cash",
+      orderSubTotal: 29000,
+      orderTotalAfterDiscount: 29000,
+    };
+  }
+  if (variant === "waiter") {
+    return {
+      ...base,
+      orderCode: "ORD-W-055",
+      dailySequenceNumber: 55,
+      orderType: "DineIn",
+      paymentMethod: "Cash",
+      orderSubTotal: 11000,
+      orderTotalAfterDiscount: 11000,
+    };
+  }
+  if (variant === "reports") {
+    return {
+      ...base,
+      orderCode: "RPT-987654",
+      dailySequenceNumber: 18,
+      orderType: "DineIn",
+      paymentMethod: "Card",
+      orderSubTotal: 46000,
+      discountAmount: 2000,
+      orderTotalAfterDiscount: 44000,
+    };
+  }
+  return {
+    ...base,
+    orderType: "Takeaway",
+    paymentMethod: "Cash",
+    orderSubTotal: 55000,
+    discountAmount: 5000,
+    orderTotalAfterDiscount: 50000,
+  };
+}
 
 export default {
-  name: 'PrintTemplatesView',
-  components: {
-    AppHeader
+  name: "PrintTemplatesView",
+  components: { AppHeader },
+  computed: {
+    printLabels() {
+      const t = (k, fb) => this.$t(k) || fb;
+      return {
+        invoiceNumber: t("invoiceNumber", "رقم الفاتورة"),
+        orderNumber: t("orderNumber", "رقم الطلب"),
+        orderType: t("orderType", "نوع الطلب"),
+        paymentMethod: t("paymentMethod", "طريقة الدفع"),
+        date: t("from_date", "التاريخ"),
+        customerName: t("customerName", "اسم العميل"),
+        phoneNumber: t("phoneNumber", "رقم الهاتف"),
+        address: t("address", "العنوان"),
+        notes: t("notes", "ملاحظات"),
+        itemName: t("item_name_label", "طبق/مشروب"),
+        quantity: t("quantity_label", "العدد"),
+        price: t("selling_price_label", "السعر"),
+        total: t("total", "المجموع"),
+        discountLabel: t("discountLabel", "الخصم"),
+        currency: t("currency", "د.ع"),
+        thankYou: t("thankYouVisit", "شكراً لزيارتكم"),
+        storeFallback: t("restaurant", "المطعم"),
+        dineIn: t("dineIn", "داخل المطعم"),
+        takeaway: t("takeaway", "خارجي"),
+        delivery: t("delivery", "توصيل"),
+        cash: t("cash", "نقدي"),
+        card: t("card", "بطاقة"),
+        credit: t("credit", "آجل"),
+      };
+    },
+    templateCards() {
+      const t = (k, fb) => this.$t(k) || fb;
+      const defs = [
+        {
+          id: "pos",
+          icon: "cash-stack",
+          title: t("posPrintTemplate", "نموذج طباعة POS"),
+          description: t("posPrintTemplateDesc", "فاتورة كاملة مع الأسعار — نقطة البيع"),
+          variant: "pos",
+          hidePrices: false,
+          tagName: null,
+        },
+        {
+          id: "reports",
+          icon: "file-earmark-bar-graph-fill",
+          title: t("reportsPrintTemplate", "نموذج طباعة التقارير"),
+          description: t("reportsPrintTemplateDesc", "فاتورة مع خصم — كما في التقارير"),
+          variant: "reports",
+          hidePrices: false,
+          tagName: null,
+        },
+        {
+          id: "waiter",
+          icon: "person-badge-fill",
+          title: t("waiterPrintTemplate", "نموذج طباعة الويتر"),
+          description: t("waiterPrintTemplateDesc", "طلب داخل المطعم — صفحة الويتر"),
+          variant: "waiter",
+          hidePrices: false,
+          tagName: null,
+        },
+        {
+          id: "kitchen",
+          icon: "egg-fried",
+          title: t("kitchenPrintTemplate", "نموذج طباعة المطبخ"),
+          description: t("kitchenPrintTemplateDesc", "تذكرة قسم بدون أسعار — طابعات الأقسام"),
+          variant: "kitchen",
+          hidePrices: true,
+          tagName: t("kitchenSection", "مطبخ"),
+        },
+      ];
+
+      return defs.map((def) => {
+        const items = sampleItems(def.variant);
+        const order = sampleOrder(def.variant);
+        const built = buildStandaloneOrderReceiptHtml({
+          storeName: SAMPLE_STORE,
+          logoUrl,
+          order,
+          items,
+          hidePrices: def.hidePrices,
+          tagName: def.tagName,
+          labels: this.printLabels,
+        });
+        return { ...def, innerHtml: built.innerHtml, documentHtml: built.documentHtml };
+      });
+    },
   },
   methods: {
-    printTemplate(templateType) {
-      const previewElement = document.getElementById(`${templateType}-print-preview`);
-      if (!previewElement) {
-        console.error('Preview element not found');
-        return;
-      }
+    printTemplate(tpl) {
+      const preview = document.getElementById(`${tpl.id}-print-preview`);
+      if (!preview) return;
 
-      const prtHtml = previewElement.innerHTML;
-      
-      // Professional POS printer styles (80mm thermal printer) - Unified design
-      const stylesHtml = `
-        <style>
-          @page {
-            size: 80mm auto;
-            margin: 0;
-          }
-          
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          
-          body {
-            font-family: 'Cairo', 'Arial', sans-serif;
-            direction: rtl;
-            font-size: 11px;
-            line-height: 1.3;
-            color: #000;
-            background: #fff;
-            padding: 5mm;
-            width: 80mm;
-          }
-          
-          .bill-container {
-            width: 100%;
-            max-width: 80mm;
-            margin: 0 auto;
-          }
-          
-          .bill-header {
-            text-align: center;
-            margin-bottom: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px dashed #000;
-          }
-          
-          .bill-logo-img {
-            max-width: 50px;
-            height: auto;
-            margin-bottom: 4px;
-          }
-          
-          .bill-store-name {
-            font-size: 16px;
-            font-weight: 800;
-            margin: 4px 0 2px 0;
-            color: #000;
-          }
-          
-          .bill-store-subtitle {
-            font-size: 9px;
-            color: #666;
-            margin: 0;
-          }
-          
-          .bill-info-section {
-            margin: 8px 0;
-            font-size: 10px;
-          }
-          
-          .bill-info-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 3px;
-          }
-          
-          .bill-info-label {
-            font-weight: 600;
-          }
-          
-          .bill-info-value {
-            font-weight: 400;
-          }
-          
-          .bill-divider {
-            border-top: 1px dashed #000;
-            margin: 8px 0;
-          }
-          
-          .bill-items-section {
-            margin: 8px 0;
-          }
-          
-          .bill-items-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 10px;
-          }
-          
-          .bill-items-table thead {
-            border-bottom: 1px solid #000;
-          }
-          
-          .bill-items-table th {
-            padding: 4px 2px;
-            text-align: right;
-            font-weight: 700;
-            font-size: 9px;
-          }
-          
-          .bill-item-name-col {
-            width: 40%;
-          }
-          
-          .bill-item-qty-col {
-            width: 15%;
-            text-align: center;
-          }
-          
-          .bill-item-price-col {
-            width: 20%;
-            text-align: left;
-          }
-          
-          .bill-item-total-col {
-            width: 25%;
-            text-align: left;
-          }
-          
-          .bill-items-table td {
-            padding: 3px 2px;
-            vertical-align: top;
-          }
-          
-          .bill-item-name {
-            font-weight: 500;
-            word-break: break-word;
-          }
-          
-          .bill-discount-badge {
-            display: block;
-            font-size: 7px;
-            color: #dc2626;
-            font-weight: 600;
-            margin-top: 2px;
-          }
-          
-          .bill-item-qty {
-            text-align: center;
-            font-weight: 600;
-          }
-          
-          .bill-item-price {
-            text-align: left;
-            font-size: 9px;
-          }
-          
-          .bill-price-discounted {
-            display: block;
-          }
-          
-          .bill-original-price {
-            display: block;
-            text-decoration: line-through;
-            color: #999;
-            font-size: 8px;
-          }
-          
-          .bill-discount-price {
-            display: block;
-            color: #dc2626;
-            font-weight: 600;
-          }
-          
-          .bill-item-total {
-            text-align: left;
-            font-weight: 700;
-          }
-          
-          .bill-summary-section {
-            margin: 8px 0;
-            font-size: 11px;
-          }
-          
-          .bill-summary-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 4px;
-          }
-          
-          .bill-summary-label {
-            font-weight: 600;
-          }
-          
-          .bill-summary-value {
-            font-weight: 400;
-          }
-          
-          .bill-summary-total {
-            border-top: 1px solid #000;
-            padding-top: 4px;
-            margin-top: 4px;
-            font-size: 12px;
-          }
-          
-          .bill-summary-total .bill-summary-label {
-            font-weight: 700;
-            font-size: 13px;
-          }
-          
-          .bill-summary-total .bill-summary-value {
-            font-weight: 800;
-            font-size: 13px;
-          }
-          
-          .bill-footer {
-            text-align: center;
-            margin-top: 12px;
-            padding-top: 8px;
-            border-top: 1px dashed #000;
-          }
-          
-          .bill-footer-text {
-            font-size: 9px;
-            margin: 2px 0;
-            color: #666;
-          }
-          
-          @media print {
-            body {
-              padding: 0;
-            }
-            
-            .bill-container {
-              width: 80mm;
-            }
-          }
-        </style>
-      `;
-      
-      const WinPrint = window.open('', '', 'left=0,top=0,width=400,height=600,toolbar=0,scrollbars=0,status=0');
-      WinPrint.document.write(`<!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          ${stylesHtml}
-        </head>
-        <body>
-          ${prtHtml}
-        </body>
-        </html>`);
+      const bodyHtml = tpl.documentHtml || preview.innerHTML;
+      const printWindow = window.open(
+        "",
+        "",
+        "left=0,top=0,width=420,height=640,toolbar=0,scrollbars=0,status=0"
+      );
+      if (!printWindow) return;
 
-      WinPrint.document.close();
-      WinPrint.focus();
-      
-      // Wait a bit before printing to ensure content is loaded
+      printWindow.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  ${RECEIPT_PRINT_CAIRO_FONT_HTML}
+  ${RECEIPT_PRINT_STYLES_HTML}
+  <title>${tpl.title}</title>
+</head>
+<body>
+  ${tpl.innerHtml}
+</body>
+</html>`);
+      printWindow.document.close();
+      printWindow.focus();
       setTimeout(() => {
-        WinPrint.print();
-        setTimeout(() => {
-          WinPrint.close();
-        }, 100);
-      }, 250);
-    }
-  }
+        printWindow.print();
+        setTimeout(() => printWindow.close(), 150);
+      }, 300);
+    },
+  },
 };
 </script>
 
 <style scoped>
-.print-templates-section {
-  padding: 2rem;
-}
-
-.print-templates-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 2rem;
-  margin-top: 2rem;
-}
-
-.print-template-card {
-  background: var(--card-bg, #fff);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.print-template-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-}
-
-.print-template-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.template-icon {
-  font-size: 2rem;
-}
-
-.template-title {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.print-template-preview {
-  padding: 1.5rem;
-  background: #f8f9fa;
-  max-height: 600px;
-  overflow-y: auto;
-  border: 1px solid #e0e0e0;
-}
-
-.print-template-preview .bill-container {
-  background: white;
-  padding: 1rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  max-width: 80mm;
+.pt-page-container {
+  padding: 1rem 1rem 2.5rem;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
-.print-template-actions {
-  padding: 1.5rem;
-  background: #f8f9fa;
-  border-top: 1px solid #e0e0e0;
+.pt-page-content {
   display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.pt-templates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 1.25rem;
+}
+
+.pt-template-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-xl, 0.75rem);
+  box-shadow: var(--shadow-md);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pt-template-card:hover {
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+  box-shadow: var(--shadow-lg);
+}
+
+.pt-template-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.pt-template-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--primary-color);
+}
+
+.pt-template-icon--pos {
+  color: var(--primary-color);
+}
+
+.pt-template-icon--reports {
+  color: var(--info-color, #3b82f6);
+}
+
+.pt-template-icon--waiter {
+  color: var(--success-color, #10b981);
+}
+
+.pt-template-icon--kitchen {
+  color: #f59e0b;
+}
+
+.pt-template-head-text {
+  min-width: 0;
+}
+
+.pt-template-title {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.pt-template-desc {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.pt-preview-shell {
+  padding: 1rem;
+  background: color-mix(in srgb, var(--bg-primary) 88%, #000 12%);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: center;
+  max-height: min(58vh, 520px);
+  overflow: auto;
+}
+
+.pt-receipt-paper {
+  width: 72mm;
+  max-width: 100%;
+  background: #fff;
+  color: #000;
+  border-radius: 4px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+  padding: 3mm 3mm 3mm 5mm;
+  font-family: "Cairo", "Arial", sans-serif;
+  direction: rtl;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.pt-template-footer {
+  padding: 1rem 1.15rem;
+  display: flex;
+  justify-content: center;
+  background: var(--bg-tertiary);
+}
+
+.pt-print-btn {
+  min-width: 9rem;
   justify-content: center;
 }
 
-.template-print-btn {
-  display: flex;
-  align-items: center;
-  padding: 0.75rem 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.template-print-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.template-print-btn:active {
-  transform: translateY(0);
-}
-
-/* Print Template Styles - Unified Design */
-.bill-container {
+/* Thermal receipt look inside preview (matches receiptPrint.js) */
+.pt-receipt-paper :deep(.bill-container) {
   width: 100%;
-  max-width: 80mm;
-  margin: 0 auto;
-  font-family: 'Cairo', 'Arial', sans-serif;
-  direction: rtl;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 2mm 0 3mm;
 }
 
-.bill-header {
+.pt-receipt-paper :deep(.bill-header) {
   text-align: center;
   margin-bottom: 8px;
   padding-bottom: 8px;
   border-bottom: 1px dashed #000;
 }
 
-.bill-logo-img {
+.pt-receipt-paper :deep(.bill-logo-img) {
   max-width: 50px;
   height: auto;
   margin-bottom: 4px;
 }
 
-.bill-store-name {
+.pt-receipt-paper :deep(.bill-store-name) {
   font-size: 16px;
   font-weight: 800;
-  margin: 4px 0 2px 0;
+  margin: 4px 0 2px;
   color: #000;
 }
 
-.bill-store-subtitle {
-  font-size: 9px;
-  color: #666;
-  margin: 0;
-}
-
-.bill-info-section {
+.pt-receipt-paper :deep(.bill-info-section) {
   margin: 8px 0;
+  padding: 0 1mm;
   font-size: 10px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
 }
 
-.bill-info-row {
+.pt-receipt-paper :deep(.bill-info-row) {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 3px;
+  gap: 6px;
+  margin-bottom: 4px;
+  padding: 0 1px;
+  border-bottom: none;
 }
 
-.bill-info-label {
+.pt-receipt-paper :deep(.bill-info-label) {
+  flex: 0 0 44%;
   font-weight: 600;
+  color: #000;
 }
 
-.bill-info-value {
+.pt-receipt-paper :deep(.bill-info-value) {
+  flex: 1;
+  text-align: right;
   font-weight: 400;
+  color: #000;
+  word-break: break-word;
 }
 
-.bill-divider {
+.pt-receipt-paper :deep(.bill-divider) {
   border-top: 1px dashed #000;
   margin: 8px 0;
 }
 
-.bill-items-section {
+.pt-receipt-paper :deep(.bill-items-section) {
   margin: 8px 0;
+  padding: 0 1mm;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: hidden;
 }
 
-.bill-items-table {
+.pt-receipt-paper :deep(.bill-items-table) {
   width: 100%;
   border-collapse: collapse;
   font-size: 10px;
 }
 
-.bill-items-table thead {
+.pt-receipt-paper :deep(.bill-items-table thead) {
   border-bottom: 1px solid #000;
+  background: transparent;
+  color: #000;
+  box-shadow: none;
 }
 
-.bill-items-table th {
+.pt-receipt-paper :deep(.bill-items-table th) {
   padding: 4px 2px;
   text-align: right;
   font-weight: 700;
   font-size: 9px;
+  color: #000;
+  border-bottom: none;
+  text-shadow: none;
 }
 
-.bill-item-name-col {
-  width: 40%;
+.pt-receipt-paper :deep(.bill-items-table td) {
+  padding: 3px 2px;
+  vertical-align: top;
+  background: #fff !important;
+  color: #000 !important;
+  border-bottom: 1px dotted #ccc;
 }
 
-.bill-item-qty-col {
-  width: 15%;
+.pt-receipt-paper :deep(.bill-items-table tbody tr:hover),
+.pt-receipt-paper :deep(.bill-items-table tbody tr:nth-child(even)) {
+  background: transparent !important;
+}
+
+.pt-receipt-paper :deep(.bill-item-qty-col) {
   text-align: center;
 }
 
-.bill-item-price-col {
-  width: 20%;
+.pt-receipt-paper :deep(.bill-item-price-col),
+.pt-receipt-paper :deep(.bill-item-total-col) {
   text-align: left;
 }
 
-.bill-item-total-col {
-  width: 25%;
-  text-align: left;
-}
-
-.bill-items-table td {
-  padding: 3px 2px;
-  vertical-align: top;
-}
-
-.bill-item-name {
-  font-weight: 500;
-  word-break: break-word;
-}
-
-.bill-discount-badge {
-  display: block;
-  font-size: 7px;
-  color: #dc2626;
-  font-weight: 600;
+.pt-receipt-paper :deep(.bill-item-line-note) {
+  font-size: 8px;
+  color: #444;
   margin-top: 2px;
 }
 
-.bill-item-qty {
-  text-align: center;
-  font-weight: 600;
-}
-
-.bill-item-price {
-  text-align: left;
-  font-size: 9px;
-}
-
-.bill-price-discounted {
-  display: block;
-}
-
-.bill-original-price {
-  display: block;
-  text-decoration: line-through;
-  color: #999;
-  font-size: 8px;
-}
-
-.bill-discount-price {
-  display: block;
-  color: #dc2626;
-  font-weight: 600;
-}
-
-.bill-item-total {
-  text-align: left;
-  font-weight: 700;
-}
-
-.bill-summary-section {
+.pt-receipt-paper :deep(.bill-summary-section) {
   margin: 8px 0;
   font-size: 11px;
+  background: transparent;
+  border: none;
+  padding: 0;
 }
 
-.bill-summary-row {
+.pt-receipt-paper :deep(.bill-summary-row) {
   display: flex;
   justify-content: space-between;
   margin-bottom: 4px;
 }
 
-.bill-summary-label {
-  font-weight: 600;
-}
-
-.bill-summary-value {
-  font-weight: 400;
-}
-
-.bill-summary-total {
+.pt-receipt-paper :deep(.bill-total-row) {
   border-top: 1px solid #000;
   padding-top: 4px;
   margin-top: 4px;
-  font-size: 12px;
-}
-
-.bill-summary-total .bill-summary-label {
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.bill-summary-total .bill-summary-value {
   font-weight: 800;
-  font-size: 13px;
 }
 
-.bill-footer {
+.pt-receipt-paper :deep(.bill-footer) {
   text-align: center;
   margin-top: 12px;
   padding-top: 8px;
   border-top: 1px dashed #000;
 }
 
-.bill-footer-text {
+.pt-receipt-paper :deep(.bill-footer p) {
   font-size: 9px;
   margin: 2px 0;
   color: #666;
 }
 
-@media (max-width: 768px) {
-  .print-templates-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 640px) {
+  .pt-page-container {
+    padding-inline: 0.75rem;
   }
-  
-  .print-template-preview {
-    max-height: 500px;
+
+  .pt-preview-shell {
+    max-height: 420px;
   }
 }
 </style>
-

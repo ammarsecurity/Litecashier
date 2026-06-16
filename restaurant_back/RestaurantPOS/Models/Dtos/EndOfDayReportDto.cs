@@ -7,6 +7,7 @@ namespace RestaurantPOS.Models.Dtos
         public EndOfDayTotalsDto Totals { get; set; } = new();
         public EndOfDayTableStatusDto TableStatus { get; set; } = new();
         public List<EndOfDayPaymentDto> PaymentBreakdown { get; set; } = new();
+        public List<EndOfDayOrderTypeDto> OrdersByType { get; set; } = new();
         public List<EndOfDayTableInvoicesDto> InvoicesByTable { get; set; } = new();
         public List<EndOfDayTopItemDto> TopItems { get; set; } = new();
         public List<EndOfDayReturnedItemDto> ReturnedItems { get; set; } = new();
@@ -40,6 +41,13 @@ namespace RestaurantPOS.Models.Dtos
         public string Method { get; set; } = string.Empty;
         public int OrdersCount { get; set; }
         public decimal Amount { get; set; }
+    }
+
+    public class EndOfDayOrderTypeDto
+    {
+        public string OrderType { get; set; } = string.Empty;
+        public int OrdersCount { get; set; }
+        public decimal TotalAmount { get; set; }
     }
 
     public class EndOfDayTableInvoicesDto

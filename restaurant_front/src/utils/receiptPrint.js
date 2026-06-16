@@ -700,3 +700,171 @@ export function ensurePrintOrderCodeInHtml(htmlContent, orderCode, escapeHtmlFn)
 
   return updated;
 }
+
+function defaultEscapeHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function defaultFormatPrice(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? n.toLocaleString("en-EG") : "0";
+}
+
+function paymentMethodLabel(method, labels = {}) {
+  if (!method) return "—";
+  const map = {
+    Cash: labels.cash || "نقدي",
+    Card: labels.card || "بطاقة",
+    Credit: labels.credit || "آجل",
+  };
+  return map[method] || method;
+}
+
+function orderTypeLabel(type, labels = {}) {
+  if (!type) return "—";
+  const map = {
+    DineIn: labels.dineIn || "داخل المطعم",
+    Takeaway: labels.takeaway || "خارجي",
+    Delivery: labels.delivery || "توصيل",
+  };
+  return map[type] || type;
+}
+
+/**
+ * Build a full receipt body (bill-container) without relying on #print DOM.
+ */
+export function buildStandaloneOrderReceiptHtml({
+  storeName = "",
+  logoUrl = null,
+  order = {},
+  items = [],
+  hidePrices = false,
+  tagName = null,
+  labels = {},
+  escapeHtml = defaultEscapeHtml,
+  formatPrice = defaultFormatPrice,
+} = {}) {
+  const currency = labels.currency || "د.ع";
+  const orderSubtotal =
+    Number(order.orderSubTotal) ||
+    items.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+  const orderDiscount = Number(order.discountAmount || order.DiscountAmount || 0);
+  const orderTotal =
+    Number(order.orderTotalAfterDiscount) ||
+    Math.max(0, orderSubtotal - orderDiscount);
+
+  const { groupDiscount, groupTotal, totalItems } = computeGroupPrintTotals(
+    items,
+    orderSubtotal,
+    orderDiscount
+  );
+
+  const receiptLabels = {
+    itemName: labels.itemName || "طبق/مشروب",
+    quantity: labels.quantity || "العدد",
+    price: labels.price || "السعر",
+    total: labels.total || "المجموع",
+    countLabel: labels.countLabel || "العدد:",
+    countSuffix: labels.countSuffix || " طبق/مشروب",
+    sectionLabel: labels.sectionLabel || "القسم:",
+    discountLabel: labels.discountLabel || "الخصم",
+    totalLabel: labels.totalLabel || `${labels.total || "المجموع"}:`,
+    currency,
+  };
+
+  const now = new Date();
+  const dateTime = now.toLocaleString("ar-IQ", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const infoRows = [];
+  const pushRow = (label, value) => {
+    if (value == null || value === "") return;
+    infoRows.push(`
+          <div class="bill-info-row">
+            <span class="bill-info-label">${escapeHtml(label)}:</span>
+            <span class="bill-info-value">${escapeHtml(String(value))}</span>
+          </div>`);
+  };
+
+  pushRow(labels.invoiceNumber || "رقم الفاتورة", order.orderCode);
+  if (order.dailySequenceNumber) {
+    pushRow(labels.orderNumber || "رقم الطلب", `#${order.dailySequenceNumber}`);
+  }
+  pushRow(labels.orderType || "نوع الطلب", orderTypeLabel(order.orderType, labels));
+  pushRow(labels.paymentMethod || "طريقة الدفع", paymentMethodLabel(order.paymentMethod, labels));
+  pushRow(labels.date || "التاريخ", dateTime);
+
+  if (order.orderType === "Delivery") {
+    pushRow(labels.customerName || "اسم العميل", order.deliveryCustomerName);
+    pushRow(labels.phoneNumber || "رقم الهاتف", order.deliveryPhoneNumber);
+    pushRow(labels.address || "العنوان", order.deliveryAddress);
+  }
+
+  if (order.notes) {
+    pushRow(labels.notes || "ملاحظات", order.notes);
+  }
+
+  const logoHtml = logoUrl
+    ? `<img src="${escapeHtml(logoUrl)}" alt="" class="bill-logo-img" />`
+    : "";
+
+  const itemsTableHtml = buildReceiptItemsTableHtml({
+    items,
+    labels: receiptLabels,
+    escapeHtml,
+    formatPrice,
+    hidePrices,
+  });
+
+  const summaryTotal = hidePrices ? 0 : tagName ? groupTotal : orderTotal;
+  const summaryDiscount = hidePrices ? 0 : tagName ? groupDiscount : orderDiscount;
+
+  const summaryHtml = buildReceiptSummaryHtml({
+    totalItems,
+    tagName,
+    hidePrices,
+    groupDiscount: summaryDiscount,
+    groupTotal: summaryTotal,
+    labels: receiptLabels,
+    formatPrice,
+    escapeHtml,
+  });
+
+  const titleSuffix = tagName ? ` - ${tagName}` : "";
+  const docTitle = `${labels.invoiceNumber || "فاتورة"}${titleSuffix}`;
+
+  const innerHtml = `
+  <div class="bill-container">
+    <div class="bill-header">
+      ${logoHtml}
+      <h2 class="bill-store-name">${escapeHtml(storeName || labels.storeFallback || "المطعم")}</h2>
+    </div>
+    <div class="bill-info-section">
+      ${infoRows.join("")}
+    </div>
+    <div class="bill-divider"></div>
+    <div class="bill-items-section">
+      ${itemsTableHtml}
+    </div>
+    <div class="bill-divider"></div>
+    ${summaryHtml}
+    <div class="bill-footer">
+      <p>${escapeHtml(labels.thankYou || "شكراً لزيارتكم")}</p>
+    </div>
+  </div>`;
+
+  return {
+    innerHtml,
+    documentHtml: buildReceiptPrintDocument(innerHtml, docTitle),
+    title: docTitle,
+  };
+}

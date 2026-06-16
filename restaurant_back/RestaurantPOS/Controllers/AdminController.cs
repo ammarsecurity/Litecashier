@@ -113,6 +113,24 @@ namespace RestaurantPOS.Controllers
         /// تحويل تاريخ البداية/النهاية من الواجهة (يوم تقويمي) إلى نطاق UTC [from, to) لمقارنة <see cref="CustomerOrder.InsertDate"/> المخزَّنة بـ UtcNow.
         /// يدعم start فقط (يوم واحد) أو start+end.
         /// </summary>
+        private DateTime GetBusinessLocalToday()
+        {
+            var tzId = (_configuration["BusinessSettings:TimeZoneId"] ?? "").Trim();
+            TimeZoneInfo tz;
+            try
+            {
+                tz = !string.IsNullOrEmpty(tzId)
+                    ? TimeZoneInfo.FindSystemTimeZoneById(tzId)
+                    : TimeZoneInfo.Local;
+            }
+            catch
+            {
+                tz = TimeZoneInfo.Local;
+            }
+
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz).Date;
+        }
+
         private bool TryGetOrderInsertUtcRange(DateTime? startDate, DateTime? endDate, out DateTime fromUtc, out DateTime toUtcExclusive)
         {
             fromUtc = default;
@@ -374,8 +392,12 @@ namespace RestaurantPOS.Controllers
 
         private async Task<(bool IsBlocked, string? BlockMessage, EndOfDayReportDto? Data)> BuildEndOfDayReportAsync(int commercialUserId)
         {
-            var dayStart = DateTime.UtcNow.Date;
-            var dayEnd = dayStart.AddDays(1);
+            var businessToday = GetBusinessLocalToday();
+            if (!TryGetOrderInsertUtcRange(businessToday, businessToday, out var fromUtc, out var toUtcExclusive))
+            {
+                fromUtc = DateTime.UtcNow.Date;
+                toUtcExclusive = fromUtc.AddDays(1);
+            }
 
             var allTables = await _dbConfig.Tables
                 .Where(t => !t.IsDeleted && t.InsertByUserId == commercialUserId)
@@ -391,11 +413,13 @@ namespace RestaurantPOS.Controllers
             }
 
             var orders = await _dbConfig.CustomerOrders
+                .Include(o => o.User)
                 .Where(o =>
                     !o.IsDeleted &&
-                    (o.InsertByUserId == commercialUserId || o.User.InsertByUserId == commercialUserId) &&
-                    o.InsertDate >= dayStart &&
-                    o.InsertDate < dayEnd)
+                    o.InsertDate >= fromUtc &&
+                    o.InsertDate < toUtcExclusive &&
+                    (o.InsertByUserId == commercialUserId ||
+                     (o.User != null && o.User.InsertByUserId == commercialUserId)))
                 .ToListAsync();
 
             var orderIds = orders.Select(o => o.Id).ToList();
@@ -470,7 +494,10 @@ namespace RestaurantPOS.Controllers
                 }
                 else
                 {
-                    invoiceTableRows.Add((null, "-", amount));
+                    var typeLabel = string.IsNullOrWhiteSpace(order.OrderType) || order.OrderType == "DineIn"
+                        ? "-"
+                        : order.OrderType;
+                    invoiceTableRows.Add((null, typeLabel, amount));
                 }
             }
 
@@ -501,12 +528,30 @@ namespace RestaurantPOS.Controllers
                 .Take(10)
                 .ToList();
 
+            var ordersByType = orders
+                .GroupBy(o => string.IsNullOrWhiteSpace(o.OrderType) ? "DineIn" : o.OrderType)
+                .Select(g =>
+                {
+                    var groupOrderIds = g.Select(x => x.Id).ToHashSet();
+                    var amount = orderItems
+                        .Where(oi => groupOrderIds.Contains(oi.CustomerOrderId))
+                        .Sum(oi => oi.SellingPrice * oi.Quantity);
+                    return new EndOfDayOrderTypeDto
+                    {
+                        OrderType = g.Key,
+                        OrdersCount = g.Count(),
+                        TotalAmount = amount
+                    };
+                })
+                .OrderByDescending(x => x.TotalAmount)
+                .ToList();
+
             var returnedItems = await _dbConfig.ReturnedOrderItems
                 .Where(x =>
                     !x.IsDeleted &&
                     x.InsertByUserId == commercialUserId &&
-                    x.InsertDate >= dayStart &&
-                    x.InsertDate < dayEnd)
+                    x.InsertDate >= fromUtc &&
+                    x.InsertDate < toUtcExclusive)
                 .OrderByDescending(x => x.InsertDate)
                 .Select(x => new EndOfDayReturnedItemDto
                 {
@@ -536,8 +581,8 @@ namespace RestaurantPOS.Controllers
 
             var report = new EndOfDayReportDto
             {
-                DayStart = dayStart,
-                DayEnd = dayEnd.AddSeconds(-1),
+                DayStart = businessToday,
+                DayEnd = businessToday.AddDays(1).AddSeconds(-1),
                 Totals = new EndOfDayTotalsDto
                 {
                     OrdersCount = orders.Count,
@@ -553,6 +598,7 @@ namespace RestaurantPOS.Controllers
                 },
                 TableStatus = tableStatus,
                 PaymentBreakdown = paymentBreakdown,
+                OrdersByType = ordersByType,
                 InvoicesByTable = invoicesByTable,
                 TopItems = topItems,
                 ReturnedItems = returnedItems
@@ -5392,6 +5438,19 @@ namespace RestaurantPOS.Controllers
                     paymentsSheet.Cell(paymentRow, 2).Value = p.OrdersCount;
                     paymentsSheet.Cell(paymentRow, 3).Value = p.Amount;
                     paymentRow++;
+                }
+
+                var orderTypesSheet = workbook.Worksheets.Add("OrdersByType");
+                orderTypesSheet.Cell(1, 1).Value = "OrderType";
+                orderTypesSheet.Cell(1, 2).Value = "OrdersCount";
+                orderTypesSheet.Cell(1, 3).Value = "TotalAmount";
+                var orderTypeRow = 2;
+                foreach (var ot in r.OrdersByType)
+                {
+                    orderTypesSheet.Cell(orderTypeRow, 1).Value = ot.OrderType ?? string.Empty;
+                    orderTypesSheet.Cell(orderTypeRow, 2).Value = ot.OrdersCount;
+                    orderTypesSheet.Cell(orderTypeRow, 3).Value = ot.TotalAmount;
+                    orderTypeRow++;
                 }
 
                 var invoicesSheet = workbook.Worksheets.Add("InvoicesByTable");
