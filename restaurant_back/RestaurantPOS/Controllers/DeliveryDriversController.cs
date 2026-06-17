@@ -51,7 +51,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/DeliveryDrivers
-        [AuthorizeSection("deliveryDrivers", "reports", Roles = "Commercial,Admin")]
+        [AuthorizeSection("deliveryDrivers", "reports", Roles = "Commercial,Admin,POS,Waiter")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<List<DeliveryDriver>>>> GetDeliveryDrivers()
         {
@@ -84,7 +84,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // GET: api/DeliveryDrivers/{id}
-        [AuthorizeSection("deliveryDrivers", Roles = "Commercial,Admin")]
+        [AuthorizeSection("deliveryDrivers", Roles = "Commercial,Admin,POS,Waiter")]
         [HttpGet("{id}")]
         public async Task<ActionResult<GlobalResponse<DeliveryDriver>>> GetDeliveryDriver(int id)
         {
@@ -125,7 +125,7 @@ namespace RestaurantPOS.Controllers
         }
 
         // POST: api/DeliveryDrivers
-        [AuthorizeSection("deliveryDrivers", Roles = "Commercial,Admin")]
+        [AuthorizeSection("deliveryDrivers", Roles = "Commercial,Admin,POS,Waiter")]
         [HttpPost]
         public async Task<ActionResult<GlobalResponse<DeliveryDriver>>> AddDeliveryDriver([FromBody] DeliveryDriverRequest request)
         {

@@ -3028,14 +3028,16 @@ namespace RestaurantPOS.Controllers
                     });
                 }
 
-                var userInsertByUserId = user.InsertByUserId;
+                var commercialUserId = GetCommercialUserId();
 
-                // Get existing order
+                // Get existing order — any unpaid order under the same commercial tenant (waiter, POS, etc.)
                 var existingOrder = await _dbConfig.CustomerOrders
                     .Include(x => x.CustomerOrderItem)
                     .ThenInclude(x => x.Item)
-                    .FirstOrDefaultAsync(x => x.Id == id && x.IsDeleted == false && 
-                        (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId));
+                    .Include(x => x.User)
+                    .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted &&
+                        (x.InsertByUserId == commercialUserId ||
+                         (x.User != null && x.User.InsertByUserId == commercialUserId)));
 
                 if (existingOrder == null)
                 {
@@ -3102,11 +3104,16 @@ namespace RestaurantPOS.Controllers
 
                 if (request.CustomerOrderItem != null && request.CustomerOrderItem.Count > 0)
                 {
+                    var tenantItems = await _dbConfig.Items
+                        .Include(x => x.User)
+                        .Where(x => !x.IsDeleted &&
+                            (x.InsertByUserId == commercialUserId ||
+                             (x.User != null && x.User.InsertByUserId == commercialUserId)))
+                        .ToListAsync();
+
                     foreach (var itemRequest in request.CustomerOrderItem)
                     {
-                        var currentItem = await _dbConfig.Items
-                            .FirstOrDefaultAsync(x => x.Id == itemRequest.ItemId && x.IsDeleted == false &&
-                                (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId));
+                        var currentItem = tenantItems.FirstOrDefault(x => x.Id == itemRequest.ItemId);
 
                         if (currentItem == null)
                         {
@@ -3160,7 +3167,6 @@ namespace RestaurantPOS.Controllers
                     .LoadAsync();
 
                 // Log audit for order update
-                var commercialUserId = user.Role == "Commercial" ? userId : user.InsertByUserId;
                 var newItemsCount = existingOrder.CustomerOrderItem?
                     .Count(item => item != null && !item.IsDeleted) ?? 0;
                 var newOrderValues = new

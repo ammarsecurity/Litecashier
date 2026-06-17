@@ -6,6 +6,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using RestaurantPOS.Db;
 using RestaurantPOS.Hubs;
+using RestaurantPOS.Logging;
+using RestaurantPOS.Middleware;
 using RestaurantPOS.Models;
 using RestaurantPOS.Models.Requests;
 using RestaurantPOS.Models.Requests.Restaurant;
@@ -153,6 +155,9 @@ builder.Services.AddCors(options =>
 // Add SignalR
 builder.Services.AddSignalR();
 
+builder.Services.Configure<ErrorLogSettings>(builder.Configuration.GetSection("ErrorLogging"));
+builder.Services.AddSingleton<IWwwrootErrorLogService, WwwrootErrorLogService>();
+
 
 
 
@@ -204,6 +209,21 @@ if (app.Environment.IsDevelopment())
 app.UseSwagger();
 app.UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "EppReservations Project API"); });
 
+// Log HTTP 404/500 (and unhandled exceptions) to wwwroot/logs
+app.UseMiddleware<HttpErrorLoggingMiddleware>();
+
+// Block public HTTP access to log files under wwwroot/logs
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/logs", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    await next();
+});
+
 // Serve static files from wwwroot
 app.UseStaticFiles();
 
@@ -235,6 +255,7 @@ app.Use(async (context, next) =>
         !path.StartsWith("/orderHub", StringComparison.OrdinalIgnoreCase) &&
         !path.StartsWith("/static", StringComparison.OrdinalIgnoreCase) &&
         !path.StartsWith("/Images", StringComparison.OrdinalIgnoreCase) &&
+        !path.StartsWith("/logs", StringComparison.OrdinalIgnoreCase) &&
         !System.IO.Path.HasExtension(path))
     {
         context.Request.Path = "/index.html";
