@@ -394,7 +394,7 @@ export default {
   padding: 3mm 3mm 3mm 5mm;
   font-family: "Cairo", "Arial", sans-serif;
   direction: rtl;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -432,7 +432,7 @@ export default {
 }
 
 .pt-receipt-paper :deep(.bill-store-name) {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 800;
   margin: 4px 0 2px;
   color: #000;
@@ -441,7 +441,7 @@ export default {
 .pt-receipt-paper :deep(.bill-info-section) {
   margin: 8px 0;
   padding: 0 1mm;
-  font-size: 10px;
+  font-size: 11px;
   background: transparent;
   border: none;
   border-radius: 0;
@@ -488,7 +488,7 @@ export default {
 .pt-receipt-paper :deep(.bill-items-table) {
   width: 100%;
   border-collapse: collapse;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .pt-receipt-paper :deep(.bill-items-table thead) {
@@ -502,7 +502,7 @@ export default {
   padding: 4px 2px;
   text-align: right;
   font-weight: 700;
-  font-size: 9px;
+  font-size: 10px;
   color: #000;
   border-bottom: none;
   text-shadow: none;
@@ -531,14 +531,14 @@ export default {
 }
 
 .pt-receipt-paper :deep(.bill-item-line-note) {
-  font-size: 8px;
+  font-size: 9px;
   color: #444;
   margin-top: 2px;
 }
 
 .pt-receipt-paper :deep(.bill-summary-section) {
   margin: 8px 0;
-  font-size: 11px;
+  font-size: 12px;
   background: transparent;
   border: none;
   padding: 0;
@@ -565,7 +565,7 @@ export default {
 }
 
 .pt-receipt-paper :deep(.bill-footer p) {
-  font-size: 9px;
+  font-size: 10px;
   margin: 2px 0;
   color: #666;
 }
