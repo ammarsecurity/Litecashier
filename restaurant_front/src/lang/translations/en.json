@@ -829,6 +829,7 @@
    "exitFullscreen": "Exit Fullscreen",
    "fullscreenEnabled": "Fullscreen mode enabled",
    "fullscreenDisabled": "Fullscreen mode disabled",
+   "fullscreenUnavailable": "Could not enter fullscreen — the browser may block it",
   "selectTable": "Select Table",
    "editOrder": "Edit Order",
    "orderInfo": "Order Information",

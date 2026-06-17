@@ -1941,12 +1941,13 @@ import {
 } from "@/utils/receiptPrint.js";
 import { resolveFloorPlanOverlaps } from "@/utils/floorPlanLayout.js";
 import posOrderPersistMixin from "@/mixins/posOrderPersistMixin.js";
+import posFullscreenMixin from "@/mixins/posFullscreenMixin.js";
 import { findCartLineIndex, mergeCartLines } from "@/utils/mergeCartLines.js";
 // import store from '../store/store'; // Adjust the path based on your actual folder structure
 
 export default {
   name: "PosView",
-  mixins: [posOrderPersistMixin],
+  mixins: [posOrderPersistMixin, posFullscreenMixin],
   components: {
     AppHeader,
     ClockVue,
@@ -2066,7 +2067,6 @@ export default {
       },
       tableToClose: null,
       tablesToClose: null, // For merged tables
-      isFullscreen: false,
       showTablesModal: false,
       loadingTableOrders: false,
       mergedTableIdsCache: {}, // Cache for merged table IDs
@@ -2614,12 +2614,6 @@ export default {
 
   mounted() {
     try {
-      // Load fullscreen state from localStorage
-      const savedFullscreen = localStorage.getItem('posFullscreen');
-      if (savedFullscreen === 'true') {
-        this.isFullscreen = true;
-      }
-
       this.getTags();
       this.getTables().then(() => {
         this.initPosFloorPlanGate();
@@ -4047,6 +4041,8 @@ export default {
       const raiseOnError = !!(printOptions && printOptions.raiseOnError);
       /** إيصال كاشير واحد فقط (الطابعة الرئيسية أو الاحتياطي الموحّد) — بدون تقسيم حسب وسوم/طابعات المطبخ */
       const cashierReceiptOnly = !!(printOptions && printOptions.cashierReceiptOnly);
+      /** طابعات الأقسام فقط — بدون الطابعة الرئيسية (حفظ وطباعة) */
+      const departmentPrintersOnly = !!(printOptions && printOptions.departmentPrintersOnly);
       let originalCarditems = null;
       let mainReceiptPrinted = false;
       try {
@@ -4349,7 +4345,7 @@ export default {
         // Step 1: Print full receipt to main printer (if exists)
         const mainPrinterId =
           this.mainPrinter?.id ?? this.mainPrinter?.Id ?? null;
-        if (this.mainPrinter && mainPrinterId) {
+        if (!departmentPrintersOnly && this.mainPrinter && mainPrinterId) {
           try {
             console.log(
               "[print] main printer:",
@@ -4526,6 +4522,13 @@ export default {
               tagPrintError
             );
           }
+        }
+
+        if (departmentPrintersOnly) {
+          if (itemsToPrint) {
+            this.carditems = originalCarditems;
+          }
+          return { ok: false, reason: "deptOnlyNoPrint" };
         }
 
         if (
@@ -5477,21 +5480,6 @@ export default {
       signalRService.off('TableUpdated');
       signalRService.off('FloorPlanUpdated');
       signalRService.off('OrderTransferred');
-    },
-    toggleFullscreen() {
-      this.isFullscreen = !this.isFullscreen;
-      localStorage.setItem('posFullscreen', this.isFullscreen);
-      
-      // Show notification
-      const message = this.isFullscreen 
-        ? (this.$i18n.t('fullscreenEnabled') || 'تم تفعيل الوضع الكامل')
-        : (this.$i18n.t('fullscreenDisabled') || 'تم إلغاء الوضع الكامل');
-      
-      this.$toast.info(message, {
-        position: "top-right",
-        timeout: 2000,
-        maxToasts: 1,
-      });
     },
     getSelectedTableNumber() {
       if (!this.selectedTableId) return '';

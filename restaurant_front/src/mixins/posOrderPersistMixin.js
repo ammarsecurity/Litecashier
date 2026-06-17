@@ -446,7 +446,9 @@ export default {
           } else {
             try {
               await this.ensurePrintPrintersReady();
-              const printResult = await this.printCard(itemsForPrintSnapshot);
+              const printResult = await this.printCard(itemsForPrintSnapshot, {
+                departmentPrintersOnly: true,
+              });
               if (printResult && !printResult.ok) {
                 this.$toast.warning(
                   this.$t("printError") ||

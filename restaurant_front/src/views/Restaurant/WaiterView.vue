@@ -159,18 +159,6 @@
           </button>
         </div>
       </template>
-      <template #pos-center>
-        <div class="pos-quick-search pos-quick-search--header">
-          <b-icon icon="search" class="pos-quick-search-icon"></b-icon>
-          <input
-            v-model="quickSearch"
-            ref="posQuickSearchInput"
-            type="search"
-            :placeholder="$t('searchPlaceholder')"
-            class="pos-quick-search-input"
-          />
-        </div>
-      </template>
     </AppHeader>
     <div
         class="main-content-wrapper pos-route pos-route--v2"
@@ -1530,12 +1518,13 @@ import {
 } from "@/utils/tagHierarchy.js";
 import { resolveFloorPlanOverlaps } from "@/utils/floorPlanLayout.js";
 import posOrderPersistMixin from "@/mixins/posOrderPersistMixin.js";
+import posFullscreenMixin from "@/mixins/posFullscreenMixin.js";
 import { findCartLineIndex, mergeCartLines } from "@/utils/mergeCartLines.js";
 // import store from '../store/store'; // Adjust the path based on your actual folder structure
 
 export default {
   name: "PosView",
-  mixins: [posOrderPersistMixin],
+  mixins: [posOrderPersistMixin, posFullscreenMixin],
   components: {
     AppHeader,
     ClockVue,
@@ -1551,7 +1540,6 @@ export default {
       lineNoteCartIndex: null,
       lineNoteDraft: "",
       typingTimer: null,
-      doneTypingInterval: 500,
       lastAddedItem: null,
       itemsAddedCount: 0,
       addItemTimer: null,
@@ -1652,7 +1640,6 @@ export default {
       },
       tableToClose: null,
       tablesToClose: null, // For merged tables
-      isFullscreen: false,
       showTablesModal: false,
       loadingTableOrders: false,
       mergedTableIdsCache: {}, // Cache for merged table IDs
@@ -1660,9 +1647,6 @@ export default {
       posBrowseStep: "roots",
       posSelectedRoot: null,
       posSelectedSub: null,
-      quickSearch: "",
-      posSuppressQuickSearchSync: false,
-      quickSearchTimer: null,
       posMobileCartOpen: false,
       posFloorPlanGateVisible: false,
       posFloorPlanLoading: false,
@@ -2164,19 +2148,6 @@ export default {
         }
       }
     },
-    quickSearch(newVal, oldVal) {
-      if (this.posSuppressQuickSearchSync) {
-        return;
-      }
-      clearTimeout(this.quickSearchTimer);
-      this.quickSearchTimer = setTimeout(() => {
-        this.posBrowseStep = "products";
-        this.posSelectedRoot = null;
-        this.posSelectedSub = null;
-        this.search.info = newVal;
-        this.GetAllItems();
-      }, this.doneTypingInterval);
-    },
     posMobileCartOpen(val) {
       if (typeof document === "undefined") return;
       const isNarrowViewport =
@@ -2195,22 +2166,9 @@ export default {
 
   mounted() {
     try {
-      // Load fullscreen state from localStorage
-      const savedFullscreen = localStorage.getItem('posFullscreen');
-      if (savedFullscreen === 'true') {
-        this.isFullscreen = true;
-      }
-
       this.getTags();
       this.getTables().then(() => {
         this.initPosFloorPlanGate();
-        if (!this.posFloorPlanGateVisible) {
-          this.$nextTick(() => {
-            if (this.$refs.posQuickSearchInput) {
-              this.$refs.posQuickSearchInput.focus();
-            }
-          });
-        }
       });
       
       const userInfoStr = localStorage.getItem("info");
@@ -2261,7 +2219,6 @@ export default {
   },
   
   beforeDestroy() {
-    clearTimeout(this.quickSearchTimer);
     if (typeof document !== "undefined") {
       document.body.style.overflow = "";
     }
@@ -2697,14 +2654,6 @@ export default {
       this.resetPosFloorPlanGateTools();
       this.posFloorPlanForceDefaultTab = false;
       this.posFloorPlanGateVisible = false;
-      this.$nextTick(() => {
-        if (this.$refs.posQuickSearchInput) {
-          const scrollX = window.scrollX;
-          const scrollY = window.scrollY;
-          this.$refs.posQuickSearchInput.focus({ preventScroll: true });
-          window.scrollTo(scrollX, scrollY);
-        }
-      });
     },
     resetPosFloorPlanGateTools() {
       // merge/transfer tools removed
@@ -2738,11 +2687,6 @@ export default {
       await this.selectTable(table, event || null);
       // this.posFloorPlanGateVisible = false;
       this.resetPosFloorPlanGateTools();
-      this.$nextTick(() => {
-        if (this.$refs.posQuickSearchInput) {
-          this.$refs.posQuickSearchInput.focus();
-        }
-      });
     },
     clampPosTableChipSize(v) {
       const n = Number(v);
@@ -2783,11 +2727,6 @@ export default {
       this.posFloorPlanGateVisible = false;
       this.resetPosFloorPlanGateTools();
       this.cancelFloorPlanGuestModal();
-      this.$nextTick(() => {
-        if (this.$refs.posQuickSearchInput) {
-          this.$refs.posQuickSearchInput.focus();
-        }
-      });
     },
     posFloorZoneRectStyle(z) {
       return {
@@ -3565,6 +3504,7 @@ export default {
     },
     async printCard(itemsToPrint = null, printOptions = {}) {
       const raiseOnError = !!(printOptions && printOptions.raiseOnError);
+      const departmentPrintersOnly = !!(printOptions && printOptions.departmentPrintersOnly);
       let originalCarditems = null;
       try {
         this.ensureOrderCodeForPrint();
@@ -3591,14 +3531,14 @@ export default {
           if (raiseOnError) {
             throw new Error("Print element not found");
           }
-          return;
+          return { ok: false, reason: "noPrintElement" };
         }
 
         const stylesHtml = RECEIPT_PRINT_STYLES_HTML;
         const invoiceTitle = (this.$t("invoice_number") || "فاتورة") + ' - ' + (this.orderForSend.orderCode || 'Invoice');
 
         // Step 1: Print full receipt to main printer (if exists)
-        if (this.mainPrinter) {
+        if (!departmentPrintersOnly && this.mainPrinter) {
           try {
             console.log('Printing full receipt to main printer:', this.mainPrinter.name);
             // Prepare full receipt data
@@ -3701,7 +3641,7 @@ export default {
                 this.$i18n.t("printSuccess") || "تم الطباعة بنجاح",
                 { position: "top-right", timeout: 2000, maxToasts: 1 }
               );
-              return;
+              return { ok: true };
             }
 
             if (hadMappedGroup && !anyPrinted) {
@@ -3709,7 +3649,7 @@ export default {
                 this.$i18n.t("error") || "حدث خطأ أثناء الطباعة",
                 { position: "top-right", timeout: 3000, maxToasts: 1 }
               );
-              return;
+              return { ok: false, reason: "deptPrintFailed" };
             }
 
             if (
@@ -3720,15 +3660,22 @@ export default {
               console.warn(
                 "[print] No cart items match configured department printers"
               );
-              return;
+              return { ok: false, reason: "allUnmapped" };
             }
 
-            if (this.mainPrinter) {
-              return;
+            if (!departmentPrintersOnly && this.mainPrinter) {
+              return { ok: true };
             }
           }
         } catch (tagPrintError) {
           console.warn("Tag-based printing error, trying fallback methods:", tagPrintError);
+        }
+
+        if (departmentPrintersOnly) {
+          if (itemsToPrint) {
+            this.carditems = originalCarditems;
+          }
+          return { ok: false, reason: "deptOnlyNoPrint" };
         }
 
         // Try Python print server as fallback (if available)
@@ -3878,9 +3825,6 @@ export default {
         this.orderForSend.tableId = null;
         this.orderForSend.orderType = 'Takeaway'; // Default to Takeaway when no table
       }
-      if (this.$refs.posQuickSearchInput) {
-        this.$refs.posQuickSearchInput.focus();
-      }
     },
     closeModel(id) {
       this.$bvModal.hide(id);
@@ -4000,10 +3944,6 @@ export default {
           };
 
           this.carditems.push(cartItem);
-        }
-
-        if (this.$refs.posQuickSearchInput) {
-          this.$refs.posQuickSearchInput.focus();
         }
 
         // Show compact notification
@@ -4280,21 +4220,6 @@ export default {
       signalRService.off('FloorPlanUpdated');
       signalRService.off('OrderTransferred');
     },
-    toggleFullscreen() {
-      this.isFullscreen = !this.isFullscreen;
-      localStorage.setItem('posFullscreen', this.isFullscreen);
-      
-      // Show notification
-      const message = this.isFullscreen 
-        ? (this.$i18n.t('fullscreenEnabled') || 'تم تفعيل الوضع الكامل')
-        : (this.$i18n.t('fullscreenDisabled') || 'تم إلغاء الوضع الكامل');
-      
-      this.$toast.info(message, {
-        position: "top-right",
-        timeout: 2000,
-        maxToasts: 1,
-      });
-    },
     getSelectedTableNumber() {
       if (!this.selectedTableId) return '';
       const table = this.allTables.find(t => t.id === this.selectedTableId);
@@ -4504,18 +4429,7 @@ export default {
       this.orderForSend.orderType = "DineIn";
     },
 
-    posClearSuppressAndQuickSearch() {
-      clearTimeout(this.quickSearchTimer);
-      this.quickSearchTimer = null;
-      this.posSuppressQuickSearchSync = true;
-      this.quickSearch = "";
-      this.$nextTick(() => {
-        this.posSuppressQuickSearchSync = false;
-      });
-    },
-
     posSelectAllProducts() {
-      this.posClearSuppressAndQuickSearch();
       this.posBrowseStep = "products";
       this.posSelectedRoot = null;
       this.posSelectedSub = null;
@@ -4526,7 +4440,6 @@ export default {
     posSelectRoot(root) {
       if (!root) return;
       const subs = childTagsOf(root, this.tags);
-      this.posClearSuppressAndQuickSearch();
       this.posSelectedRoot = root;
       this.posSelectedSub = null;
       this.search.info = "";
@@ -4542,7 +4455,6 @@ export default {
 
     posSelectSub(sub) {
       if (!sub) return;
-      this.posClearSuppressAndQuickSearch();
       this.posSelectedSub = sub;
       this.posBrowseStep = "products";
       this.search.info = tagItemStorageValue(sub, this.tags);
@@ -4564,7 +4476,6 @@ export default {
         this.posBrowseStep = "subs";
         this.posSelectedSub = null;
         this.search.info = "";
-        this.posClearSuppressAndQuickSearch();
         this.Items = [];
         return;
       }
@@ -4572,13 +4483,11 @@ export default {
         this.posBrowseStep = "roots";
         this.posSelectedRoot = null;
         this.search.info = "";
-        this.posClearSuppressAndQuickSearch();
         this.Items = [];
         return;
       }
       this.posBrowseStep = "roots";
       this.search.info = "";
-      this.posClearSuppressAndQuickSearch();
       this.Items = [];
     },
     
@@ -7156,13 +7065,6 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-}
-
-.pos-quick-search-input {
-  border-radius: 999px !important;
-  border: 1px solid var(--border-color) !important;
-  background: var(--bg-secondary) !important;
-  color: var(--text-primary) !important;
 }
 
 .pos-tables-block {
