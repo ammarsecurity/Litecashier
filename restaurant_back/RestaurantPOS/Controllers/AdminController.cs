@@ -14,6 +14,7 @@ using RestaurantPOS.Models.Dtos;
 using RestaurantPOS.Models.Requests;
 using RestaurantPOS.Models.Restaurant;
 using RestaurantPOS.Models.Response;
+using RestaurantPOS.Services;
 using ClosedXML.Excel;
 using System;
 using System.Net.Http;
@@ -38,14 +39,22 @@ namespace RestaurantPOS.Controllers
         private readonly IMapper _mapper;
         private readonly IConfiguration _configuration;
         private readonly IHubContext<OrderHub> _hubContext;
+        private readonly IOrderCheckoutService _orderCheckoutService;
 
-        public AdminController(ILogger<AdminController> logger, DbConfig dbConfig, IMapper mapper, IConfiguration configuration, IHubContext<OrderHub> hubContext)
+        public AdminController(
+            ILogger<AdminController> logger,
+            DbConfig dbConfig,
+            IMapper mapper,
+            IConfiguration configuration,
+            IHubContext<OrderHub> hubContext,
+            IOrderCheckoutService orderCheckoutService)
         {
             _logger = logger;
             _dbConfig = dbConfig;
             _mapper = mapper;
             _configuration = configuration;
             _hubContext = hubContext;
+            _orderCheckoutService = orderCheckoutService;
         }
 
         // Helper method to get Commercial User ID
@@ -2996,6 +3005,15 @@ namespace RestaurantPOS.Controllers
                     }
                 }
 
+                if (request.IsCheckout)
+                {
+                    var checkoutError = await _orderCheckoutService.ApplyCheckoutAsync(newOrder, request, userId, GetCommercialUserId());
+                    if (checkoutError != null)
+                    {
+                        return BadRequest(checkoutError);
+                    }
+                }
+
                 _logger.LogInformation("Order created successfully: {OrderCode} by user {UserId}", orderCode, userId);
                 
                 // Send SignalR notification for new order
@@ -3213,6 +3231,15 @@ namespace RestaurantPOS.Controllers
 
                 _dbConfig.CustomerOrders.Update(existingOrder);
                 await _dbConfig.SaveChangesAsync();
+
+                if (request.IsCheckout)
+                {
+                    var checkoutError = await _orderCheckoutService.ApplyCheckoutAsync(existingOrder, request, userId, commercialUserId);
+                    if (checkoutError != null)
+                    {
+                        return BadRequest(checkoutError);
+                    }
+                }
 
                 // Reload order items to get accurate count after save
                 await _dbConfig.Entry(existingOrder)

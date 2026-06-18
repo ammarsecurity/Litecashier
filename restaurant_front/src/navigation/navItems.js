@@ -128,6 +128,18 @@ export function buildNavItems(t) {
       icon: "printer-fill",
     },
     {
+      name: "paymentDevices",
+      label: t("paymentDevicesManagement") || "إدارة أجهزة الدفع",
+      link: "/payment-devices",
+      icon: "credit-card-2-front-fill",
+    },
+    {
+      name: "cardPayments",
+      label: t("cardPaymentTransactions") || "معاملات البطاقة",
+      link: "/card-payments",
+      icon: "credit-card-fill",
+    },
+    {
       name: "logout",
       label: t("Logout"),
       link: "/logout",

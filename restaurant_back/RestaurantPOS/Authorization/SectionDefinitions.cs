@@ -26,6 +26,8 @@ public static class SectionDefinitions
         "customers",
         "auditLog",
         "printTemplates",
+        "paymentDevices",
+        "cardPayments",
     };
 
     private static readonly HashSet<string> AssignableSet =

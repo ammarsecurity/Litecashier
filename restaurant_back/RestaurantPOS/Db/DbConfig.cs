@@ -78,6 +78,8 @@ namespace RestaurantPOS.Db
         public DbSet<Supplier> Suppliers { get; set; }
         public DbSet<Customer> Customers { get; set; }
         public DbSet<ReturnedOrderItem> ReturnedOrderItems { get; set; }
+        public DbSet<PaymentDevice> PaymentDevices { get; set; }
+        public DbSet<CardPaymentTransaction> CardPaymentTransactions { get; set; }
 
 
 
@@ -125,6 +127,12 @@ namespace RestaurantPOS.Db
             modelBuilder.Entity<StockMovement>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<Supplier>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<Customer>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<PaymentDevice>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CardPaymentTransaction>().HasOne(r => r.PaymentDevice).WithMany().HasForeignKey(x => x.PaymentDeviceId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CardPaymentTransaction>().HasOne(r => r.CustomerOrder).WithMany().HasForeignKey(x => x.CustomerOrderId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<CardPaymentTransaction>().HasOne(r => r.CommercialUser).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CardPaymentTransaction>().HasOne(r => r.RequestedByUser).WithMany().HasForeignKey(x => x.RequestedByUserId).OnDelete(DeleteBehavior.NoAction);
 
             // OrderTable relationships (many-to-many between Orders and Tables)
             modelBuilder.Entity<OrderTable>().HasOne(r => r.Order).WithMany(r => r.OrderTables).HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Cascade);

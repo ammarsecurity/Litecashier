@@ -20,6 +20,8 @@ export const ASSIGNABLE_SECTION_KEYS = [
   "customers",
   "auditLog",
   "printTemplates",
+  "paymentDevices",
+  "cardPayments",
 ];
 
 /** Route path → section key (first match wins). */
@@ -39,6 +41,8 @@ const ROUTE_SECTION_MAP = [
   { prefix: "/print-server-new", key: "printServer" },
   { prefix: "/print-server", key: "printServer" },
   { prefix: "/print-templates", key: "printTemplates" },
+  { prefix: "/payment-devices", key: "paymentDevices" },
+  { prefix: "/card-payments", key: "cardPayments" },
   { prefix: "/order-queue", key: "orderQueue" },
   { prefix: "/public-orders", key: "publicOrders" },
   { prefix: "/category", key: "category" },
@@ -116,4 +120,6 @@ export const SECTION_I18N_KEYS = {
   customers: "customersManagement",
   auditLog: "auditLog",
   printTemplates: "printTemplates",
+  paymentDevices: "paymentDevicesManagement",
+  cardPayments: "cardPaymentTransactions",
 };

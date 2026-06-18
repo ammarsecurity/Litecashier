@@ -91,40 +91,27 @@
         </b-overlay>
     </div>
 
-    <b-modal id="modal-floor-table-guests" hide-header hide-footer class="users-modal">
-      <div class="modal-content-wrapper">
-        <div class="delete-confirmation-content">
-          <div class="delete-icon-wrapper">
-            <b-icon icon="people-fill" class="delete-warning-icon"></b-icon>
-          </div>
-          <h3 class="delete-confirmation-title">{{ $t("numberOfGuests") || "عدد الزبائن" }}</h3>
-          <p class="delete-confirmation-text">
-            {{ ($t("enterGuestsForTable") || "حدد عدد الزبائن للطاولة") + " " + (floorPlanGuestModal.tableNumber || "") }}
-          </p>
+    <TableGuestsModal
+      :table-number="floorPlanGuestModal.tableNumber"
+      :count.sync="floorPlanGuestModal.count"
+      @confirm="confirmFloorPlanGuestModal"
+      @cancel="cancelFloorPlanGuestModal"
+    />
 
-          <div class="users-input-group">
-            <label>{{ $t("numberOfGuests") || "عدد الزبائن" }}</label>
-            <input
-              v-model.number="floorPlanGuestModal.count"
-              type="number"
-              min="1"
-              class="users-form-input"
-            />
-          </div>
-
-          <div class="table-close-actions order-move-actions">
-            <button class="delete-cancel-button order-move-cancel-btn" @click="cancelFloorPlanGuestModal">
-              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-              {{ $t("cancelButton") || "إلغاء" }}
-            </button>
-            <button class="table-close-action-btn table-close-action-print order-move-confirm-btn" @click="confirmFloorPlanGuestModal">
-              <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-              {{ $t("save") || "حفظ" }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </b-modal>
+    <CardPaymentWaitModal
+      :visible.sync="cardPaymentWait.show"
+      :status="cardPaymentWait.status"
+      :amount="cardPaymentWait.amount"
+      :currency-code="cardPaymentWait.currencyCode"
+      :device-name="cardPaymentWait.deviceName"
+      :message="cardPaymentWait.message"
+      :auth-code="cardPaymentWait.authCode"
+      :ref-no="cardPaymentWait.refNo"
+      :error-message="cardPaymentWait.errorMessage"
+      :cancelling="cardPaymentWait.cancelling"
+      @cancel="onCardPaymentWaitCancel"
+      @close="onCardPaymentWaitClose"
+    />
 
     <b-modal
       id="modal-cancel-order"
@@ -295,19 +282,32 @@
               <div v-if="posBrowseStep === 'roots'" class="pos-categories-list">
                 <button
                   type="button"
-                  class="pos-category-btn pos-category-btn-accent"
+                  class="pos-category-btn pos-category-btn--all"
                   @click="posSelectAllProducts"
                 >
-                  {{ $t("all") }}
+                  <span class="pos-category-btn-icon" aria-hidden="true">
+                    <b-icon icon="grid-3x3-gap-fill" />
+                  </span>
+                  <span class="pos-category-btn-label">{{ $t("all") }}</span>
                 </button>
                 <button
                   v-for="tag in posRootTagsList"
                   :key="tag.id"
                   type="button"
                   class="pos-category-btn"
+                  :class="{ 'pos-category-btn--has-subs': posCategoryHasSubs(tag) }"
+                  :style="posCategoryTileStyle(tag)"
                   @click="posSelectRoot(tag)"
                 >
-                  {{ tag.name }}
+                  <span class="pos-category-btn-icon" aria-hidden="true">
+                    <b-icon :icon="posCategoryHasSubs(tag) ? 'folder2' : 'tag-fill'" />
+                  </span>
+                  <span class="pos-category-btn-label">{{ tag.name }}</span>
+                  <b-icon
+                    v-if="posCategoryHasSubs(tag)"
+                    icon="chevron-left"
+                    class="pos-category-btn-arrow"
+                  />
                 </button>
               </div>
 
@@ -317,9 +317,13 @@
                   :key="tag.id"
                   type="button"
                   class="pos-category-btn"
+                  :style="posCategoryTileStyle(tag)"
                   @click="posSelectSub(tag)"
                 >
-                  {{ tag.name }}
+                  <span class="pos-category-btn-icon" aria-hidden="true">
+                    <b-icon icon="tag-fill" />
+                  </span>
+                  <span class="pos-category-btn-label">{{ tag.name }}</span>
                 </button>
               </div>
             </div>
@@ -408,14 +412,22 @@
                 <!-- Cart Items List -->
                 <div class="pos-cart-items-section">
                   <div class="pos-cart-header">
-                    <h3 class="pos-cart-title">
-                      <b-icon icon="cart-fill" class="me-2"></b-icon>
-                      {{ $t("cart") || 'السلة' }}
-                    </h3>
-                    <div class="pos-cart-header-actions" v-if="carditems.length > 0">
-                      <span class="pos-cart-count-badge">
-                        {{ carditems.length }}
+                    <div class="pos-cart-title-group">
+                      <span class="pos-cart-title-icon-wrap" aria-hidden="true">
+                        <b-icon icon="cart-fill" class="pos-cart-title-icon"></b-icon>
                       </span>
+                      <div class="pos-cart-title-copy">
+                        <h3 class="pos-cart-title">{{ $t("cart") || "السلة" }}</h3>
+                        <p class="pos-cart-title-sub">
+                          <template v-if="carditems.length > 0">
+                            <span class="pos-cart-title-count">{{ carditems.length }}</span>
+                            {{ $t("itemLabel") || "صنف" }}
+                          </template>
+                          <template v-else>{{ $t("cartEmptyHint") || "أضف أصناف من القائمة" }}</template>
+                        </p>
+                      </div>
+                    </div>
+                    <div class="pos-cart-header-actions" v-if="carditems.length > 0">
                       <button
                         v-if="canCancelDineInOrder()"
                         type="button"
@@ -1526,6 +1538,8 @@ import {
 import { resolveFloorPlanOverlaps } from "@/utils/floorPlanLayout.js";
 import posOrderPersistMixin from "@/mixins/posOrderPersistMixin.js";
 import posFullscreenMixin from "@/mixins/posFullscreenMixin.js";
+import CardPaymentWaitModal from "@/components/CardPaymentWaitModal.vue";
+import TableGuestsModal from "@/components/TableGuestsModal.vue";
 import { findCartLineIndex, mergeCartLines } from "@/utils/mergeCartLines.js";
 // import store from '../store/store'; // Adjust the path based on your actual folder structure
 
@@ -1537,6 +1551,8 @@ export default {
     ClockVue,
     "vue-barcode": VueBarcode,
     CalculatorComp,
+    CardPaymentWaitModal,
+    TableGuestsModal,
   },
   data() {
     return {
@@ -4437,6 +4453,16 @@ export default {
       this.orderForSend.orderType = "DineIn";
     },
 
+    posCategoryHasSubs(tag) {
+      return childTagsOf(tag, this.tags).length > 0;
+    },
+
+    posCategoryTileStyle(tag) {
+      const id = Number(tag?.id ?? tag?.Id ?? 0);
+      const hue = (id * 53 + 17) % 360;
+      return { "--pos-cat-hue": String(hue) };
+    },
+
     posSelectAllProducts() {
       this.posBrowseStep = "products";
       this.posSelectedRoot = null;
@@ -7088,13 +7114,13 @@ export default {
 
 .pos-categories-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(5.1rem, 1fr));
-  gap: 0.48rem;
+  grid-template-columns: repeat(auto-fill, minmax(5.75rem, 1fr));
+  gap: 0.55rem;
   align-items: stretch;
   padding: 0 0.12rem 0.12rem;
 }
 
-/* واجهة v2 — شريط التصنيفات والأدوات أقل ارتفاعاً (يتغلب على شبكة main.css الكبيرة على الشاشات الواسعة) */
+/* واجهة v2 — شريط التصنيفات والأدوات أقل ارتفاعاً */
 .pos-main-section--v2 .pos-categories-scroll {
   padding: 0.04rem 0 0.02rem;
 }
@@ -7129,55 +7155,66 @@ export default {
 }
 
 .pos-main-section--v2 .pos-categories-list {
-  grid-template-columns: repeat(auto-fill, minmax(4.3rem, 1fr)) !important;
-  gap: 0.44rem !important;
+  grid-template-columns: repeat(auto-fill, minmax(4.85rem, 1fr)) !important;
+  gap: 0.48rem !important;
   padding: 0 0.1rem 0.16rem !important;
 }
 
 .pos-main-section--v2 .pos-category-btn {
-  min-height: 2.1rem;
-  padding: 0.34rem 0.4rem;
-  border-radius: 0.68rem;
-  font-size: clamp(0.68rem, 1.2vmin + 0.44rem, 0.9rem);
-  line-height: 1.16;
+  min-height: 4.35rem;
+  padding: 0.5rem 0.35rem 0.42rem;
+  border-radius: 0.72rem;
+  font-size: 0.74rem;
+  gap: 0.3rem;
+}
+
+.pos-main-section--v2 .pos-category-btn-icon {
+  width: 1.95rem;
+  height: 1.95rem;
+  font-size: 0.9rem;
+  border-radius: 0.52rem;
 }
 
 .pos-main-section--v2 .pos-category-btn:hover {
   transform: translateY(-1px);
 }
 
-/* أزرار الأقسام: الألوان والتدرّجات من main.css — تجنّب التكرار هنا إذ كان يطبّق لون نص غامق/فاتح خطأ على زر «الكل» */
-
 @media (max-width: 575px) {
   .pos-main-section--v2 .pos-categories-list {
-    grid-template-columns: repeat(auto-fill, minmax(3.7rem, 1fr)) !important;
-    gap: 0.36rem !important;
+    grid-template-columns: repeat(auto-fill, minmax(4.2rem, 1fr)) !important;
+    gap: 0.4rem !important;
   }
 
   .pos-main-section--v2 .pos-category-btn {
-    min-height: 2rem;
-    padding: 0.28rem 0.3rem;
-    border-radius: 0.58rem;
-    font-size: 0.7rem;
+    min-height: 4rem;
+    padding: 0.42rem 0.28rem 0.36rem;
+    border-radius: 0.62rem;
+    font-size: 0.68rem;
+  }
+
+  .pos-main-section--v2 .pos-category-btn-icon {
+    width: 1.8rem;
+    height: 1.8rem;
+    font-size: 0.82rem;
   }
 }
 
 @media (min-width: 576px) and (max-width: 991px) {
   .pos-main-section--v2 .pos-categories-list {
-    grid-template-columns: repeat(auto-fill, minmax(4.25rem, 1fr)) !important;
+    grid-template-columns: repeat(auto-fill, minmax(4.75rem, 1fr)) !important;
   }
 }
 
 @media (min-width: 992px) {
   .pos-main-section--v2 .pos-categories-list {
-    grid-template-columns: repeat(auto-fill, minmax(5.2rem, 1fr)) !important;
-    gap: 0.5rem !important;
+    grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)) !important;
+    gap: 0.52rem !important;
   }
 
   .pos-main-section--v2 .pos-category-btn {
-    min-height: 2.3rem;
-    font-size: 0.82rem;
-    border-radius: 0.76rem;
+    min-height: 4.55rem;
+    font-size: 0.78rem;
+    border-radius: 0.78rem;
   }
 }
 

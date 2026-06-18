@@ -24,6 +24,8 @@ import ExpensesView from '../views/ExpensesView.vue'
 import InventoryView from '../views/InventoryView.vue'
 import AuditLogView from '../views/AuditLogView.vue'
 import PrintTemplatesView from '../views/PrintTemplatesView.vue'
+import PaymentDevicesView from '../views/PaymentDevicesView.vue'
+import CardPaymentsView from '../views/CardPaymentsView.vue'
 import { i18n } from '../main'
 import { managerCanAccessPath } from '../navigation/sectionRegistry.js'
 Vue.use(VueRouter)
@@ -311,6 +313,24 @@ const routes = [
     meta: {
       requiresAuth: true,
       roles: ['Commercial', 'POS', 'Admin']
+    }
+  },
+  {
+    path: '/payment-devices',
+    name: 'paymentDevices',
+    component: PaymentDevicesView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
+    }
+  },
+  {
+    path: '/card-payments',
+    name: 'cardPayments',
+    component: CardPaymentsView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
     }
   },
   {

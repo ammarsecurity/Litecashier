@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using RestaurantPOS.Db;
+using Microsoft.AspNetCore.SignalR;
 using RestaurantPOS.Hubs;
 using RestaurantPOS.Logging;
 using RestaurantPOS.Middleware;
@@ -12,6 +13,7 @@ using RestaurantPOS.Models;
 using RestaurantPOS.Models.Requests;
 using RestaurantPOS.Models.Requests.Restaurant;
 using RestaurantPOS.Models.Restaurant;
+using RestaurantPOS.Services;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -57,6 +59,11 @@ builder.Services.AddDbContext<DbConfig>(options =>
 });
 
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddHttpClient("NebulaPayment");
+builder.Services.AddScoped<INebulaPaymentService, NebulaPaymentService>();
+builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
+builder.Services.AddSingleton<ICardPaymentProcessingService, CardPaymentProcessingService>();
 
 builder.Services.AddAutoMapper(typeof(Program));
 
@@ -153,6 +160,7 @@ builder.Services.AddCors(options =>
 });
 
 // Add SignalR
+builder.Services.AddSingleton<IUserIdProvider, NameIdentifierUserIdProvider>();
 builder.Services.AddSignalR();
 
 builder.Services.Configure<ErrorLogSettings>(builder.Configuration.GetSection("ErrorLogging"));

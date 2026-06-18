@@ -103,40 +103,12 @@
         </b-overlay>
     </div>
 
-    <b-modal id="modal-floor-table-guests" hide-header hide-footer class="users-modal">
-      <div class="modal-content-wrapper">
-        <div class="delete-confirmation-content">
-          <div class="delete-icon-wrapper">
-            <b-icon icon="people-fill" class="delete-warning-icon"></b-icon>
-          </div>
-          <h3 class="delete-confirmation-title">{{ $t("numberOfGuests") || "عدد الزبائن" }}</h3>
-          <p class="delete-confirmation-text">
-            {{ ($t("enterGuestsForTable") || "حدد عدد الزبائن للطاولة") + " " + (floorPlanGuestModal.tableNumber || "") }}
-          </p>
-
-          <div class="users-input-group">
-            <label>{{ $t("numberOfGuests") || "عدد الزبائن" }}</label>
-            <input
-              v-model.number="floorPlanGuestModal.count"
-              type="number"
-              min="1"
-              class="users-form-input"
-            />
-          </div>
-
-          <div class="table-close-actions order-move-actions">
-            <button class="delete-cancel-button order-move-cancel-btn" @click="cancelFloorPlanGuestModal">
-              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-              {{ $t("cancelButton") || "إلغاء" }}
-            </button>
-            <button class="table-close-action-btn table-close-action-print order-move-confirm-btn" @click="confirmFloorPlanGuestModal">
-              <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-              {{ $t("save") || "حفظ" }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </b-modal>
+    <TableGuestsModal
+      :table-number="floorPlanGuestModal.tableNumber"
+      :count.sync="floorPlanGuestModal.count"
+      @confirm="confirmFloorPlanGuestModal"
+      @cancel="cancelFloorPlanGuestModal"
+    />
 
     <!-- Cancel DineIn Order Modal (root — avoids b-overlay / cart shell click issues) -->
     <b-modal
@@ -322,19 +294,32 @@
               <div v-if="posBrowseStep === 'roots'" class="pos-categories-list">
                 <button
                   type="button"
-                  class="pos-category-btn pos-category-btn-accent"
+                  class="pos-category-btn pos-category-btn--all"
                   @click="posSelectAllProducts"
                 >
-                  {{ $t("all") }}
+                  <span class="pos-category-btn-icon" aria-hidden="true">
+                    <b-icon icon="grid-3x3-gap-fill" />
+                  </span>
+                  <span class="pos-category-btn-label">{{ $t("all") }}</span>
                 </button>
                 <button
                   v-for="tag in posRootTagsList"
                   :key="tag.id"
                   type="button"
                   class="pos-category-btn"
+                  :class="{ 'pos-category-btn--has-subs': posCategoryHasSubs(tag) }"
+                  :style="posCategoryTileStyle(tag)"
                   @click="posSelectRoot(tag)"
                 >
-                  {{ tag.name }}
+                  <span class="pos-category-btn-icon" aria-hidden="true">
+                    <b-icon :icon="posCategoryHasSubs(tag) ? 'folder2' : 'tag-fill'" />
+                  </span>
+                  <span class="pos-category-btn-label">{{ tag.name }}</span>
+                  <b-icon
+                    v-if="posCategoryHasSubs(tag)"
+                    icon="chevron-left"
+                    class="pos-category-btn-arrow"
+                  />
                 </button>
               </div>
 
@@ -344,9 +329,13 @@
                   :key="tag.id"
                   type="button"
                   class="pos-category-btn"
+                  :style="posCategoryTileStyle(tag)"
                   @click="posSelectSub(tag)"
                 >
-                  {{ tag.name }}
+                  <span class="pos-category-btn-icon" aria-hidden="true">
+                    <b-icon icon="tag-fill" />
+                  </span>
+                  <span class="pos-category-btn-label">{{ tag.name }}</span>
                 </button>
               </div>
             </div>
@@ -435,14 +424,22 @@
                 <!-- Cart Items List -->
                 <div class="pos-cart-items-section">
                   <div class="pos-cart-header">
-                    <h3 class="pos-cart-title">
-                      <b-icon icon="cart-fill" class="me-2"></b-icon>
-                      {{ $t("cart") || 'السلة' }}
-                    </h3>
-                    <div class="pos-cart-header-actions" v-if="carditems.length > 0">
-                      <span class="pos-cart-count-badge">
-                        {{ carditems.length }}
+                    <div class="pos-cart-title-group">
+                      <span class="pos-cart-title-icon-wrap" aria-hidden="true">
+                        <b-icon icon="cart-fill" class="pos-cart-title-icon"></b-icon>
                       </span>
+                      <div class="pos-cart-title-copy">
+                        <h3 class="pos-cart-title">{{ $t("cart") || "السلة" }}</h3>
+                        <p class="pos-cart-title-sub">
+                          <template v-if="carditems.length > 0">
+                            <span class="pos-cart-title-count">{{ carditems.length }}</span>
+                            {{ $t("itemLabel") || "صنف" }}
+                          </template>
+                          <template v-else>{{ $t("cartEmptyHint") || "أضف أصناف من القائمة" }}</template>
+                        </p>
+                      </div>
+                    </div>
+                    <div class="pos-cart-header-actions" v-if="carditems.length > 0">
                       <button
                         v-if="canCancelDineInOrder()"
                         type="button"
@@ -850,91 +847,140 @@
             
 
             <!-- Order Notes Modal -->
-            <b-modal id="modal-order-notes" :title="$t('orderNotes') || 'ملاحظات الطلب'" hide-header hide-footer class="users-modal">
-              <div class="modal-content-wrapper">
-                <div class="order-notes-content">
-                  <div class="order-notes-header">
-                    <b-icon icon="file-text" class="me-2"></b-icon>
+            <b-modal
+              id="modal-order-notes"
+              :title="$t('orderNotes') || 'ملاحظات الطلب'"
+              hide-header
+              hide-footer
+              class="users-modal"
+              modal-class="users-modal order-notes-modal-root"
+              body-class="order-notes-modal-body"
+            >
+              <div class="modal-content-wrapper order-notes-modal-wrap">
+                <div class="order-notes-content order-notes-content--compact">
+                  <div class="order-notes-header order-notes-header--compact">
+                    <b-icon icon="file-text" class="me-2" />
                     <h3 class="order-notes-title">{{ $t("orderNotes") || "ملاحظات الطلب" }}</h3>
                   </div>
-                  <div class="order-notes-input-wrapper">
-                    <label class="order-notes-label">{{ $t("notesLabel") || "الملاحظات (اختياري)" }}</label>
-                    <textarea
-                      v-model="orderForSend.notes"
-                      class="order-notes-textarea"
-                      :placeholder="$t('notesPlaceholder') || 'اكتب ملاحظاتك هنا...'"
-                      rows="4"
-                    ></textarea>
-                  </div>
-                  <div class="order-notes-input-wrapper">
-                    <label class="order-notes-label">{{ $t("pagerNumber") || "رقم جهاز النداء (اختياري)" }}</label>
-                    <input
-                      v-model="orderForSend.pagerNumber"
-                      type="text"
-                      class="order-notes-input"
-                      :placeholder="$t('enterPagerNumber') || 'أدخل رقم جهاز النداء...'"
-                    />
-                  </div>
-                  <div class="order-notes-input-wrapper order-discount-wrapper">
-                    <label class="order-notes-label">{{ $t("orderDiscount") || "خصم الطلب" }}</label>
-                    <div class="order-discount-type-toggle">
-                      <button
-                        type="button"
-                        class="order-discount-type-btn"
-                        :class="{ 'order-discount-type-btn-active': orderDiscountType === 'amount' }"
-                        @click="orderDiscountType = 'amount'"
-                      >
-                        {{ $t("discountByAmount") || "مبلغ" }}
-                      </button>
-                      <button
-                        type="button"
-                        class="order-discount-type-btn"
-                        :class="{ 'order-discount-type-btn-active': orderDiscountType === 'percentage' }"
-                        @click="orderDiscountType = 'percentage'"
-                      >
-                        {{ $t("discountByPercentage") || "نسبة" }}
-                      </button>
+
+                  <div class="order-notes-meta-row">
+                    <div class="order-notes-input-wrapper order-notes-input-wrapper--grow">
+                      <label class="order-notes-label">{{ $t("notesLabel") || "الملاحظات (اختياري)" }}</label>
+                      <textarea
+                        v-model="orderForSend.notes"
+                        class="order-notes-textarea order-notes-textarea--compact"
+                        :placeholder="$t('notesPlaceholder') || 'اكتب ملاحظاتك هنا...'"
+                        rows="2"
+                      ></textarea>
                     </div>
-                    <div class="order-discount-input-row">
+                    <div class="order-notes-input-wrapper order-notes-input-wrapper--pager">
+                      <label class="order-notes-label">{{ $t("pagerNumber") || "رقم النداء" }}</label>
                       <input
-                        v-model.number="orderDiscountValue"
-                        type="number"
-                        min="0"
-                        :max="orderDiscountType === 'percentage' ? 100 : null"
-                        class="order-notes-input"
-                        :placeholder="orderDiscountType === 'percentage' ? (($t('discountPercentPlaceholder') || 'ادخل النسبة %')) : (($t('discountAmountPlaceholder') || 'ادخل مبلغ الخصم'))"
+                        v-model="orderForSend.pagerNumber"
+                        type="text"
+                        class="order-notes-input order-notes-input--compact"
+                        :placeholder="$t('enterPagerNumber') || 'رقم النداء...'"
                       />
-                      <button type="button" class="order-discount-clear-btn" @click="clearOrderDiscount">
-                        {{ $t("clear") || "مسح" }}
-                      </button>
                     </div>
-                    <div class="order-discount-presets">
-                      <button
-                        v-for="preset in orderDiscountPresets"
-                        :key="preset.id"
-                        type="button"
-                        class="order-discount-preset-btn"
-                        @click="applyOrderDiscountPreset(preset)"
-                      >
-                        {{ preset.label }} {{ preset.type === 'amount' ? $t("currency") : "" }}
-                      </button>
+                  </div>
+
+                  <div class="order-notes-checkout-card">
+                    <div class="order-notes-pay-row">
+                      <span class="order-notes-label">{{ $t("paymentMethod") || "طريقة الدفع" }}</span>
+                      <div class="order-notes-pay-toggle">
+                        <button
+                          type="button"
+                          class="order-notes-pay-btn"
+                          :class="{ 'order-notes-pay-btn--active': orderForSend.paymentMethod === 'Cash' }"
+                          @click="setPosPaymentMethod('Cash')"
+                        >
+                          <b-icon icon="cash-stack" />
+                          {{ $t("cash") || "كاش" }}
+                        </button>
+                        <button
+                          type="button"
+                          class="order-notes-pay-btn"
+                          :class="{ 'order-notes-pay-btn--active': orderForSend.paymentMethod === 'Card' }"
+                          @click="setPosPaymentMethod('Card')"
+                        >
+                          <b-icon icon="credit-card" />
+                          {{ $t("card") || "بطاقة" }}
+                        </button>
+                      </div>
                     </div>
-                    <div class="order-discount-preview">
-                      <div class="order-discount-preview-row">
-                        <span>{{ $t("subtotal") || "المجموع قبل الخصم" }}</span>
-                        <strong>{{ formatPrice(totaPrice) }} {{ $t("currency") }}</strong>
-                      </div>
-                      <div class="order-discount-preview-row">
-                        <span>{{ $t("discountLabel") || "الخصم" }} ({{ orderDiscountPreviewLabel }})</span>
-                        <strong>- {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}</strong>
-                      </div>
-                      <div class="order-discount-preview-row order-discount-preview-row-total">
+                    <div class="order-notes-total-bar">
+                      <div class="order-notes-total-main">
                         <span>{{ $t("totalLabel") || "الإجمالي" }}</span>
                         <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
                       </div>
+                      <span v-if="orderDiscountAmount > 0" class="order-notes-total-discount">
+                        {{ $t("discountLabel") }}: -{{ formatPrice(orderDiscountAmount) }}
+                      </span>
                     </div>
                   </div>
-                  <div class="order-notes-actions">
+
+                  <div class="order-discount-wrapper order-discount-wrapper--compact">
+                    <button
+                      type="button"
+                      class="order-discount-collapse-toggle"
+                      @click="orderNotesDiscountOpen = !orderNotesDiscountOpen"
+                    >
+                      <span>
+                        <b-icon icon="percent" class="me-2" />
+                        {{ $t("orderDiscount") || "خصم الطلب" }}
+                        <small v-if="orderDiscountAmount > 0" class="order-discount-collapse-badge">
+                          -{{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}
+                        </small>
+                      </span>
+                      <b-icon :icon="orderNotesDiscountOpen ? 'chevron-up' : 'chevron-down'" />
+                    </button>
+                    <div v-show="orderNotesDiscountOpen" class="order-discount-collapse-body">
+                      <div class="order-discount-type-toggle">
+                        <button
+                          type="button"
+                          class="order-discount-type-btn"
+                          :class="{ 'order-discount-type-btn-active': orderDiscountType === 'amount' }"
+                          @click="orderDiscountType = 'amount'"
+                        >
+                          {{ $t("discountByAmount") || "مبلغ" }}
+                        </button>
+                        <button
+                          type="button"
+                          class="order-discount-type-btn"
+                          :class="{ 'order-discount-type-btn-active': orderDiscountType === 'percentage' }"
+                          @click="orderDiscountType = 'percentage'"
+                        >
+                          {{ $t("discountByPercentage") || "نسبة" }}
+                        </button>
+                      </div>
+                      <div class="order-discount-input-row">
+                        <input
+                          v-model.number="orderDiscountValue"
+                          type="number"
+                          min="0"
+                          :max="orderDiscountType === 'percentage' ? 100 : null"
+                          class="order-notes-input order-notes-input--compact"
+                          :placeholder="orderDiscountType === 'percentage' ? (($t('discountPercentPlaceholder') || 'ادخل النسبة %')) : (($t('discountAmountPlaceholder') || 'ادخل مبلغ الخصم'))"
+                        />
+                        <button type="button" class="order-discount-clear-btn" @click="clearOrderDiscount">
+                          {{ $t("clear") || "مسح" }}
+                        </button>
+                      </div>
+                      <div class="order-discount-presets order-discount-presets--compact">
+                        <button
+                          v-for="preset in orderDiscountPresets"
+                          :key="preset.id"
+                          type="button"
+                          class="order-discount-preset-btn"
+                          @click="applyOrderDiscountPreset(preset)"
+                        >
+                          {{ preset.label }} {{ preset.type === 'amount' ? $t("currency") : "" }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="order-notes-actions order-notes-actions--compact">
                     <button class="order-notes-confirm-button" @click="confirmAddOrder">
                       <b-icon icon="check-circle-fill" class="me-2"></b-icon>
                       {{ $t("orderNotesComplete") || "اكمال" }}
@@ -947,6 +993,21 @@
                 </div>
               </div>
             </b-modal>
+
+            <CardPaymentWaitModal
+              :visible.sync="cardPaymentWait.show"
+              :status="cardPaymentWait.status"
+              :amount="cardPaymentWait.amount"
+              :currency-code="cardPaymentWait.currencyCode"
+              :device-name="cardPaymentWait.deviceName"
+              :message="cardPaymentWait.message"
+              :auth-code="cardPaymentWait.authCode"
+              :ref-no="cardPaymentWait.refNo"
+              :error-message="cardPaymentWait.errorMessage"
+              :cancelling="cardPaymentWait.cancelling"
+              @cancel="onCardPaymentWaitCancel"
+              @close="onCardPaymentWaitClose"
+            />
 
             <b-modal
               id="modal-cart-line-note"
@@ -1950,6 +2011,8 @@ import {
 import { resolveFloorPlanOverlaps } from "@/utils/floorPlanLayout.js";
 import posOrderPersistMixin from "@/mixins/posOrderPersistMixin.js";
 import posFullscreenMixin from "@/mixins/posFullscreenMixin.js";
+import CardPaymentWaitModal from "@/components/CardPaymentWaitModal.vue";
+import TableGuestsModal from "@/components/TableGuestsModal.vue";
 import { findCartLineIndex, mergeCartLines } from "@/utils/mergeCartLines.js";
 // import store from '../store/store'; // Adjust the path based on your actual folder structure
 
@@ -1961,6 +2024,8 @@ export default {
     ClockVue,
     "vue-barcode": VueBarcode,
     CalculatorComp,
+    CardPaymentWaitModal,
+    TableGuestsModal,
   },
   data() {
     return {
@@ -2028,6 +2093,7 @@ export default {
       },
       orderDiscountType: "amount",
       orderDiscountValue: null,
+      orderNotesDiscountOpen: false,
       orderDiscountPresets: [
         { id: "p5", type: "percentage", value: 5, label: "5%" },
         { id: "p10", type: "percentage", value: 10, label: "10%" },
@@ -4552,6 +4618,10 @@ export default {
       // Reset notes before opening modal
       this.orderForSend.notes = "";
       this.orderForSend.pagerNumber = "";
+      if (!["Cash", "Card"].includes(this.orderForSend.paymentMethod)) {
+        this.setPosPaymentMethod("Cash");
+      }
+      this.orderNotesDiscountOpen = Number(this.orderDiscountAmount || 0) > 0;
       this.$bvModal.show('modal-order-notes');
     },
     openPrintOnlyConfirm() {
@@ -4639,7 +4709,14 @@ export default {
         if (!canApplyDiscount) return;
       }
       this.$bvModal.hide('modal-order-notes');
-      this.addOrder(this.checkoutSubmitMode === "pay-print");
+
+      if (this.orderForSend.paymentMethod === "Card") {
+        const txId = await this.processCardPaymentBeforeCheckout();
+        if (!txId) return;
+        this.cardPaymentTransactionIdForCheckout = txId;
+      }
+
+      await this.addOrder(this.checkoutSubmitMode === "pay-print");
     },
     addToCartList(item) {
       try {
@@ -5176,6 +5253,16 @@ export default {
       });
     },
 
+    posCategoryHasSubs(tag) {
+      return childTagsOf(tag, this.tags).length > 0;
+    },
+
+    posCategoryTileStyle(tag) {
+      const id = Number(tag?.id ?? tag?.Id ?? 0);
+      const hue = (id * 53 + 17) % 360;
+      return { "--pos-cat-hue": String(hue) };
+    },
+
     posSelectAllProducts() {
       this.posClearSuppressAndQuickSearch();
       this.posBrowseStep = "products";
@@ -5523,11 +5610,318 @@ export default {
   color: var(--danger-color);
 }
 
+.order-notes-modal-body {
+  padding: 0 !important;
+  max-height: none !important;
+  overflow: hidden !important;
+}
+
+.order-notes-modal-wrap {
+  padding: 1rem 1.15rem !important;
+}
+
+.order-notes-content--compact {
+  gap: 0.75rem;
+}
+
+.order-notes-header--compact {
+  margin-bottom: 0;
+}
+
+.order-notes-header--compact .order-notes-title {
+  font-size: 1.15rem;
+}
+
+.order-notes-meta-row {
+  display: grid;
+  grid-template-columns: 1fr minmax(110px, 28%);
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.order-notes-textarea--compact {
+  min-height: 58px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.88rem;
+  resize: none;
+}
+
+.order-notes-input--compact {
+  padding: 0.55rem 0.7rem;
+  font-size: 0.88rem;
+}
+
+.order-notes-checkout-card {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.order-notes-pay-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.order-notes-pay-row > .order-notes-label {
+  margin: 0;
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+.order-notes-pay-toggle {
+  display: inline-flex;
+  gap: 0.4rem;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.order-notes-pay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.42rem 0.75rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.order-notes-pay-btn--active {
+  border-color: var(--primary-color);
+  color: var(--primary-light);
+  background: rgba(129, 140, 248, 0.12);
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.1);
+}
+
+.order-notes-total-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.45rem;
+  border-top: 1px dashed var(--border-color);
+  flex-wrap: wrap;
+}
+
+.order-notes-total-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.order-notes-total-main strong {
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.order-notes-total-discount {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--success-color);
+}
+
+.order-discount-wrapper--compact {
+  padding: 0;
+  overflow: hidden;
+}
+
+.order-discount-collapse-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.8rem;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.order-discount-collapse-toggle span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.order-discount-collapse-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--success-color);
+}
+
+.order-discount-collapse-body {
+  padding: 0 0.8rem 0.75rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.order-discount-presets--compact {
+  margin-top: 0.5rem;
+  gap: 0.35rem;
+}
+
+.order-discount-presets--compact .order-discount-preset-btn {
+  padding: 0.28rem 0.55rem;
+  font-size: 0.75rem;
+}
+
+.order-notes-actions--compact {
+  margin-top: 0;
+  gap: 0.65rem;
+}
+
+.order-notes-actions--compact .order-notes-confirm-button,
+.order-notes-actions--compact .order-notes-cancel-button {
+  padding: 0.62rem 1.1rem;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 575px) {
+  .order-notes-meta-row {
+    grid-template-columns: 1fr;
+  }
+
+  .order-notes-pay-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .order-notes-pay-toggle {
+    justify-content: stretch;
+  }
+
+  .order-notes-pay-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .order-notes-actions--compact {
+    flex-direction: column-reverse;
+  }
+
+  .order-notes-actions--compact .order-notes-confirm-button,
+  .order-notes-actions--compact .order-notes-cancel-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 .order-discount-wrapper {
   padding: 0.85rem;
   border: 1px solid var(--border-color);
   border-radius: 0.75rem;
   background: var(--bg-secondary);
+}
+
+.order-notes-payment-wrapper {
+  padding: 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  background: var(--bg-secondary);
+}
+
+.order-notes-payment-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.order-notes-payment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.order-notes-payment-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.85rem 0.65rem;
+  border: 2px solid var(--border-color);
+  border-radius: 0.8rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  text-align: center;
+}
+
+.order-notes-payment-option:hover {
+  border-color: var(--border-dark);
+  transform: translateY(-1px);
+}
+
+.order-notes-payment-option--active {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.14);
+  background: rgba(129, 140, 248, 0.08);
+}
+
+.order-notes-payment-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+}
+
+.order-notes-payment-icon-wrap--cash {
+  color: var(--success-color);
+  background: var(--success-light);
+}
+
+.order-notes-payment-icon-wrap--card {
+  color: var(--primary-color);
+  background: rgba(129, 140, 248, 0.15);
+}
+
+.order-notes-payment-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.order-notes-payment-text strong {
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.order-notes-payment-text small {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.order-notes-payment-option--active .order-notes-payment-text small {
+  color: var(--text-secondary);
+}
+
+.order-notes-payment-check {
+  position: absolute;
+  top: 0.45rem;
+  inset-inline-end: 0.45rem;
+  font-size: 0.95rem;
+  color: var(--primary-color);
 }
 
 .order-discount-type-toggle {
@@ -7956,13 +8350,13 @@ export default {
 
 .pos-categories-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(5.1rem, 1fr));
-  gap: 0.48rem;
+  grid-template-columns: repeat(auto-fill, minmax(5.75rem, 1fr));
+  gap: 0.55rem;
   align-items: stretch;
   padding: 0 0.12rem 0.12rem;
 }
 
-/* واجهة v2 — شريط التصنيفات والأدوات أقل ارتفاعاً (يتغلب على شبكة main.css الكبيرة على الشاشات الواسعة) */
+/* واجهة v2 — شريط التصنيفات والأدوات أقل ارتفاعاً */
 .pos-main-section--v2 .pos-categories-scroll {
   padding: 0.04rem 0 0.02rem;
 }
@@ -7997,55 +8391,66 @@ export default {
 }
 
 .pos-main-section--v2 .pos-categories-list {
-  grid-template-columns: repeat(auto-fill, minmax(4.3rem, 1fr)) !important;
-  gap: 0.44rem !important;
+  grid-template-columns: repeat(auto-fill, minmax(4.85rem, 1fr)) !important;
+  gap: 0.48rem !important;
   padding: 0 0.1rem 0.16rem !important;
 }
 
 .pos-main-section--v2 .pos-category-btn {
-  min-height: 2.1rem;
-  padding: 0.34rem 0.4rem;
-  border-radius: 0.68rem;
-  font-size: clamp(0.68rem, 1.2vmin + 0.44rem, 0.9rem);
-  line-height: 1.16;
+  min-height: 4.35rem;
+  padding: 0.5rem 0.35rem 0.42rem;
+  border-radius: 0.72rem;
+  font-size: 0.74rem;
+  gap: 0.3rem;
+}
+
+.pos-main-section--v2 .pos-category-btn-icon {
+  width: 1.95rem;
+  height: 1.95rem;
+  font-size: 0.9rem;
+  border-radius: 0.52rem;
 }
 
 .pos-main-section--v2 .pos-category-btn:hover {
   transform: translateY(-1px);
 }
 
-/* أزرار الأقسام: الألوان والتدرّجات من main.css — تجنّب التكرار هنا إذ كان يطبّق لون نص غامق/فاتح خطأ على زر «الكل» */
-
 @media (max-width: 575px) {
   .pos-main-section--v2 .pos-categories-list {
-    grid-template-columns: repeat(auto-fill, minmax(3.7rem, 1fr)) !important;
-    gap: 0.36rem !important;
+    grid-template-columns: repeat(auto-fill, minmax(4.2rem, 1fr)) !important;
+    gap: 0.4rem !important;
   }
 
   .pos-main-section--v2 .pos-category-btn {
-    min-height: 2rem;
-    padding: 0.28rem 0.3rem;
-    border-radius: 0.58rem;
-    font-size: 0.7rem;
+    min-height: 4rem;
+    padding: 0.42rem 0.28rem 0.36rem;
+    border-radius: 0.62rem;
+    font-size: 0.68rem;
+  }
+
+  .pos-main-section--v2 .pos-category-btn-icon {
+    width: 1.8rem;
+    height: 1.8rem;
+    font-size: 0.82rem;
   }
 }
 
 @media (min-width: 576px) and (max-width: 991px) {
   .pos-main-section--v2 .pos-categories-list {
-    grid-template-columns: repeat(auto-fill, minmax(4.25rem, 1fr)) !important;
+    grid-template-columns: repeat(auto-fill, minmax(4.75rem, 1fr)) !important;
   }
 }
 
 @media (min-width: 992px) {
   .pos-main-section--v2 .pos-categories-list {
-    grid-template-columns: repeat(auto-fill, minmax(5.2rem, 1fr)) !important;
-    gap: 0.5rem !important;
+    grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)) !important;
+    gap: 0.52rem !important;
   }
 
   .pos-main-section--v2 .pos-category-btn {
-    min-height: 2.3rem;
-    font-size: 0.82rem;
-    border-radius: 0.76rem;
+    min-height: 4.55rem;
+    font-size: 0.78rem;
+    border-radius: 0.78rem;
   }
 }
 

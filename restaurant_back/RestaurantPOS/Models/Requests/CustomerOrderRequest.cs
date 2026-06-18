@@ -43,5 +43,11 @@ namespace RestaurantPOS.Models.Requests
 
         /// <summary>عند PaymentMethod = Credit: تحديد عميل يُحسب الطلب على حسابه.</summary>
         public int? CreditCustomerId { get; set; }
+
+        /// <summary>إنهاء الطلب والدفع (POS checkout).</summary>
+        public bool IsCheckout { get; set; }
+
+        /// <summary>معاملة بطاقة ناجحة من جهاز PAX قبل الحفظ.</summary>
+        public int? CardPaymentTransactionId { get; set; }
     }
 }
