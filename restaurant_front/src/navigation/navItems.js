@@ -153,7 +153,6 @@ export function filterNavByRole(role, items, allowedSections = []) {
       (item) =>
         item.name === "items" ||
         item.name === "pos" ||
-        item.name === "printServer" ||
         item.name === "logout"
     );
   }

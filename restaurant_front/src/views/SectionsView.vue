@@ -75,7 +75,7 @@ export default {
         (k) => this.$t(k),
         this.allowedSections
       );
-      if (this.role === "Manager") {
+      if (this.role === "Manager" || this.role === "POS") {
         return modules;
       }
       const dashboardEntry = {

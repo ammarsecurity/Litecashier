@@ -304,6 +304,59 @@ namespace RestaurantPOS.Controllers
                 .FirstOrDefaultAsync();
         }
 
+        /// <summary>
+        /// Resolves the active unpaid DineIn order for a table (CurrentOrderId, OrderTables, then legacy TableId fallback).
+        /// Aligns cancel/close flows with <see cref="GetTableOrders"/>.
+        /// </summary>
+        private async Task<CustomerOrder?> ResolveUnpaidDineInOrderForTableAsync(int tableId, int commercialUserId)
+        {
+            var table = await _dbConfig.Tables
+                .FirstOrDefaultAsync(t => t.Id == tableId && !t.IsDeleted && t.InsertByUserId == commercialUserId);
+
+            if (table == null)
+            {
+                return null;
+            }
+
+            if (table.CurrentOrderId.HasValue)
+            {
+                var fromCurrent = await _dbConfig.CustomerOrders
+                    .FirstOrDefaultAsync(o => o.Id == table.CurrentOrderId.Value
+                        && !o.IsDeleted
+                        && o.OrderType == "DineIn"
+                        && o.PaymentStatus != "Paid");
+
+                if (fromCurrent != null)
+                {
+                    return fromCurrent;
+                }
+            }
+
+            var orderIdsFromLinks = await _dbConfig.OrderTables
+                .Where(ot => ot.TableId == tableId && !ot.IsDeleted)
+                .Select(ot => ot.OrderId)
+                .Distinct()
+                .ToListAsync();
+
+            if (orderIdsFromLinks.Count > 0)
+            {
+                var fromLinks = await _dbConfig.CustomerOrders
+                    .Where(o => orderIdsFromLinks.Contains(o.Id)
+                        && !o.IsDeleted
+                        && o.OrderType == "DineIn"
+                        && o.PaymentStatus != "Paid")
+                    .OrderByDescending(o => o.InsertDate)
+                    .FirstOrDefaultAsync();
+
+                if (fromLinks != null)
+                {
+                    return fromLinks;
+                }
+            }
+
+            return await FindUnpaidDineInOrderForTableAsync(tableId, commercialUserId);
+        }
+
         private async Task<CustomerOrder?> LoadOrderWithItemsAsync(int orderId)
         {
             return await _dbConfig.CustomerOrders
@@ -3902,55 +3955,24 @@ namespace RestaurantPOS.Controllers
 
                 foreach (var tid in tablesToCancel)
                 {
-                    var table = await _dbConfig.Tables
-                        .FirstOrDefaultAsync(t => t.Id == tid && !t.IsDeleted && t.InsertByUserId == commercialUserId);
-
-                    if (table == null)
+                    var candidate = await ResolveUnpaidDineInOrderForTableAsync(tid, commercialUserId);
+                    if (candidate != null)
                     {
-                        continue;
-                    }
-
-                    if (table.CurrentOrderId.HasValue)
-                    {
-                        orderId = table.CurrentOrderId.Value;
-                        break;
-                    }
-
-                    var orderTable = await _dbConfig.OrderTables
-                        .Include(ot => ot.Order)
-                        .FirstOrDefaultAsync(ot => ot.TableId == tid && !ot.IsDeleted);
-
-                    if (orderTable?.Order != null && !orderTable.Order.IsDeleted)
-                    {
-                        orderId = orderTable.Order.Id;
+                        orderToCancel = candidate;
+                        orderId = candidate.Id;
                         break;
                     }
                 }
 
-                if (orderId.HasValue)
+                if (orderToCancel != null
+                    && string.Equals(orderToCancel.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))
                 {
-                    orderToCancel = await _dbConfig.CustomerOrders
-                        .FirstOrDefaultAsync(o => o.Id == orderId.Value && !o.IsDeleted);
-
-                    if (orderToCancel == null)
+                    return BadRequest(new GlobalResponse<object>
                     {
-                        return NotFound(new GlobalResponse<object>
-                        {
-                            Data = null,
-                            ErrorStatus = true,
-                            Message = "الفاتورة غير موجودة"
-                        });
-                    }
-
-                    if (string.Equals(orderToCancel.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return BadRequest(new GlobalResponse<object>
-                        {
-                            Data = null,
-                            ErrorStatus = true,
-                            Message = "cannotCancelPaidOrder"
-                        });
-                    }
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "cannotCancelPaidOrder"
+                    });
                 }
 
                 var cancelledTables = new List<object>();

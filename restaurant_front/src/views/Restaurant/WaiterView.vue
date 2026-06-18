@@ -126,6 +126,37 @@
       </div>
     </b-modal>
 
+    <b-modal
+      id="modal-cancel-order"
+      modal-class="users-modal"
+      :title="$t('confirmCancelOrderTitle')"
+      hide-header
+      hide-footer
+      centered
+    >
+      <div class="modal-content-wrapper">
+        <div class="delete-confirmation-content">
+          <div class="delete-icon-wrapper">
+            <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
+          </div>
+          <h3 class="delete-confirmation-title">{{ $t("confirmCancelOrderTitle") || "تأكيد إلغاء الطلب" }}</h3>
+          <p class="delete-confirmation-text">
+            {{ $t("confirmCancelOrderMessage") || "سيتم إلغاء فاتورة الطاولة بالكامل وتحريرها. لن تُحسب كمبيع." }}
+          </p>
+          <div class="delete-confirmation-actions">
+            <button type="button" class="delete-confirm-button" @click="confirmCancelDineInOrder">
+              <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+              {{ $t("confirmButton") }}
+            </button>
+            <button type="button" class="delete-cancel-button" @click="closeModel('modal-cancel-order')">
+              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+              {{ $t("cancelButton") }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </b-modal>
+
     <b-overlay
       :show="show"
       spinner-variant="danger"
@@ -389,7 +420,7 @@
                         v-if="canCancelDineInOrder()"
                         type="button"
                         class="pos-cart-header-clear-btn pos-cart-header-cancel-btn"
-                        v-b-modal.modal-cancel-order
+                        @click.stop="openCancelDineInOrderModal"
                         :title="$t('cancelOrder') || 'إلغاء الطلب'"
                       >
                         <b-icon icon="x-circle-fill" class="pos-cart-header-clear-ic"></b-icon>
@@ -629,30 +660,6 @@
             </b-modal>
 
             <!-- Cancel DineIn Order Modal -->
-            <b-modal id="modal-cancel-order" :title="$t('confirmCancelOrderTitle')" hide-header hide-footer class="users-modal">
-              <div class="modal-content-wrapper">
-                <div class="delete-confirmation-content">
-                  <div class="delete-icon-wrapper">
-                    <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
-                  </div>
-                  <h3 class="delete-confirmation-title">{{ $t("confirmCancelOrderTitle") || "تأكيد إلغاء الطلب" }}</h3>
-                  <p class="delete-confirmation-text">
-                    {{ $t("confirmCancelOrderMessage") || "سيتم إلغاء فاتورة الطاولة بالكامل وتحريرها. لن تُحسب كمبيع." }}
-                  </p>
-                  <div class="delete-confirmation-actions">
-                    <button class="delete-confirm-button" @click="confirmCancelDineInOrder">
-                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                      {{ $t("confirmButton") }}
-                    </button>
-                    <button class="delete-cancel-button" @click="closeModel('modal-cancel-order')">
-                      <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-                      {{ $t("cancelButton") }}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </b-modal>
-
             <b-modal id="modal-order-move" :title="orderMoveTitle" hide-header hide-footer class="users-modal">
               <div class="modal-content-wrapper">
                 <div class="delete-confirmation-content">
@@ -2801,6 +2808,7 @@ export default {
       }
     },
     async selectTable(table, event) {
+      this.clearMergedTableIdsCache(table?.id);
       const tableStatus = String(table?.status || "").trim().toLowerCase();
       const rawCurrentOrderId =
         table?.currentOrderId ??
@@ -7277,6 +7285,7 @@ export default {
 
 .pos-cart-panel {
   position: relative;
+  pointer-events: auto;
   width: min(100%, 440px);
   max-width: 100%;
   height: 100%;

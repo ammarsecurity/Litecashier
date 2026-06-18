@@ -49,6 +49,17 @@ export default {
       }
       return null;
     },
+    clearMergedTableIdsCache(tableId = null) {
+      if (!this.mergedTableIdsCache) {
+        this.mergedTableIdsCache = {};
+        return;
+      }
+      if (tableId == null) {
+        this.mergedTableIdsCache = {};
+        return;
+      }
+      delete this.mergedTableIdsCache[tableId];
+    },
     syncPrintedCartBaselineFromCart() {
       this.printedCartBaseline = cloneCartBaseline(this.carditems);
     },
@@ -514,11 +525,20 @@ export default {
       return this.persistOrder({ skipPrint: !isPrint, isCheckout: true });
     },
     canCancelDineInOrder() {
-      return (
-        this.orderForSend?.orderType === "DineIn" &&
-        !!this.selectedTableId &&
-        !!this.resolveActiveOrderId()
-      );
+      if (this.orderForSend?.orderType !== "DineIn" || !this.selectedTableId) {
+        return false;
+      }
+      if (this.resolveActiveOrderId()) {
+        return true;
+      }
+      const table = this.allTables?.find((t) => t.id === this.selectedTableId);
+      const status = String(table?.status || "").trim().toLowerCase();
+      const raw =
+        table?.currentOrderId ??
+        table?.currentorderid ??
+        table?.current_order_id;
+      const hasOrderId = Number(raw || 0) > 0;
+      return status === "occupied" || status === "reserved" || hasOrderId;
     },
     mapCancelOrderErrorMessage(error) {
       const apiMessage = error?.response?.data?.message;
@@ -536,6 +556,11 @@ export default {
         "حدث خطأ أثناء إلغاء الطلب"
       );
     },
+    openCancelDineInOrderModal() {
+      this.$nextTick(() => {
+        this.$bvModal.show("modal-cancel-order");
+      });
+    },
     resetLocalStateAfterDineInCancel() {
       this.carditems = [];
       this.selectedTableId = null;
@@ -551,6 +576,7 @@ export default {
       this.activeOrderId = null;
       this.tableOrders = [];
       this.resetPrintedCartBaseline();
+      this.clearMergedTableIdsCache();
       const quickSearchRef = this.$refs.posQuickSearchInput;
       if (quickSearchRef) {
         quickSearchRef.focus();
