@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using RestaurantPOS.Models;
 using RestaurantPOS.Models.Restaurant;
+using RestaurantPOS.Models.Sync;
 using System.Security.Claims;
 using System.Text.Json;
 
@@ -80,6 +81,11 @@ namespace RestaurantPOS.Db
         public DbSet<ReturnedOrderItem> ReturnedOrderItems { get; set; }
         public DbSet<PaymentDevice> PaymentDevices { get; set; }
         public DbSet<CardPaymentTransaction> CardPaymentTransactions { get; set; }
+
+        public DbSet<SyncRun> SyncRuns { get; set; }
+        public DbSet<SyncWatermark> SyncWatermarks { get; set; }
+        public DbSet<SyncFileWatermark> SyncFileWatermarks { get; set; }
+        public DbSet<TenantSyncSettings> TenantSyncSettings { get; set; }
 
 
 
@@ -184,6 +190,22 @@ namespace RestaurantPOS.Db
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.LoginCode)
                 .IsUnique();
+
+            modelBuilder.Entity<TenantSyncSettings>()
+                .ToTable("SyncSettings")
+                .HasIndex(x => x.CommercialUserId)
+                .IsUnique();
+
+            modelBuilder.Entity<SyncWatermark>()
+                .HasIndex(x => new { x.CommercialUserId, x.TableName })
+                .IsUnique();
+
+            modelBuilder.Entity<SyncFileWatermark>()
+                .HasIndex(x => new { x.CommercialUserId, x.RelativePath })
+                .IsUnique();
+
+            modelBuilder.Entity<SyncRun>()
+                .HasIndex(x => new { x.CommercialUserId, x.StartedAt });
 
             modelBuilder.Entity<User>().HasData(
                                new User

@@ -1,96 +1,108 @@
 <template>
     <b-overlay :show="show" spinner-variant="primary" spinner-type="grow" spinner-large rounded="sm">
-        <div class="login-page-wrapper">
-            <div class="login-background-decoration"></div>
-            <div class="login-page-row">
-                <!-- Right Side - Login Form -->
-                <div class="login-form-panel">
-                    <div class="form-content-wrapper">
-                        <div class="form-logo-mobile-only">
-                            <img src="../../assets/logoarabicdark.png" alt="logo" class="mobile-logo-image" />
-                        </div>
-                        
-                        <div class="form-header-section">
-                            <h1 class="form-main-title">{{ $t('loginTitle') }}</h1>
-                            <p class="form-secondary-text">{{ $t('loginWelcomeSubtitle') }}</p>
-                        </div>
+        <div class="login-page">
+            <div class="login-page-bg" aria-hidden="true"></div>
 
-                        <div class="login-mode-toggle" role="group" :aria-label="$t('loginModeToggleAria') || 'طريقة الدخول'">
-                            <button
-                                type="button"
-                                class="login-mode-btn"
-                                :class="{ active: loginMode === 'phone' }"
-                                @click="loginMode = 'phone'"
-                            >
-                                {{ $t('loginWithPhonePassword') || 'هاتف وكلمة مرور' }}
-                            </button>
-                            <button
-                                type="button"
-                                class="login-mode-btn"
-                                :class="{ active: loginMode === 'code' }"
-                                @click="loginMode = 'code'"
-                            >
-                                {{ $t('loginWithAccountCode') || 'رمز الحساب' }}
-                            </button>
+            <header class="login-auth-topbar">
+                <div class="login-auth-topbar-inner">
+                    <div class="login-auth-brand">
+                        <img src="../../assets/logoarabicdark.png" alt="Litecashier" class="login-auth-logo" />
+                    </div>
+                    <div class="login-auth-actions">
+                        <button
+                            type="button"
+                            class="login-auth-icon-btn"
+                            @click="toggleTheme"
+                            :title="currentTheme === 'dark' ? ($t('switchToLightMode') || 'الوضع الفاتح') : ($t('switchToDarkMode') || 'الوضع الداكن')"
+                        >
+                            <b-icon :icon="currentTheme === 'dark' ? 'sun-fill' : 'moon-fill'"></b-icon>
+                        </button>
+                        <button
+                            type="button"
+                            class="login-auth-lang-btn"
+                            @click="toggleLanguage"
+                            :title="$t('changeLanguage') || 'تغيير اللغة'"
+                        >
+                            <b-icon icon="translate"></b-icon>
+                            <span>{{ $i18n.locale === 'ar' ? 'EN' : 'ع' }}</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <main class="login-page-main">
+                <div class="login-card">
+                    <div class="login-card-header">
+                        <div class="login-card-icon-wrap">
+                            <b-icon icon="shield-lock-fill" class="login-card-icon"></b-icon>
                         </div>
-                        
-                        <form v-if="loginMode === 'phone'" @submit.prevent="login" class="login-form-element">
+                        <h1 class="login-card-title">{{ $t('loginTitle') }}</h1>
+                        <p class="login-card-subtitle">{{ $t('loginWelcomeSubtitle') }}</p>
+                    </div>
+
+                    <div class="login-mode-toggle" role="group" :aria-label="$t('loginModeToggleAria') || 'طريقة الدخول'">
+                        <button
+                            type="button"
+                            class="login-mode-btn"
+                            :class="{ active: loginMode === 'phone' }"
+                            @click="loginMode = 'phone'"
+                        >
+                            <b-icon icon="telephone-fill" class="login-mode-btn-icon"></b-icon>
+                            {{ $t('loginWithPhonePassword') || 'هاتف وكلمة مرور' }}
+                        </button>
+                        <button
+                            type="button"
+                            class="login-mode-btn"
+                            :class="{ active: loginMode === 'code' }"
+                            @click="loginMode = 'code'"
+                        >
+                            <b-icon icon="key-fill" class="login-mode-btn-icon"></b-icon>
+                            {{ $t('loginWithAccountCode') || 'رمز الحساب' }}
+                        </button>
+                    </div>
+
+                    <form @submit.prevent="onSubmit" class="login-form">
+                        <template v-if="loginMode === 'phone'">
                             <div class="form-field-group">
-                                <label class="form-field-label">
+                                <label class="form-field-label" for="inputNumber">
                                     <b-icon icon="telephone-fill" class="form-field-icon"></b-icon>
                                     {{ $t('phoneNumberPlaceholder') }}
                                 </label>
                                 <div class="form-input-container">
-                                    <input 
-                                        id="inputNumber" 
-                                        v-model="form.phoneNumber" 
+                                    <input
+                                        id="inputNumber"
+                                        v-model="form.phoneNumber"
                                         type="tel"
-                                        :placeholder="$t('phoneNumberPlaceholder')" 
-                                        required 
+                                        :placeholder="$t('phoneNumberPlaceholder')"
+                                        required
                                         autofocus
                                         class="form-input-field"
                                     />
                                 </div>
                             </div>
-                            
+
                             <div class="form-field-group">
-                                <label class="form-field-label">
+                                <label class="form-field-label" for="inputPassword">
                                     <b-icon icon="lock-fill" class="form-field-icon"></b-icon>
                                     {{ $t('passwordPlaceholder') }}
                                 </label>
                                 <div class="form-input-container">
-                                    <input 
-                                        id="inputPassword" 
-                                        v-model="form.password" 
-                                        minlength="8" 
+                                    <input
+                                        id="inputPassword"
+                                        v-model="form.password"
+                                        minlength="8"
                                         type="password"
-                                        :placeholder="$t('passwordPlaceholder')" 
+                                        :placeholder="$t('passwordPlaceholder')"
                                         required
                                         class="form-input-field"
                                     />
                                 </div>
                             </div>
-                            
-                            <button type="submit" class="login-submit-button">
-                                <span class="button-content-wrapper">
-                                    <b-icon icon="box-arrow-in-right" class="button-icon-element"></b-icon>
-                                    <span class="button-text-element">{{ $t('loginButton') }}</span>
-                                </span>
-                            </button>
-                            
-                            <div class="form-developer-section">
-                                <p class="developer-main-text">
-                                    {{ $t('developedBy') }}
-                                    <a :href="$t('companyWebsite')" class="developer-link-button" target="_blank">
-                                        {{ $t('companyName') }}
-                                    </a>
-                                </p>
-                            </div>
-                        </form>
+                        </template>
 
-                        <form v-else @submit.prevent="loginByCode" class="login-form-element">
+                        <template v-else>
                             <div class="form-field-group">
-                                <label class="form-field-label">
+                                <label class="form-field-label" for="inputLoginCode">
                                     <b-icon icon="key-fill" class="form-field-icon"></b-icon>
                                     {{ $t('accountLoginCodeLabel') || 'رمز الحساب' }}
                                 </label>
@@ -107,41 +119,46 @@
                                         :placeholder="$t('accountLoginCodePlaceholder') || 'مثال: 45443'"
                                         required
                                         autofocus
-                                        class="form-input-field"
+                                        class="form-input-field login-code-input"
                                     />
                                 </div>
-                                <p class="form-hint-text">{{ $t('accountLoginCodeHint') || 'أدخل الرقم الذي عيّنه المدير للحساب التجاري (4–12 رقماً).' }}</p>
+                                <p class="login-form-hint">{{ $t('accountLoginCodeHint') || 'أدخل الرقم الذي عيّنه المدير للحساب التجاري (4–12 رقماً).' }}</p>
                             </div>
-                            <button type="submit" class="login-submit-button">
-                                <span class="button-content-wrapper">
-                                    <b-icon icon="box-arrow-in-right" class="button-icon-element"></b-icon>
-                                    <span class="button-text-element">{{ $t('loginButton') }}</span>
-                                </span>
-                            </button>
-                            <div class="form-developer-section">
-                                <p class="developer-main-text">
-                                    {{ $t('developedBy') }}
-                                    <a :href="$t('companyWebsite')" class="developer-link-button" target="_blank">
-                                        {{ $t('companyName') }}
-                                    </a>
-                                </p>
-                            </div>
-                        </form>
+                        </template>
+
+                        <button type="submit" class="login-submit-button">
+                            <span class="button-content-wrapper">
+                                <b-icon icon="box-arrow-in-right" class="button-icon-element"></b-icon>
+                                <span class="button-text-element">{{ $t('loginButton') }}</span>
+                            </span>
+                        </button>
+                    </form>
+
+                    <div class="login-card-footer">
+                        <p class="login-developer-text">
+                            {{ $t('developedBy') }}
+                            <a :href="$t('companyWebsite')" class="login-developer-link" target="_blank" rel="noopener">
+                                {{ $t('companyName') }}
+                            </a>
+                        </p>
                     </div>
                 </div>
-            </div>
+            </main>
         </div>
     </b-overlay>
 </template>
+
 <script>
 import { HTTP } from '../../http/api.js';
 import { setAllowedSections } from '@/navigation/sectionRegistry.js';
+import { syncNotifyLocale } from '@/plugins/notifyPlugin';
 
 export default {
     name: 'LoginView',
     data() {
         return {
             show: false,
+            currentTheme: 'dark',
             loginMode: 'code',
             form: {
                 phoneNumber: '',
@@ -150,13 +167,42 @@ export default {
             }
         };
     },
-
+    mounted() {
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        this.currentTheme = savedTheme;
+        this.applyTheme(savedTheme);
+    },
     methods: {
+        toggleTheme() {
+            this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
+            this.applyTheme(this.currentTheme);
+            localStorage.setItem('theme', this.currentTheme);
+        },
+        applyTheme(theme) {
+            const root = document.documentElement;
+            root.classList.remove('light-theme', 'dark-theme');
+            root.classList.add(`${theme}-theme`);
+        },
+        toggleLanguage() {
+            const currentLang = this.$i18n.locale || localStorage.getItem('language') || 'ar';
+            const nextLang = currentLang === 'ar' ? 'en' : 'ar';
+            localStorage.setItem('language', nextLang);
+            this.$i18n.locale = nextLang;
+            document.body.dir = nextLang === 'en' ? 'ltr' : 'rtl';
+            syncNotifyLocale(nextLang);
+        },
+        onSubmit() {
+            if (this.loginMode === 'phone') {
+                this.login();
+            } else {
+                this.loginByCode();
+            }
+        },
         resolveLoginApiMessage(raw) {
-            const s = raw != null ? String(raw).trim() : "";
-            if (!s) return this.$i18n.t("errorInLoginInfo");
+            const s = raw != null ? String(raw).trim() : '';
+            if (!s) return this.$i18n.t('errorInLoginInfo');
             if (this.$te(s)) return this.$i18n.t(s);
-            if (/^error in login info$/i.test(s)) return this.$i18n.t("errorInLoginInfo");
+            if (/^error in login info$/i.test(s)) return this.$i18n.t('errorInLoginInfo');
             return s;
         },
         persistSession(responseData) {
@@ -212,11 +258,10 @@ export default {
                 });
         },
         login() {
-            // Validation
             if (!this.form.phoneNumber || !this.form.password) {
                 this.$toast.error(this.$i18n.t('pleaseFillAllFields') || 'Please fill all fields', {
-                    position: "top-right",
-                    timeout: 4000,
+                    position: 'top-right',
+                    timeout: 4000
                 });
                 return;
             }
@@ -242,7 +287,7 @@ export default {
                     );
 
                     this.$toast.error(errorMessage, {
-                        position: "top-right",
+                        position: 'top-right',
                         timeout: 5000,
                         closeOnClick: true,
                         pauseOnFocusLoss: true,
@@ -251,50 +296,252 @@ export default {
                         draggablePercent: 0.6,
                         showCloseButtonOnHover: false,
                         hideProgressBar: true,
-                        closeButton: "button",
-                        icon: true,
+                        closeButton: 'button',
+                        icon: true
                     });
                 });
         }
     }
-
-}
+};
 </script>
 
 <style scoped>
-.login-form-panel {
-    width: 100% !important;
+.login-page {
+    min-height: 100vh;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.login-page-bg {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, color-mix(in srgb, var(--primary-color) 22%, transparent), transparent 55%),
+        radial-gradient(circle at 85% 75%, color-mix(in srgb, var(--primary-color) 10%, transparent), transparent 40%),
+        radial-gradient(circle at 10% 60%, color-mix(in srgb, var(--accent-color) 8%, transparent), transparent 35%);
+}
+
+.login-auth-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
+    border-bottom: 1px solid var(--border-color);
+    backdrop-filter: blur(8px);
+    box-shadow: var(--shadow-sm);
+}
+
+.login-auth-topbar-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 64px;
+    padding: 0.75rem 1.25rem;
+    max-width: 520px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.login-auth-logo {
+    height: 36px;
+    width: auto;
+    display: block;
+}
+
+.login-auth-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.login-auth-icon-btn,
+.login-auth-lang-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    height: 40px;
+    min-width: 40px;
+    padding: 0 0.65rem;
+    border-radius: 0.65rem;
+    border: 1px solid color-mix(in srgb, var(--primary-color) 30%, var(--border-color));
+    background: color-mix(in srgb, var(--primary-color) 12%, var(--bg-primary));
+    color: var(--primary-color);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.login-auth-icon-btn:hover,
+.login-auth-lang-btn:hover {
+    border-color: var(--primary-color);
+    background: color-mix(in srgb, var(--primary-color) 20%, var(--bg-primary));
+    transform: translateY(-1px);
+}
+
+.login-page-main {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 1rem 2.5rem;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 420px;
+    padding: 1.75rem 1.5rem 1.25rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-lg);
+}
+
+.login-card-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.login-card-icon-wrap {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 1rem;
+    border-radius: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--primary-color) 14%, var(--bg-tertiary));
+    border: 1px solid color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
+}
+
+.login-card-icon {
+    font-size: 1.45rem;
+    color: var(--primary-color);
+}
+
+.login-card-title {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0 0 0.4rem;
+    line-height: 1.25;
+}
+
+.login-card-subtitle {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
 }
 
 .login-mode-toggle {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.35rem;
     margin-bottom: 1.25rem;
-    padding: 0.25rem;
-    background: rgba(0, 0, 0, 0.04);
-    border-radius: 10px;
+    padding: 0.3rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: 0.75rem;
 }
+
 .login-mode-btn {
     flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
     border: none;
-    padding: 0.55rem 0.75rem;
-    border-radius: 8px;
-    font-size: 0.9rem;
+    padding: 0.6rem 0.5rem;
+    border-radius: 0.55rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
     cursor: pointer;
     background: transparent;
-    color: #444;
-    transition: background 0.15s, color 0.15s;
+    color: var(--text-muted);
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
+
+.login-mode-btn-icon {
+    font-size: 0.95rem;
+    flex-shrink: 0;
+}
+
 .login-mode-btn.active {
-    background: #fff;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-    color: #0d6efd;
-    font-weight: 600;
+    background: var(--bg-primary);
+    color: var(--primary-color);
+    box-shadow: var(--shadow-sm);
 }
-.form-hint-text {
-    font-size: 0.8rem;
-    color: #6c757d;
-    margin: 0.35rem 0 0;
-    line-height: 1.4;
+
+.login-form {
+    margin-top: 0.25rem;
+}
+
+.login-form .form-field-group {
+    margin-bottom: 1.15rem;
+}
+
+.login-form-hint {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin: 0.4rem 0 0;
+    line-height: 1.45;
+}
+
+.login-code-input {
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    text-align: center;
+    font-size: 1.05rem;
+}
+
+.login-card-footer {
+    margin-top: 1.25rem;
+    padding-top: 1.15rem;
+    border-top: 1px solid var(--border-light);
+    text-align: center;
+}
+
+.login-developer-text {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.login-developer-link {
+    color: var(--primary-color);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.login-developer-link:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+    .login-card {
+        padding: 1.35rem 1rem 1rem;
+    }
+
+    .login-mode-btn {
+        font-size: 0.75rem;
+        padding-inline: 0.35rem;
+    }
+
+    .login-mode-btn-icon {
+        display: none;
+    }
+
+    .login-card-title {
+        font-size: 1.3rem;
+    }
 }
 </style>

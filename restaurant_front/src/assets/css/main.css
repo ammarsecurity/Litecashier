@@ -4769,6 +4769,112 @@ table .b-icon,
   gap: 0.5rem;
 }
 
+.users-danger-zone {
+  margin-top: 2.5rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 1rem;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.users-danger-zone-header {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.users-danger-zone-icon {
+  font-size: 1.75rem;
+  color: #ef4444;
+  flex-shrink: 0;
+}
+
+.users-danger-zone-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.125rem;
+  color: var(--text-primary, #111827);
+}
+
+.users-danger-zone-text {
+  margin: 0;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.5;
+}
+
+.users-danger-zone-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  border-radius: 0.75rem;
+  background: #ef4444;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.users-danger-zone-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.25);
+}
+
+.users-backup-zone {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 1rem;
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.users-backup-zone-icon {
+  font-size: 1.75rem;
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.users-backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.users-backup-download-button,
+.users-backup-restore-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.users-backup-download-button {
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: #3b82f6;
+  color: #fff;
+}
+
+.users-backup-restore-button {
+  border: 1px solid rgba(14, 165, 233, 0.45);
+  background: transparent;
+  color: var(--text-primary, #111827);
+}
+
+.users-backup-download-button:hover,
+.users-backup-restore-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.18);
+}
+
+.users-backup-file-name {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+}
+
 /* Enhanced Modal Styles */
 .users-modal .modal-content {
   border-radius: 1.25rem;

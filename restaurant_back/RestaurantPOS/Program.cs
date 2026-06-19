@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -20,6 +21,20 @@ using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 var builder = WebApplication.CreateBuilder(args);
+
+const long maxBackupUploadBytes = 1024L * 1024L * 1024L; // 1 GB
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = maxBackupUploadBytes;
+});
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = maxBackupUploadBytes;
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartHeadersLengthLimit = int.MaxValue;
+});
 
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
@@ -63,7 +78,14 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient("NebulaPayment");
 builder.Services.AddScoped<INebulaPaymentService, NebulaPaymentService>();
 builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
+builder.Services.AddScoped<ICommercialTenantDeleteService, CommercialTenantDeleteService>();
+builder.Services.AddScoped<ISystemBackupService, SystemBackupService>();
 builder.Services.AddSingleton<ICardPaymentProcessingService, CardPaymentProcessingService>();
+builder.Services.Configure<RestaurantPOS.Configuration.SyncSettingsOptions>(
+    builder.Configuration.GetSection(RestaurantPOS.Configuration.SyncSettingsOptions.SectionName));
+builder.Services.AddScoped<RestaurantPOS.Services.Sync.IDatabaseSyncService, RestaurantPOS.Services.Sync.DatabaseSyncService>();
+builder.Services.AddScoped<RestaurantPOS.Services.Sync.IFileSyncService, RestaurantPOS.Services.Sync.FileSyncService>();
+builder.Services.AddHostedService<RestaurantPOS.Services.Sync.DatabaseSyncBackgroundService>();
 
 builder.Services.AddAutoMapper(typeof(Program));
 

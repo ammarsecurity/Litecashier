@@ -10,13 +10,13 @@ namespace RestaurantPOS.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "ReceiptNumber",
-                table: "StockMovements",
-                type: "varchar(200)",
-                maxLength: 200,
-                nullable: true)
-                .Annotation("MySql:CharSet", "utf8mb4");
+            MigrationBootstrapSql.EnsureEmployeesTable(migrationBuilder);
+            MigrationBootstrapSql.EnsureExpensesEmployeeId(migrationBuilder);
+            MigrationBootstrapSql.EnsureStockMovementsTable(migrationBuilder);
+            MigrationBootstrapSql.EnsureSuppliersTable(migrationBuilder);
+
+            MigrationBootstrapSql.AddStringColumnIfNotExists(
+                migrationBuilder, "StockMovements", "ReceiptNumber", 200);
         }
 
         /// <inheritdoc />

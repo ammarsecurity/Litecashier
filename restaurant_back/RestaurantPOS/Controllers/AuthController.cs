@@ -99,7 +99,7 @@ namespace RestaurantPOS.Controllers
                         Message = "رمز الدخول يجب أن يكون من 4 إلى 12 رقماً"
                     });
                 }
-                if (await _dbConfig.Users.AnyAsync(u => u.LoginCode == lc && !u.IsDeleted))
+                if (await _dbConfig.Users.AnyAsync(u => u.LoginCode == lc))
                 {
                     return BadRequest(new GlobalResponse<User>
                     {

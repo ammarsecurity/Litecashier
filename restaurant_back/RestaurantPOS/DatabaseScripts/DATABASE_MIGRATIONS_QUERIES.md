@@ -371,7 +371,9 @@ ALTER TABLE `RestaurantLayoutSettings`
 
 ## 9. المخزون (`StockMovements`)
 
-**Migration:** `20260219120000_AddInventoryAndStockMovements`
+> **ملاحظة:** ملفات `20260219*` موجودة في المشروع لكنها **خارج سلسلة EF الرسمية**. الإنشاء الفعلي للجداول يتم عبر `MigrationBootstrapSql` داخل migration `20260501184146_AddStockMovementReceiptNumber` (Employees + StockMovements + Suppliers + Expenses.EmployeeId) باستخدام `CREATE TABLE IF NOT EXISTS`.
+
+**Migration:** `20260219120000_AddInventoryAndStockMovements` *(مرجع يدوي — ليس في سلسلة EF)*
 
 ```sql
 CREATE TABLE IF NOT EXISTS `StockMovements` (
@@ -680,4 +682,19 @@ LIMIT 30;
 
 ---
 
-*آخر تحديث للملف: مايو 2026 — يشمل migration دفع البطاقة `20260618111254`.*
+---
+
+## جداول المزامنة (محلية فقط — لا تُرفع للسحابة)
+
+**Migration:** `20260620120000_AddSyncTables`
+
+```sql
+-- SyncRuns, SyncWatermarks, SyncFileWatermarks, SyncSettings
+-- راجع ملف Migration: 20260620120000_AddSyncTables.cs
+```
+
+إعدادات التطبيق في `appsettings.json`:
+
+- `ConnectionStrings:SyncDatabase` — اتصال السحابة (يُفضّل User Secrets)
+- `SyncSettings` — Enabled, BatchSize, FTP, ImagesLocalPath
+

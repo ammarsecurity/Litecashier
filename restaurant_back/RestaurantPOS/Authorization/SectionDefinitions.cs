@@ -28,6 +28,7 @@ public static class SectionDefinitions
         "printTemplates",
         "paymentDevices",
         "cardPayments",
+        "databaseSync",
     };
 
     private static readonly HashSet<string> AssignableSet =

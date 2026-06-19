@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using RestaurantPOS.Authorization;
 using RestaurantPOS.Db;
 using RestaurantPOS.Hubs;
@@ -40,6 +41,8 @@ namespace RestaurantPOS.Controllers
         private readonly IConfiguration _configuration;
         private readonly IHubContext<OrderHub> _hubContext;
         private readonly IOrderCheckoutService _orderCheckoutService;
+        private readonly ICommercialTenantDeleteService _commercialTenantDeleteService;
+        private readonly ISystemBackupService _systemBackupService;
 
         public AdminController(
             ILogger<AdminController> logger,
@@ -47,7 +50,9 @@ namespace RestaurantPOS.Controllers
             IMapper mapper,
             IConfiguration configuration,
             IHubContext<OrderHub> hubContext,
-            IOrderCheckoutService orderCheckoutService)
+            IOrderCheckoutService orderCheckoutService,
+            ICommercialTenantDeleteService commercialTenantDeleteService,
+            ISystemBackupService systemBackupService)
         {
             _logger = logger;
             _dbConfig = dbConfig;
@@ -55,6 +60,8 @@ namespace RestaurantPOS.Controllers
             _configuration = configuration;
             _hubContext = hubContext;
             _orderCheckoutService = orderCheckoutService;
+            _commercialTenantDeleteService = commercialTenantDeleteService;
+            _systemBackupService = systemBackupService;
         }
 
         // Helper method to get Commercial User ID
@@ -194,6 +201,38 @@ namespace RestaurantPOS.Controllers
             return s;
         }
 
+        private async Task<bool> IsLoginCodeTakenAsync(string loginCode, int? excludeUserId = null)
+        {
+            var query = _dbConfig.Users.AsNoTracking().Where(u => u.LoginCode == loginCode);
+            if (excludeUserId.HasValue)
+            {
+                query = query.Where(u => u.Id != excludeUserId.Value);
+            }
+
+            return await query.AnyAsync();
+        }
+
+        private static string? TryGetDbUpdateMessage(Exception ex)
+        {
+            for (var current = ex; current != null; current = current.InnerException)
+            {
+                var message = current.Message;
+                if (message.Contains("IX_Users_LoginCode", StringComparison.OrdinalIgnoreCase)
+                    || (message.Contains("Duplicate entry", StringComparison.OrdinalIgnoreCase)
+                        && message.Contains("LoginCode", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return "loginCodeAlreadyUsed";
+                }
+
+                if (message.Contains("Duplicate entry", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "duplicateValueConflict";
+                }
+            }
+
+            return null;
+        }
+
         private static bool IsManagerRole(string? role) =>
             string.Equals(role, SectionDefinitions.ManagerRole, StringComparison.OrdinalIgnoreCase);
 
@@ -240,7 +279,7 @@ namespace RestaurantPOS.Controllers
                 return (false, "managerLoginCodeRequiredForSensitiveActions");
             }
 
-            var duplicateQuery = _dbConfig.Users.Where(u => u.LoginCode == lc && !u.IsDeleted);
+            var duplicateQuery = _dbConfig.Users.Where(u => u.LoginCode == lc);
             if (excludeUserId.HasValue)
             {
                 duplicateQuery = duplicateQuery.Where(u => u.Id != excludeUserId.Value);
@@ -248,7 +287,7 @@ namespace RestaurantPOS.Controllers
 
             if (await duplicateQuery.AnyAsync())
             {
-                return (false, "رمز الدخول مستخدم من حساب آخر");
+                return (false, "loginCodeAlreadyUsed");
             }
 
             user.LoginCode = lc;
@@ -875,13 +914,13 @@ namespace RestaurantPOS.Controllers
                             Message = "رمز الدخول يجب أن يكون من 4 إلى 12 رقماً"
                         });
                     }
-                    if (await _dbConfig.Users.AnyAsync(u => u.LoginCode == lc && !u.IsDeleted))
+                    if (await IsLoginCodeTakenAsync(lc))
                     {
                         return BadRequest(new GlobalResponse<User>
                         {
                             Data = null,
                             ErrorStatus = true,
-                            Message = "رمز الدخول مستخدم من حساب آخر"
+                            Message = "loginCodeAlreadyUsed"
                         });
                     }
                     newUse.LoginCode = lc;
@@ -915,11 +954,12 @@ namespace RestaurantPOS.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error adding user");
+                var mapped = TryGetDbUpdateMessage(ex);
                 return StatusCode(500, new GlobalResponse<User>
                 {
                     Data = null,
                     ErrorStatus = true,
-                    Message = $"حدث خطأ أثناء إضافة المستخدم: {ex.Message}"
+                    Message = mapped ?? $"حدث خطأ أثناء إضافة المستخدم: {ex.Message}"
                 });
             }
         }
@@ -1076,13 +1116,13 @@ namespace RestaurantPOS.Controllers
                                 Message = "رمز الدخول يجب أن يكون من 4 إلى 12 رقماً"
                             });
                         }
-                        if (await _dbConfig.Users.AnyAsync(u => u.LoginCode == lc && u.Id != id && !u.IsDeleted))
+                        if (await IsLoginCodeTakenAsync(lc, id))
                         {
                             return BadRequest(new GlobalResponse<User>
                             {
                                 Data = null,
                                 ErrorStatus = true,
-                                Message = "رمز الدخول مستخدم من حساب آخر"
+                                Message = "loginCodeAlreadyUsed"
                             });
                         }
                         user.LoginCode = lc;
@@ -1127,11 +1167,12 @@ namespace RestaurantPOS.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating user {UserId}", id);
+                var mapped = TryGetDbUpdateMessage(ex);
                 return StatusCode(500, new GlobalResponse<User>
                 {
                     Data = null,
                     ErrorStatus = true,
-                    Message = $"حدث خطأ أثناء تحديث المستخدم: {ex.Message}"
+                    Message = mapped ?? $"حدث خطأ أثناء تحديث المستخدم: {ex.Message}"
                 });
             }
         }
@@ -1141,35 +1182,117 @@ namespace RestaurantPOS.Controllers
         public async Task<ActionResult<GlobalResponse<int>>> DeleteUser(int id)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
-            var currentUser = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == userId);
-            var commercialUserId = GetCommercialUserId();
-            var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == id && x.IsDeleted == false && x.InsertByUserId == commercialUserId);
-            if (user == null)
+            var currentUser = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == userId && !x.IsDeleted);
+            if (currentUser == null)
+            {
+                return Unauthorized(new GlobalResponse<int>
+                {
+                    Data = 0,
+                    ErrorStatus = true,
+                    Message = "unauthorized"
+                });
+            }
+
+            if (id == userId)
             {
                 return BadRequest(new GlobalResponse<int>
                 {
                     Data = 0,
                     ErrorStatus = true,
-                    Message = "user not exsit"
+                    Message = "cannotDeleteSelf"
                 });
             }
 
-            var userName = user.Name;
-            user!.IsDeleted = true;
-            _dbConfig.Users.Update(user);
-            await _dbConfig.SaveChangesAsync();
+            User? targetUser;
+            if (currentUser.Role == "Admin")
+            {
+                targetUser = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
+            }
+            else
+            {
+                var commercialUserId = GetCommercialUserId();
+                targetUser = await _dbConfig.Users.FirstOrDefaultAsync(
+                    x => x.Id == id && !x.IsDeleted && x.InsertByUserId == commercialUserId);
 
-            // Log audit
+                if (targetUser?.Role == "Commercial")
+                {
+                    return BadRequest(new GlobalResponse<int>
+                    {
+                        Data = 0,
+                        ErrorStatus = true,
+                        Message = "noPermissionToDeleteCommercial"
+                    });
+                }
+            }
+
+            if (targetUser == null)
+            {
+                return BadRequest(new GlobalResponse<int>
+                {
+                    Data = 0,
+                    ErrorStatus = true,
+                    Message = "userNotFound"
+                });
+            }
+
+            if (targetUser.Id == 1 && targetUser.Role == "Admin")
+            {
+                return BadRequest(new GlobalResponse<int>
+                {
+                    Data = 0,
+                    ErrorStatus = true,
+                    Message = "cannotDeletePrimaryAdmin"
+                });
+            }
+
+            var auditCommercialUserId = targetUser.Role == "Commercial"
+                ? targetUser.Id
+                : (currentUser.Role == "Commercial" ? userId : targetUser.InsertByUserId);
+            if (auditCommercialUserId <= 0)
+            {
+                auditCommercialUserId = userId;
+            }
+
+            var userName = targetUser.Name;
+
+            try
+            {
+                if (targetUser.Role == "Commercial")
+                {
+                    await _commercialTenantDeleteService.SoftDeleteCommercialTenantAsync(targetUser.Id);
+                }
+                else
+                {
+                    targetUser.IsDeleted = true;
+                    targetUser.LoginCode = null;
+                    targetUser.UpdateDate = DateTime.UtcNow;
+                    _dbConfig.Users.Update(targetUser);
+                    await _dbConfig.SaveChangesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete user {TargetUserId}", id);
+                return StatusCode(500, new GlobalResponse<int>
+                {
+                    Data = 0,
+                    ErrorStatus = true,
+                    Message = "deleteUserFailed"
+                });
+            }
+
             await _dbConfig.LogAuditAsync(
                 "Delete",
                 "User",
-                user.Id,
+                targetUser.Id,
                 userName,
                 userId,
-                commercialUserId,
+                auditCommercialUserId,
                 null,
                 null,
-                $"تم حذف المستخدم: {userName}"
+                targetUser.Role == "Commercial"
+                    ? $"تم حذف الحساب التجاري وكل بياناته: {userName}"
+                    : $"تم حذف المستخدم: {userName}"
             );
 
             return Ok(new GlobalResponse<int>
@@ -1178,6 +1301,235 @@ namespace RestaurantPOS.Controllers
                 ErrorStatus = false,
                 Message = "done"
             });
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("PurgeAllSystemData")]
+        public async Task<ActionResult<GlobalResponse<object>>> PurgeAllSystemData(
+            [FromBody] PurgeSystemDataRequest request,
+            CancellationToken cancellationToken)
+        {
+            const int primaryAdminUserId = 1;
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+
+            if (userId != primaryAdminUserId)
+            {
+                return StatusCode(403, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "purgeSystemDataPrimaryAdminOnly"
+                });
+            }
+
+            var adminUser = await _dbConfig.Users.FirstOrDefaultAsync(
+                u => u.Id == primaryAdminUserId && u.Role == "Admin" && !u.IsDeleted,
+                cancellationToken);
+
+            if (adminUser == null)
+            {
+                return Unauthorized(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "unauthorized"
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Password)
+                || !BCrypt.Net.BCrypt.Verify(request.Password, adminUser.Password))
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "invalidAdminPassword"
+                });
+            }
+
+            try
+            {
+                await _commercialTenantDeleteService.PurgeAllExceptPrimaryAdminAsync(cancellationToken);
+
+                await _dbConfig.LogAuditAsync(
+                    "Purge",
+                    "System",
+                    primaryAdminUserId,
+                    adminUser.Name,
+                    primaryAdminUserId,
+                    primaryAdminUserId,
+                    null,
+                    null,
+                    "تم مسح جميع بيانات النظام ما عدا حساب الأدمن الرئيسي");
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new { preservedUserId = primaryAdminUserId },
+                    ErrorStatus = false,
+                    Message = "purgeAllSystemDataSuccess"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "System data purge failed");
+                return StatusCode(500, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "purgeAllSystemDataFailed"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpGet("DownloadSystemBackup")]
+        public async Task<IActionResult> DownloadSystemBackup(CancellationToken cancellationToken)
+        {
+            const int primaryAdminUserId = 1;
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+
+            if (userId != primaryAdminUserId)
+            {
+                return StatusCode(403, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "backupPrimaryAdminOnly"
+                });
+            }
+
+            try
+            {
+                var memory = new MemoryStream();
+                await _systemBackupService.WriteBackupArchiveAsync(memory, cancellationToken);
+                memory.Position = 0;
+
+                var fileName = $"litecashier-backup-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
+                return File(memory, "application/zip", fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "System backup download failed");
+                var message = ex.Message switch
+                {
+                    "backupMySqlOnly" => "backupMySqlOnly",
+                    _ => "backupDownloadFailed",
+                };
+                return StatusCode(500, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = message
+                });
+            }
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("RestoreSystemBackup")]
+        [RequestSizeLimit(1024L * 1024L * 1024L)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 1024L * 1024L * 1024L, ValueLengthLimit = int.MaxValue)]
+        public async Task<ActionResult<GlobalResponse<object>>> RestoreSystemBackup(
+            [FromForm] RestoreSystemBackupRequest request,
+            CancellationToken cancellationToken)
+        {
+            const int primaryAdminUserId = 1;
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+
+            if (userId != primaryAdminUserId)
+            {
+                return StatusCode(403, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "backupPrimaryAdminOnly"
+                });
+            }
+
+            var adminUser = await _dbConfig.Users.FirstOrDefaultAsync(
+                u => u.Id == primaryAdminUserId && u.Role == "Admin" && !u.IsDeleted,
+                cancellationToken);
+
+            if (adminUser == null)
+            {
+                return Unauthorized(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "unauthorized"
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Password)
+                || !BCrypt.Net.BCrypt.Verify(request.Password, adminUser.Password))
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "invalidAdminPassword"
+                });
+            }
+
+            if (request.File == null || request.File.Length == 0)
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "backupFileRequired"
+                });
+            }
+
+            var extension = Path.GetExtension(request.File.FileName);
+            if (!string.Equals(extension, ".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "backupInvalidFileType"
+                });
+            }
+
+            try
+            {
+                await using var stream = request.File.OpenReadStream();
+                await _systemBackupService.RestoreFromArchiveAsync(stream, cancellationToken);
+
+                await _dbConfig.LogAuditAsync(
+                    "Restore",
+                    "SystemBackup",
+                    primaryAdminUserId,
+                    adminUser.Name,
+                    primaryAdminUserId,
+                    primaryAdminUserId,
+                    null,
+                    null,
+                    "تم استعادة نسخة احتياطية للنظام");
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new { restored = true },
+                    ErrorStatus = false,
+                    Message = "backupRestoreSuccess"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "System backup restore failed");
+                var message = ex.Message switch
+                {
+                    "backupMySqlOnly" => "backupMySqlOnly",
+                    "backupSqlMissing" => "backupSqlMissing",
+                    _ => "backupRestoreFailed",
+                };
+                return StatusCode(500, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = message
+                });
+            }
         }
 
         [Authorize(Roles = "Commercial,Admin")]

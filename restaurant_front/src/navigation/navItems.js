@@ -140,6 +140,12 @@ export function buildNavItems(t) {
       icon: "credit-card-fill",
     },
     {
+      name: "databaseSync",
+      label: t("databaseSyncTitle") || "مزامنة البيانات",
+      link: "/database-sync",
+      icon: "cloud-upload-fill",
+    },
+    {
       name: "logout",
       label: t("Logout"),
       link: "/logout",
