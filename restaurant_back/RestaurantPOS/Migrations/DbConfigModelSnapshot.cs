@@ -351,6 +351,13 @@ namespace RestaurantPOS.Migrations
                     b.Property<int?>("ReservationId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("SettledAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("SettlementPaymentMethod")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
                     b.Property<int?>("TableId")
                         .HasColumnType("int");
 
@@ -1300,6 +1307,13 @@ namespace RestaurantPOS.Migrations
 
                     b.Property<int>("CommercialUserId")
                         .HasColumnType("int");
+
+                    b.Property<string>("ArchiveFileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("varchar(260)");
+
+                    b.Property<long>("ArchiveSizeBytes")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("ErrorMessage")
                         .HasMaxLength(2000)

@@ -684,6 +684,17 @@ LIMIT 30;
 
 ---
 
+## حقول تسديد الآجل على CustomerOrders (اختياري)
+
+**Migration:** `20260620160000_AddCreditOrderSettlementFields`
+
+```sql
+ALTER TABLE `CustomerOrders` ADD COLUMN `SettlementPaymentMethod` varchar(20) CHARACTER SET utf8mb4 NULL;
+ALTER TABLE `CustomerOrders` ADD COLUMN `SettledAt` datetime(6) NULL;
+```
+
+---
+
 ## جداول المزامنة (محلية فقط — لا تُرفع للسحابة)
 
 **Migration:** `20260620120000_AddSyncTables`

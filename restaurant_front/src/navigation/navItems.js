@@ -140,8 +140,14 @@ export function buildNavItems(t) {
       icon: "credit-card-fill",
     },
     {
+      name: "deferredPayments",
+      label: t("deferredPaymentsTitle") || "الدفع اللاحق",
+      link: "/deferred-payments",
+      icon: "wallet2",
+    },
+    {
       name: "databaseSync",
-      label: t("databaseSyncTitle") || "مزامنة البيانات",
+      label: t("databaseSyncTitle") || "نسخ احتياطي سحابي",
       link: "/database-sync",
       icon: "cloud-upload-fill",
     },

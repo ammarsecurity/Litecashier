@@ -86,12 +86,12 @@
                       type="button"
                       class="pos-floor-plan-gate-table-chip"
                       :class="[
-                        posFloorTableStatusClass(t.status),
+                        posFloorTableStatusClassForTable(t),
                         {},
                       ]"
                       :style="posFloorChipStyle(t.id)"
                       :disabled="t.status === 'OutOfService'"
-                      @click="onPosFloorPlanTableClick(t, $event, posFloorTableStatusClass(t.status))"
+                      @click="onPosFloorPlanTableClick(t, $event)"
                     >
                       {{ t.tableNumber }}
                     </button>
@@ -1350,36 +1350,50 @@
                       </div>
                       <span class="pos-cart-checkout-segment-label">{{ $t("checkoutActions") }}</span>
                       <div class="pos-cart-checkout-btn-row pos-cart-checkout-summary-actions">
-                        <button
-                          type="button"
-                          class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn"
-                          @click="openOrderNotesModal('pay')"
-                          :disabled="totalCardItems <= 0 || orderPersisting"
-                          :title="$t('payNow') || 'دفع'"
-                        >
-                          <b-icon icon="check-circle-fill" class="me-1"></b-icon>
-                          {{ $t("payNow") || "دفع" }}
-                        </button>
-                        <button
-                          type="button"
-                          class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn"
-                          @click="openOrderNotesModal('pay-print')"
-                          :disabled="totalCardItems <= 0 || orderPersisting"
-                          :title="$t('payAndPrint') || 'دفع وطباعة'"
-                        >
-                          <b-icon icon="receipt-cutoff" class="me-1"></b-icon>
-                          {{ $t("payAndPrint") || "دفع وطباعة" }}
-                        </button>
-                        <button
-                          type="button"
-                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
-                          @click="openPrintOnlyConfirm"
-                          :disabled="totalCardItems <= 0"
-                          :title="$t('printOnly')"
-                        >
-                          <b-icon icon="printer-fill" class="me-1"></b-icon>
-                          {{ $t("printOnly") || "طباعة فقط" }}
-                        </button>
+                        <template v-if="isCreditPayment">
+                          <button
+                            type="button"
+                            class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn pos-cart-checkout-action-btn--credit"
+                            @click="openCreditCheckoutModal"
+                            :disabled="totalCardItems <= 0 || orderPersisting || !hasCreditAccountSelected"
+                            :title="$t('confirmCreditAndPrint') || 'تأكيد وطباعة'"
+                          >
+                            <b-icon icon="wallet2" class="me-1"></b-icon>
+                            {{ $t("confirmCreditAndPrint") || "تأكيد وطباعة" }}
+                          </button>
+                        </template>
+                        <template v-else>
+                          <button
+                            type="button"
+                            class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn"
+                            @click="openOrderNotesModal('pay')"
+                            :disabled="totalCardItems <= 0 || orderPersisting"
+                            :title="$t('payNow') || 'دفع'"
+                          >
+                            <b-icon icon="check-circle-fill" class="me-1"></b-icon>
+                            {{ $t("payNow") || "دفع" }}
+                          </button>
+                          <button
+                            type="button"
+                            class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn"
+                            @click="openOrderNotesModal('pay-print')"
+                            :disabled="totalCardItems <= 0 || orderPersisting"
+                            :title="$t('payAndPrint') || 'دفع وطباعة'"
+                          >
+                            <b-icon icon="receipt-cutoff" class="me-1"></b-icon>
+                            {{ $t("payAndPrint") || "دفع وطباعة" }}
+                          </button>
+                          <button
+                            type="button"
+                            class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
+                            @click="openPrintOnlyConfirm"
+                            :disabled="totalCardItems <= 0"
+                            :title="$t('printOnly')"
+                          >
+                            <b-icon icon="printer-fill" class="me-1"></b-icon>
+                            {{ $t("printOnly") || "طباعة فقط" }}
+                          </button>
+                        </template>
                       </div>
                     </div>
 
@@ -2010,6 +2024,7 @@ import {
 } from "@/utils/receiptPrint.js";
 import { resolveFloorPlanOverlaps } from "@/utils/floorPlanLayout.js";
 import posOrderPersistMixin from "@/mixins/posOrderPersistMixin.js";
+import posTableSelectMixin from "@/mixins/posTableSelectMixin.js";
 import posFullscreenMixin from "@/mixins/posFullscreenMixin.js";
 import CardPaymentWaitModal from "@/components/CardPaymentWaitModal.vue";
 import TableGuestsModal from "@/components/TableGuestsModal.vue";
@@ -2018,7 +2033,7 @@ import { findCartLineIndex, mergeCartLines } from "@/utils/mergeCartLines.js";
 
 export default {
   name: "PosView",
-  mixins: [posOrderPersistMixin, posFullscreenMixin],
+  mixins: [posOrderPersistMixin, posTableSelectMixin, posFullscreenMixin],
   components: {
     AppHeader,
     ClockVue,
@@ -2239,6 +2254,16 @@ export default {
         (Array.isArray(this.availablePrinters) && this.availablePrinters.length > 0) ||
         !!this.webPrintAPISupported
       );
+    },
+    isCreditPayment() {
+      return this.orderForSend?.paymentMethod === "Credit";
+    },
+    hasCreditAccountSelected() {
+      const e = this.orderForSend?.creditEmployeeId;
+      const c = this.orderForSend?.creditCustomerId;
+      const hasE = e != null && e !== "";
+      const hasC = c != null && c !== "";
+      return (hasE && !hasC) || (!hasE && hasC);
     },
     orderDiscountAmount() {
       const subTotal = Number(this.totaPrice) || 0;
@@ -3266,35 +3291,8 @@ export default {
     resetPosFloorPlanGateTools() {
       // merge/transfer tools removed
     },
-    async onPosFloorPlanTableClick(table, event, visualStatusClass = "") {
-      this.posFloorPlanGateVisible = false;
-      if (!table) return;
-      const tableStatus = String(table?.status || "").trim().toLowerCase();
-      const rawCurrentOrderId =
-        table.currentOrderId ??
-        table.currentorderid ??
-        table.current_order_id ??
-        null;
-      const normalizedCurrentOrderId = Number(rawCurrentOrderId || 0);
-      const hasActiveOrder = Number.isFinite(normalizedCurrentOrderId) && normalizedCurrentOrderId > 0;
-      const isOutOfService = tableStatus === "outofservice" || tableStatus === "out_of_service";
-      const isReserved = tableStatus === "reserved";
-      const isOccupied = tableStatus === "occupied" || isReserved || hasActiveOrder;
-      const isVisualAvailable = visualStatusClass === "pos-fp-chip-avail";
-      const isAvailable = isVisualAvailable || (!isOccupied && !isOutOfService);
-      if (isOutOfService) return;
-
-      if (isAvailable) {
-        this.floorPlanGuestModal.table = table;
-        this.floorPlanGuestModal.tableNumber = table.tableNumber || "";
-        this.floorPlanGuestModal.count = 1;
-        this.$bvModal.show("modal-floor-table-guests");
-        return;
-      }
-
-      await this.selectTable(table, event || null);
-      // this.posFloorPlanGateVisible = false;
-      this.resetPosFloorPlanGateTools();
+    async onPosFloorPlanTableClick(table, event) {
+      await posTableSelectMixin.methods.onPosFloorPlanTableClick.call(this, table, event);
       this.$nextTick(() => {
         if (this.$refs.posQuickSearchInput) {
           this.$refs.posQuickSearchInput.focus();
@@ -3356,15 +3354,6 @@ export default {
         backgroundColor: z.color ? `${z.color}33` : "rgba(99,102,241,0.12)",
       };
     },
-    posFloorTableStatusClass(status) {
-      const m = {
-        Available: "pos-fp-chip-avail",
-        Occupied: "pos-fp-chip-occ",
-        Reserved: "pos-fp-chip-res",
-        OutOfService: "pos-fp-chip-out",
-      };
-      return m[status] || "pos-fp-chip-avail";
-    },
     async loadMergedTableIds(tableId) {
       // Initialize cache if not exists
       if (!this.mergedTableIdsCache) {
@@ -3397,155 +3386,12 @@ export default {
     async selectTableInModal(table, event) {
       const multi = event && (event.ctrlKey || event.metaKey);
       await this.selectTable(table, event);
-      const tableStatus = String(table?.status || "").trim().toLowerCase();
-      const rawCurrentOrderId =
-        table?.currentOrderId ??
-        table?.currentorderid ??
-        table?.current_order_id ??
-        null;
-      const normalizedCurrentOrderId = Number(rawCurrentOrderId || 0);
-      const hasActiveOrder = Number.isFinite(normalizedCurrentOrderId) && normalizedCurrentOrderId > 0;
-      const isReserved = tableStatus === "reserved";
-      const isOccupied = tableStatus === "occupied" || isReserved || hasActiveOrder;
-      const isAvailable = !isOccupied && tableStatus !== "outofservice" && tableStatus !== "out_of_service";
-      if (
-        !multi &&
-        (isAvailable || isOccupied)
-      ) {
+      const { isOccupied, isAvailable } = this.getTableOccupancyFlags(table);
+      if (!multi && (isAvailable || isOccupied)) {
         this.showTablesModal = false;
         if (this.posFloorPlanGateVisible) {
           this.posFloorPlanGateVisible = false;
         }
-      }
-    },
-    async selectTable(table, event) {
-      this.clearMergedTableIdsCache(table?.id);
-      const tableStatus = String(table?.status || "").trim().toLowerCase();
-      const rawCurrentOrderId =
-        table?.currentOrderId ??
-        table?.currentorderid ??
-        table?.current_order_id ??
-        null;
-      const normalizedCurrentOrderId = Number(rawCurrentOrderId || 0);
-      const hasActiveOrder = Number.isFinite(normalizedCurrentOrderId) && normalizedCurrentOrderId > 0;
-      const isReserved = tableStatus === "reserved";
-      const isOccupied = tableStatus === "occupied" || isReserved || hasActiveOrder;
-      const isAvailable = !isOccupied && tableStatus !== "outofservice" && tableStatus !== "out_of_service";
-      // Check if Ctrl or Cmd key is pressed for multi-select
-      const isMultiSelect = event && (event.ctrlKey || event.metaKey);
-      
-      if (isMultiSelect && (isOccupied || isAvailable)) {
-        // Multi-select mode for merging tables
-        if (!this.selectedTableIds.includes(table.id)) {
-          this.selectedTableIds.push(table.id);
-        } else {
-          this.selectedTableIds = this.selectedTableIds.filter(id => id !== table.id);
-        }
-        return;
-      }
-      
-      // Single select mode (existing behavior)
-      if (isOccupied) {
-        // Load table orders
-        this.loadingTableOrders = true;
-        try {
-          const response = await HTTP.get(`Admin/GetTableOrders?tableId=${table.id}`);
-          this.tableOrders = response.data.data || [];
-          const activeOrder = this.tableOrders[0] || null;
-          this.syncActiveOrderIdFromTable(table, activeOrder);
-          this.orderForSend.numberOfGuests = Number(activeOrder?.numberOfGuests || 0);
-          const loadedOrderCode =
-            activeOrder?.orderCode ?? activeOrder?.OrderCode ?? "";
-          if (loadedOrderCode) {
-            this.orderForSend.orderCode = String(loadedOrderCode);
-          }
-          
-          // Load items from orders into cart
-          this.carditems = [];
-          this.tableOrders.forEach(order => {
-            if (order.customerOrderItem) {
-              order.customerOrderItem.forEach(orderItem => {
-                if (orderItem.item && !orderItem.isDeleted) {
-                  // One cart line per DB row; duplicate rows are merged after load.
-                  const sellingPrice = orderItem.sellingPrice || 0;
-                  const discountPrice = orderItem.item.disCountPrice || 0;
-                  const finalPrice = (discountPrice > 0 && discountPrice !== sellingPrice) ? discountPrice : sellingPrice;
-
-                  this.carditems.push({
-                    id: orderItem.item.id,
-                    name: orderItem.item.name,
-                    price: sellingPrice,
-                    disCountPrice: discountPrice,
-                    quantity: orderItem.quantity || 1,
-                    code: orderItem.item.code,
-                    image: orderItem.item.image,
-                    total: finalPrice * (orderItem.quantity || 1),
-                    tags: orderItem.item.tags || 'مواد اخرى',
-                    sourceOrderId: order.id,
-                    sourceOrderItemId: orderItem.id,
-                    lineNote: (orderItem.notes || orderItem.Notes || "").trim() || undefined,
-                  });
-                }
-              });
-            }
-          });
-
-          this.carditems = mergeCartLines(this.carditems);
-          this.syncPrintedCartBaselineFromCart();
-          
-          this.selectedTableId = table.id;
-          
-          // Get merged tables for this table
-          const mergedIds = await this.loadMergedTableIds(table.id);
-          // Ensure mergedIds is an array
-          const mergedIdsArray = Array.isArray(mergedIds) ? mergedIds : [table.id];
-          this.selectedTableIds = mergedIdsArray; // Select all merged tables
-          
-          // Ensure orderForSend has the correct table IDs
-          if (mergedIdsArray.length > 1) {
-            this.orderForSend.tableIds = [...mergedIdsArray];
-            this.orderForSend.tableId = mergedIdsArray[0]; // First table for backward compatibility
-          } else {
-          this.orderForSend.tableId = table.id;
-            this.orderForSend.tableIds = null;
-          }
-          this.orderForSend.orderType = 'DineIn';
-          
-          this.$toast.success(this.$i18n.t("tableOrdersLoaded") || "تم تحميل طلبات الطاولة", {
-            position: "top-right",
-            timeout: 2000,
-            maxToasts: 1,
-          });
-        } catch (error) {
-          console.error('Error loading table orders:', error);
-          this.$toast.error(this.$i18n.t("errorLoadingTableOrders") || "خطأ في تحميل طلبات الطاولة", {
-            position: "top-right",
-            timeout: 2000,
-            maxToasts: 1,
-          });
-        } finally {
-          this.loadingTableOrders = false;
-        }
-      } else if (isAvailable) {
-        // Start new order for available table
-        this.activeOrderId = null;
-        this.resetPrintedCartBaseline();
-        this.orderForSend.orderCode = "";
-        this.selectedTableId = table.id;
-        this.selectedTableIds = [table.id]; // Reset multi-select
-        this.orderForSend.tableId = table.id;
-        this.orderForSend.orderType = 'DineIn';
-        if (!this.orderForSend.numberOfGuests || this.orderForSend.numberOfGuests < 1) {
-          this.orderForSend.numberOfGuests = 1;
-        }
-        this.carditems = [];
-        this.tableOrders = [];
-        
-        this.$toast.info(this.$i18n.t("newTableOrderStarted") || "تم بدء طلب جديد للطاولة", {
-          position: "top-right",
-          timeout: 2000,
-          maxToasts: 1,
-        });
       }
     },
     async confirmCancelDineInOrder() {
@@ -4614,15 +4460,32 @@ export default {
         });
         return;
       }
-      this.checkoutSubmitMode = mode === "pay-print" ? "pay-print" : "pay";
+      if (mode === "credit-print") {
+        const toastPosition = this.getOrderPersistToastPosition
+          ? this.getOrderPersistToastPosition()
+          : "top-right";
+        if (!this.validateCreditForOrder(toastPosition)) {
+          return;
+        }
+        this.checkoutSubmitMode = "credit-print";
+      } else {
+        this.checkoutSubmitMode = mode === "pay-print" ? "pay-print" : "pay";
+        if (!["Cash", "Card"].includes(this.orderForSend.paymentMethod)) {
+          this.setPosPaymentMethod("Cash");
+        }
+      }
       // Reset notes before opening modal
       this.orderForSend.notes = "";
       this.orderForSend.pagerNumber = "";
-      if (!["Cash", "Card"].includes(this.orderForSend.paymentMethod)) {
-        this.setPosPaymentMethod("Cash");
-      }
       this.orderNotesDiscountOpen = Number(this.orderDiscountAmount || 0) > 0;
       this.$bvModal.show('modal-order-notes');
+    },
+    openCreditCheckoutModal() {
+      if (!this.hasCreditAccountSelected) {
+        this.openCreditPaymentModal();
+        return;
+      }
+      this.openOrderNotesModal("credit-print");
     },
     openPrintOnlyConfirm() {
       if (this.carditems.length <= 0) {
@@ -4709,6 +4572,17 @@ export default {
         if (!canApplyDiscount) return;
       }
       this.$bvModal.hide('modal-order-notes');
+
+      if (this.orderForSend.paymentMethod === "Credit") {
+        const toastPosition = this.getOrderPersistToastPosition
+          ? this.getOrderPersistToastPosition()
+          : "top-right";
+        if (!this.validateCreditForOrder(toastPosition)) {
+          return;
+        }
+        await this.addOrder(true);
+        return;
+      }
 
       if (this.orderForSend.paymentMethod === "Card") {
         const txId = await this.processCardPaymentBeforeCheckout();
@@ -9694,6 +9568,17 @@ export default {
 .pos-cart-checkout-bar .pos-cart-checkout-action-btn.pos-action-btn-primary:hover:not(:disabled) {
   filter: brightness(1.05);
   transform: translateY(-1px);
+}
+
+.pos-cart-checkout-bar .pos-cart-checkout-action-btn--credit {
+  background: linear-gradient(135deg, #fbbf24 0%, #d97706 42%, #b45309 100%) !important;
+  box-shadow:
+    0 2px 10px rgba(217, 119, 6, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+.pos-cart-checkout-bar .pos-cart-checkout-action-btn--credit:hover:not(:disabled) {
+  filter: brightness(1.06);
 }
 
 .pos-cart-checkout-bar .pos-cart-checkout-action-btn.pos-action-btn-secondary {

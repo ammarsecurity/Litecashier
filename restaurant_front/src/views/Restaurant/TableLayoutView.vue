@@ -106,6 +106,16 @@
                     <b-form-checkbox v-model="editZonesMode" switch class="floor-plan-zone-switch mb-0" />
                   </div>
                 </div>
+                <div v-if="editZonesMode && selectedZoneIndex != null" class="floor-plan-toolbar-item">
+                  <label class="floor-plan-field-label">
+                    <b-icon icon="trash-fill" class="floor-plan-field-icon" />
+                    {{ $t("floorPlanSelectedZone") }}
+                  </label>
+                  <button type="button" class="floor-plan-tool-btn floor-plan-tool-btn--danger" @click="deleteSelectedZone">
+                    <b-icon icon="trash" class="me-2" />
+                    {{ $t("floorPlanDeleteZone") }}
+                  </button>
+                </div>
               </div>
               <div
                 v-if="canEditFloorPlan && zonesForCurrentPlan.length"
@@ -176,9 +186,23 @@
                     v-for="(z, zi) in zoneRects"
                     :key="'z-' + zi"
                     class="floor-zone-rect"
+                    :class="{
+                      'floor-zone-rect--editable': editZonesMode,
+                      'floor-zone-rect--selected': editZonesMode && selectedZoneIndex === zi,
+                    }"
                     :style="zoneRectStyle(z)"
+                    @mousedown.stop="onZoneMouseDown($event, zi)"
                   >
                     <span class="floor-zone-label">{{ z.name }}</span>
+                    <template v-if="editZonesMode && selectedZoneIndex === zi">
+                      <span
+                        v-for="handle in zoneResizeHandles"
+                        :key="'h-' + zi + '-' + handle"
+                        class="floor-zone-resize-handle"
+                        :class="'floor-zone-resize-handle--' + handle"
+                        @mousedown.stop.prevent="onZoneResizeMouseDown($event, zi, handle)"
+                      />
+                    </template>
                   </div>
 
                   <div
@@ -200,7 +224,9 @@
                   </button>
                 </div>
               </div>
-              <p class="floor-hint text-muted small mt-2">{{ $t("floorPlanCanvasHint") }}</p>
+              <p class="floor-hint text-muted small mt-2">
+                {{ canEditFloorPlan ? $t("floorPlanCanvasHintEdit") : $t("floorPlanCanvasHint") }}
+              </p>
             </div>
           </div>
         </div>
@@ -231,6 +257,9 @@ export default {
       tableChipSizePx: 56,
       zoneRects: [],
       editZonesMode: false,
+      selectedZoneIndex: null,
+      zoneInteraction: null,
+      zoneResizeHandles: ["nw", "ne", "sw", "se"],
       drawingRect: null,
       drawStart: null,
       dragTableId: null,
@@ -306,6 +335,14 @@ export default {
       return this.zonesForCurrentPlan.map((z) => ({ value: z, text: z }));
     },
   },
+  watch: {
+    editZonesMode(enabled) {
+      if (!enabled) {
+        this.selectedZoneIndex = null;
+        this.zoneInteraction = null;
+      }
+    },
+  },
   mounted() {
     const saved = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("floorPlanPlanKey") : null;
     if (saved !== null) this.selectedPlanKey = saved;
@@ -314,12 +351,14 @@ export default {
     window.addEventListener("mouseup", this.onDrawMouseUp);
     window.addEventListener("mousemove", this.onDragMouseMove);
     window.addEventListener("mouseup", this.onDragMouseUp);
+    window.addEventListener("keydown", this.onZoneKeyDown);
   },
   beforeDestroy() {
     window.removeEventListener("mousemove", this.onDrawMouseMove);
     window.removeEventListener("mouseup", this.onDrawMouseUp);
     window.removeEventListener("mousemove", this.onDragMouseMove);
     window.removeEventListener("mouseup", this.onDragMouseUp);
+    window.removeEventListener("keydown", this.onZoneKeyDown);
   },
   methods: {
     tableId(t) {
@@ -374,6 +413,8 @@ export default {
           (this.settings && (this.settings.tableChipSizePx ?? this.settings.TableChipSizePx)) ?? null;
         this.tableChipSizePx = rawChip != null ? this.clampTableChipSize(rawChip) : 56;
         this.zoneRects = [];
+        this.selectedZoneIndex = null;
+        this.zoneInteraction = null;
         if (this.settings && this.settings.zonesJson) {
           try {
             const parsed = JSON.parse(this.settings.zonesJson);
@@ -454,17 +495,131 @@ export default {
       if (!this.canEditFloorPlan) return;
       if (!this.editZonesMode) return;
       if (e.target !== this.$refs.floorCanvas) return;
+      this.selectedZoneIndex = null;
       const { nx, ny } = this.canvasNormCoords(e.clientX, e.clientY);
       this.drawStart = { nx, ny };
       this.drawingRect = { x: nx, y: ny, w: 0, h: 0, name: "", color: "#93c5fd" };
     },
+    onZoneMouseDown(e, index) {
+      if (!this.canEditFloorPlan || !this.editZonesMode) return;
+      this.selectedZoneIndex = index;
+      const z = this.zoneRects[index];
+      if (!z) return;
+      const { nx, ny } = this.canvasNormCoords(e.clientX, e.clientY);
+      this.zoneInteraction = {
+        kind: "move",
+        index,
+        startNx: nx,
+        startNy: ny,
+        origin: { x: z.x, y: z.y, w: z.w, h: z.h },
+      };
+    },
+    onZoneResizeMouseDown(e, index, handle) {
+      if (!this.canEditFloorPlan || !this.editZonesMode) return;
+      this.selectedZoneIndex = index;
+      const z = this.zoneRects[index];
+      if (!z) return;
+      const { nx, ny } = this.canvasNormCoords(e.clientX, e.clientY);
+      this.zoneInteraction = {
+        kind: "resize",
+        index,
+        handle,
+        startNx: nx,
+        startNy: ny,
+        origin: { x: z.x, y: z.y, w: z.w, h: z.h },
+      };
+    },
+    applyZoneMove(interaction, nx, ny) {
+      const idx = interaction.index;
+      const z = this.zoneRects[idx];
+      if (!z) return;
+      const dx = nx - interaction.startNx;
+      const dy = ny - interaction.startNy;
+      let x = interaction.origin.x + dx;
+      let y = interaction.origin.y + dy;
+      x = Math.max(0, Math.min(1 - z.w, x));
+      y = Math.max(0, Math.min(1 - z.h, y));
+      this.$set(this.zoneRects, idx, { ...z, x, y });
+    },
+    applyZoneResize(interaction, nx, ny) {
+      const idx = interaction.index;
+      const z = this.zoneRects[idx];
+      if (!z) return;
+      const min = 0.02;
+      const o = interaction.origin;
+      let x = o.x;
+      let y = o.y;
+      let w = o.w;
+      let h = o.h;
+      const right = o.x + o.w;
+      const bottom = o.y + o.h;
+
+      if (interaction.handle.includes("e")) {
+        w = Math.max(min, nx - x);
+      }
+      if (interaction.handle.includes("w")) {
+        x = Math.min(nx, right - min);
+        w = right - x;
+      }
+      if (interaction.handle.includes("s")) {
+        h = Math.max(min, ny - y);
+      }
+      if (interaction.handle.includes("n")) {
+        y = Math.min(ny, bottom - min);
+        h = bottom - y;
+      }
+
+      x = Math.max(0, x);
+      y = Math.max(0, y);
+      if (x + w > 1) w = 1 - x;
+      if (y + h > 1) h = 1 - y;
+
+      this.$set(this.zoneRects, idx, { ...z, x, y, w, h });
+    },
+    onZoneInteractionMove(e) {
+      if (!this.zoneInteraction) return;
+      const { nx, ny } = this.canvasNormCoords(e.clientX, e.clientY);
+      if (this.zoneInteraction.kind === "move") {
+        this.applyZoneMove(this.zoneInteraction, nx, ny);
+      } else {
+        this.applyZoneResize(this.zoneInteraction, nx, ny);
+      }
+    },
+    finishZoneInteraction() {
+      if (!this.zoneInteraction) return;
+      this.zoneInteraction = null;
+      this.saveZonesOnly();
+    },
+    deleteSelectedZone() {
+      if (this.selectedZoneIndex == null) return;
+      this.zoneRects.splice(this.selectedZoneIndex, 1);
+      this.selectedZoneIndex = null;
+      this.zoneInteraction = null;
+      this.saveZonesOnly();
+    },
+    onZoneKeyDown(e) {
+      if (!this.canEditFloorPlan || !this.editZonesMode) return;
+      if (this.selectedZoneIndex == null) return;
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        this.deleteSelectedZone();
+      }
+    },
     onDrawMouseMove(e) {
+      if (this.zoneInteraction) {
+        this.onZoneInteractionMove(e);
+        return;
+      }
       if (!this.drawStart || !this.drawingRect) return;
       const { nx, ny } = this.canvasNormCoords(e.clientX, e.clientY);
       const r = this.normalizeRect(this.drawStart.nx, this.drawStart.ny, nx, ny);
       this.drawingRect = { ...this.drawingRect, ...r };
     },
     onDrawMouseUp() {
+      if (this.zoneInteraction) {
+        this.finishZoneInteraction();
+        return;
+      }
       if (!this.drawStart || !this.drawingRect) {
         this.drawStart = null;
         this.drawingRect = null;
@@ -981,6 +1136,56 @@ export default {
   border-radius: 4px;
   pointer-events: none;
   box-sizing: border-box;
+  z-index: 1;
+}
+.floor-zone-rect--editable {
+  pointer-events: auto;
+  cursor: move;
+}
+.floor-zone-rect--selected {
+  border-style: solid;
+  border-width: 2px;
+  z-index: 3;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+}
+.floor-zone-resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border: 2px solid #6366f1;
+  border-radius: 2px;
+  box-sizing: border-box;
+  z-index: 4;
+}
+.floor-zone-resize-handle--nw {
+  top: -6px;
+  left: -6px;
+  cursor: nwse-resize;
+}
+.floor-zone-resize-handle--ne {
+  top: -6px;
+  right: -6px;
+  cursor: nesw-resize;
+}
+.floor-zone-resize-handle--sw {
+  bottom: -6px;
+  left: -6px;
+  cursor: nesw-resize;
+}
+.floor-zone-resize-handle--se {
+  bottom: -6px;
+  right: -6px;
+  cursor: nwse-resize;
+}
+.floor-plan-tool-btn--danger {
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  color: #dc2626 !important;
+}
+.floor-plan-tool-btn--danger:hover {
+  border-color: #dc2626 !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12) !important;
 }
 .floor-zone-label {
   position: absolute;

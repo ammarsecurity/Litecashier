@@ -12,6 +12,7 @@ using RestaurantPOS.Hubs;
 using RestaurantPOS.Models.Requests.Restaurant;
 using RestaurantPOS.Models.Response;
 using RestaurantPOS.Models.Restaurant;
+using RestaurantPOS.Services;
 using System.IO;
 using System.Security.Claims;
 
@@ -27,19 +28,22 @@ namespace RestaurantPOS.Controllers
         private readonly IMapper _mapper;
         private readonly IHubContext<OrderHub> _hubContext;
         private readonly IConfiguration _configuration;
+        private readonly ITableOrderSyncService _tableOrderSyncService;
 
         public TablesController(
             ILogger<TablesController> logger,
             DbConfig dbConfig,
             IMapper mapper,
             IHubContext<OrderHub> hubContext,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ITableOrderSyncService tableOrderSyncService)
         {
             _logger = logger;
             _dbConfig = dbConfig;
             _mapper = mapper;
             _hubContext = hubContext;
             _configuration = configuration;
+            _tableOrderSyncService = tableOrderSyncService;
         }
 
         // Helper method to get Commercial User ID
@@ -107,6 +111,8 @@ namespace RestaurantPOS.Controllers
                 .Skip(pageNumber * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
+
+            await _tableOrderSyncService.SyncTablesWithUnpaidOrdersAsync(commercialUserId, tables, HttpContext.RequestAborted);
 
             var pagedResult = new PagedList<Table>(tables, totalItems, pageNumber, pageSize);
 
@@ -612,12 +618,16 @@ namespace RestaurantPOS.Controllers
             var pk = NormalizeFloorPlanKey(planKey);
 
             var tables = await _dbConfig.Tables
-                .AsNoTracking()
                 .Where(t => !t.IsDeleted && t.InsertByUserId == commercialUserId)
                 .OrderBy(t => t.Zone ?? "")
                 .ThenBy(t => t.TableNumber.Length)
                 .ThenBy(t => t.TableNumber)
                 .ToListAsync();
+
+            await _tableOrderSyncService.SyncTablesWithUnpaidOrdersAsync(
+                commercialUserId,
+                tables,
+                HttpContext.RequestAborted);
 
             var tableIds = tables.Select(t => t.Id).ToList();
 

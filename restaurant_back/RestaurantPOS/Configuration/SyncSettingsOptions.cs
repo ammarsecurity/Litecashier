@@ -29,7 +29,14 @@ public class SyncFtpOptions
 
     public string Password { get; set; } = "";
 
+    /// <summary>Legacy per-file image path; unused by ZIP backup sync.</summary>
     public string RemoteImagesPath { get; set; } = "";
+
+    /// <summary>FTP folder for litecashier-backup-*.zip archives.</summary>
+    public string RemoteBackupPath { get; set; } = "backups";
+
+    /// <summary>Keep this many newest backup ZIPs on FTP (0 = unlimited).</summary>
+    public int KeepBackupCount { get; set; } = 10;
 
     /// <summary>Passive mode — recommended for most shared hosting FTP.</summary>
     public bool UsePassive { get; set; } = true;

@@ -83,6 +83,38 @@ namespace RestaurantPOS.Services
 
             if (string.Equals(paymentMethod, "Credit", StringComparison.OrdinalIgnoreCase))
             {
+                var hasEmp = request.CreditEmployeeId.HasValue || order.CreditEmployeeId.HasValue;
+                var hasCust = request.CreditCustomerId.HasValue || order.CreditCustomerId.HasValue;
+                if (hasEmp == hasCust)
+                {
+                    return new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "pleaseSelectCreditAccount"
+                    };
+                }
+
+                if (request.CreditEmployeeId.HasValue)
+                {
+                    order.CreditEmployeeId = request.CreditEmployeeId;
+                    order.CreditCustomerId = null;
+                }
+                else if (request.CreditCustomerId.HasValue)
+                {
+                    order.CreditCustomerId = request.CreditCustomerId;
+                    order.CreditEmployeeId = null;
+                }
+
+                order.PaymentMethod = "Credit";
+                order.OrderStatus = "Completed";
+                if (!string.Equals(order.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+                {
+                    order.PaymentStatus = "Pending";
+                }
+
+                _dbConfig.CustomerOrders.Update(order);
+                await _dbConfig.SaveChangesAsync();
                 return null;
             }
 

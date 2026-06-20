@@ -80,6 +80,8 @@ builder.Services.AddScoped<INebulaPaymentService, NebulaPaymentService>();
 builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
 builder.Services.AddScoped<ICommercialTenantDeleteService, CommercialTenantDeleteService>();
 builder.Services.AddScoped<ISystemBackupService, SystemBackupService>();
+builder.Services.AddScoped<ICreditAccountService, CreditAccountService>();
+builder.Services.AddScoped<ITableOrderSyncService, TableOrderSyncService>();
 builder.Services.AddSingleton<ICardPaymentProcessingService, CardPaymentProcessingService>();
 builder.Services.Configure<RestaurantPOS.Configuration.SyncSettingsOptions>(
     builder.Configuration.GetSection(RestaurantPOS.Configuration.SyncSettingsOptions.SectionName));

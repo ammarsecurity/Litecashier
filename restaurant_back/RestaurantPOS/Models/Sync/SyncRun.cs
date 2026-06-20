@@ -23,6 +23,11 @@ public class SyncRun : BaseEntity
 
     public int FilesPushed { get; set; }
 
+    [MaxLength(260)]
+    public string? ArchiveFileName { get; set; }
+
+    public long ArchiveSizeBytes { get; set; }
+
     [MaxLength(2000)]
     public string? ErrorMessage { get; set; }
 }

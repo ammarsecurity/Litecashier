@@ -370,7 +370,10 @@ export default {
       this.activeOrderId = null;
       this.resetPrintedCartBaseline();
     },
-    getOrderPersistSuccessMessage({ isUpdate, isCheckout, isPrint, isDineInTableOrder }) {
+    getOrderPersistSuccessMessage({ isUpdate, isCheckout, isPrint, isDineInTableOrder, isCreditCheckout }) {
+      if (isCheckout && isCreditCheckout) {
+        return this.$t("creditCheckoutSuccess") || "تم تسجيل الطلب على الحساب الآجل";
+      }
       if (isCheckout) {
         return isPrint
           ? this.$t("payAndPrint") || "دفع وطباعة"
@@ -528,6 +531,9 @@ export default {
           this.syncPrintedCartBaselineFromCart();
         }
 
+        const wasCreditCheckout =
+          isCheckout && this.orderForSend.paymentMethod === "Credit";
+
         await this.refreshAfterOrderSave({
           isCheckout,
           isDineInTableOrder,
@@ -539,6 +545,7 @@ export default {
           isCheckout,
           isPrint: shouldPrint,
           isDineInTableOrder,
+          isCreditCheckout: wasCreditCheckout,
         });
         this.$toast.success(successMessage, {
           position: "top-right",
@@ -546,6 +553,26 @@ export default {
           maxToasts: 1,
         });
       } catch (error) {
+        const apiMessage = error.response?.data?.message;
+        if (
+          !isUpdate &&
+          apiMessage === "activeTableOrderExists" &&
+          this.selectedTableId &&
+          typeof this.loadExistingTableOrders === "function"
+        ) {
+          const table =
+            (Array.isArray(this.allTables)
+              ? this.allTables.find((t) => t.id === this.selectedTableId)
+              : null) || { id: this.selectedTableId };
+          const loaded = await this.loadExistingTableOrders(table);
+          if (loaded && this.resolveActiveOrderId()) {
+            this.show = false;
+            this.orderPersisting = false;
+            this.isCheckoutPersist = false;
+            return this.persistOrder({ skipPrint, isCheckout });
+          }
+        }
+
         console.error("Order save error:", error);
         this.$toast.error(this.mapOrderPersistErrorMessage(error), {
           position: "top-right",

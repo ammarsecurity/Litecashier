@@ -45,7 +45,7 @@ public class DatabaseSyncBackgroundService : BackgroundService
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(configuration.GetConnectionString("SyncDatabase")))
+        if (!configuration.GetValue("SyncSettings:Ftp:Enabled", false))
         {
             return;
         }

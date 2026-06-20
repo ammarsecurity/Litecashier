@@ -29,6 +29,7 @@ public static class SectionDefinitions
         "paymentDevices",
         "cardPayments",
         "databaseSync",
+        "deferredPayments",
     };
 
     private static readonly HashSet<string> AssignableSet =

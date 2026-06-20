@@ -73,6 +73,71 @@ module.exports = defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/Sync': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/PaymentDevices': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/CardPayments': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/CreditAccounts': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/Expenses': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/ExpenseCategories': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/Customers': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/Employees': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/DeliveryDrivers': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/Printers': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/TagPrinters': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/Inventory': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/AuditLog': {
+        target: apiTarget,
+        changeOrigin: true,
+        secure: false,
+      },
       '/orderHub': {
         target: wsTarget,
         ws: true,

@@ -26,6 +26,7 @@ import AuditLogView from '../views/AuditLogView.vue'
 import PrintTemplatesView from '../views/PrintTemplatesView.vue'
 import PaymentDevicesView from '../views/PaymentDevicesView.vue'
 import CardPaymentsView from '../views/CardPaymentsView.vue'
+import DeferredPaymentsView from '../views/DeferredPaymentsView.vue'
 import DatabaseSyncView from '../views/DatabaseSyncView.vue'
 import { i18n } from '../main'
 import { managerCanAccessPath } from '../navigation/sectionRegistry.js'
@@ -329,6 +330,15 @@ const routes = [
     path: '/card-payments',
     name: 'cardPayments',
     component: CardPaymentsView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
+    }
+  },
+  {
+    path: '/deferred-payments',
+    name: 'deferredPayments',
+    component: DeferredPaymentsView,
     meta: {
       requiresAuth: true,
       roles: ['Commercial', 'Admin']

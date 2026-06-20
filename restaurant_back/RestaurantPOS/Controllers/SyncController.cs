@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using RestaurantPOS.Authorization;
@@ -10,6 +11,7 @@ namespace RestaurantPOS.Controllers;
 
 [ApiController]
 [Route("[controller]")]
+[Authorize]
 [EnableCors("CorsPolicy")]
 public class SyncController : ControllerBase
 {
@@ -64,6 +66,27 @@ public class SyncController : ControllerBase
         var commercialUserId = GetCommercialUserId();
         var history = await _syncService.GetHistoryAsync(commercialUserId, 30, cancellationToken);
         return Ok(new GlobalResponse<List<SyncRunDto>> { Data = history.ToList(), ErrorStatus = false });
+    }
+
+    [AuthorizeSection("databaseSync", Roles = "Commercial,Admin")]
+    [HttpDelete("history")]
+    public async Task<ActionResult<GlobalResponse<int>>> ClearHistory(CancellationToken cancellationToken)
+    {
+        var commercialUserId = GetCommercialUserId();
+        try
+        {
+            var deleted = await _syncService.ClearHistoryAsync(commercialUserId, cancellationToken);
+            return Ok(new GlobalResponse<int> { Data = deleted, ErrorStatus = false, Message = "cleared" });
+        }
+        catch (InvalidOperationException ex) when (ex.Message == "syncInProgress")
+        {
+            return BadRequest(new GlobalResponse<int>
+            {
+                Data = 0,
+                ErrorStatus = true,
+                Message = "syncInProgress",
+            });
+        }
     }
 
     [AuthorizeSection("databaseSync", Roles = "Commercial,Admin")]

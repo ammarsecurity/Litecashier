@@ -1,31 +1,24 @@
 using FluentFTP;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using RestaurantPOS.Configuration;
-using RestaurantPOS.Db;
-using RestaurantPOS.Models.Sync;
 
 namespace RestaurantPOS.Services.Sync;
 
 public class FileSyncService : IFileSyncService
 {
-    private readonly DbConfig _db;
+    private const string BackupFilePrefix = "litecashier-backup-";
+
     private readonly IConfiguration _configuration;
     private readonly SyncSettingsOptions _options;
-    private readonly IWebHostEnvironment _env;
     private readonly ILogger<FileSyncService> _logger;
 
     public FileSyncService(
-        DbConfig db,
         IConfiguration configuration,
         IOptions<SyncSettingsOptions> options,
-        IWebHostEnvironment env,
         ILogger<FileSyncService> logger)
     {
-        _db = db;
         _configuration = configuration;
         _options = options.Value;
-        _env = env;
         _logger = logger;
     }
 
@@ -51,61 +44,36 @@ public class FileSyncService : IFileSyncService
         }
     }
 
-    public async Task<int> PushImagesAsync(int commercialUserId, CancellationToken cancellationToken = default)
+    public async Task<BackupUploadResult> UploadBackupArchiveAsync(
+        string localZipPath,
+        string remoteFileName,
+        CancellationToken cancellationToken = default)
     {
         if (!_options.Ftp.Enabled)
         {
-            return 0;
+            throw new InvalidOperationException("FTP is disabled in configuration.");
         }
 
-        var localRoot = ResolveImagesRoot();
-        if (!Directory.Exists(localRoot))
+        if (!File.Exists(localZipPath))
         {
-            return 0;
+            throw new FileNotFoundException("Backup archive not found.", localZipPath);
         }
 
-        var relativePaths = await CollectImagePathsAsync(commercialUserId, localRoot, cancellationToken);
-        if (relativePaths.Count == 0)
-        {
-            return 0;
-        }
+        var sizeBytes = new FileInfo(localZipPath).Length;
+        var safeName = SanitizeRemoteFileName(remoteFileName);
+        var backupDir = NormalizeRemotePath(_options.Ftp.RemoteBackupPath);
+        var tempRemotePath = CombineRemotePath(backupDir, $"{safeName}.uploading");
+        var finalRemotePath = CombineRemotePath(backupDir, safeName);
 
-        var watermarks = await _db.SyncFileWatermarks
-            .Where(w => w.CommercialUserId == commercialUserId && !w.IsDeleted)
-            .ToDictionaryAsync(w => w.RelativePath, w => w, StringComparer.OrdinalIgnoreCase, cancellationToken);
-
-        using var client = CreateFtpClient();
+        using var client = CreateFtpClient(forUpload: true);
         await client.Connect(cancellationToken);
-        await EnsureRemoteDirectoryAsync(client, _options.Ftp.RemoteImagesPath, cancellationToken);
-
-        var pushed = 0;
-        foreach (var relativePath in relativePaths)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var normalized = relativePath.Replace('\\', '/').TrimStart('/');
-            var localPath = Path.Combine(localRoot, normalized.Replace('/', Path.DirectorySeparatorChar));
-            if (!File.Exists(localPath))
-            {
-                continue;
-            }
-
-            var lastWrite = File.GetLastWriteTimeUtc(localPath);
-            if (watermarks.TryGetValue(normalized, out var mark) && mark.LastModifiedUtc >= lastWrite)
-            {
-                continue;
-            }
-
-            var remotePath = CombineRemotePath(_options.Ftp.RemoteImagesPath, normalized);
-            var remoteDir = GetRemoteDirectory(remotePath);
-            if (!string.IsNullOrWhiteSpace(remoteDir))
-            {
-                await EnsureRemoteDirectoryAsync(client, remoteDir, cancellationToken);
-            }
+            await EnsureRemoteDirectoryAsync(client, backupDir, cancellationToken);
 
             var status = await client.UploadFile(
-                localPath,
-                remotePath,
+                localZipPath,
+                tempRemotePath,
                 FtpRemoteExists.Overwrite,
                 true,
                 FtpVerify.None,
@@ -114,60 +82,75 @@ public class FileSyncService : IFileSyncService
 
             if (status != FtpStatus.Success)
             {
-                _logger.LogWarning("FTP upload failed for {LocalPath} -> {RemotePath}: {Status}", localPath, remotePath, status);
-                continue;
+                throw new InvalidOperationException($"FTP upload failed with status {status}.");
             }
 
-            if (mark == null)
+            if (await client.FileExists(finalRemotePath, cancellationToken))
             {
-                mark = await _db.SyncFileWatermarks.FirstOrDefaultAsync(
-                    w => w.CommercialUserId == commercialUserId
-                         && w.RelativePath == normalized
-                         && w.IsDeleted,
-                    cancellationToken);
-
-                if (mark != null)
-                {
-                    mark.IsDeleted = false;
-                    mark.LastModifiedUtc = lastWrite;
-                    mark.SyncedAt = DateTime.UtcNow;
-                    mark.UpdateDate = DateTime.UtcNow;
-                }
-                else
-                {
-                    mark = new SyncFileWatermark
-                    {
-                        CommercialUserId = commercialUserId,
-                        RelativePath = normalized,
-                        LastModifiedUtc = lastWrite,
-                        SyncedAt = DateTime.UtcNow,
-                        InsertDate = DateTime.UtcNow,
-                        UpdateDate = DateTime.UtcNow,
-                        IsDeleted = false,
-                    };
-                    _db.SyncFileWatermarks.Add(mark);
-                }
+                await client.DeleteFile(finalRemotePath, cancellationToken);
             }
-            else
+
+            await client.MoveFile(tempRemotePath, finalRemotePath, FtpRemoteExists.Overwrite, cancellationToken);
+
+            await CleanupOldBackupsAsync(client, backupDir, cancellationToken);
+
+            _logger.LogInformation(
+                "Uploaded backup {FileName} ({SizeBytes} bytes) to FTP {RemotePath}",
+                safeName,
+                sizeBytes,
+                finalRemotePath);
+
+            return new BackupUploadResult
             {
-                mark.LastModifiedUtc = lastWrite;
-                mark.SyncedAt = DateTime.UtcNow;
-                mark.UpdateDate = DateTime.UtcNow;
-            }
-
-            pushed++;
+                RemoteFileName = safeName,
+                SizeBytes = sizeBytes,
+            };
         }
-
-        if (pushed > 0)
+        finally
         {
-            await _db.SaveChangesAsync(cancellationToken);
+            if (client.IsConnected)
+            {
+                await client.Disconnect(cancellationToken);
+            }
         }
-
-        await client.Disconnect(cancellationToken);
-        return pushed;
     }
 
-    private AsyncFtpClient CreateFtpClient()
+    private async Task CleanupOldBackupsAsync(
+        AsyncFtpClient client,
+        string backupDir,
+        CancellationToken cancellationToken)
+    {
+        var keep = _options.Ftp.KeepBackupCount;
+        if (keep <= 0)
+        {
+            return;
+        }
+
+        var listing = await client.GetListing(backupDir, FtpListOption.ForceList, cancellationToken);
+        var backups = listing
+            .Where(item => item.Type == FtpObjectType.File
+                           && item.Name.StartsWith(BackupFilePrefix, StringComparison.OrdinalIgnoreCase)
+                           && item.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+                           && !item.Name.EndsWith(".uploading", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(item => item.Modified)
+            .ThenByDescending(item => item.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var old in backups.Skip(keep))
+        {
+            try
+            {
+                await client.DeleteFile(old.FullName, cancellationToken);
+                _logger.LogInformation("Removed old FTP backup {FileName}", old.Name);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete old FTP backup {FileName}", old.Name);
+            }
+        }
+    }
+
+    private AsyncFtpClient CreateFtpClient(bool forUpload = false)
     {
         var password = _options.Ftp.Password;
         if (string.IsNullOrEmpty(password))
@@ -175,14 +158,24 @@ public class FileSyncService : IFileSyncService
             password = _configuration["SyncSettings:Ftp:Password"] ?? "";
         }
 
-        var client = new AsyncFtpClient(_options.Ftp.Host, _options.Ftp.Username, password, _options.Ftp.Port);
+        var host = _options.Ftp.Host;
+        if (host.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase))
+        {
+            host = host["ftp://".Length..];
+        }
+        else if (host.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase))
+        {
+            host = host["ftps://".Length..];
+        }
+
+        var client = new AsyncFtpClient(host, _options.Ftp.Username, password, _options.Ftp.Port);
         client.Config.DataConnectionType = _options.Ftp.UsePassive
             ? FtpDataConnectionType.AutoPassive
             : FtpDataConnectionType.AutoActive;
         client.Config.ConnectTimeout = 15000;
-        client.Config.ReadTimeout = 30000;
+        client.Config.ReadTimeout = forUpload ? 600000 : 30000;
         client.Config.DataConnectionConnectTimeout = 15000;
-        client.Config.DataConnectionReadTimeout = 30000;
+        client.Config.DataConnectionReadTimeout = forUpload ? 600000 : 30000;
         return client;
     }
 
@@ -205,93 +198,31 @@ public class FileSyncService : IFileSyncService
         await client.CreateDirectory(normalized, true, cancellationToken);
     }
 
-    private static string GetRemoteDirectory(string remoteFilePath)
+    private static string NormalizeRemotePath(string path)
     {
-        var normalized = remoteFilePath.Replace('\\', '/');
-        var lastSlash = normalized.LastIndexOf('/');
-        if (lastSlash <= 0)
-        {
-            return "";
-        }
-
-        return normalized[..lastSlash];
+        return path.Replace('\\', '/').Trim().TrimEnd('/');
     }
 
-    private async Task<HashSet<string>> CollectImagePathsAsync(int commercialUserId, string localRoot, CancellationToken cancellationToken)
-    {
-        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        var itemImages = await _db.Items.AsNoTracking()
-            .Where(i => i.InsertByUserId == commercialUserId && !i.IsDeleted && i.Image != null && i.Image != "")
-            .Select(i => i.Image!)
-            .ToListAsync(cancellationToken);
-
-        foreach (var img in itemImages)
-        {
-            AddImagePath(paths, localRoot, img);
-        }
-
-        var userLogos = await _db.Users.AsNoTracking()
-            .Where(u => (u.Id == commercialUserId || u.InsertByUserId == commercialUserId) && !u.IsDeleted && u.Logo != null && u.Logo != "")
-            .Select(u => u.Logo!)
-            .ToListAsync(cancellationToken);
-
-        foreach (var logo in userLogos)
-        {
-            AddImagePath(paths, localRoot, logo);
-        }
-
-        foreach (var file in Directory.EnumerateFiles(localRoot, "*", SearchOption.AllDirectories))
-        {
-            var relative = Path.GetRelativePath(localRoot, file).Replace('\\', '/');
-            paths.Add(relative);
-        }
-
-        return paths;
-    }
-
-    private static void AddImagePath(HashSet<string> paths, string localRoot, string value)
-    {
-        var trimmed = value.Trim().Replace('\\', '/');
-        if (string.IsNullOrWhiteSpace(trimmed))
-        {
-            return;
-        }
-
-        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-            || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        trimmed = trimmed.TrimStart('/');
-        if (trimmed.StartsWith("Images/", StringComparison.OrdinalIgnoreCase))
-        {
-            trimmed = trimmed["Images/".Length..];
-        }
-
-        var full = Path.Combine(localRoot, trimmed.Replace('/', Path.DirectorySeparatorChar));
-        if (File.Exists(full))
-        {
-            paths.Add(trimmed);
-        }
-    }
-
-    private string ResolveImagesRoot()
-    {
-        var configured = _options.ImagesLocalPath;
-        if (Path.IsPathRooted(configured))
-        {
-            return configured;
-        }
-
-        return Path.Combine(_env.ContentRootPath, configured);
-    }
-
-    private static string CombineRemotePath(string basePath, string relative)
+    private static string CombineRemotePath(string basePath, string fileName)
     {
         var baseNorm = basePath.Replace('\\', '/').TrimEnd('/');
-        var relNorm = relative.Replace('\\', '/').TrimStart('/');
-        return $"{baseNorm}/{relNorm}";
+        var fileNorm = fileName.Replace('\\', '/').TrimStart('/');
+        return string.IsNullOrEmpty(baseNorm) ? fileNorm : $"{baseNorm}/{fileNorm}";
+    }
+
+    private static string SanitizeRemoteFileName(string fileName)
+    {
+        var name = Path.GetFileName(fileName.Replace('\\', '/'));
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("Remote file name is required.", nameof(fileName));
+        }
+
+        foreach (var ch in Path.GetInvalidFileNameChars())
+        {
+            name = name.Replace(ch, '_');
+        }
+
+        return name;
     }
 }

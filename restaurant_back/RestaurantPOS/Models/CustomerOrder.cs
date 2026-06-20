@@ -87,6 +87,12 @@ namespace RestaurantPOS.Models
         [ForeignKey("CreditCustomerId")]
         public Customer? CreditCustomer { get; set; }
 
+        /// <summary>طريقة التسديد الفعلية عند إغلاق فاتورة آجلة (Cash, Card, BankTransfer).</summary>
+        [MaxLength(20)]
+        public string? SettlementPaymentMethod { get; set; }
+
+        public DateTime? SettledAt { get; set; }
+
         // علاقة many-to-many مع الطاولات
         public List<Restaurant.OrderTable>? OrderTables { get; set; }
 
