@@ -42,3 +42,13 @@ public class ReservationCustomerOptionDto
     public string PhoneNumber { get; set; } = "";
     public string Source { get; set; } = "";
 }
+
+public class TableActiveReservationDto
+{
+    public int Id { get; set; }
+    public string CustomerName { get; set; } = "";
+    public string PhoneNumber { get; set; } = "";
+    public int NumberOfGuests { get; set; }
+    public DateTime ReservationDateTime { get; set; }
+    public string Status { get; set; } = "";
+}

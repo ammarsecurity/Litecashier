@@ -304,65 +304,15 @@
                   >
                     <b-icon icon="pencil-fill" class="action-icon"></b-icon>
                   </button>
-                  <b-dropdown
-                    variant="link"
-                    no-caret
-                    right
-                    boundary="viewport"
-                    offset="4"
-                    class="res-status-dropdown-wrap"
-                    toggle-class="action-btn action-btn--icon action-btn--status res-status-dropdown"
-                    menu-class="res-status-menu"
+                  <button
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--status res-status-dropdown"
+                    :class="{ 'res-status-dropdown--open': isStatusMenuOpen(row.item.id) }"
                     :title="$t('changeStatus') || 'تغيير الحالة'"
+                    @click.stop="toggleStatusMenu($event, row.item)"
                   >
-                    <template #button-content>
-                      <b-icon icon="arrow-repeat" class="action-icon"></b-icon>
-                    </template>
-                    <b-dropdown-header class="res-status-menu-header">
-                      {{ $t("changeStatus") || "تغيير الحالة" }}
-                    </b-dropdown-header>
-                    <b-dropdown-item
-                      class="res-status-option res-status-option--pending"
-                      :active="row.item.status === 'Pending'"
-                      @click="setReservationStatus(row.item, 'Pending')"
-                    >
-                      <b-icon icon="hourglass-split"></b-icon>
-                      <span>{{ $t("pending") }}</span>
-                    </b-dropdown-item>
-                    <b-dropdown-item
-                      class="res-status-option res-status-option--confirmed"
-                      :active="row.item.status === 'Confirmed'"
-                      @click="setReservationStatus(row.item, 'Confirmed')"
-                    >
-                      <b-icon icon="check-circle-fill"></b-icon>
-                      <span>{{ $t("confirmed") }}</span>
-                    </b-dropdown-item>
-                    <b-dropdown-item
-                      class="res-status-option res-status-option--seated"
-                      :active="row.item.status === 'Seated'"
-                      @click="setReservationStatus(row.item, 'Seated')"
-                    >
-                      <b-icon icon="person-check-fill"></b-icon>
-                      <span>{{ $t("markSeated") || $t("seated") }}</span>
-                    </b-dropdown-item>
-                    <b-dropdown-item
-                      class="res-status-option res-status-option--completed"
-                      :active="row.item.status === 'Completed'"
-                      @click="setReservationStatus(row.item, 'Completed')"
-                    >
-                      <b-icon icon="check2-all"></b-icon>
-                      <span>{{ $t("completed") }}</span>
-                    </b-dropdown-item>
-                    <b-dropdown-divider class="res-status-menu-divider"></b-dropdown-divider>
-                    <b-dropdown-item
-                      class="res-status-option res-status-option--cancelled"
-                      :active="row.item.status === 'Cancelled'"
-                      @click="setReservationStatus(row.item, 'Cancelled')"
-                    >
-                      <b-icon icon="x-circle-fill"></b-icon>
-                      <span>{{ $t("cancelled") }}</span>
-                    </b-dropdown-item>
-                  </b-dropdown>
+                    <b-icon icon="arrow-repeat" class="action-icon"></b-icon>
+                  </button>
                 </div>
               </template>
             </b-table>
@@ -384,6 +334,51 @@
             </div>
               </div>
             </div>
+          </div>
+
+          <!-- Status flyout — fixed position, outside table overflow -->
+          <div
+            v-if="statusMenu.open"
+            class="res-status-menu-backdrop"
+            @click="closeStatusMenu"
+          ></div>
+          <div
+            v-if="statusMenu.open"
+            ref="statusMenuFlyout"
+            class="res-status-menu res-status-menu-flyout"
+            :style="statusMenuStyle"
+            role="menu"
+            @click.stop
+          >
+            <div class="res-status-menu-header">
+              {{ $t("changeStatus") || "تغيير الحالة" }}
+            </div>
+            <button
+              v-for="opt in statusMenuPrimaryOptions"
+              :key="opt.status"
+              type="button"
+              role="menuitem"
+              class="res-status-option"
+              :class="[
+                `res-status-option--${opt.variant}`,
+                { active: statusMenu.reservation && statusMenu.reservation.status === opt.status },
+              ]"
+              @click="pickReservationStatus(opt.status)"
+            >
+              <b-icon :icon="opt.icon"></b-icon>
+              <span>{{ $t(opt.labelKey) || opt.fallback }}</span>
+            </button>
+            <hr class="res-status-menu-divider" role="separator" />
+            <button
+              type="button"
+              role="menuitem"
+              class="res-status-option res-status-option--cancelled"
+              :class="{ active: statusMenu.reservation && statusMenu.reservation.status === 'Cancelled' }"
+              @click="pickReservationStatus('Cancelled')"
+            >
+              <b-icon icon="x-circle-fill"></b-icon>
+              <span>{{ $t("cancelled") }}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -821,9 +816,29 @@ export default {
       editCustomerMode: "new",
       editSelectedCustomerKey: "",
       editCustomerSearch: "",
+      statusMenu: {
+        open: false,
+        reservation: null,
+        top: 0,
+        left: 0,
+      },
     };
   },
   computed: {
+    statusMenuStyle() {
+      return {
+        top: `${this.statusMenu.top}px`,
+        left: `${this.statusMenu.left}px`,
+      };
+    },
+    statusMenuPrimaryOptions() {
+      return [
+        { status: "Pending", variant: "pending", icon: "hourglass-split", labelKey: "pending", fallback: "قيد الانتظار" },
+        { status: "Confirmed", variant: "confirmed", icon: "check-circle-fill", labelKey: "confirmed", fallback: "مؤكد" },
+        { status: "Seated", variant: "seated", icon: "person-check-fill", labelKey: "markSeated", fallback: "تعيين جلس" },
+        { status: "Completed", variant: "completed", icon: "check2-all", labelKey: "completed", fallback: "مكتمل" },
+      ];
+    },
     uniqueZones() {
       if (!Array.isArray(this.allTables)) return [];
       const zones = this.allTables
@@ -960,6 +975,20 @@ export default {
     this.getReservations();
     this.getSummary();
     this.getTables();
+    this._onStatusMenuReposition = () => {
+      if (this.statusMenu.open) this.positionStatusMenu();
+    };
+    this._onStatusMenuKeydown = (e) => {
+      if (e.key === "Escape") this.closeStatusMenu();
+    };
+    window.addEventListener("resize", this._onStatusMenuReposition);
+    window.addEventListener("scroll", this._onStatusMenuReposition, true);
+    document.addEventListener("keydown", this._onStatusMenuKeydown);
+  },
+  beforeDestroy() {
+    window.removeEventListener("resize", this._onStatusMenuReposition);
+    window.removeEventListener("scroll", this._onStatusMenuReposition, true);
+    document.removeEventListener("keydown", this._onStatusMenuKeydown);
   },
   methods: {
     refreshPage() {
@@ -1413,6 +1442,58 @@ export default {
           });
         });
     },
+    isStatusMenuOpen(reservationId) {
+      return this.statusMenu.open && this.statusMenu.reservation && this.statusMenu.reservation.id === reservationId;
+    },
+    toggleStatusMenu(event, reservation) {
+      if (this.isStatusMenuOpen(reservation.id)) {
+        this.closeStatusMenu();
+        return;
+      }
+      this.statusMenu.open = true;
+      this.statusMenu.reservation = reservation;
+      this.statusMenu.anchorEl = event.currentTarget;
+      this.$nextTick(() => this.positionStatusMenu());
+    },
+    positionStatusMenu() {
+      const anchor = this.statusMenu.anchorEl;
+      const menu = this.$refs.statusMenuFlyout;
+      if (!anchor || !menu) return;
+
+      const rect = anchor.getBoundingClientRect();
+      const menuWidth = menu.offsetWidth || 184;
+      const menuHeight = menu.offsetHeight || 280;
+      const gap = 8;
+      const padding = 10;
+      const isRtl = document.documentElement.dir === "rtl";
+
+      let top = rect.bottom + gap;
+      let left = isRtl ? rect.right - menuWidth : rect.left;
+
+      if (top + menuHeight > window.innerHeight - padding) {
+        top = rect.top - menuHeight - gap;
+      }
+      if (top < padding) {
+        top = padding;
+      }
+
+      left = Math.max(padding, Math.min(left, window.innerWidth - menuWidth - padding));
+
+      this.statusMenu.top = Math.round(top);
+      this.statusMenu.left = Math.round(left);
+    },
+    closeStatusMenu() {
+      this.statusMenu.open = false;
+      this.statusMenu.reservation = null;
+      this.statusMenu.anchorEl = null;
+    },
+    pickReservationStatus(newStatus) {
+      const reservation = this.statusMenu.reservation;
+      this.closeStatusMenu();
+      if (reservation) {
+        this.setReservationStatus(reservation, newStatus);
+      }
+    },
     async loadTableAvailabilityForForm(dateTimeLocal, excludeReservationId) {
       if (!dateTimeLocal) {
         this.tableAvailability = {};
@@ -1593,6 +1674,22 @@ export default {
 .res-list-section {
   margin-bottom: 1.25rem;
   overflow: visible;
+}
+
+.reservations-page .res-list-section.app-section-card {
+  overflow: visible;
+}
+
+.reservations-page .res-table-body {
+  overflow: visible;
+}
+
+.reservations-page .report-table-container {
+  overflow: visible;
+}
+
+.reservations-page .table-responsive {
+  overflow: visible !important;
 }
 
 .res-count-inline {
@@ -1793,19 +1890,7 @@ export default {
   width: 100%;
 }
 
-.reservations-page .res-status-dropdown-wrap {
-  display: inline-flex !important;
-  vertical-align: middle;
-}
-
-.reservations-page .res-status-dropdown-wrap.btn-group,
-.reservations-page .res-status-dropdown-wrap > .btn-group {
-  display: inline-flex !important;
-  position: static !important;
-  vertical-align: middle;
-}
-
-.reservations-page .res-actions-cell .btn-link.res-status-dropdown {
+.reservations-page .res-actions-cell .action-btn.res-status-dropdown {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
@@ -1816,6 +1901,12 @@ export default {
   min-width: 36px;
   height: 36px;
   border-radius: 0.6rem !important;
+}
+
+.res-status-dropdown--open {
+  background: rgba(124, 58, 237, 0.18) !important;
+  border-color: rgba(124, 58, 237, 0.45) !important;
+  color: #a78bfa !important;
 }
 
 .reservations-page .reservations-table tbody tr:hover {
@@ -2278,85 +2369,202 @@ export default {
 </style>
 
 <style>
-/* Dropdown menu — override Bootstrap light defaults */
-.res-status-menu.dropdown-menu {
-  border-radius: 0.7rem !important;
-  border: 1px solid var(--border-color, #334155) !important;
+/* Status flyout — fixed on viewport, never clipped by table */
+.res-status-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10055;
+  background: transparent;
+}
+
+.res-status-menu-flyout {
+  position: fixed !important;
+  z-index: 10060 !important;
+  margin: 0 !important;
+  transform: none !important;
+  pointer-events: auto;
+}
+
+.res-status-menu.dropdown-menu,
+.res-status-menu.res-status-menu-flyout {
+  border-radius: 0.85rem !important;
+  border: 1px solid rgba(124, 58, 237, 0.22) !important;
   background: var(--bg-primary, #0f172a) !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35) !important;
-  padding: 0.4rem !important;
-  min-width: 13rem;
-  z-index: 1000000 !important;
+  box-shadow:
+    0 4px 6px rgba(15, 23, 42, 0.08),
+    0 18px 40px rgba(15, 23, 42, 0.28) !important;
+  padding: 0.45rem !important;
+  min-width: 11.5rem;
 }
 
-.res-status-menu-header.dropdown-header {
+.res-status-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   font-size: 0.6875rem;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted, #94a3b8) !important;
-  padding: 0.35rem 0.55rem 0.45rem;
+  letter-spacing: 0.05em;
+  color: #a78bfa !important;
+  padding: 0.4rem 0.55rem 0.5rem;
   background: transparent !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  margin-bottom: 0.25rem;
 }
 
-.res-status-menu-divider.dropdown-divider {
-  margin: 0.3rem 0.4rem;
-  border-color: var(--border-color, #334155) !important;
+.res-status-menu-divider {
+  margin: 0.35rem 0.45rem;
+  border: 0;
+  border-top: 1px solid var(--border-color, #334155);
   opacity: 1;
 }
 
-.res-status-menu .dropdown-item.res-status-option {
+.res-status-menu .res-status-option {
   display: flex !important;
   align-items: center;
   gap: 0.55rem;
-  border-radius: 0.5rem;
-  padding: 0.52rem 0.7rem !important;
+  width: 100%;
+  border: none;
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.72rem !important;
+  margin: 0.12rem 0;
   font-size: 0.8125rem !important;
   font-weight: 650;
   color: var(--text-primary, #e2e8f0) !important;
   background: transparent !important;
+  border-inline-start: 3px solid transparent;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  text-align: start;
+  cursor: pointer;
 }
 
-.res-status-menu .dropdown-item.res-status-option span {
+.res-status-menu .res-status-option span {
   color: inherit !important;
+  flex: 1;
 }
 
-.res-status-menu .dropdown-item.res-status-option .b-icon {
-  font-size: 0.95rem;
+.res-status-menu .res-status-option .b-icon {
+  font-size: 1rem;
   flex-shrink: 0;
+  width: 1.1rem;
+  text-align: center;
 }
 
-.res-status-menu .dropdown-item.res-status-option:hover,
-.res-status-menu .dropdown-item.res-status-option:focus {
+.res-status-menu .res-status-option:hover,
+.res-status-menu .res-status-option:focus {
   background: var(--bg-secondary, #1e293b) !important;
   color: var(--text-primary, #f8fafc) !important;
+  outline: none;
 }
 
-.res-status-menu .dropdown-item.res-status-option.active {
+.res-status-menu .res-status-option.active {
+  font-weight: 800;
+}
+
+.res-status-menu .res-status-option--pending {
+  border-inline-start-color: #f59e0b;
+}
+.res-status-menu .res-status-option--pending .b-icon { color: #f59e0b !important; }
+.res-status-menu .res-status-option--pending.active {
+  background: rgba(245, 158, 11, 0.14) !important;
+  color: #fcd34d !important;
+}
+
+.res-status-menu .res-status-option--confirmed {
+  border-inline-start-color: #a78bfa;
+}
+.res-status-menu .res-status-option--confirmed .b-icon { color: #a78bfa !important; }
+.res-status-menu .res-status-option--confirmed.active {
   background: rgba(124, 58, 237, 0.2) !important;
   color: #ddd6fe !important;
-  font-weight: 700;
 }
 
-.res-status-menu .dropdown-item.res-status-option.active .b-icon {
-  color: inherit !important;
+.res-status-menu .res-status-option--seated {
+  border-inline-start-color: #34d399;
+}
+.res-status-menu .res-status-option--seated .b-icon { color: #34d399 !important; }
+.res-status-menu .res-status-option--seated.active {
+  background: rgba(52, 211, 153, 0.14) !important;
+  color: #a7f3d0 !important;
 }
 
-.res-status-option--pending .b-icon { color: #f59e0b !important; }
-.res-status-option--confirmed .b-icon { color: #a78bfa !important; }
-.res-status-option--seated .b-icon { color: #34d399 !important; }
-.res-status-option--completed .b-icon { color: #94a3b8 !important; }
-.res-status-option--cancelled .b-icon { color: #f87171 !important; }
+.res-status-menu .res-status-option--completed {
+  border-inline-start-color: #94a3b8;
+}
+.res-status-menu .res-status-option--completed .b-icon { color: #94a3b8 !important; }
+.res-status-menu .res-status-option--completed.active {
+  background: rgba(148, 163, 184, 0.14) !important;
+  color: #e2e8f0 !important;
+}
 
-.res-status-menu .dropdown-item.res-status-option--cancelled:hover,
-.res-status-menu .dropdown-item.res-status-option--cancelled:focus {
-  background: rgba(220, 38, 38, 0.15) !important;
+.res-status-menu .res-status-option--cancelled {
+  border-inline-start-color: #f87171;
+}
+.res-status-menu .res-status-option--cancelled .b-icon { color: #f87171 !important; }
+.res-status-menu .res-status-option--cancelled:hover,
+.res-status-menu .res-status-option--cancelled:focus {
+  background: rgba(220, 38, 38, 0.12) !important;
+  color: #fecaca !important;
+}
+.res-status-menu .res-status-option--cancelled.active {
+  background: rgba(220, 38, 38, 0.2) !important;
   color: #fecaca !important;
 }
 
-.res-status-menu .dropdown-item.res-status-option--cancelled.active {
-  background: rgba(220, 38, 38, 0.22) !important;
-  color: #fecaca !important;
+/* Light mode */
+:root.light-theme .res-status-menu.dropdown-menu,
+:root.light-theme .res-status-menu.res-status-menu-flyout {
+  border-color: rgba(124, 58, 237, 0.16) !important;
+  background: #ffffff !important;
+  box-shadow:
+    0 4px 6px rgba(15, 23, 42, 0.04),
+    0 16px 36px rgba(124, 58, 237, 0.12) !important;
+}
+
+:root.light-theme .res-status-menu-header {
+  color: #6d28d9 !important;
+  border-bottom-color: rgba(124, 58, 237, 0.1);
+}
+
+:root.light-theme .res-status-menu .res-status-option {
+  color: #0f172a !important;
+}
+
+:root.light-theme .res-status-menu .res-status-option:hover,
+:root.light-theme .res-status-menu .res-status-option:focus {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+:root.light-theme .res-status-menu .res-status-option--pending.active {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #b45309 !important;
+}
+
+:root.light-theme .res-status-menu .res-status-option--confirmed.active {
+  background: rgba(124, 58, 237, 0.1) !important;
+  color: #5b21b6 !important;
+}
+
+:root.light-theme .res-status-menu .res-status-option--seated.active {
+  background: rgba(52, 211, 153, 0.12) !important;
+  color: #047857 !important;
+}
+
+:root.light-theme .res-status-menu .res-status-option--completed.active {
+  background: rgba(100, 116, 139, 0.1) !important;
+  color: #334155 !important;
+}
+
+:root.light-theme .res-status-menu .res-status-option--cancelled:hover,
+:root.light-theme .res-status-menu .res-status-option--cancelled:focus {
+  background: rgba(220, 38, 38, 0.08) !important;
+  color: #b91c1c !important;
+}
+
+:root.light-theme .res-status-menu .res-status-option--cancelled.active {
+  background: rgba(220, 38, 38, 0.1) !important;
+  color: #b91c1c !important;
 }
 </style>
 

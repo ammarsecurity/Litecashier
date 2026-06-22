@@ -5,6 +5,11 @@ import { mergeCartLines } from "@/utils/mergeCartLines.js";
  * Shared table selection / floor-plan status logic for POS and Waiter views.
  */
 export default {
+  data() {
+    return {
+      activeTableReservation: null,
+    };
+  },
   methods: {
     getTableCurrentOrderId(table) {
       const raw =
@@ -78,6 +83,55 @@ export default {
           timeout: 2000,
           maxToasts: 1,
         });
+      }
+
+      return this.loadActiveReservationForTable(table.id);
+    },
+    clearActiveTableReservation() {
+      this.activeTableReservation = null;
+      if (this.orderForSend) {
+        this.orderForSend.reservationId = null;
+      }
+    },
+    normalizeTableReservation(row) {
+      if (!row) {
+        return null;
+      }
+      return {
+        id: row.id ?? row.Id ?? null,
+        customerName: row.customerName ?? row.CustomerName ?? "",
+        phoneNumber: row.phoneNumber ?? row.PhoneNumber ?? "",
+        numberOfGuests: Number(row.numberOfGuests ?? row.NumberOfGuests ?? 0),
+        reservationDateTime: row.reservationDateTime ?? row.ReservationDateTime ?? null,
+        status: row.status ?? row.Status ?? "",
+      };
+    },
+    async loadActiveReservationForTable(tableId) {
+      if (!tableId) {
+        this.clearActiveTableReservation();
+        return null;
+      }
+
+      try {
+        const res = await HTTP.get(`Reservations/active-for-table/${tableId}`);
+        const raw = res?.data?.data ?? res?.data?.Data ?? null;
+        const data = this.normalizeTableReservation(raw);
+        this.activeTableReservation = data;
+        if (data) {
+          if (this.orderForSend) {
+            this.orderForSend.reservationId = data.id;
+            if (data.numberOfGuests > 0) {
+              this.orderForSend.numberOfGuests = data.numberOfGuests;
+            }
+          }
+        } else {
+          this.clearActiveTableReservation();
+        }
+        return data;
+      } catch (e) {
+        console.warn("loadActiveReservationForTable", e);
+        this.clearActiveTableReservation();
+        return null;
       }
     },
     markTableOccupiedLocally(table, orderId) {
@@ -171,6 +225,8 @@ export default {
           this.getTables();
         }
 
+        await this.loadActiveReservationForTable(table.id);
+
         this.$toast.success(
           this.$i18n.t("tableOrdersLoaded") || "تم تحميل طلبات الطاولة",
           {
@@ -245,7 +301,7 @@ export default {
         return;
       }
 
-      this.attachTableForOrderSession(table);
+      await this.attachTableForOrderSession(table);
     },
   },
 };

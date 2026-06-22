@@ -465,6 +465,52 @@ namespace RestaurantPOS.Controllers
             });
         }
 
+        // GET: api/Reservations/active-for-table/{tableId}
+        [Authorize(Roles = "Commercial,POS,Waiter,Admin")]
+        [HttpGet("active-for-table/{tableId}")]
+        public async Task<ActionResult<GlobalResponse<TableActiveReservationDto?>>> GetActiveReservationForTable(int tableId)
+        {
+            var commercialUserId = GetCommercialUserId();
+            var now = DateTime.Now;
+
+            var candidates = await _dbConfig.Reservations
+                .Where(r => !r.IsDeleted
+                    && r.InsertByUserId == commercialUserId
+                    && r.TableId == tableId
+                    && (r.Status == "Pending" || r.Status == "Confirmed" || r.Status == "Seated"))
+                .ToListAsync();
+
+            var reservation = candidates
+                .OrderBy(r => r.ReservationDateTime >= now ? 0 : 1)
+                .ThenBy(r => Math.Abs((r.ReservationDateTime - now).Ticks))
+                .FirstOrDefault();
+
+            if (reservation == null)
+            {
+                return Ok(new GlobalResponse<TableActiveReservationDto?>
+                {
+                    Data = null,
+                    ErrorStatus = false,
+                    Message = "لا يوجد حجز نشط لهذه الطاولة",
+                });
+            }
+
+            return Ok(new GlobalResponse<TableActiveReservationDto?>
+            {
+                Data = new TableActiveReservationDto
+                {
+                    Id = reservation.Id,
+                    CustomerName = reservation.CustomerName,
+                    PhoneNumber = reservation.PhoneNumber,
+                    NumberOfGuests = reservation.NumberOfGuests,
+                    ReservationDateTime = reservation.ReservationDateTime,
+                    Status = reservation.Status,
+                },
+                ErrorStatus = false,
+                Message = "تم جلب بيانات الحجز",
+            });
+        }
+
         // GET: api/Reservations/{id}
         [AuthorizeSection("reservations", Roles = "Commercial,POS,Admin")]
         [HttpGet("{id}")]

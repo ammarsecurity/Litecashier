@@ -270,6 +270,7 @@
                     </div>
                   </div>
                 </div>
+                <TableReservationInfoBanner embedded :reservation="activeTableReservation" />
               </div>
             </div>
 
@@ -421,6 +422,10 @@
                     </button>
                   </header>
                   <div class="pos-cart-container" ref="posCartScrollArea">
+                <TableReservationInfoBanner
+                  v-if="selectedTableId"
+                  :reservation="activeTableReservation"
+                />
                 <!-- Cart Items List -->
                 <div class="pos-cart-items-section">
                   <div class="pos-cart-header">
@@ -2027,6 +2032,7 @@ import posOrderPersistMixin from "@/mixins/posOrderPersistMixin.js";
 import posTableSelectMixin from "@/mixins/posTableSelectMixin.js";
 import posFullscreenMixin from "@/mixins/posFullscreenMixin.js";
 import CardPaymentWaitModal from "@/components/CardPaymentWaitModal.vue";
+import TableReservationInfoBanner from "@/components/Restaurant/TableReservationInfoBanner.vue";
 import TableGuestsModal from "@/components/TableGuestsModal.vue";
 import { findCartLineIndex, mergeCartLines } from "@/utils/mergeCartLines.js";
 // import store from '../store/store'; // Adjust the path based on your actual folder structure
@@ -2040,6 +2046,7 @@ export default {
     "vue-barcode": VueBarcode,
     CalculatorComp,
     CardPaymentWaitModal,
+    TableReservationInfoBanner,
     TableGuestsModal,
   },
   data() {
@@ -2622,6 +2629,16 @@ export default {
     },
   },
   watch: {
+    selectedTableId: {
+      immediate: true,
+      handler(id) {
+        if (!id) {
+          this.clearActiveTableReservation();
+          return;
+        }
+        this.loadActiveReservationForTable(id);
+      },
+    },
     carditems: {
       handler() {
         this.totaPrice = 0;
