@@ -610,7 +610,7 @@ namespace RestaurantPOS.Controllers
         private static string NormalizeFloorPlanKey(string? planKey) =>
             string.IsNullOrWhiteSpace(planKey) ? "" : planKey.Trim();
 
-        [AuthorizeSection("tables", Roles = "Commercial,POS,Admin,Waiter")]
+        [AuthorizeSection("tables", "reservations", Roles = "Commercial,POS,Admin,Waiter")]
         [HttpGet("floor-plan")]
         public async Task<ActionResult<GlobalResponse<object>>> GetFloorPlan([FromQuery] string? planKey = null)
         {

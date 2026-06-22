@@ -2714,16 +2714,14 @@ export default {
   mounted() {
     try {
       this.getTags();
-      this.getTables().then(() => {
-        this.initPosFloorPlanGate();
-        if (!this.posFloorPlanGateVisible) {
-          this.$nextTick(() => {
-            if (this.$refs.posQuickSearchInput) {
-              this.$refs.posQuickSearchInput.focus();
-            }
-          });
-        }
-      });
+      this.initPosFloorPlanGate();
+      if (!this.posFloorPlanGateVisible) {
+        this.$nextTick(() => {
+          if (this.$refs.posQuickSearchInput) {
+            this.$refs.posQuickSearchInput.focus();
+          }
+        });
+      }
       
       const userInfoStr = localStorage.getItem("info");
       if (userInfoStr) {
@@ -3207,9 +3205,18 @@ export default {
         this.resetPosFloorPlanGateTools();
         this.posFloorPlanForceDefaultTab = true;
         this.posFloorPlanGateVisible = true;
-        this.loadPosFloorPlan();
+        this.reconcileReservationTables()
+          .finally(() => this.getTables())
+          .finally(() => this.loadPosFloorPlan());
       } catch (_) {
         this.posFloorPlanGateVisible = false;
+      }
+    },
+    async reconcileReservationTables() {
+      try {
+        await HTTP.post("Reservations/reconcile-tables");
+      } catch (e) {
+        console.warn("reconcileReservationTables", e);
       }
     },
     async loadPosFloorPlan() {
@@ -8007,7 +8014,7 @@ export default {
 }
 
 .pos-fp-chip-res {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: linear-gradient(135deg, #a78bfa, #7c3aed);
   color: #fff;
 }
 

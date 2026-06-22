@@ -24,9 +24,8 @@ export default {
       const isOutOfService =
         tableStatus === "outofservice" || tableStatus === "out_of_service";
       const isReserved = tableStatus === "reserved";
-      const isOccupied =
-        tableStatus === "occupied" || isReserved || hasActiveOrder;
-      const isAvailable = !isOccupied && !isOutOfService;
+      const isOccupied = tableStatus === "occupied" || hasActiveOrder;
+      const isAvailable = !isOccupied && !isReserved && !isOutOfService;
       return { tableStatus, hasActiveOrder, isOutOfService, isReserved, isOccupied, isAvailable };
     },
     posFloorTableStatusClass(status) {
@@ -50,6 +49,36 @@ export default {
         return "pos-fp-chip-occ";
       }
       return "pos-fp-chip-avail";
+    },
+    attachTableForOrderSession(table, options = {}) {
+      const { silent = false } = options;
+      this.activeOrderId = null;
+      if (typeof this.resetPrintedCartBaseline === "function") {
+        this.resetPrintedCartBaseline();
+      }
+      this.orderForSend.orderCode = "";
+      this.selectedTableId = table.id;
+      this.selectedTableIds = [table.id];
+      this.orderForSend.tableId = table.id;
+      this.orderForSend.tableIds = null;
+      this.orderForSend.orderType = "DineIn";
+      if (!this.orderForSend.numberOfGuests || this.orderForSend.numberOfGuests < 1) {
+        this.orderForSend.numberOfGuests = 1;
+      }
+      this.carditems = [];
+      this.tableOrders = [];
+
+      if (!silent) {
+        const { isReserved } = this.getTableOccupancyFlags(table);
+        const msg = isReserved
+          ? this.$i18n.t("reservedTableSessionStarted") || "طاولة محجوزة — يمكنك بدء الطلب"
+          : this.$i18n.t("newTableOrderStarted") || "تم بدء طلب جديد للطاولة";
+        this.$toast.info(msg, {
+          position: "top-right",
+          timeout: 2000,
+          maxToasts: 1,
+        });
+      }
     },
     markTableOccupiedLocally(table, orderId) {
       if (!table) {
@@ -216,29 +245,7 @@ export default {
         return;
       }
 
-      if (isAvailable) {
-        this.activeOrderId = null;
-        this.resetPrintedCartBaseline();
-        this.orderForSend.orderCode = "";
-        this.selectedTableId = table.id;
-        this.selectedTableIds = [table.id];
-        this.orderForSend.tableId = table.id;
-        this.orderForSend.orderType = "DineIn";
-        if (!this.orderForSend.numberOfGuests || this.orderForSend.numberOfGuests < 1) {
-          this.orderForSend.numberOfGuests = 1;
-        }
-        this.carditems = [];
-        this.tableOrders = [];
-
-        this.$toast.info(
-          this.$i18n.t("newTableOrderStarted") || "تم بدء طلب جديد للطاولة",
-          {
-            position: "top-right",
-            timeout: 2000,
-            maxToasts: 1,
-          }
-        );
-      }
+      this.attachTableForOrderSession(table);
     },
   },
 };

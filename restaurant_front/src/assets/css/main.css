@@ -11116,8 +11116,8 @@ table .b-icon,
 }
 
 .pos-table-card-compact.pos-table-reserved {
-  border-color: var(--warning-color);
-  background: rgba(192, 132, 252, 0.1);
+  border-color: #7c3aed;
+  background: rgba(167, 139, 250, 0.12);
 }
 
 .pos-table-card-compact.pos-table-outofservice,
@@ -11933,8 +11933,8 @@ table .b-icon,
 }
 
 .pos-table-reserved {
-  border-color: var(--warning-color);
-  background: linear-gradient(135deg, #fef3c7 0%, #ffffff 100%);
+  border-color: #7c3aed;
+  background: linear-gradient(135deg, #ede9fe 0%, #ffffff 100%);
 }
 
 .pos-table-outofservice,

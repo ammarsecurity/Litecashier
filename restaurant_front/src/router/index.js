@@ -23,7 +23,6 @@ import CustomersView from '../views/CustomersView.vue'
 import ExpensesView from '../views/ExpensesView.vue'
 import InventoryView from '../views/InventoryView.vue'
 import AuditLogView from '../views/AuditLogView.vue'
-import PrintTemplatesView from '../views/PrintTemplatesView.vue'
 import PaymentDevicesView from '../views/PaymentDevicesView.vue'
 import CardPaymentsView from '../views/CardPaymentsView.vue'
 import DeferredPaymentsView from '../views/DeferredPaymentsView.vue'
@@ -306,15 +305,6 @@ const routes = [
     meta: {
       requiresAuth: true,
       roles: ['Commercial']
-    }
-  },
-  {
-    path: '/print-templates',
-    name: 'printTemplates',
-    component: PrintTemplatesView,
-    meta: {
-      requiresAuth: true,
-      roles: ['Commercial', 'POS', 'Admin']
     }
   },
   {

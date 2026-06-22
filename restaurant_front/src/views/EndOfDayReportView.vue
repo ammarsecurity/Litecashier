@@ -761,8 +761,8 @@ export default {
 }
 
 .eod-table-status-chip--reserved {
-  border-color: rgba(245, 158, 11, 0.45);
-  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(124, 58, 237, 0.45);
+  background: rgba(124, 58, 237, 0.1);
 }
 
 .eod-table-status-chip--out {

@@ -122,12 +122,6 @@ export function buildNavItems(t) {
       icon: "journal-text",
     },
     {
-      name: "printTemplates",
-      label: t("printTemplates") || "نماذج الطباعة",
-      link: "/print-templates",
-      icon: "printer-fill",
-    },
-    {
       name: "paymentDevices",
       label: t("paymentDevicesManagement") || "إدارة أجهزة الدفع",
       link: "/payment-devices",

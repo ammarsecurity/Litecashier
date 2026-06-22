@@ -25,7 +25,6 @@ public static class SectionDefinitions
         "employees",
         "customers",
         "auditLog",
-        "printTemplates",
         "paymentDevices",
         "cardPayments",
         "databaseSync",

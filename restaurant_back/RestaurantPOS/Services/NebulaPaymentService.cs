@@ -296,6 +296,27 @@ namespace RestaurantPOS.Services
             return url + "/";
         }
 
+        /// <summary>
+        /// PAX Nebula expects IQD amounts with 3 implicit decimal places (e.g. 2000 IQD → 2000000).
+        /// </summary>
+        private const int IqdDeviceAmountFactor = 1000;
+
+        private static long ToDeviceAmount(long displayAmount, string? currencyCode)
+        {
+            if (displayAmount <= 0)
+            {
+                return displayAmount;
+            }
+
+            if (string.IsNullOrWhiteSpace(currencyCode) ||
+                string.Equals(currencyCode.Trim(), "IQD", StringComparison.OrdinalIgnoreCase))
+            {
+                return checked(displayAmount * IqdDeviceAmountFactor);
+            }
+
+            return displayAmount;
+        }
+
         public async Task<string?> IsConnectedAsync(string baseUrl, CancellationToken cancellationToken = default)
         {
             try
@@ -317,21 +338,29 @@ namespace RestaurantPOS.Services
             var result = new NebulaSaleResult();
             try
             {
+                var currency = string.IsNullOrWhiteSpace(currencyCode) ? "IQD" : currencyCode;
+                var deviceAmount = ToDeviceAmount(amount, currency);
+                var deviceTip = ToDeviceAmount(tipAmount, currency);
+
                 // Nebula requires exact key "CATEGORY" (not camelCase "cATEGORY").
                 var payload = new Dictionary<string, object>
                 {
                     ["CATEGORY"] = "com.pax.payment.Sale",
                     ["parm"] = new Dictionary<string, object>
                     {
-                        ["amount"] = amount,
-                        ["tipAmount"] = tipAmount,
-                        ["currencyCode"] = string.IsNullOrWhiteSpace(currencyCode) ? "IQD" : currencyCode
+                        ["amount"] = deviceAmount,
+                        ["tipAmount"] = deviceTip,
+                        ["currencyCode"] = currency
                     }
                 };
 
                 var client = CreateClient(baseUrl);
                 var json = JsonSerializer.Serialize(payload, NebulaRequestJsonOptions);
-                _logger.LogDebug("Nebula createRequest payload: {Payload}", json);
+                _logger.LogDebug(
+                    "Nebula createRequest payload (display amount {DisplayAmount} → device amount {DeviceAmount}): {Payload}",
+                    amount,
+                    deviceAmount,
+                    json);
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
                 var response = await client.PostAsync("createRequest", content, cancellationToken);
                 var body = await response.Content.ReadAsStringAsync(cancellationToken);

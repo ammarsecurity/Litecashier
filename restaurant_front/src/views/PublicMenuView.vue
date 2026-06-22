@@ -1,5 +1,5 @@
 <template>
-  <div class="pm">
+  <div class="pm" :class="{ 'pm--no-order': !showPublicOrdering }">
     <!-- Hero -->
     <header class="pm-hero">
       <div class="pm-hero-bg"></div>
@@ -167,8 +167,8 @@
         </div>
       </main>
 
-      <!-- Floating actions -->
-      <div class="pm-actions">
+      <!-- Floating actions (hidden when public ordering is disabled) -->
+      <div v-if="showPublicOrdering" class="pm-actions">
         <router-link :to="orderLink" class="pm-btn pm-btn--primary">
           <b-icon icon="bag-check-fill"></b-icon>
           {{ $t('orderNow') || 'اطلب الآن' }}
@@ -216,7 +216,12 @@
                 <small>د.ع</small>
               </span>
             </div>
-            <router-link :to="orderLink" class="pm-btn pm-btn--primary pm-btn--block" @click.native="selectedItem = null">
+            <router-link
+              v-if="showPublicOrdering"
+              :to="orderLink"
+              class="pm-btn pm-btn--primary pm-btn--block"
+              @click.native="selectedItem = null"
+            >
               <b-icon icon="plus-circle"></b-icon>
               {{ $t('addToOrder') || 'أضف للطلب' }}
             </router-link>
@@ -306,6 +311,11 @@ export default {
     },
     trackLink() {
       return `/order-status/${this.commercialUserId}`;
+    },
+    /** Set VUE_APP_PUBLIC_MENU_ORDER_ENABLED=true to show order buttons again. */
+    showPublicOrdering() {
+      const flag = process.env.VUE_APP_PUBLIC_MENU_ORDER_ENABLED;
+      return flag === 'true' || flag === '1';
     },
   },
   mounted() {
@@ -412,6 +422,10 @@ export default {
   color: var(--pm-text);
   font-family: 'Cairo', sans-serif;
   padding-bottom: 5.5rem;
+}
+
+.pm--no-order {
+  padding-bottom: 1.5rem;
 }
 
 /* Hero */

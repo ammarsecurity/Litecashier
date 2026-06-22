@@ -8,95 +8,246 @@
   >
     <AppHeader />
     <div class="main-content-wrapper">
-      <div class="users-page-container">
-        <div class="users-page-content">
-          <!-- Header Section -->
+      <div class="app-page-container">
+        <div class="app-page-content reservations-page">
+          <!-- Header -->
           <div class="users-header-section">
-            <div class="users-header-content">
-              <h1 class="users-page-title">{{ $t("reservations") || "الحجوزات" }}</h1>
-              <button class="users-add-button" v-b-modal.modal-addReservation>
-                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
-                <span class="button-text">{{ $t("addReservation") || "إضافة حجز" }}</span>
-              </button>
+            <div class="users-header-content app-header-row">
+              <div class="header-title-wrapper">
+                <div class="header-icon-wrapper res-page-icon">
+                  <b-icon icon="calendar-check-fill" class="header-icon"></b-icon>
+                </div>
+                <div>
+                  <h1 class="users-page-title">{{ $t("reservations") || "الحجوزات" }}</h1>
+                  <p class="header-subtitle">{{ $t("reservationsPageSubtitle") || "إدارة حجوزات الطاولات ومتابعة التوفر" }}</p>
+                </div>
+              </div>
+              <div class="app-header-actions">
+                <button type="button" class="btn-refresh" @click="refreshPage" :disabled="show">
+                  <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: show }"></b-icon>
+                  <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Filter Section -->
-          <div class="reservation-filter-section">
-            <div class="reservation-filter-card">
-              <div class="reservation-filter-header">
-                <b-icon icon="funnel-fill" class="filter-header-icon"></b-icon>
-                <span class="filter-header-text">{{ $t("filters") || "الفلاتر" }}</span>
+          <!-- Overview stats -->
+          <div class="app-overview-grid">
+            <div class="app-overview-stat res-stat-card">
+              <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                <b-icon icon="calendar-day"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ totalItems }}</div>
+                <div class="app-overview-stat-label">{{ $t("filteredReservations") || "نتائج الفلتر" }}</div>
               </div>
-              <div class="reservation-filter-content">
-                <div class="reservation-filter-item">
-                  <label class="reservation-filter-label">
-                    <b-icon icon="calendar-event" class="filter-label-icon"></b-icon>
-                    {{ $t("fromDate") || "من تاريخ" }}
-                  </label>
-                  <div class="reservation-date-wrapper">
-                    <b-icon icon="calendar-event" class="reservation-date-icon"></b-icon>
-                    <input 
-                      type="date" 
-                      v-model="fromDate"
-                      class="reservation-date-input"
-                      @change="onFilterChange"
+            </div>
+            <div class="app-overview-stat res-stat-card">
+              <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                <b-icon icon="hourglass-split"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ summaryStats.pendingCount || 0 }}</div>
+                <div class="app-overview-stat-label">{{ $t("pending") || "قيد الانتظار" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat res-stat-card">
+              <span class="app-overview-stat-icon app-overview-stat-icon--purple">
+                <b-icon icon="check-circle-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ summaryStats.confirmedCount || 0 }}</div>
+                <div class="app-overview-stat-label">{{ $t("confirmed") || "مؤكد" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat res-stat-card">
+              <span class="app-overview-stat-icon app-overview-stat-icon--purple">
+                <b-icon icon="table"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ summaryStats.reservedTablesCount || 0 }}</div>
+                <div class="app-overview-stat-label">{{ $t("reservedTables") || "طاولات محجوزة" }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filters toolbar -->
+          <div class="app-section-card">
+            <div class="app-section-header app-section-header--toolbar res-filters-toolbar">
+              <div class="res-toolbar-main">
+                <div class="res-toolbar-fields">
+                  <div class="app-search-wrap res-search-wrap">
+                    <b-icon icon="search" class="app-search-icon"></b-icon>
+                    <input
+                      v-model="searchQuery"
+                      type="search"
+                      class="app-search-input"
+                      :placeholder="$t('searchReservationsPlaceholder') || 'اسم أو هاتف...'"
+                      autocomplete="off"
+                      @input="onSearchInput"
                     />
                   </div>
+                  <select v-model="statusFilter" class="res-toolbar-select" @change="onFilterChange">
+                    <option value="">{{ $t("allStatuses") || "كل الحالات" }}</option>
+                    <option value="Pending">{{ $t("pending") || "قيد الانتظار" }}</option>
+                    <option value="Confirmed">{{ $t("confirmed") || "مؤكد" }}</option>
+                    <option value="Seated">{{ $t("seated") || "جلس" }}</option>
+                    <option value="Completed">{{ $t("completed") || "مكتمل" }}</option>
+                    <option value="Cancelled">{{ $t("cancelled") || "ملغي" }}</option>
+                  </select>
+                  <button
+                    type="button"
+                    class="res-advanced-toggle"
+                    :class="{ 'res-advanced-toggle--open': showAdvancedFilters }"
+                    @click="showAdvancedFilters = !showAdvancedFilters"
+                  >
+                    <b-icon icon="sliders"></b-icon>
+                    <span>{{ $t("advancedFilters") || "فلاتر متقدمة" }}</span>
+                    <b-icon :icon="showAdvancedFilters ? 'chevron-up' : 'chevron-down'" class="res-advanced-chevron"></b-icon>
+                  </button>
                 </div>
-                <div class="reservation-filter-item">
-                  <label class="reservation-filter-label">
-                    <b-icon icon="calendar-event-fill" class="filter-label-icon"></b-icon>
-                    {{ $t("toDate") || "إلى تاريخ" }}
-                  </label>
-                  <div class="reservation-date-wrapper">
-                    <b-icon icon="calendar-event-fill" class="reservation-date-icon"></b-icon>
-                    <input 
-                      type="date" 
-                      v-model="toDate"
-                      class="reservation-date-input"
-                      @change="onFilterChange"
-                    />
-                  </div>
-                </div>
-                <div class="reservation-filter-item">
-                  <label class="reservation-filter-label">
-                    <b-icon icon="award-fill" class="filter-label-icon"></b-icon>
-                    {{ $t("status") || "الحالة" }}
-                  </label>
-                  <div class="reservation-select-wrapper">
-                    <b-icon icon="chevron-down" class="reservation-select-icon"></b-icon>
-                    <select v-model="statusFilter" class="reservation-select-input" @change="onFilterChange">
-                      <option value="">{{ $t("all") || "الكل" }}</option>
-                      <option value="Pending">{{ $t("pending") || "قيد الانتظار" }}</option>
-                      <option value="Confirmed">{{ $t("confirmed") || "مؤكد" }}</option>
-                      <option value="Seated">{{ $t("seated") || "جلس" }}</option>
-                      <option value="Completed">{{ $t("completed") || "مكتمل" }}</option>
-                      <option value="Cancelled">{{ $t("cancelled") || "ملغي" }}</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="reservation-filter-item reservation-filter-action">
-                  <button class="reservation-filter-btn" @click="onFilterChange">
-                    <b-icon icon="search" class="me-2"></b-icon>
-                    <span>{{ $t("search") || "بحث" }}</span>
+                <div class="res-date-chips" role="tablist">
+                  <button
+                    type="button"
+                    class="res-date-chip"
+                    :class="{ 'res-date-chip--active': activeQuickFilter === 'today' }"
+                    @click="applyQuickFilter('today')"
+                  >
+                    {{ $t("quickFilterToday") || "اليوم" }}
+                  </button>
+                  <button
+                    type="button"
+                    class="res-date-chip"
+                    :class="{ 'res-date-chip--active': activeQuickFilter === 'tomorrow' }"
+                    @click="applyQuickFilter('tomorrow')"
+                  >
+                    {{ $t("quickFilterTomorrow") || "غداً" }}
+                  </button>
+                  <button
+                    type="button"
+                    class="res-date-chip"
+                    :class="{ 'res-date-chip--active': activeQuickFilter === 'week' }"
+                    @click="applyQuickFilter('week')"
+                  >
+                    {{ $t("quickFilterWeek") || "هذا الأسبوع" }}
                   </button>
                 </div>
               </div>
             </div>
+            <div v-show="showAdvancedFilters" class="app-section-body res-advanced-filters">
+              <div class="res-filter-grid">
+                <div class="res-filter-field">
+                  <label class="res-filter-label">{{ $t("filterMode") || "نمط التاريخ" }}</label>
+                  <select v-model="filterMode" class="res-filter-input" @change="onFilterModeChange">
+                    <option value="single">{{ $t("reservationSingleDay") || "يوم واحد" }}</option>
+                    <option value="range">{{ $t("dateRange") || "نطاق" }}</option>
+                  </select>
+                </div>
+                <div class="res-filter-field">
+                  <label class="res-filter-label">
+                    {{ filterMode === 'single' ? ($t('reservationSingleDay') || 'يوم محدد') : ($t('fromDate') || 'من تاريخ') }}
+                  </label>
+                  <input
+                    v-if="filterMode === 'single'"
+                    type="date"
+                    v-model="singleDate"
+                    class="res-filter-input"
+                    @change="onFilterChange"
+                  />
+                  <input
+                    v-else
+                    type="date"
+                    v-model="fromDate"
+                    class="res-filter-input"
+                    @change="onFilterChange"
+                  />
+                </div>
+                <div v-if="filterMode === 'range'" class="res-filter-field">
+                  <label class="res-filter-label">{{ $t("toDate") || "إلى تاريخ" }}</label>
+                  <input type="date" v-model="toDate" class="res-filter-input" @change="onFilterChange" />
+                </div>
+                <div class="res-filter-field">
+                  <label class="res-filter-label">{{ $t("reservationTimeFrom") || "من وقت" }}</label>
+                  <input type="time" v-model="fromTime" class="res-filter-input" @change="onFilterChange" />
+                </div>
+                <div class="res-filter-field">
+                  <label class="res-filter-label">{{ $t("reservationTimeTo") || "إلى وقت" }}</label>
+                  <input type="time" v-model="toTime" class="res-filter-input" @change="onFilterChange" />
+                </div>
+                <div class="res-filter-field">
+                  <label class="res-filter-label">{{ $t("table") || "الطاولة" }}</label>
+                  <select v-model="tableFilterId" class="res-filter-input" @change="onFilterChange">
+                    <option :value="null">{{ $t("all") || "الكل" }}</option>
+                    <option v-for="t in allTables" :key="t.id" :value="t.id">
+                      {{ t.tableNumber }}{{ t.zone ? ` - ${t.zone}` : '' }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <!-- Reservations Table -->
-          <div class="reservations-table-container">
-            <b-table
-              :items="reservations"
-              :fields="reservationFields"
-              striped
-              hover
-              responsive
-              class="reservations-table"
-              :tbody-tr-class="getReservationRowClass"
-            >
+          <!-- Floor plan (full width) -->
+          <div class="app-section-card res-floor-section">
+            <div class="app-section-header app-section-header--toolbar">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap app-section-icon-wrap--purple">
+                  <b-icon icon="diagram-3"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("reservationFloorPlan") || "مخطط الحجوزات" }}</h3>
+                  <p class="app-section-subtitle">{{ floorPlanSubtitle }}</p>
+                </div>
+              </div>
+              <button v-if="tableFilterId" type="button" class="res-clear-filter-btn" @click="clearTableFilter">
+                <b-icon icon="x-circle"></b-icon>
+                {{ $t("clearTableFilter") || "إلغاء فلتر الطاولة" }}
+              </button>
+            </div>
+            <div class="app-section-body res-floor-body">
+              <ReservationFloorPlan
+                :filter-date="floorPlanDate"
+                :filter-date-to="floorPlanDateTo"
+                :filter-time="fromTime"
+                :selected-table-id="addForm.tableId"
+                @table-select="onFloorTableSelect"
+              />
+            </div>
+          </div>
+
+          <!-- Reservations list -->
+          <div class="app-section-card res-list-section">
+            <div class="app-section-header app-section-header--toolbar">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap">
+                  <b-icon icon="list-ul"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">
+                    {{ $t("reservationsListTitle") || "قائمة الحجوزات" }}
+                    <span v-if="totalItems" class="res-count-inline">{{ totalItems }}</span>
+                  </h3>
+                  <p class="app-section-subtitle">{{ $t("reservationsListHint") || "عرض وتعديل حالات الحجز" }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="app-section-body res-table-body">
+              <div v-if="!show && !reservations.length" class="res-empty-state">
+                <b-icon icon="calendar-x" class="res-empty-icon"></b-icon>
+                <p class="res-empty-title">{{ $t("noReservations") || "لا توجد حجوزات" }}</p>
+                <p class="res-empty-hint">{{ $t("noReservationsHint") || "غيّر الفلاتر أو اختر طاولة من المخطط لإضافة حجز" }}</p>
+              </div>
+              <div v-else class="report-table-container">
+                <b-table
+                  :items="reservations"
+                  :fields="reservationFields"
+                  striped
+                  hover
+                  responsive
+                  class="reports-table reservations-table"
+                  :tbody-tr-class="getReservationRowClass"
+                  :empty-text="$t('noData') || 'لا توجد بيانات'"
+                >
               <template #cell(customerName)="row">
                 <div class="reservation-customer-cell">
                   <b-icon icon="person-fill" class="customer-icon"></b-icon>
@@ -139,30 +290,83 @@
                 </span>
               </template>
 
+              <template #head(actions)>
+                <span class="res-actions-head">{{ $t("actions") || "الإجراءات" }}</span>
+              </template>
+
               <template #cell(actions)="row">
-                <div class="actions-cell">
-                  <button 
+                <div class="actions-cell res-actions-cell">
+                  <button
                     type="button"
-                    class="action-btn action-btn--icon action-btn--edit" 
+                    class="action-btn action-btn--icon action-btn--edit"
                     @click="editReservation(row.item)"
                     :title="$t('edit')"
                   >
                     <b-icon icon="pencil-fill" class="action-icon"></b-icon>
                   </button>
-                  <button 
-                    type="button"
-                    class="action-btn action-btn--icon"
-                    :class="row.item.status === 'Confirmed' ? 'action-btn--delete' : 'action-btn--success'"
-                    @click="updateReservationStatus(row.item)"
-                    :title="row.item.status === 'Confirmed' ? $t('cancel') : $t('confirm')"
+                  <b-dropdown
+                    variant="link"
+                    no-caret
+                    right
+                    boundary="viewport"
+                    offset="4"
+                    class="res-status-dropdown-wrap"
+                    toggle-class="action-btn action-btn--icon action-btn--status res-status-dropdown"
+                    menu-class="res-status-menu"
+                    :title="$t('changeStatus') || 'تغيير الحالة'"
                   >
-                    <b-icon :icon="row.item.status === 'Confirmed' ? 'x-circle-fill' : 'check-circle-fill'" class="action-icon"></b-icon>
-                  </button>
+                    <template #button-content>
+                      <b-icon icon="arrow-repeat" class="action-icon"></b-icon>
+                    </template>
+                    <b-dropdown-header class="res-status-menu-header">
+                      {{ $t("changeStatus") || "تغيير الحالة" }}
+                    </b-dropdown-header>
+                    <b-dropdown-item
+                      class="res-status-option res-status-option--pending"
+                      :active="row.item.status === 'Pending'"
+                      @click="setReservationStatus(row.item, 'Pending')"
+                    >
+                      <b-icon icon="hourglass-split"></b-icon>
+                      <span>{{ $t("pending") }}</span>
+                    </b-dropdown-item>
+                    <b-dropdown-item
+                      class="res-status-option res-status-option--confirmed"
+                      :active="row.item.status === 'Confirmed'"
+                      @click="setReservationStatus(row.item, 'Confirmed')"
+                    >
+                      <b-icon icon="check-circle-fill"></b-icon>
+                      <span>{{ $t("confirmed") }}</span>
+                    </b-dropdown-item>
+                    <b-dropdown-item
+                      class="res-status-option res-status-option--seated"
+                      :active="row.item.status === 'Seated'"
+                      @click="setReservationStatus(row.item, 'Seated')"
+                    >
+                      <b-icon icon="person-check-fill"></b-icon>
+                      <span>{{ $t("markSeated") || $t("seated") }}</span>
+                    </b-dropdown-item>
+                    <b-dropdown-item
+                      class="res-status-option res-status-option--completed"
+                      :active="row.item.status === 'Completed'"
+                      @click="setReservationStatus(row.item, 'Completed')"
+                    >
+                      <b-icon icon="check2-all"></b-icon>
+                      <span>{{ $t("completed") }}</span>
+                    </b-dropdown-item>
+                    <b-dropdown-divider class="res-status-menu-divider"></b-dropdown-divider>
+                    <b-dropdown-item
+                      class="res-status-option res-status-option--cancelled"
+                      :active="row.item.status === 'Cancelled'"
+                      @click="setReservationStatus(row.item, 'Cancelled')"
+                    >
+                      <b-icon icon="x-circle-fill"></b-icon>
+                      <span>{{ $t("cancelled") }}</span>
+                    </b-dropdown-item>
+                  </b-dropdown>
                 </div>
               </template>
             </b-table>
 
-            <!-- Pagination -->
             <div class="pagination-container" v-if="totalPages > 1">
               <b-pagination
                 v-model="currentPage"
@@ -178,6 +382,8 @@
                 <span>{{ $t('showing') || 'عرض' }} {{ ((currentPage - 1) * pageSize) + 1 }} - {{ Math.min(currentPage * pageSize, totalItems) }} {{ $t('of') || 'من' }} {{ totalItems }}</span>
               </div>
             </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -188,34 +394,87 @@
           <h2 class="modal-title">{{ $t("addReservation") || "إضافة حجز" }}</h2>
           <form @submit.prevent="addReservation" class="users-form">
             <div class="modal-form-grid">
-              <div class="users-form-group">
+              <div class="users-form-group users-form-group--full res-customer-section">
                 <label class="users-form-label">
-                  <b-icon icon="person-fill" class="form-label-icon"></b-icon>
-                  {{ $t("customerName") || "اسم العميل" }}
+                  <b-icon icon="person-lines-fill" class="form-label-icon"></b-icon>
+                  {{ $t("customerRecipientSelection") || "العميل" }}
                 </label>
-                <input 
-                  id="inputCustomerName"
-                  v-model="addForm.customerName" 
-                  type="text"
-                  :placeholder="$t('customerName') || 'اسم العميل'" 
-                  required 
-                  class="users-form-input"
-                />
+                <div class="res-customer-mode">
+                  <label class="res-customer-mode-label">
+                    <input v-model="addCustomerMode" type="radio" value="existing" class="res-customer-mode-input" />
+                    <span>{{ $t("useExistingCustomer") || "عميل موجود" }}</span>
+                  </label>
+                  <label class="res-customer-mode-label">
+                    <input v-model="addCustomerMode" type="radio" value="new" class="res-customer-mode-input" />
+                    <span>{{ $t("addNewCustomer") || "عميل جديد" }}</span>
+                  </label>
+                </div>
+
+                <div v-if="addCustomerMode === 'existing'" class="res-customer-existing">
+                  <div class="table-search-input-wrapper res-customer-search">
+                    <b-icon icon="search" class="table-search-icon"></b-icon>
+                    <input
+                      v-model="addCustomerSearch"
+                      type="search"
+                      class="table-search-input"
+                      :placeholder="$t('searchCustomerPlaceholder') || 'بحث بالاسم أو الهاتف...'"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <select
+                    v-model="addSelectedCustomerKey"
+                    class="users-form-input"
+                    :disabled="loadingReservationCustomers"
+                    required
+                    @change="applyAddSelectedCustomer"
+                  >
+                    <option value="">{{ $t("selectCustomer") || "اختر العميل" }}</option>
+                    <option
+                      v-for="c in filteredAddCustomers"
+                      :key="customerOptionKey(c)"
+                      :value="customerOptionKey(c)"
+                    >
+                      {{ c.name }} — {{ c.phoneNumber }}
+                    </option>
+                  </select>
+                  <div v-if="addForm.customerName" class="res-customer-preview">
+                    <b-icon icon="person-check-fill"></b-icon>
+                    <span>{{ addForm.customerName }} · {{ addForm.phoneNumber }}</span>
+                  </div>
+                </div>
+
+                <div v-else class="res-customer-new modal-form-grid">
+                  <div class="users-form-group">
+                    <label class="users-form-label">
+                      <b-icon icon="person-fill" class="form-label-icon"></b-icon>
+                      {{ $t("customerName") || "اسم العميل" }}
+                    </label>
+                    <input
+                      id="inputCustomerName"
+                      v-model="addForm.customerName"
+                      type="text"
+                      :placeholder="$t('customerName') || 'اسم العميل'"
+                      required
+                      class="users-form-input"
+                    />
+                  </div>
+                  <div class="users-form-group">
+                    <label class="users-form-label">
+                      <b-icon icon="telephone-fill" class="form-label-icon"></b-icon>
+                      {{ $t("phoneNumber") || "رقم الهاتف" }}
+                    </label>
+                    <input
+                      id="inputPhoneNumber"
+                      v-model="addForm.phoneNumber"
+                      type="tel"
+                      :placeholder="$t('phoneNumber') || 'رقم الهاتف'"
+                      required
+                      class="users-form-input"
+                    />
+                  </div>
+                </div>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="telephone-fill" class="form-label-icon"></b-icon>
-                  {{ $t("phoneNumber") || "رقم الهاتف" }}
-                </label>
-                <input 
-                  id="inputPhoneNumber"
-                  v-model="addForm.phoneNumber" 
-                  type="tel"
-                  :placeholder="$t('phoneNumber') || 'رقم الهاتف'" 
-                  required 
-                  class="users-form-input"
-                />
-              </div>
+
               <div class="users-form-group">
                 <label class="users-form-label">
                   <b-icon icon="calendar-fill" class="form-label-icon"></b-icon>
@@ -227,6 +486,7 @@
                   type="datetime-local"
                   required 
                   class="users-form-input"
+                  @change="onAddFormDateTimeChange"
                 />
               </div>
               <div class="users-form-group">
@@ -244,46 +504,27 @@
                   class="users-form-input"
                 />
               </div>
+              <div class="users-form-group">
+                <label class="users-form-label">{{ $t("status") || "الحالة" }}</label>
+                <select v-model="addForm.status" class="users-form-input">
+                  <option value="Pending">{{ $t("pending") }}</option>
+                  <option value="Confirmed">{{ $t("confirmed") }}</option>
+                  <option value="Seated">{{ $t("seated") }}</option>
+                </select>
+              </div>
               <div class="users-form-group users-form-group--full">
                 <label class="users-form-label">
                   <b-icon icon="table" class="form-label-icon"></b-icon>
-                  {{ $t("table") || "الطاولة (اختياري)" }}
+                  {{ $t("table") || "الطاولة" }}
                 </label>
-                <div class="reservation-table-picker">
-                  <div class="users-form-sublabel">
-                    <b-icon icon="geo-alt-fill" class="form-label-icon"></b-icon>
-                    {{ $t("zone") || "الموقع" }}
-                  </div>
-                  <select
-                    v-model="tableZoneFilter"
-                    class="users-form-input reservation-zone-select"
-                    @change="onReservationTableZoneFilterChanged"
-                  >
-                  <option value="">{{ $t("allZones") || "جميع المواقع" }}</option>
-                  <option v-for="zone in uniqueZones" :key="'add-z-' + zone" :value="zone">{{ zone }}</option>
-                </select>
-                <div class="table-search-wrapper">
-                  <div class="table-search-input-wrapper">
-                    <b-icon icon="search" class="table-search-icon"></b-icon>
-                    <input
-                      v-model="tableSearchQuery"
-                      type="text"
-                      :placeholder="$t('searchTable') || 'ابحث عن طاولة...'"
-                      class="table-search-input"
-                      autocomplete="off"
-                    />
-                  </div>
+                <div v-if="selectedAddTableLabel" class="res-selected-table-display">
+                  <b-icon icon="table" class="res-selected-table-icon"></b-icon>
+                  <span class="res-selected-table-name">{{ selectedAddTableLabel }}</span>
                 </div>
-                <select v-model="addForm.tableId" class="users-form-input reservation-table-select" size="8">
-                  <option :value="null">{{ $t("selectTable") || "اختر طاولة" }}</option>
-                  <option v-for="table in filteredTables" :key="table.id" :value="table.id">
-                    {{ table.tableNumber }} 
-                    {{ table.zone ? `- ${table.zone}` : '' }}
-                    ({{ $t("capacity") || "سعة" }}: {{ table.capacity }}) 
-                    - {{ getTableStatusText(table.status) }}
-                  </option>
-                </select>
-                </div>
+                <p v-else class="res-table-floor-hint">
+                  <b-icon icon="diagram-3"></b-icon>
+                  {{ $t("selectTableFromFloorPlan") || "اختر الطاولة من مخطط الحجوزات" }}
+                </p>
               </div>
             </div>
             <div class="users-form-group">
@@ -320,32 +561,85 @@
           <h2 class="modal-title">{{ $t("editReservation") || "تعديل حجز" }}</h2>
           <form @submit.prevent="updateReservation" class="users-form">
             <div class="modal-form-grid">
-              <div class="users-form-group">
+              <div class="users-form-group users-form-group--full res-customer-section">
                 <label class="users-form-label">
-                  <b-icon icon="person-fill" class="form-label-icon"></b-icon>
-                  {{ $t("customerName") || "اسم العميل" }}
+                  <b-icon icon="person-lines-fill" class="form-label-icon"></b-icon>
+                  {{ $t("customerRecipientSelection") || "العميل" }}
                 </label>
-                <input 
-                  id="inputCustomerNameEdit"
-                  v-model="editForm.customerName" 
-                  type="text"
-                  required 
-                  class="users-form-input"
-                />
+                <div class="res-customer-mode">
+                  <label class="res-customer-mode-label">
+                    <input v-model="editCustomerMode" type="radio" value="existing" class="res-customer-mode-input" />
+                    <span>{{ $t("useExistingCustomer") || "عميل موجود" }}</span>
+                  </label>
+                  <label class="res-customer-mode-label">
+                    <input v-model="editCustomerMode" type="radio" value="new" class="res-customer-mode-input" />
+                    <span>{{ $t("addNewCustomer") || "عميل جديد" }}</span>
+                  </label>
+                </div>
+
+                <div v-if="editCustomerMode === 'existing'" class="res-customer-existing">
+                  <div class="table-search-input-wrapper res-customer-search">
+                    <b-icon icon="search" class="table-search-icon"></b-icon>
+                    <input
+                      v-model="editCustomerSearch"
+                      type="search"
+                      class="table-search-input"
+                      :placeholder="$t('searchCustomerPlaceholder') || 'بحث بالاسم أو الهاتف...'"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <select
+                    v-model="editSelectedCustomerKey"
+                    class="users-form-input"
+                    :disabled="loadingReservationCustomers"
+                    required
+                    @change="applyEditSelectedCustomer"
+                  >
+                    <option value="">{{ $t("selectCustomer") || "اختر العميل" }}</option>
+                    <option
+                      v-for="c in filteredEditCustomers"
+                      :key="'edit-c-' + customerOptionKey(c)"
+                      :value="customerOptionKey(c)"
+                    >
+                      {{ c.name }} — {{ c.phoneNumber }}
+                    </option>
+                  </select>
+                  <div v-if="editForm.customerName" class="res-customer-preview">
+                    <b-icon icon="person-check-fill"></b-icon>
+                    <span>{{ editForm.customerName }} · {{ editForm.phoneNumber }}</span>
+                  </div>
+                </div>
+
+                <div v-else class="res-customer-new modal-form-grid">
+                  <div class="users-form-group">
+                    <label class="users-form-label">
+                      <b-icon icon="person-fill" class="form-label-icon"></b-icon>
+                      {{ $t("customerName") || "اسم العميل" }}
+                    </label>
+                    <input
+                      id="inputCustomerNameEdit"
+                      v-model="editForm.customerName"
+                      type="text"
+                      required
+                      class="users-form-input"
+                    />
+                  </div>
+                  <div class="users-form-group">
+                    <label class="users-form-label">
+                      <b-icon icon="telephone-fill" class="form-label-icon"></b-icon>
+                      {{ $t("phoneNumber") || "رقم الهاتف" }}
+                    </label>
+                    <input
+                      id="inputPhoneNumberEdit"
+                      v-model="editForm.phoneNumber"
+                      type="tel"
+                      required
+                      class="users-form-input"
+                    />
+                  </div>
+                </div>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="telephone-fill" class="form-label-icon"></b-icon>
-                  {{ $t("phoneNumber") || "رقم الهاتف" }}
-                </label>
-                <input 
-                  id="inputPhoneNumberEdit"
-                  v-model="editForm.phoneNumber" 
-                  type="tel"
-                  required 
-                  class="users-form-input"
-                />
-              </div>
+
               <div class="users-form-group">
                 <label class="users-form-label">
                   <b-icon icon="calendar-fill" class="form-label-icon"></b-icon>
@@ -357,6 +651,7 @@
                   type="datetime-local"
                   required 
                   class="users-form-input"
+                  @change="onEditFormDateTimeChange"
                 />
               </div>
               <div class="users-form-group">
@@ -373,6 +668,16 @@
                   required 
                   class="users-form-input"
                 />
+              </div>
+              <div class="users-form-group">
+                <label class="users-form-label">{{ $t("status") || "الحالة" }}</label>
+                <select v-model="editForm.status" class="users-form-input">
+                  <option value="Pending">{{ $t("pending") }}</option>
+                  <option value="Confirmed">{{ $t("confirmed") }}</option>
+                  <option value="Seated">{{ $t("seated") }}</option>
+                  <option value="Completed">{{ $t("completed") }}</option>
+                  <option value="Cancelled">{{ $t("cancelled") }}</option>
+                </select>
               </div>
               <div class="users-form-group users-form-group--full">
                 <label class="users-form-label">
@@ -406,11 +711,13 @@
                 </div>
                 <select v-model="editForm.tableId" class="users-form-input reservation-table-select" size="8">
                   <option :value="null">{{ $t("selectTable") || "اختر طاولة" }}</option>
-                  <option v-for="table in filteredTables" :key="table.id" :value="table.id">
-                    {{ table.tableNumber }} 
-                    {{ table.zone ? `- ${table.zone}` : '' }}
-                    ({{ $t("capacity") || "سعة" }}: {{ table.capacity }}) 
-                    - {{ getTableStatusText(table.status) }}
+                  <option
+                    v-for="table in filteredTables"
+                    :key="table.id"
+                    :value="table.id"
+                    :disabled="isTableUnavailableForForm(table.id)"
+                  >
+                    {{ getTableOptionLabel(table) }}
                   </option>
                 </select>
                 </div>
@@ -448,12 +755,14 @@
 
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
+import ReservationFloorPlan from "@/components/Restaurant/ReservationFloorPlan.vue";
 import { HTTP } from "../../http/api.js";
 
 export default {
   name: "ReservationsView",
   components: {
     AppHeader,
+    ReservationFloorPlan,
   },
   data() {
     return {
@@ -461,11 +770,26 @@ export default {
       reservations: [],
       availableTables: [],
       allTables: [],
+      tableAvailability: {},
       tableSearchQuery: "",
       tableZoneFilter: "",
+      searchQuery: "",
+      searchDebounceTimer: null,
+      showAdvancedFilters: false,
+      filterMode: "single",
+      singleDate: "",
       fromDate: "",
       toDate: "",
+      fromTime: "",
+      toTime: "",
       statusFilter: "",
+      tableFilterId: null,
+      summaryStats: {
+        todayCount: 0,
+        pendingCount: 0,
+        confirmedCount: 0,
+        reservedTablesCount: 0,
+      },
       currentPage: 1,
       pageSize: 10,
       totalItems: 0,
@@ -489,6 +813,14 @@ export default {
         specialRequests: "",
         status: "Pending"
       },
+      reservationCustomers: [],
+      loadingReservationCustomers: false,
+      addCustomerMode: "new",
+      addSelectedCustomerKey: "",
+      addCustomerSearch: "",
+      editCustomerMode: "new",
+      editSelectedCustomerKey: "",
+      editCustomerSearch: "",
     };
   },
   computed: {
@@ -562,39 +894,113 @@ export default {
           key: 'actions',
           label: this.$t('actions') || 'الإجراءات',
           sortable: false,
-          thClass: 'reservation-header-cell'
+          thClass: 'reservation-header-cell res-th-actions',
+          tdClass: 'res-td-actions'
         }
       ];
-    }
+    },
+    floorPlanDate() {
+      if (this.filterMode === "single" && this.singleDate) {
+        return this.singleDate;
+      }
+      return this.fromDate || this.singleDate;
+    },
+    floorPlanDateTo() {
+      if (this.filterMode === "single" && this.singleDate) {
+        return this.singleDate;
+      }
+      return this.toDate || this.fromDate || this.singleDate;
+    },
+    activeQuickFilter() {
+      const today = new Date();
+      const fmt = (offset) => {
+        const x = new Date(today);
+        x.setDate(x.getDate() + offset);
+        return x.toISOString().split("T")[0];
+      };
+      const t0 = fmt(0);
+      const t1 = fmt(1);
+      const t7 = fmt(7);
+      if (this.filterMode === "single" && this.singleDate === t0) return "today";
+      if (this.filterMode === "single" && this.singleDate === t1) return "tomorrow";
+      if (this.filterMode === "range" && this.fromDate === t0 && this.toDate === t7) return "week";
+      return "";
+    },
+    floorPlanSubtitle() {
+      const dateLabel = this.floorPlanDate || "";
+      const timeLabel = this.fromTime ? ` · ${this.fromTime}` : "";
+      const hint = this.$t("reservationFloorPlanHint") || "اضغط على طاولة لإضافة حجز";
+      return dateLabel ? `${dateLabel}${timeLabel} — ${hint}` : hint;
+    },
+    filteredAddCustomers() {
+      return this.filterReservationCustomers(this.addCustomerSearch);
+    },
+    filteredEditCustomers() {
+      return this.filterReservationCustomers(this.editCustomerSearch);
+    },
+    selectedAddTableLabel() {
+      if (!this.addForm.tableId) return "";
+      const t = this.allTables.find((x) => Number(x.id) === Number(this.addForm.tableId));
+      if (!t) return "";
+      return String(t.tableNumber ?? t.TableNumber ?? "");
+    },
   },
-  mounted() {
-    this.getReservations();
-    this.getTables();
-    // Set default dates (today and next week)
+  created() {
     const today = new Date();
     const nextWeek = new Date();
     nextWeek.setDate(today.getDate() + 7);
-    this.fromDate = today.toISOString().split('T')[0];
-    this.toDate = nextWeek.toISOString().split('T')[0];
+    const d = today.toISOString().split("T")[0];
+    const w = nextWeek.toISOString().split("T")[0];
+    this.filterMode = "range";
+    this.singleDate = d;
+    this.fromDate = d;
+    this.toDate = w;
+  },
+  mounted() {
+    this.getReservations();
+    this.getSummary();
+    this.getTables();
   },
   methods: {
+    refreshPage() {
+      this.getReservations();
+      this.getSummary();
+      this.getTables();
+    },
     getReservations() {
       this.show = true;
       const params = {
-        pageNumber: this.currentPage - 1, // Backend uses 0-based index
-        pageSize: this.pageSize
+        pageNumber: this.currentPage - 1,
+        pageSize: this.pageSize,
       };
 
-      if (this.fromDate) {
-        params.fromDate = `${this.fromDate}T00:00:00`;
+      if (this.filterMode === "single" && this.singleDate) {
+        params.reservationDate = `${this.singleDate}T00:00:00`;
+      } else {
+        if (this.fromDate) {
+          params.fromDate = `${this.fromDate}T00:00:00`;
+        }
+        if (this.toDate) {
+          params.toDate = `${this.toDate}T23:59:59`;
+        }
       }
-      if (this.toDate) {
-        params.toDate = `${this.toDate}T23:59:59`;
+
+      if (this.fromTime) {
+        params.fromTime = this.fromTime;
+      }
+      if (this.toTime) {
+        params.toTime = this.toTime;
+      }
+      if (this.tableFilterId) {
+        params.tableId = this.tableFilterId;
       }
       if (this.statusFilter) {
         params.status = this.statusFilter;
       }
-      
+      if (this.searchQuery && this.searchQuery.trim()) {
+        params.search = this.searchQuery.trim();
+      }
+
       HTTP.get("Reservations", { params })
         .then((response) => {
           const pagedData = response.data.data;
@@ -616,8 +1022,187 @@ export default {
       this.getReservations();
     },
     onFilterChange() {
-      this.currentPage = 1; // Reset to first page when filter changes
+      this.currentPage = 1;
       this.getReservations();
+      this.getSummary();
+    },
+    onFilterModeChange() {
+      this.onFilterChange();
+    },
+    onSearchInput() {
+      if (this.searchDebounceTimer) {
+        clearTimeout(this.searchDebounceTimer);
+      }
+      this.searchDebounceTimer = setTimeout(() => {
+        this.onFilterChange();
+      }, 300);
+    },
+    applyQuickFilter(mode) {
+      const today = new Date();
+      const d = (offset) => {
+        const x = new Date(today);
+        x.setDate(x.getDate() + offset);
+        return x.toISOString().split("T")[0];
+      };
+      if (mode === "today") {
+        this.filterMode = "single";
+        this.singleDate = d(0);
+        this.fromDate = d(0);
+        this.toDate = d(0);
+      } else if (mode === "tomorrow") {
+        this.filterMode = "single";
+        this.singleDate = d(1);
+        this.fromDate = d(1);
+        this.toDate = d(1);
+      } else if (mode === "week") {
+        this.filterMode = "range";
+        this.fromDate = d(0);
+        this.toDate = d(7);
+        this.singleDate = d(0);
+      }
+      this.onFilterChange();
+    },
+    onFloorTableSelect(table) {
+      this.openAddReservationModal({ table });
+    },
+    buildDefaultReservationDateTime() {
+      const dateStr = this.floorPlanDate || this.singleDate || new Date().toISOString().split("T")[0];
+      let time = (this.fromTime || "19:00").trim();
+      if (time.length > 5) {
+        time = time.slice(0, 5);
+      }
+      return `${dateStr}T${time}`;
+    },
+    resetAddForm(dateTime) {
+      this.tableZoneFilter = "";
+      this.tableSearchQuery = "";
+      this.tableAvailability = {};
+      this.addCustomerMode = this.reservationCustomers.length ? "existing" : "new";
+      this.addSelectedCustomerKey = "";
+      this.addCustomerSearch = "";
+      this.addForm = {
+        customerName: "",
+        phoneNumber: "",
+        reservationDateTime: dateTime || this.buildDefaultReservationDateTime(),
+        numberOfGuests: 2,
+        tableId: null,
+        specialRequests: "",
+        status: "Pending",
+      };
+    },
+    filterReservationCustomers(query) {
+      const q = String(query || "").trim().toLowerCase();
+      if (!q) return this.reservationCustomers;
+      return this.reservationCustomers.filter(
+        (c) =>
+          String(c.name || "").toLowerCase().includes(q) ||
+          String(c.phoneNumber || "").toLowerCase().includes(q)
+      );
+    },
+    customerOptionKey(c) {
+      if (c.customerId != null) return `id:${c.customerId}`;
+      return `p:${c.phoneNumber}`;
+    },
+    findCustomerByKey(key) {
+      if (!key) return null;
+      return this.reservationCustomers.find((c) => this.customerOptionKey(c) === key) || null;
+    },
+    async loadReservationCustomers() {
+      this.loadingReservationCustomers = true;
+      try {
+        const res = await HTTP.get("Reservations/customers");
+        this.reservationCustomers = res?.data?.data || [];
+      } catch (e) {
+        this.reservationCustomers = [];
+      } finally {
+        this.loadingReservationCustomers = false;
+      }
+    },
+    applyAddSelectedCustomer() {
+      const c = this.findCustomerByKey(this.addSelectedCustomerKey);
+      if (!c) return;
+      this.addForm.customerName = c.name;
+      this.addForm.phoneNumber = c.phoneNumber;
+    },
+    applyEditSelectedCustomer() {
+      const c = this.findCustomerByKey(this.editSelectedCustomerKey);
+      if (!c) return;
+      this.editForm.customerName = c.name;
+      this.editForm.phoneNumber = c.phoneNumber;
+    },
+    syncCustomerSelectionForEdit() {
+      const match = this.reservationCustomers.find(
+        (c) =>
+          String(c.phoneNumber || "").trim() === String(this.editForm.phoneNumber || "").trim() &&
+          String(c.name || "").trim() === String(this.editForm.customerName || "").trim()
+      );
+      if (match) {
+        this.editCustomerMode = "existing";
+        this.editSelectedCustomerKey = this.customerOptionKey(match);
+      } else {
+        this.editCustomerMode = "new";
+        this.editSelectedCustomerKey = "";
+      }
+    },
+    async saveReservationCustomer(name, phone) {
+      if (!name || !phone) return;
+      try {
+        await HTTP.post("Reservations/customers", {
+          name: name.trim(),
+          phoneNumber: phone.trim(),
+        });
+        await this.loadReservationCustomers();
+      } catch (e) {
+        /* duplicate or permission — reservation still saved */
+      }
+    },
+    async openAddReservationModal({ table } = {}) {
+      if (!table) return;
+      await this.loadReservationCustomers();
+      const reservationDateTime = this.buildDefaultReservationDateTime();
+      const tableId = table.id ?? table.Id;
+      const zone = String(table.zone ?? table.Zone ?? "").trim();
+      this.tableZoneFilter = zone;
+      this.tableSearchQuery = "";
+      this.addCustomerMode = this.reservationCustomers.length ? "existing" : "new";
+      this.addSelectedCustomerKey = "";
+      this.addCustomerSearch = "";
+      this.addForm = {
+        customerName: "",
+        phoneNumber: "",
+        reservationDateTime,
+        numberOfGuests: 2,
+        tableId,
+        specialRequests: "",
+        status: "Pending",
+      };
+      await this.loadTableAvailabilityForForm(reservationDateTime);
+      if (this.isTableUnavailableForForm(tableId)) {
+        this.$toast.warning(this.$t("tableHasReservation") || "الطاولة محجوزة في هذا الوقت", {
+          position: "top-right",
+          timeout: 4500,
+        });
+      }
+      this.$bvModal.show("modal-addReservation");
+    },
+    clearTableFilter() {
+      this.tableFilterId = null;
+      this.onFilterChange();
+    },
+    getSummary() {
+      const params = {};
+      if (this.filterMode === "single" && this.singleDate) {
+        params.fromDate = `${this.singleDate}T00:00:00`;
+        params.toDate = `${this.singleDate}T23:59:59`;
+      } else {
+        if (this.fromDate) params.fromDate = `${this.fromDate}T00:00:00`;
+        if (this.toDate) params.toDate = `${this.toDate}T23:59:59`;
+      }
+      HTTP.get("Reservations/summary", { params })
+        .then((res) => {
+          this.summaryStats = res?.data?.data || this.summaryStats;
+        })
+        .catch(() => {});
     },
     getTables() {
       HTTP.get("Tables", { 
@@ -644,7 +1229,43 @@ export default {
       };
       return statusTexts[status] || status;
     },
+    getTableOptionLabel(table) {
+      const base = `${table.tableNumber}${table.zone ? ` - ${table.zone}` : ""} (${this.$t("capacity") || "سعة"}: ${table.capacity}) - ${this.getTableStatusText(table.status)}`;
+      const avail = this.tableAvailability[table.id];
+      if (avail && avail.hasConflict) {
+        const who = avail.customerName ? ` (${avail.customerName})` : "";
+        return `${base} — ${this.$t("tableHasReservation") || "محجوزة"}${who}`;
+      }
+      if (avail && !avail.hasConflict) {
+        return `${base} — ${this.$t("tableAvailableAtTime") || "متاحة في هذا الوقت"}`;
+      }
+      return base;
+    },
     addReservation() {
+      if (!this.addForm.tableId) {
+        this.$toast.error(this.$t("selectTableFromFloorPlan") || "اختر الطاولة من مخطط الحجوزات", {
+          position: "top-right",
+          timeout: 4000,
+        });
+        return;
+      }
+      if (this.addCustomerMode === "existing") {
+        if (!this.addSelectedCustomerKey) {
+          this.$toast.error(this.$t("selectCustomer") || "اختر العميل", {
+            position: "top-right",
+            timeout: 4000,
+          });
+          return;
+        }
+        this.applyAddSelectedCustomer();
+      }
+      if (this.addForm.tableId && this.isTableUnavailableForForm(this.addForm.tableId)) {
+        this.$toast.error(this.$t("tableHasReservation") || "الطاولة محجوزة في هذا الوقت", {
+          position: "top-right",
+          timeout: 4000,
+        });
+        return;
+      }
       this.show = true;
       // Convert datetime-local to ISO format
       const formData = {
@@ -666,8 +1287,11 @@ export default {
       }
       
       HTTP.post("Reservations", formData)
-        .then((response) => {
+        .then(async (response) => {
           this.show = false;
+          if (this.addCustomerMode === "new") {
+            await this.saveReservationCustomer(this.addForm.customerName, this.addForm.phoneNumber);
+          }
           this.$toast.success(this.$i18n.t("reservationAddedSuccessfully") || "تم إضافة الحجز بنجاح", {
             position: "top-right",
             timeout: 4000,
@@ -681,8 +1305,15 @@ export default {
             specialRequests: "",
             status: "Pending"
           };
+          this.tableZoneFilter = "";
+          this.tableSearchQuery = "";
+          this.tableAvailability = {};
+          this.addSelectedCustomerKey = "";
+          this.addCustomerSearch = "";
           this.$bvModal.hide("modal-addReservation");
           this.getReservations();
+          this.getSummary();
+          this.getTables();
         })
         .catch((error) => {
           this.show = false;
@@ -692,7 +1323,8 @@ export default {
           });
         });
     },
-    editReservation(reservation) {
+    async editReservation(reservation) {
+      await this.loadReservationCustomers();
       this.editForm = {
         id: reservation.id,
         customerName: reservation.customerName,
@@ -703,9 +1335,29 @@ export default {
         specialRequests: reservation.specialRequests || "",
         status: reservation.status
       };
+      this.editCustomerSearch = "";
+      this.syncCustomerSelectionForEdit();
+      this.loadTableAvailabilityForForm(this.editForm.reservationDateTime, this.editForm.id);
       this.$bvModal.show("modal-editReservation");
     },
     updateReservation() {
+      if (this.editCustomerMode === "existing") {
+        if (!this.editSelectedCustomerKey) {
+          this.$toast.error(this.$t("selectCustomer") || "اختر العميل", {
+            position: "top-right",
+            timeout: 4000,
+          });
+          return;
+        }
+        this.applyEditSelectedCustomer();
+      }
+      if (this.editForm.tableId && this.isTableUnavailableForForm(this.editForm.tableId)) {
+        this.$toast.error(this.$t("tableHasReservation") || "الطاولة محجوزة في هذا الوقت", {
+          position: "top-right",
+          timeout: 4000,
+        });
+        return;
+      }
       this.show = true;
       const formData = {
         ...this.editForm,
@@ -713,14 +1365,19 @@ export default {
       };
       
       HTTP.put(`Reservations/${this.editForm.id}`, formData)
-        .then((response) => {
+        .then(async () => {
           this.show = false;
+          if (this.editCustomerMode === "new") {
+            await this.saveReservationCustomer(this.editForm.customerName, this.editForm.phoneNumber);
+          }
           this.$toast.success(this.$i18n.t("reservationUpdatedSuccessfully") || "تم تحديث الحجز بنجاح", {
             position: "top-right",
             timeout: 4000,
           });
           this.$bvModal.hide("modal-editReservation");
           this.getReservations();
+          this.getSummary();
+          this.getTables();
         })
         .catch((error) => {
           this.show = false;
@@ -732,19 +1389,21 @@ export default {
     },
     updateReservationStatus(reservation) {
       const newStatus = reservation.status === "Confirmed" ? "Cancelled" : "Confirmed";
+      this.setReservationStatus(reservation, newStatus);
+    },
+    setReservationStatus(reservation, newStatus) {
+      if (!reservation || !newStatus || reservation.status === newStatus) return;
       this.show = true;
-      HTTP.put(`Reservations/${reservation.id}/status`, newStatus, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-        .then((response) => {
+      HTTP.put(`Reservations/${reservation.id}/status`, { status: newStatus })
+        .then(() => {
           this.show = false;
           this.$toast.success(this.$i18n.t("reservationStatusUpdated") || "تم تحديث حالة الحجز بنجاح", {
             position: "top-right",
             timeout: 4000,
           });
           this.getReservations();
+          this.getSummary();
+          this.getTables();
         })
         .catch((error) => {
           this.show = false;
@@ -753,6 +1412,40 @@ export default {
             timeout: 4000,
           });
         });
+    },
+    async loadTableAvailabilityForForm(dateTimeLocal, excludeReservationId) {
+      if (!dateTimeLocal) {
+        this.tableAvailability = {};
+        return;
+      }
+      try {
+        const dt = new Date(dateTimeLocal);
+        const date = dt.toISOString().split("T")[0];
+        const time = `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}:00`;
+        const params = { date: `${date}T00:00:00`, time };
+        if (excludeReservationId) {
+          params.excludeReservationId = excludeReservationId;
+        }
+        const res = await HTTP.get("Reservations/availability", { params });
+        const tables = res?.data?.data?.tables || [];
+        const map = {};
+        tables.forEach((row) => {
+          map[row.tableId] = row;
+        });
+        this.tableAvailability = map;
+      } catch (e) {
+        this.tableAvailability = {};
+      }
+    },
+    onAddFormDateTimeChange() {
+      this.loadTableAvailabilityForForm(this.addForm.reservationDateTime);
+    },
+    onEditFormDateTimeChange() {
+      this.loadTableAvailabilityForForm(this.editForm.reservationDateTime, this.editForm.id);
+    },
+    isTableUnavailableForForm(tableId) {
+      const row = this.tableAvailability[tableId];
+      return row && row.hasConflict;
     },
     formatDateTime(dateTime) {
       if (!dateTime) return "";
@@ -800,10 +1493,19 @@ export default {
     },
     closeModel(modalId) {
       this.$bvModal.hide(modalId);
-      // Reset table search when closing modal
-      if (modalId === 'modal-addReservation' || modalId === 'modal-editReservation') {
+      if (modalId === "modal-addReservation" || modalId === "modal-editReservation") {
         this.tableSearchQuery = "";
         this.tableZoneFilter = "";
+        this.tableAvailability = {};
+        if (modalId === "modal-addReservation") {
+          this.addForm.tableId = null;
+          this.addSelectedCustomerKey = "";
+          this.addCustomerSearch = "";
+        }
+        if (modalId === "modal-editReservation") {
+          this.editSelectedCustomerKey = "";
+          this.editCustomerSearch = "";
+        }
       }
     }
   },
@@ -811,427 +1513,409 @@ export default {
 </script>
 
 <style scoped>
-/* Filter Section Styles */
-.reservation-filter-section {
-  margin-bottom: 2rem;
+/* Page */
+.reservations-page .res-page-icon {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.18), rgba(99, 102, 241, 0.12));
+  color: #7c3aed;
 }
 
-.reservation-filter-card {
-  background: var(--bg-primary);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  border: 1px solid var(--border-color);
+.app-overview-stat-icon--purple {
+  background: rgba(124, 58, 237, 0.14);
+  color: #7c3aed;
+}
+
+.res-stat-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.res-stat-card:hover {
+  transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  transition: all 0.3s ease;
 }
 
-.reservation-filter-card:hover {
-  box-shadow: var(--shadow-lg);
-  border-color: var(--border-dark);
+.spinning {
+  animation: res-spin 0.8s linear infinite;
 }
 
-.reservation-filter-header {
+@keyframes res-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Toolbar */
+.res-filters-toolbar {
+  padding: 0.85rem 1.1rem;
+}
+
+.res-toolbar-main {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid var(--border-color);
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  width: 100%;
 }
 
-.filter-header-icon {
-  font-size: 1.5rem;
+.res-toolbar-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.res-date-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.res-floor-section {
+  margin-bottom: 1.25rem;
+  width: 100%;
+}
+
+.res-floor-body {
+  padding: 0.85rem 1rem 1rem;
+}
+
+.res-floor-body :deep(.res-floor-canvas) {
+  min-height: 360px;
+}
+
+@media (min-width: 992px) {
+  .res-floor-body :deep(.res-floor-canvas) {
+    min-height: 420px;
+  }
+}
+
+.res-list-section {
+  margin-bottom: 1.25rem;
+  overflow: visible;
+}
+
+.res-count-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  margin-inline-start: 0.45rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.15);
+  color: #a78bfa;
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.res-count-badge {
+  display: none;
+}
+
+.res-search-wrap {
+  min-width: min(100%, 220px);
+  flex: 1 1 200px;
+}
+
+.res-toolbar-select {
+  min-height: 2.5rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.res-date-chip {
+  padding: 0.42rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.res-date-chip:hover {
+  border-color: #a78bfa;
+  color: #6d28d9;
+}
+
+.res-date-chip--active {
+  background: linear-gradient(135deg, #a78bfa, #7c3aed);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+}
+
+.res-advanced-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.res-advanced-toggle:hover,
+.res-advanced-toggle--open {
+  border-color: var(--primary-color);
   color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 8%, var(--bg-primary));
 }
 
-.filter-header-text {
-  font-size: 1.125rem;
+.res-advanced-chevron {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.res-advanced-filters {
+  padding: 1rem 1.1rem 1.15rem;
+  border-top: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
+}
+
+.res-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.85rem 1rem;
+}
+
+.res-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.res-filter-label {
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--text-secondary);
+}
+
+.res-filter-input {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.res-filter-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+
+/* Floor plan */
+.app-section-icon-wrap--purple {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.16), rgba(109, 40, 217, 0.08));
+  color: #7c3aed;
+}
+
+.res-clear-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(124, 58, 237, 0.35);
+  background: rgba(124, 58, 237, 0.08);
+  color: #6d28d9;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.res-clear-filter-btn:hover {
+  background: rgba(124, 58, 237, 0.14);
+}
+
+/* Table */
+.res-table-body {
+  padding: 0;
+  overflow: visible;
+}
+
+.reservations-page .report-table-container {
+  overflow: visible;
+}
+
+.reservations-page .reservations-table thead th.res-th-actions {
+  width: 6.5rem;
+  min-width: 6.5rem;
+  max-width: 6.5rem;
+  text-align: center !important;
+  vertical-align: middle;
+  padding-inline: 0.5rem !important;
+}
+
+.reservations-page .reservations-table tbody td.res-td-actions {
+  width: 6.5rem;
+  min-width: 6.5rem;
+  max-width: 6.5rem;
+  text-align: center !important;
+  vertical-align: middle !important;
+  padding: 0.65rem 0.5rem !important;
+}
+
+.res-actions-head {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.reservations-page .res-actions-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.reservations-page .res-status-dropdown-wrap {
+  display: inline-flex !important;
+  vertical-align: middle;
+}
+
+.reservations-page .res-status-dropdown-wrap.btn-group,
+.reservations-page .res-status-dropdown-wrap > .btn-group {
+  display: inline-flex !important;
+  position: static !important;
+  vertical-align: middle;
+}
+
+.reservations-page .res-actions-cell .btn-link.res-status-dropdown {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  border-radius: 0.6rem !important;
+}
+
+.reservations-page .reservations-table tbody tr:hover {
+  transform: none;
+}
+
+.res-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3rem 1.5rem;
+  gap: 0.5rem;
+}
+
+.res-empty-icon {
+  font-size: 2.75rem;
+  color: #a78bfa;
+  opacity: 0.85;
+  margin-bottom: 0.25rem;
+}
+
+.res-empty-title {
+  margin: 0;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
-.reservation-filter-content {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-  align-items: end;
-}
-
-.reservation-filter-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.reservation-filter-item.reservation-filter-action {
-  align-items: stretch;
-}
-
-.reservation-filter-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
-  font-size: 0.9375rem;
+.res-empty-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
   color: var(--text-secondary);
 }
 
-.filter-label-icon {
-  font-size: 1rem;
-  color: var(--primary-color);
-}
-
-.reservation-date-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.reservation-date-icon {
-  position: absolute;
-  right: 1rem;
-  color: var(--text-muted);
-  font-size: 1.125rem;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.reservation-date-input {
-  width: 100%;
-  padding: 0.875rem 1rem 0.875rem 3rem;
-  border: 2px solid var(--border-color);
-  border-radius: 0.75rem;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.reservation-date-input:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
-  outline: none;
-  background: var(--bg-tertiary);
-}
-
-.reservation-date-input::-webkit-calendar-picker-indicator {
-  filter: invert(0.8);
-  cursor: pointer;
-}
-
-.reservation-select-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.reservation-select-icon {
-  position: absolute;
-  left: 1rem;
-  color: var(--text-muted);
-  font-size: 1rem;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.reservation-select-input {
-  width: 100%;
-  padding: 0.875rem 1rem 0.875rem 3rem;
-  border: 2px solid var(--border-color);
-  border-radius: 0.75rem;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  font-weight: 500;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-}
-
-.reservation-select-input:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
-  outline: none;
-  background: var(--bg-tertiary);
-}
-
-.reservation-select-input option {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  padding: 0.5rem;
-}
-
-.reservation-filter-btn {
-  width: 100%;
-  padding: 0.875rem 1.5rem;
-  border: none;
-  border-radius: 0.75rem;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-  color: #ffffff;
-  font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  box-shadow: var(--shadow-sm);
-}
-
-.reservation-filter-btn:hover {
-  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.reservation-filter-btn:active {
-  transform: translateY(0);
-}
-
-@media (max-width: 768px) {
-  .reservation-filter-content {
-    grid-template-columns: 1fr;
-  }
-  
-  .reservation-filter-card {
-    padding: 1rem;
-  }
-  
-  .reservation-filter-item.reservation-filter-action {
-    grid-column: 1;
-  }
-}
-
-.reservation-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.reservation-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-}
-
-.reservation-pending {
-  border-left: 4px solid #d97706;
-}
-
-.reservation-confirmed {
-  border-left: 4px solid #0284c7;
-}
-
-.reservation-seated {
-  border-left: 4px solid #059669;
-}
-
-.reservation-completed {
-  border-left: 4px solid #64748b;
-}
-
-.reservation-cancelled {
-  border-left: 4px solid #dc2626;
-  opacity: 0.7;
-}
-
-.reservation-status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  margin-top: 0.5rem;
-  display: inline-block;
-}
-
-.reservation-status-badge.reservation-pending {
-  background-color: var(--warning-light);
-  color: var(--warning-color);
-}
-
-.reservation-status-badge.reservation-confirmed {
-  background-color: var(--info-light);
-  color: var(--info-color);
-}
-
-.reservation-status-badge.reservation-seated {
-  background-color: var(--success-light);
-  color: var(--success-color);
-}
-
-.reservation-status-badge.reservation-completed {
-  background-color: rgba(30, 41, 59, 0.5);
-  color: var(--text-muted);
-}
-
-.reservation-status-badge.reservation-cancelled {
-  background-color: var(--danger-light);
-  color: var(--danger-color);
-}
-
-.reservation-avatar {
-  width: 60px;
-  height: 60px;
-  border-radius: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-}
-
-.reservation-avatar.reservation-pending {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
-}
-
-.reservation-avatar.reservation-confirmed {
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-  color: white;
-}
-
-.reservation-avatar.reservation-seated {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-}
-
-.reservation-avatar.reservation-completed {
-  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
-  color: white;
-}
-
-.reservation-avatar.reservation-cancelled {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
-}
-
-.reservations-table-container {
-  background: #ffffff;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  margin-top: 1.5rem;
+.res-empty-btn {
+  margin-top: 0.25rem;
 }
 
 .reservations-table {
   margin: 0;
 }
 
-.reservations-table >>> thead th {
-  background-color: #f9fafb;
-  color: #374151;
-  font-weight: 600;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 1rem;
-  border-bottom: 2px solid #e5e7eb;
-}
+/* Status */
+.reservation-pending { --res-accent: #d97706; }
+.reservation-confirmed { --res-accent: #7c3aed; }
+.reservation-seated { --res-accent: #059669; }
+.reservation-completed { --res-accent: #64748b; }
+.reservation-cancelled { --res-accent: #dc2626; }
 
-.reservations-table >>> tbody td {
-  padding: 1rem;
-  vertical-align: middle;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.reservations-table >>> tbody tr:hover {
-  background-color: #f9fafb;
-}
-
-.reservation-row-reservation-pending {
-  border-left: 4px solid #d97706;
-}
-
-.reservation-row-reservation-confirmed {
-  border-left: 4px solid #0284c7;
-}
-
-.reservation-row-reservation-seated {
-  border-left: 4px solid #059669;
-}
-
-.reservation-row-reservation-completed {
-  border-left: 4px solid #64748b;
-}
-
+.reservation-row-reservation-pending,
+.reservation-row-reservation-confirmed,
+.reservation-row-reservation-seated,
+.reservation-row-reservation-completed,
 .reservation-row-reservation-cancelled {
-  border-left: 4px solid #dc2626;
+  border-inline-start: 3px solid var(--res-accent, transparent);
 }
 
-.reservation-customer-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.customer-icon {
-  color: #6b7280;
-  font-size: 1rem;
-}
-
-.customer-name-text {
-  font-weight: 600;
-  font-size: 0.9375rem;
-  color: #111827;
-}
-
-.reservation-phone-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #374151;
-  font-weight: 500;
-}
-
-.phone-icon {
-  color: #6b7280;
-  font-size: 1rem;
-}
-
-.reservation-datetime-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #374151;
-  font-weight: 500;
-}
-
-.datetime-icon {
-  color: #6b7280;
-  font-size: 1rem;
-}
-
+.reservation-customer-cell,
+.reservation-phone-cell,
+.reservation-datetime-cell,
 .reservation-guests-cell {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #374151;
   font-weight: 500;
+  color: var(--text-primary);
 }
 
-.guests-icon {
-  color: #6b7280;
-  font-size: 1rem;
+.customer-icon,
+.phone-icon,
+.datetime-icon,
+.guests-icon,
+.table-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.customer-name-text {
+  font-weight: 650;
 }
 
 .reservation-table-cell {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #374151;
-  font-weight: 500;
-}
-
-.table-icon {
-  color: #6b7280;
-  font-size: 1rem;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, #7c3aed 10%, var(--bg-secondary));
+  color: #6d28d9;
+  font-weight: 600;
+  font-size: 0.8125rem;
 }
 
 .reservation-status-badge {
-  padding: 0.375rem 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 650;
   display: inline-block;
 }
 
@@ -1241,8 +1925,8 @@ export default {
 }
 
 .reservation-status-badge.reservation-confirmed {
-  background-color: var(--info-light);
-  color: var(--info-color);
+  background-color: rgba(124, 58, 237, 0.12);
+  color: #6d28d9;
 }
 
 .reservation-status-badge.reservation-seated {
@@ -1251,8 +1935,8 @@ export default {
 }
 
 .reservation-status-badge.reservation-completed {
-  background-color: rgba(30, 41, 59, 0.5);
-  color: var(--text-muted);
+  background-color: rgba(100, 116, 139, 0.15);
+  color: #64748b;
 }
 
 .reservation-status-badge.reservation-cancelled {
@@ -1260,44 +1944,187 @@ export default {
   color: var(--danger-color);
 }
 
+.actions-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.res-status-dropdown {
+  text-decoration: none !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+.res-status-dropdown:focus,
+.res-status-dropdown:active {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.action-btn--status {
+  background: rgba(124, 58, 237, 0.12);
+  color: #7c3aed;
+  border-color: rgba(124, 58, 237, 0.28);
+}
+
+.action-btn--status:hover,
+.action-btn--status:focus {
+  background: rgba(124, 58, 237, 0.2) !important;
+  color: #6d28d9 !important;
+  border-color: rgba(124, 58, 237, 0.4) !important;
+}
+
 .pagination-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  background-color: var(--bg-primary);
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
   border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
 }
 
 .pagination-info {
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .reservations-pagination >>> .page-link {
   color: var(--text-primary);
   border-color: var(--border-color);
-  background-color: var(--bg-tertiary);
+  background-color: var(--bg-primary);
 }
 
 .reservations-pagination >>> .page-item.active .page-link {
-  background-color: var(--primary-color);
-  border-color: var(--primary-color);
-  color: #ffffff;
-}
-
-.reservations-pagination >>> .page-link:hover {
-  background-color: rgba(99, 102, 241, 0.1);
-  border-color: var(--border-dark);
-  color: var(--primary-color);
+  background: linear-gradient(135deg, #a78bfa, #7c3aed);
+  border-color: #7c3aed;
+  color: #fff;
 }
 
 .text-muted {
-  color: #9ca3af;
+  color: var(--text-muted);
   font-style: italic;
 }
 
-/* اختيار الطاولة في نموذج الحجز */
+@media (max-width: 768px) {
+  .res-toolbar-fields {
+    margin-inline-start: 0;
+    width: 100%;
+  }
+
+  .res-search-wrap {
+    flex: 1 1 100%;
+  }
+
+  .res-toolbar-select,
+  .res-advanced-toggle {
+    flex: 1 1 auto;
+  }
+}
+
+/* Modal table picker */
+.res-customer-section {
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-secondary) 92%, var(--border-color) 8%);
+}
+
+.res-customer-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin: 0.5rem 0 0.85rem;
+}
+
+.res-customer-mode-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.res-customer-mode-label:has(.res-customer-mode-input:checked) {
+  border-color: #a78bfa;
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.08);
+}
+
+.res-customer-mode-input {
+  accent-color: #7c3aed;
+}
+
+.res-customer-existing {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.res-customer-search {
+  margin: 0;
+}
+
+.res-customer-new {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.res-customer-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 0.5rem;
+  background: rgba(124, 58, 237, 0.1);
+  color: #6d28d9;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.res-selected-table-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(124, 58, 237, 0.35);
+  background: rgba(124, 58, 237, 0.1);
+  color: #6d28d9;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.res-selected-table-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.res-table-floor-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.55rem;
+  border: 1px dashed var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+/* Modal table picker */
 .reservation-table-picker {
   display: flex;
   flex-direction: column;
@@ -1447,6 +2274,89 @@ export default {
     min-height: 2.75rem;
     font-size: 0.875rem;
   }
+}
+</style>
+
+<style>
+/* Dropdown menu — override Bootstrap light defaults */
+.res-status-menu.dropdown-menu {
+  border-radius: 0.7rem !important;
+  border: 1px solid var(--border-color, #334155) !important;
+  background: var(--bg-primary, #0f172a) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35) !important;
+  padding: 0.4rem !important;
+  min-width: 13rem;
+  z-index: 1000000 !important;
+}
+
+.res-status-menu-header.dropdown-header {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #94a3b8) !important;
+  padding: 0.35rem 0.55rem 0.45rem;
+  background: transparent !important;
+}
+
+.res-status-menu-divider.dropdown-divider {
+  margin: 0.3rem 0.4rem;
+  border-color: var(--border-color, #334155) !important;
+  opacity: 1;
+}
+
+.res-status-menu .dropdown-item.res-status-option {
+  display: flex !important;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 0.5rem;
+  padding: 0.52rem 0.7rem !important;
+  font-size: 0.8125rem !important;
+  font-weight: 650;
+  color: var(--text-primary, #e2e8f0) !important;
+  background: transparent !important;
+}
+
+.res-status-menu .dropdown-item.res-status-option span {
+  color: inherit !important;
+}
+
+.res-status-menu .dropdown-item.res-status-option .b-icon {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.res-status-menu .dropdown-item.res-status-option:hover,
+.res-status-menu .dropdown-item.res-status-option:focus {
+  background: var(--bg-secondary, #1e293b) !important;
+  color: var(--text-primary, #f8fafc) !important;
+}
+
+.res-status-menu .dropdown-item.res-status-option.active {
+  background: rgba(124, 58, 237, 0.2) !important;
+  color: #ddd6fe !important;
+  font-weight: 700;
+}
+
+.res-status-menu .dropdown-item.res-status-option.active .b-icon {
+  color: inherit !important;
+}
+
+.res-status-option--pending .b-icon { color: #f59e0b !important; }
+.res-status-option--confirmed .b-icon { color: #a78bfa !important; }
+.res-status-option--seated .b-icon { color: #34d399 !important; }
+.res-status-option--completed .b-icon { color: #94a3b8 !important; }
+.res-status-option--cancelled .b-icon { color: #f87171 !important; }
+
+.res-status-menu .dropdown-item.res-status-option--cancelled:hover,
+.res-status-menu .dropdown-item.res-status-option--cancelled:focus {
+  background: rgba(220, 38, 38, 0.15) !important;
+  color: #fecaca !important;
+}
+
+.res-status-menu .dropdown-item.res-status-option--cancelled.active {
+  background: rgba(220, 38, 38, 0.22) !important;
+  color: #fecaca !important;
 }
 </style>
 

@@ -1261,7 +1261,7 @@ export default {
   color: #fff;
 }
 .chip-res {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: linear-gradient(135deg, #a78bfa, #7c3aed);
   color: #fff;
 }
 .chip-out {
