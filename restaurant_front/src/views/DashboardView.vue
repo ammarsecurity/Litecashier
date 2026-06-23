@@ -151,6 +151,34 @@
                     </a>
                   </div>
                 </div>
+                <div class="dashboard-link-block">
+                  <div class="dashboard-link-block-head">
+                    <span class="dashboard-link-block-icon dashboard-link-block-icon--order">
+                      <b-icon icon="bag-check"></b-icon>
+                    </span>
+                    <div class="dashboard-link-block-text">
+                      <strong>{{ $t("publicOrders") || "الطلبات العامة" }}</strong>
+                      <span>{{ $t("publicOrderLinkDescription") || "شارك رابط الطلب أونلاين مع العملاء" }}</span>
+                    </div>
+                  </div>
+                  <div class="dashboard-link-actions">
+                    <input
+                      type="text"
+                      :value="publicOrderUrl"
+                      readonly
+                      class="dashboard-link-input"
+                      :id="'publicOrderLink-' + commercialUserId"
+                    />
+                    <button type="button" class="btn-refresh dashboard-link-btn" @click="copyPublicOrderLink">
+                      <b-icon icon="clipboard" class="button-icon"></b-icon>
+                      <span class="button-text">{{ $t("copyLink") || "نسخ" }}</span>
+                    </button>
+                    <a :href="publicOrderUrl" target="_blank" rel="noopener" class="users-form-cancel-button dashboard-link-btn dashboard-link-btn--open">
+                      <b-icon icon="box-arrow-up-right"></b-icon>
+                      {{ $t("open") || "فتح" }}
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -599,6 +627,11 @@ export default {
       const baseUrl = window.location.origin;
       return `${baseUrl}/public-queue/${this.commercialUserId}`;
     },
+    publicOrderUrl() {
+      if (!this.commercialUserId) return '';
+      const baseUrl = window.location.origin;
+      return `${baseUrl}/order/${this.commercialUserId}`;
+    },
     totalInvoicePages() {
       return Math.ceil(this.totalInvoices / this.invoicePageSize);
     },
@@ -748,6 +781,32 @@ export default {
         } catch (err) {
           // Fallback for modern browsers
           navigator.clipboard.writeText(this.publicQueueDisplayUrl).then(() => {
+            this.$toast.success(this.$i18n.t("linkCopied") || "تم نسخ الرابط بنجاح", {
+              position: "top-right",
+              timeout: 2000,
+            });
+          }).catch(() => {
+            this.$toast.error(this.$i18n.t("copyFailed") || "فشل نسخ الرابط", {
+              position: "top-right",
+              timeout: 2000,
+            });
+          });
+        }
+      }
+    },
+    copyPublicOrderLink() {
+      const input = document.getElementById(`publicOrderLink-${this.commercialUserId}`);
+      if (input) {
+        input.select();
+        input.setSelectionRange(0, 99999);
+        try {
+          document.execCommand('copy');
+          this.$toast.success(this.$i18n.t("linkCopied") || "تم نسخ الرابط بنجاح", {
+            position: "top-right",
+            timeout: 2000,
+          });
+        } catch (err) {
+          navigator.clipboard.writeText(this.publicOrderUrl).then(() => {
             this.$toast.success(this.$i18n.t("linkCopied") || "تم نسخ الرابط بنجاح", {
               position: "top-right",
               timeout: 2000,
@@ -985,6 +1044,11 @@ export default {
 .dashboard-link-block-icon--queue {
   background: rgba(59, 130, 246, 0.12);
   color: #2563eb;
+}
+
+.dashboard-link-block-icon--order {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
 }
 
 .dashboard-link-logo {

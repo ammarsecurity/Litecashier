@@ -787,6 +787,9 @@ namespace RestaurantPOS.Migrations
                     b.Property<bool>("IsMain")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("IsPublicOrderPrinter")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)

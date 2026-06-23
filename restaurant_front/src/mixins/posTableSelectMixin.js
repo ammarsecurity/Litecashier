@@ -55,23 +55,63 @@ export default {
       }
       return "pos-fp-chip-avail";
     },
-    attachTableForOrderSession(table, options = {}) {
-      const { silent = false } = options;
-      this.activeOrderId = null;
-      if (typeof this.resetPrintedCartBaseline === "function") {
-        this.resetPrintedCartBaseline();
+    beginTableOrderSession(table) {
+      if (!table?.id) {
+        return this.bumpOrderSession();
       }
-      this.orderForSend.orderCode = "";
+
+      const sessionGen = this.bumpOrderSession();
+
+      this.carditems = [];
+      this.activeOrderId = null;
+      this.tableOrders = [];
       this.selectedTableId = table.id;
       this.selectedTableIds = [table.id];
       this.orderForSend.tableId = table.id;
       this.orderForSend.tableIds = null;
       this.orderForSend.orderType = "DineIn";
+      this.orderForSend.orderCode = "";
+      this.orderForSend.reservationId = null;
+
+      if (typeof this.resetPrintedCartBaseline === "function") {
+        this.resetPrintedCartBaseline();
+      }
+      if (typeof this.clearActiveTableReservation === "function") {
+        this.clearActiveTableReservation();
+      }
+
+      return sessionGen;
+    },
+    attachTableForOrderSession(table, options = {}) {
+      const { silent = false, sessionGen = null } = options;
+
+      if (sessionGen != null && !this.isOrderSessionCurrent(sessionGen)) {
+        return null;
+      }
+
+      if (!table?.id) {
+        return null;
+      }
+
+      if (this.selectedTableId !== table.id) {
+        this.beginTableOrderSession(table);
+      } else {
+        this.activeOrderId = null;
+        this.carditems = [];
+        this.tableOrders = [];
+        this.orderForSend.orderCode = "";
+        this.selectedTableIds = [table.id];
+        this.orderForSend.tableId = table.id;
+        this.orderForSend.tableIds = null;
+        this.orderForSend.orderType = "DineIn";
+        if (typeof this.resetPrintedCartBaseline === "function") {
+          this.resetPrintedCartBaseline();
+        }
+      }
+
       if (!this.orderForSend.numberOfGuests || this.orderForSend.numberOfGuests < 1) {
         this.orderForSend.numberOfGuests = 1;
       }
-      this.carditems = [];
-      this.tableOrders = [];
 
       if (!silent) {
         const { isReserved } = this.getTableOccupancyFlags(table);
@@ -148,7 +188,7 @@ export default {
         match.currentOrderId = orderId;
       }
     },
-    async loadExistingTableOrders(table) {
+    async loadExistingTableOrders(table, sessionGen = null) {
       if (!table?.id) {
         return false;
       }
@@ -156,6 +196,10 @@ export default {
       this.loadingTableOrders = true;
       try {
         const response = await HTTP.get(`Admin/GetTableOrders?tableId=${table.id}`);
+        if (!this.isOrderSessionCurrent(sessionGen)) {
+          return false;
+        }
+
         const orders = response.data?.data || [];
         if (!Array.isArray(orders) || orders.length === 0) {
           return false;
@@ -204,11 +248,19 @@ export default {
           });
         });
 
+        if (!this.isOrderSessionCurrent(sessionGen)) {
+          return false;
+        }
+
         this.carditems = mergeCartLines(this.carditems);
         this.syncPrintedCartBaselineFromCart();
         this.selectedTableId = table.id;
 
         const mergedIds = await this.loadMergedTableIds(table.id);
+        if (!this.isOrderSessionCurrent(sessionGen)) {
+          return false;
+        }
+
         const mergedIdsArray = Array.isArray(mergedIds) ? mergedIds : [table.id];
         this.selectedTableIds = mergedIdsArray;
 
@@ -227,6 +279,10 @@ export default {
 
         await this.loadActiveReservationForTable(table.id);
 
+        if (!this.isOrderSessionCurrent(sessionGen)) {
+          return false;
+        }
+
         this.$toast.success(
           this.$i18n.t("tableOrdersLoaded") || "تم تحميل طلبات الطاولة",
           {
@@ -238,14 +294,16 @@ export default {
         return true;
       } catch (error) {
         console.error("Error loading table orders:", error);
-        this.$toast.error(
-          this.$i18n.t("errorLoadingTableOrders") || "خطأ في تحميل طلبات الطاولة",
-          {
-            position: "top-right",
-            timeout: 2000,
-            maxToasts: 1,
-          }
-        );
+        if (this.isOrderSessionCurrent(sessionGen)) {
+          this.$toast.error(
+            this.$i18n.t("errorLoadingTableOrders") || "خطأ في تحميل طلبات الطاولة",
+            {
+              position: "top-right",
+              timeout: 2000,
+              maxToasts: 1,
+            }
+          );
+        }
         return false;
       } finally {
         this.loadingTableOrders = false;
@@ -263,7 +321,11 @@ export default {
       }
 
       if (isAvailable) {
-        const loaded = await this.loadExistingTableOrders(table);
+        const sessionGen = this.beginTableOrderSession(table);
+        const loaded = await this.loadExistingTableOrders(table, sessionGen);
+        if (!this.isOrderSessionCurrent(sessionGen)) {
+          return;
+        }
         if (loaded) {
           this.resetPosFloorPlanGateTools();
           return;
@@ -296,12 +358,16 @@ export default {
         return;
       }
 
-      const loaded = await this.loadExistingTableOrders(table);
+      const sessionGen = this.beginTableOrderSession(table);
+      const loaded = await this.loadExistingTableOrders(table, sessionGen);
+      if (!this.isOrderSessionCurrent(sessionGen)) {
+        return;
+      }
       if (loaded) {
         return;
       }
 
-      await this.attachTableForOrderSession(table);
+      await this.attachTableForOrderSession(table, { sessionGen });
     },
   },
 };

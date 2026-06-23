@@ -197,6 +197,19 @@ namespace RestaurantPOS.Controllers
                     }
                 }
 
+                if (request.IsPublicOrderPrinter == true)
+                {
+                    var existingPublicPrinters = await _dbConfig.Printers
+                        .Where(p => !p.IsDeleted && p.InsertByUserId == commercialUserId && p.IsPublicOrderPrinter)
+                        .ToListAsync();
+
+                    foreach (var publicPrinter in existingPublicPrinters)
+                    {
+                        publicPrinter.IsPublicOrderPrinter = false;
+                        _dbConfig.Printers.Update(publicPrinter);
+                    }
+                }
+
                 var printer = new Printer
                 {
                     Name = request.Name.Trim(),
@@ -207,6 +220,7 @@ namespace RestaurantPOS.Controllers
                     Configuration = request.Configuration?.Trim(),
                     IsActive = request.IsActive ?? true,
                     IsMain = request.IsMain ?? false,
+                    IsPublicOrderPrinter = request.IsPublicOrderPrinter ?? false,
                     InsertByUserId = commercialUserId,
                     InsertDate = DateTime.UtcNow,
                     UpdateDate = DateTime.UtcNow,
@@ -275,7 +289,8 @@ namespace RestaurantPOS.Controllers
                     PrinterType = printer.PrinterType,
                     PrintCategory = printer.PrintCategory,
                     IsActive = printer.IsActive,
-                    IsMain = printer.IsMain
+                    IsMain = printer.IsMain,
+                    IsPublicOrderPrinter = printer.IsPublicOrderPrinter
                 };
 
                 printer.Name = request.Name;
@@ -308,6 +323,23 @@ namespace RestaurantPOS.Controllers
                     printer.IsMain = request.IsMain.Value;
                 }
 
+                if (request.IsPublicOrderPrinter.HasValue)
+                {
+                    if (request.IsPublicOrderPrinter.Value)
+                    {
+                        var existingPublicPrinters = await _dbConfig.Printers
+                            .Where(p => !p.IsDeleted && p.InsertByUserId == commercialUserId && p.IsPublicOrderPrinter && p.Id != id)
+                            .ToListAsync();
+
+                        foreach (var publicPrinter in existingPublicPrinters)
+                        {
+                            publicPrinter.IsPublicOrderPrinter = false;
+                            _dbConfig.Printers.Update(publicPrinter);
+                        }
+                    }
+                    printer.IsPublicOrderPrinter = request.IsPublicOrderPrinter.Value;
+                }
+
                 // Store new values for audit log
                 var newValues = new
                 {
@@ -317,7 +349,8 @@ namespace RestaurantPOS.Controllers
                     PrinterType = printer.PrinterType,
                     PrintCategory = printer.PrintCategory,
                     IsActive = printer.IsActive,
-                    IsMain = printer.IsMain
+                    IsMain = printer.IsMain,
+                    IsPublicOrderPrinter = printer.IsPublicOrderPrinter
                 };
 
                 _dbConfig.Printers.Update(printer);
@@ -643,6 +676,7 @@ namespace RestaurantPOS.Controllers
         public string? Configuration { get; set; }
         public bool? IsActive { get; set; }
         public bool? IsMain { get; set; }
+        public bool? IsPublicOrderPrinter { get; set; }
     }
 
     public class PrintRequest

@@ -724,6 +724,16 @@ function paymentMethodLabel(method, labels = {}) {
   return map[method] || method;
 }
 
+function paymentStatusLabel(status, labels = {}) {
+  if (!status) return "—";
+  const map = {
+    Paid: labels.paymentStatusPaid || "مدفوع",
+    Pending: labels.paymentStatusPending || "غير مدفوع",
+    Refunded: labels.paymentStatusRefunded || "مسترد",
+  };
+  return map[status] || status;
+}
+
 function orderTypeLabel(type, labels = {}) {
   if (!type) return "—";
   const map = {
@@ -801,6 +811,10 @@ export function buildStandaloneOrderReceiptHtml({
   }
   pushRow(labels.orderType || "نوع الطلب", orderTypeLabel(order.orderType, labels));
   pushRow(labels.paymentMethod || "طريقة الدفع", paymentMethodLabel(order.paymentMethod, labels));
+  pushRow(
+    labels.paymentStatus || "حالة الدفع",
+    paymentStatusLabel(order.paymentStatus ?? order.PaymentStatus, labels)
+  );
   pushRow(labels.date || "التاريخ", dateTime);
 
   if (order.orderType === "Delivery") {

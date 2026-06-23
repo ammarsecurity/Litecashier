@@ -375,6 +375,8 @@ import {
   printPublicOrderLikePos,
   canPrintOrderStatus,
   shouldAutoPrintOnStatusChange,
+  shouldAutoPrintPublicCardOrder,
+  fetchPublicOrderById,
   notifyPrintOrderResult,
   resolvePrintFailureMessage,
 } from '../utils/orderPrintService.js';
@@ -641,6 +643,17 @@ export default {
         this.printingOrderId = null;
       }
     },
+    async autoPrintPublicOrder(orderId) {
+      if (!orderId || !this.commercialUserId) return;
+      try {
+        const order = await fetchPublicOrderById(HTTP, this.commercialUserId, orderId);
+        if (order) {
+          await this.printOrder(order, { silent: true });
+        }
+      } catch (error) {
+        console.error('Auto-print public order failed:', error);
+      }
+    },
     getPaymentMethodIcon(method) {
       const icons = {
         'Cash': 'cash-coin',
@@ -754,7 +767,7 @@ export default {
       signalRService.startConnection()
         .then(() => {
           // Listen for new public orders
-          signalRService.on('PublicOrderAdded', (data) => {
+          signalRService.on('PublicOrderAdded', async (data) => {
             console.log('Public order added via SignalR:', data);
             // Only reload if the order belongs to this commercial user
             if (data.CommercialUserId === this.commercialUserId) {
@@ -767,6 +780,11 @@ export default {
               
               if (matchesDate && matchesType && !this.searchQuery && !this.orderCodeQuery) {
                 this.loadOrders();
+              }
+
+              if (shouldAutoPrintPublicCardOrder(data)) {
+                const orderId = data.OrderId ?? data.orderId;
+                await this.autoPrintPublicOrder(orderId);
               }
             }
           });

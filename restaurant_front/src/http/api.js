@@ -30,6 +30,15 @@ export const getCardPaymentStatus = (transactionId) =>
 export const cancelCardPayment = (transactionId) =>
     HTTP.post(`CardPayments/${transactionId}/cancel`, null, { timeout: 15000 });
 
+export const startPublicCardPaymentSale = (commercialUserId, payload) =>
+    HTTP.post(`PublicMenu/${commercialUserId}/card-payment/start`, payload, { timeout: 30000 });
+
+export const getPublicCardPaymentStatus = (commercialUserId, transactionId) =>
+    HTTP.get(`PublicMenu/${commercialUserId}/card-payment/${transactionId}/status`, { timeout: 10000 });
+
+export const cancelPublicCardPayment = (commercialUserId, transactionId) =>
+    HTTP.post(`PublicMenu/${commercialUserId}/card-payment/${transactionId}/cancel`, null, { timeout: 15000 });
+
 export const HTTP = axios.create({
     baseURL: getBaseURL(),
     timeout: 30000, // 30 seconds timeout

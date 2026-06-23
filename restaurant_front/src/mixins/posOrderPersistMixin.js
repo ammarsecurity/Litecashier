@@ -20,6 +20,7 @@ export default {
   data() {
     return {
       activeOrderId: null,
+      _orderSessionGen: 0,
       printedCartBaseline: [],
       orderPersisting: false,
       cardPaymentTransactionIdForCheckout: null,
@@ -55,7 +56,130 @@ export default {
       const textDirection = document.documentElement.dir;
       return textDirection === "rtl" ? "top-right" : "top-left";
     },
+    bumpOrderSession() {
+      this._orderSessionGen = (Number(this._orderSessionGen) || 0) + 1;
+      return this._orderSessionGen;
+    },
+    isOrderSessionCurrent(sessionGen) {
+      if (sessionGen == null) {
+        return true;
+      }
+      return Number(sessionGen) === Number(this._orderSessionGen);
+    },
+    canModifyCart() {
+      if (this.loadingTableOrders) {
+        return false;
+      }
+      return true;
+    },
+    guardCartModification() {
+      if (this.canModifyCart()) {
+        return true;
+      }
+      const toastPosition = this.getOrderPersistToastPosition();
+      this.$toast.info(
+        this.$i18n.t("orderSessionLoadingWait") ||
+          "جاري تحميل الطلب، انتظر قليلاً...",
+        {
+          position: toastPosition,
+          timeout: 2000,
+          maxToasts: 1,
+        }
+      );
+      return false;
+    },
+    resetOrderSession(options = {}) {
+      const {
+        orderType = "Takeaway",
+        clearNotes = true,
+        resetPayment = false,
+        focusQuickSearch = false,
+        silent = true,
+      } = options;
+
+      this.bumpOrderSession();
+
+      this.carditems = [];
+      this.activeOrderId = null;
+      this.tableOrders = [];
+      this.selectedTableId = null;
+      this.selectedTableIds = [];
+
+      if (this.orderForSend) {
+        this.orderForSend.tableId = null;
+        this.orderForSend.tableIds = null;
+        this.orderForSend.orderType = orderType;
+        this.orderForSend.numberOfGuests = 0;
+        this.orderForSend.orderCode = "";
+        this.orderForSend.reservationId = null;
+        if (clearNotes) {
+          this.orderForSend.notes = "";
+          this.orderForSend.pagerNumber = "";
+        }
+      }
+
+      if (typeof this.clearOrderDiscount === "function") {
+        this.clearOrderDiscount();
+      }
+      if (typeof this.resetPrintedCartBaseline === "function") {
+        this.resetPrintedCartBaseline();
+      }
+      if (typeof this.clearMergedTableIdsCache === "function") {
+        this.clearMergedTableIdsCache();
+      }
+      if (typeof this.clearActiveTableReservation === "function") {
+        this.clearActiveTableReservation();
+      }
+      if (resetPayment && typeof this.setPosPaymentMethod === "function") {
+        this.setPosPaymentMethod("Cash");
+      }
+
+      if (focusQuickSearch) {
+        this.$nextTick(() => {
+          const quickSearchRef = this.$refs.posQuickSearchInput;
+          if (quickSearchRef) {
+            quickSearchRef.focus();
+          }
+        });
+      }
+
+      if (!silent) {
+        const msg =
+          orderType === "Delivery"
+            ? this.$i18n.t("newDeliveryOrderStarted") ||
+              "تم بدء طلب توصيل جديد"
+            : this.$i18n.t("newOffTableOrderStarted") ||
+              "تم بدء طلب جديد بدون طاولة";
+        this.$toast.info(msg, {
+          position: this.getOrderPersistToastPosition(),
+          timeout: 2000,
+          maxToasts: 1,
+        });
+      }
+    },
+    startOffTableOrderSession(orderType = "Takeaway") {
+      const hadContext =
+        !!this.selectedTableId ||
+        (Array.isArray(this.carditems) && this.carditems.length > 0) ||
+        !!this.activeOrderId;
+      this.resetOrderSession({
+        orderType,
+        silent: !hadContext,
+      });
+      if (orderType === "Delivery" && this.orderForSend) {
+        this.orderForSend.deliveryStatus = this.orderForSend.deliveryStatus || "Pending";
+      }
+    },
     resolveActiveOrderId() {
+      const isDineIn =
+        this.orderForSend?.orderType === "DineIn" &&
+        !!this.orderForSend?.tableId &&
+        !!this.selectedTableId;
+
+      if (!isDineIn) {
+        return null;
+      }
+
       if (this.activeOrderId) {
         const fromActive = Number(this.activeOrderId);
         if (Number.isFinite(fromActive) && fromActive > 0) {
@@ -70,16 +194,14 @@ export default {
           return n;
         }
       }
-      if (this.selectedTableId) {
-        const table = this.allTables.find((t) => t.id === this.selectedTableId);
-        const raw =
-          table?.currentOrderId ??
-          table?.currentorderid ??
-          table?.current_order_id;
-        const n = Number(raw || 0);
-        if (Number.isFinite(n) && n > 0) {
-          return n;
-        }
+      const table = this.allTables.find((t) => t.id === this.selectedTableId);
+      const raw =
+        table?.currentOrderId ??
+        table?.currentorderid ??
+        table?.current_order_id;
+      const n = Number(raw || 0);
+      if (Number.isFinite(n) && n > 0) {
+        return n;
       }
       return null;
     },
@@ -327,23 +449,12 @@ export default {
           }
         }
         await this.getTables();
-        this.carditems = [];
-        this.selectedTableId = null;
-        this.selectedTableIds = [];
-        this.orderForSend.tableId = null;
-        this.orderForSend.tableIds = null;
-        this.orderForSend.orderType = "Takeaway";
-        this.orderForSend.numberOfGuests = 0;
-        this.orderForSend.notes = "";
-        this.orderForSend.pagerNumber = "";
-        this.clearOrderDiscount();
-        this.activeOrderId = null;
-        this.tableOrders = [];
-        this.resetPrintedCartBaseline();
-        const quickSearchRef = this.$refs.posQuickSearchInput;
-        if (quickSearchRef) {
-          quickSearchRef.focus();
-        }
+        this.resetOrderSession({
+          orderType: "Takeaway",
+          clearNotes: true,
+          focusQuickSearch: true,
+          silent: true,
+        });
         return;
       }
 
@@ -356,19 +467,11 @@ export default {
         return;
       }
 
-      this.carditems = [];
-      this.selectedTableId = null;
-      this.selectedTableIds = [];
-      this.orderForSend.tableId = null;
-      this.orderForSend.tableIds = null;
-      this.orderForSend.orderType = "Takeaway";
-      this.orderForSend.numberOfGuests = 0;
-      this.orderForSend.notes = "";
-      this.orderForSend.pagerNumber = "";
-      this.clearOrderDiscount();
-      this.tableOrders = [];
-      this.activeOrderId = null;
-      this.resetPrintedCartBaseline();
+      this.resetOrderSession({
+        orderType: "Takeaway",
+        clearNotes: true,
+        silent: true,
+      });
     },
     getOrderPersistSuccessMessage({ isUpdate, isCheckout, isPrint, isDineInTableOrder, isCreditCheckout }) {
       if (isCheckout && isCreditCheckout) {
@@ -1078,25 +1181,12 @@ export default {
       });
     },
     resetLocalStateAfterDineInCancel() {
-      this.carditems = [];
-      this.selectedTableId = null;
-      this.selectedTableIds = [];
-      this.orderForSend.tableId = null;
-      this.orderForSend.tableIds = null;
-      this.orderForSend.orderType = "Takeaway";
-      this.orderForSend.numberOfGuests = 0;
-      this.orderForSend.notes = "";
-      this.orderForSend.pagerNumber = "";
-      this.orderForSend.orderCode = "";
-      this.clearOrderDiscount();
-      this.activeOrderId = null;
-      this.tableOrders = [];
-      this.resetPrintedCartBaseline();
-      this.clearMergedTableIdsCache();
-      const quickSearchRef = this.$refs.posQuickSearchInput;
-      if (quickSearchRef) {
-        quickSearchRef.focus();
-      }
+      this.resetOrderSession({
+        orderType: "Takeaway",
+        clearNotes: true,
+        focusQuickSearch: true,
+        silent: true,
+      });
     },
     async cancelDineInTableOrderAfterAuth() {
       const toastPosition = this.getOrderPersistToastPosition();

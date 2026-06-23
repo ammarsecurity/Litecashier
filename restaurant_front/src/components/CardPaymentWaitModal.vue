@@ -5,7 +5,7 @@
     hide-header
     hide-footer
     class="users-modal"
-    modal-class="users-modal card-payment-wait-modal-root"
+    :modal-class="modalRootClass"
     content-class="cpw-modal-content"
     body-class="cpw-modal-body"
     :no-close-on-backdrop="isWaiting"
@@ -16,6 +16,7 @@
     <div
       class="cpw-shell"
       :class="{
+        'cpw-shell--light': theme === 'light',
         'cpw-shell--success': isSuccess,
         'cpw-shell--failed': isFailed,
         'cpw-shell--waiting': isWaiting,
@@ -144,8 +145,17 @@ export default {
     errorMessage: { type: String, default: "" },
     canCancel: { type: Boolean, default: true },
     cancelling: { type: Boolean, default: false },
+    theme: {
+      type: String,
+      default: "default",
+      validator: (value) => ["default", "light"].includes(value),
+    },
   },
   computed: {
+    modalRootClass() {
+      const base = "users-modal card-payment-wait-modal-root";
+      return this.theme === "light" ? `${base} card-payment-wait-modal-root--light` : base;
+    },
     normalizedStatus() {
       return String(this.status || "Starting");
     },
@@ -608,5 +618,165 @@ export default {
 .cpw-btn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+</style>
+
+<style>
+/* Light theme — public order page */
+.card-payment-wait-modal-root--light .modal-content {
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.12);
+  border-radius: 16px;
+}
+
+.card-payment-wait-modal-root--light .cpw-modal-content {
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light {
+  --cpw-bg: #ffffff;
+  --cpw-surface: #f8fafc;
+  --cpw-accent: #6366f1;
+  --cpw-accent-dark: #4f46e5;
+  --cpw-accent-soft: color-mix(in srgb, #6366f1 12%, transparent);
+  --cpw-text: #0f172a;
+  --cpw-muted: #64748b;
+  --cpw-border: #e2e8f0;
+  background: var(--cpw-bg) !important;
+  color: var(--cpw-text) !important;
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-icon-circle {
+  background: var(--cpw-surface);
+  border-color: var(--cpw-border);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-icon-circle--waiting {
+  background: color-mix(in srgb, #6366f1 14%, #ffffff);
+  border-color: var(--cpw-accent);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-spinner {
+  color: var(--cpw-accent);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-card-icon {
+  color: var(--cpw-accent);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-badge {
+  color: var(--cpw-accent-dark);
+  background: var(--cpw-accent-soft);
+  border-color: color-mix(in srgb, #6366f1 28%, #e2e8f0);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-title {
+  color: var(--cpw-text);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-subtitle {
+  color: var(--cpw-muted);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-amount-card {
+  background: var(--cpw-surface);
+  border-color: var(--cpw-border);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-amount-label {
+  color: var(--cpw-muted);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-amount-number {
+  color: var(--cpw-text);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-amount-currency {
+  color: var(--cpw-accent-dark);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-device-chip {
+  color: var(--cpw-muted);
+  background: #ffffff;
+  border-color: var(--cpw-border);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-step-pill {
+  background: #ffffff;
+  border-color: var(--cpw-border);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-step-pill-icon {
+  color: var(--cpw-muted);
+  background: var(--cpw-surface);
+  border-color: var(--cpw-border);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-step-pill-label {
+  color: var(--cpw-muted);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-step-pill--done {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-step-pill--done .cpw-step-pill-icon {
+  color: #16a34a;
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-step-pill--done .cpw-step-pill-label {
+  color: var(--cpw-text);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-step-pill--active {
+  border-color: var(--cpw-accent);
+  background: var(--cpw-accent-soft);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-step-pill--active .cpw-step-pill-icon {
+  color: var(--cpw-accent);
+  border-color: var(--cpw-accent);
+  background: color-mix(in srgb, #6366f1 16%, #ffffff);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-step-pill--active .cpw-step-pill-label {
+  color: var(--cpw-accent-dark);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-wait-hint {
+  color: var(--cpw-muted);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-btn--ghost {
+  color: var(--cpw-muted);
+  border-color: var(--cpw-border);
+  background: #ffffff;
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-btn--ghost:hover:not(:disabled) {
+  background: var(--cpw-surface);
+  color: var(--cpw-text);
+  border-color: color-mix(in srgb, #6366f1 35%, #e2e8f0);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-btn--primary {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #ffffff;
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-result-row {
+  color: var(--cpw-muted);
+}
+
+.card-payment-wait-modal-root--light .cpw-shell--light .cpw-result-row strong {
+  color: var(--cpw-text);
+}
+
+html.public-order-page .modal-backdrop {
+  background-color: rgba(15, 23, 42, 0.35);
 }
 </style>

@@ -33,6 +33,8 @@ namespace RestaurantPOS.Models
 
         public bool IsMain { get; set; } = false; // هل الطابعة رئيسية (تطبع كل شيء)
 
+        public bool IsPublicOrderPrinter { get; set; } = false; // طابعة إيصالات الطلبات العامة
+
         [ForeignKey("InsertByUserId")]
         public int InsertByUserId { get; set; }
         public User? User { get; set; }

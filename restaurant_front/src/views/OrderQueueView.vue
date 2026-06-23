@@ -645,6 +645,8 @@ import {
   printPublicOrderLikePos,
   canPrintOrderStatus,
   shouldAutoPrintOnStatusChange,
+  shouldAutoPrintPublicCardOrder,
+  fetchPublicOrderById,
   notifyPrintOrderResult,
   resolvePrintFailureMessage,
 } from '../utils/orderPrintService.js';
@@ -888,6 +890,18 @@ export default {
         this.printingOrderId = null;
       }
     },
+    async autoPrintPublicOrder(orderId) {
+      if (!orderId || !this.commercialUserId) return;
+      try {
+        const order = await fetchPublicOrderById(HTTP, this.commercialUserId, orderId);
+        if (order) {
+          await this.printOrder(order, { silent: true });
+          this.loadOrders({ silent: true });
+        }
+      } catch (error) {
+        console.error('Auto-print public order failed:', error);
+      }
+    },
     getOrderTypeClass(type) {
       const classes = {
         'DineIn': 'dinein-badge',
@@ -967,13 +981,22 @@ export default {
     },
     initializeSignalR() {
       signalRService.startConnection().then(() => {
+        signalRService.on('PublicOrderAdded', async (data) => {
+          if (data.CommercialUserId !== this.commercialUserId) return;
+          this.loadOrders({ silent: true });
+          if (shouldAutoPrintPublicCardOrder(data)) {
+            const orderId = data.OrderId ?? data.orderId;
+            await this.autoPrintPublicOrder(orderId);
+          }
+        });
         signalRService.on('PublicOrderUpdated', (data) => {
-          // Reload orders when an order is updated
+          if (data.CommercialUserId !== this.commercialUserId) return;
           this.loadOrders({ silent: true });
         });
       });
     },
     cleanupSignalR() {
+      signalRService.off('PublicOrderAdded');
       signalRService.off('PublicOrderUpdated');
     }
   }

@@ -41,123 +41,12 @@
 
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
-import { HTTP } from "@/http/api.js";
-import signalRService from "@/services/signalr.js";
-import { flatNavItemsForHub } from "@/navigation/navItems.js";
-import { getAllowedSections } from "@/navigation/sectionRegistry.js";
-import {
-  resolveCommercialUserIdFromStorage,
-  fetchPendingPublicOrderCount,
-  PUBLIC_ORDER_BADGE_SECTIONS,
-} from "@/utils/queueOrders.js";
+import sectionsHubMixin from "@/mixins/sectionsHubMixin.js";
 
 export default {
   name: "SectionsView",
   components: { AppHeader },
-  data() {
-    return {
-      pendingOrderCount: 0,
-      commercialUserId: null,
-      refreshInterval: null,
-      signalRHandlers: [],
-    };
-  },
-  computed: {
-    role() {
-      return localStorage.getItem("role");
-    },
-    allowedSections() {
-      return getAllowedSections();
-    },
-    flatHubItems() {
-      const modules = flatNavItemsForHub(
-        this.role,
-        (k) => this.$t(k),
-        this.allowedSections
-      );
-      if (this.role === "Manager" || this.role === "POS") {
-        return modules;
-      }
-      const dashboardEntry = {
-        name: "dashboard-home",
-        label: this.$t("appHomeLink") || this.$t("home") || "الرئيسية",
-        link: "/dashboard",
-        icon: "house-door-fill",
-      };
-      return [dashboardEntry, ...modules];
-    },
-    shouldTrackPendingOrders() {
-      return this.flatHubItems.some((item) =>
-        PUBLIC_ORDER_BADGE_SECTIONS.has(item.name)
-      );
-    },
-  },
-  mounted() {
-    this.commercialUserId = resolveCommercialUserIdFromStorage();
-    if (this.shouldTrackPendingOrders && this.commercialUserId) {
-      this.refreshPendingCount();
-      this.initializeSignalR();
-      this.refreshInterval = setInterval(() => {
-        this.refreshPendingCount({ silent: true });
-      }, 15000);
-    }
-  },
-  beforeDestroy() {
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
-      this.refreshInterval = null;
-    }
-    this.cleanupSignalR();
-  },
-  methods: {
-    sectionBadgeCount(item) {
-      if (!this.pendingOrderCount || !PUBLIC_ORDER_BADGE_SECTIONS.has(item.name)) {
-        return 0;
-      }
-      return this.pendingOrderCount;
-    },
-    async refreshPendingCount(options = {}) {
-      if (!this.commercialUserId || !this.shouldTrackPendingOrders) return;
-      try {
-        const count = await fetchPendingPublicOrderCount(
-          HTTP,
-          this.commercialUserId
-        );
-        this.pendingOrderCount = count;
-      } catch (error) {
-        if (!options.silent) {
-          console.error("Failed to load pending order count:", error);
-        }
-      }
-    },
-    initializeSignalR() {
-      const onRefresh = (data) => {
-        const commercialId =
-          data?.CommercialUserId ?? data?.commercialUserId ?? null;
-        if (
-          commercialId != null &&
-          Number(commercialId) !== Number(this.commercialUserId)
-        ) {
-          return;
-        }
-        this.refreshPendingCount({ silent: true });
-      };
-
-      signalRService.startConnection().then(() => {
-        const events = ["PublicOrderAdded", "PublicOrderUpdated", "OrderAdded"];
-        events.forEach((eventName) => {
-          signalRService.on(eventName, onRefresh);
-          this.signalRHandlers.push({ eventName, handler: onRefresh });
-        });
-      });
-    },
-    cleanupSignalR() {
-      this.signalRHandlers.forEach(({ eventName, handler }) => {
-        signalRService.off(eventName, handler);
-      });
-      this.signalRHandlers = [];
-    },
-  },
+  mixins: [sectionsHubMixin],
 };
 </script>
 

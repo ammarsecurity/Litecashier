@@ -55,6 +55,13 @@ function findMainPrinter(managedPrinters) {
   return list[0] || null;
 }
 
+function findPublicOrderPrinter(managedPrinters) {
+  const list = (managedPrinters || []).filter(
+    (p) => (p.isActive ?? p.IsActive) !== false
+  );
+  return list.find((p) => p.isPublicOrderPrinter ?? p.IsPublicOrderPrinter) || null;
+}
+
 function findPrinterById(managedPrinters, tagPrinters, printerId) {
   if (printerId == null) return null;
   const id = String(printerId);
@@ -214,6 +221,7 @@ export async function loadPrintResources(http, commercialUserId, force = false) 
       logo: menu.logo || menu.Logo || null,
     },
     mainPrinter: findMainPrinter(managedPrinters),
+    publicOrderPrinter: findPublicOrderPrinter(managedPrinters),
     printersLoadedOk: printersRes.ok,
     printersLoadMessage: printersRes.ok ? null : printersRes.message,
   };
@@ -247,6 +255,10 @@ function buildPrintLabels(t) {
     cash: tr("cash") || "نقدي",
     card: tr("card") || "بطاقة",
     credit: tr("credit") || "آجل",
+    paymentStatus: tr("paymentStatus") || "حالة الدفع",
+    paymentStatusPaid: tr("paymentStatusPaid") || "مدفوع",
+    paymentStatusPending: tr("paymentStatusPending") || "غير مدفوع",
+    paymentStatusRefunded: tr("paymentStatusRefunded") || "مسترد",
   };
 }
 
@@ -308,10 +320,22 @@ export function resolvePrintFailureMessage(result, t) {
       "لا توجد طابعة مفعّلة — أضف طابعة وحدّد الطابعة الرئيسية من إعدادات الطباعة"
     );
   }
+  if (errors.includes("no_public_printer")) {
+    return (
+      tr("printNoPublicOrderPrinter") ||
+      "لم تُعيَّن طابعة للطلبات العامة — أضفها من إعدادات الطباعة"
+    );
+  }
   if (errors.includes("main_printer_failed")) {
     return (
       tr("printMainPrinterFailed") ||
       "تعذّر إرسال الفاتورة للطابعة الرئيسية — تحقق من Print Server"
+    );
+  }
+  if (errors.includes("public_printer_failed")) {
+    return (
+      tr("printPublicPrinterFailed") ||
+      "تعذّر إرسال الإيصال لطابعة الطلبات العامة — تحقق من Print Server"
     );
   }
 
@@ -323,6 +347,14 @@ export function notifyPrintOrderResult(result, notify, t, options = {}) {
   if (silent) return;
 
   if (result.ok && result.mainPrinted) {
+    if (result.usedMainPrinterFallback) {
+      notify.warning(
+        t("printNoPublicOrderPrinter") ||
+          "لم تُعيَّن طابعة للطلبات العامة — تم استخدام الطابعة الرئيسية",
+        { timeout: 3500, maxToasts: 1 }
+      );
+      return;
+    }
     notify.success(t("printOrderSuccess") || "تم إرسال الطلب للطباعة", {
       timeout: 2500,
       maxToasts: 1,
@@ -345,7 +377,7 @@ export function notifyPrintOrderResult(result, notify, t, options = {}) {
 }
 
 /**
- * Print public order like POS: main receipt + kitchen tickets by tag.
+ * Print public order: customer receipt on public-order printer + kitchen tickets by tag.
  */
 export async function printPublicOrderLikePos(order, options = {}) {
   const { http, commercialUserId, t } = options;
@@ -383,10 +415,12 @@ export async function printPublicOrderLikePos(order, options = {}) {
   let mainPrinted = false;
   let tagsPrinted = 0;
 
-  const mainPrinter = resources.mainPrinter;
-  const mainPrinterId = mainPrinter?.id ?? mainPrinter?.Id ?? null;
+  const publicOrderPrinter = resources.publicOrderPrinter;
+  const customerPrinter = publicOrderPrinter || resources.mainPrinter;
+  const usedMainPrinterFallback = !publicOrderPrinter && !!resources.mainPrinter;
+  const customerPrinterId = customerPrinter?.id ?? customerPrinter?.Id ?? null;
 
-  if (mainPrinterId) {
+  if (customerPrinterId) {
     const { documentHtml } = buildStandaloneOrderReceiptHtml({
       storeName,
       logoUrl,
@@ -400,18 +434,18 @@ export async function printPublicOrderLikePos(order, options = {}) {
     const fallbackPayload = buildFallbackPayload(order, items, storeName, false);
     mainPrinted = await printHtmlWithFallback(
       http,
-      mainPrinterId,
+      customerPrinterId,
       documentHtml,
       {
-        printerRecord: mainPrinter,
+        printerRecord: customerPrinter,
         fallbackPayload,
       }
     );
     if (!mainPrinted) {
-      errors.push("main_printer_failed");
+      errors.push(publicOrderPrinter ? "public_printer_failed" : "main_printer_failed");
     }
   } else {
-    errors.push("no_main_printer");
+    errors.push(publicOrderPrinter ? "no_public_printer" : "no_main_printer");
   }
 
   const grouped = groupItemsForDepartmentPrinting(
@@ -468,8 +502,31 @@ export async function printPublicOrderLikePos(order, options = {}) {
     mainPrinted,
     tagsPrinted,
     errors,
+    usedMainPrinterFallback,
     printersLoadMessage: resources.printersLoadMessage,
   };
+}
+
+export async function fetchPublicOrderById(http, commercialUserId, orderId) {
+  if (!http || !commercialUserId || !orderId) return null;
+  try {
+    const response = await http.get(
+      `PublicMenu/${commercialUserId}/orders/${orderId}`
+    );
+    if (isApiSuccess(response)) {
+      return response.data?.data ?? null;
+    }
+  } catch (error) {
+    console.warn("[orderPrint] fetch public order failed:", error);
+  }
+  return null;
+}
+
+export function shouldAutoPrintPublicCardOrder(data) {
+  if (!data) return false;
+  const shouldPrint = data.ShouldAutoPrint ?? data.shouldAutoPrint;
+  const status = data.OrderStatus ?? data.orderStatus;
+  return !!shouldPrint && status === "Processing";
 }
 
 export function canPrintOrderStatus(status) {

@@ -10,7 +10,7 @@ using RestaurantPOS.Hubs;
 using RestaurantPOS.Models;
 using RestaurantPOS.Models.Requests;
 using RestaurantPOS.Models.Response;
-using RestaurantPOS.Models.Restaurant;
+using RestaurantPOS.Services;
 
 namespace RestaurantPOS.Controllers
 {
@@ -23,13 +23,23 @@ namespace RestaurantPOS.Controllers
         private readonly ILogger<PublicMenuController> _logger;
         private readonly IConfiguration _configuration;
         private readonly IHubContext<OrderHub> _hubContext;
+        private readonly ICardPaymentProcessingService _cardPaymentProcessing;
+        private readonly IOrderCheckoutService _orderCheckoutService;
 
-        public PublicMenuController(ILogger<PublicMenuController> logger, DbConfig dbConfig, IConfiguration configuration, IHubContext<OrderHub> hubContext)
+        public PublicMenuController(
+            ILogger<PublicMenuController> logger,
+            DbConfig dbConfig,
+            IConfiguration configuration,
+            IHubContext<OrderHub> hubContext,
+            ICardPaymentProcessingService cardPaymentProcessing,
+            IOrderCheckoutService orderCheckoutService)
         {
             _logger = logger;
             _dbConfig = dbConfig;
             _configuration = configuration;
             _hubContext = hubContext;
+            _cardPaymentProcessing = cardPaymentProcessing;
+            _orderCheckoutService = orderCheckoutService;
         }
 
         /// <summary>
@@ -241,6 +251,166 @@ namespace RestaurantPOS.Controllers
 
         // POST: api/PublicMenu/{commercialUserId}/order
         [AllowAnonymous]
+        [HttpGet("{commercialUserId}/payment-capabilities")]
+        public async Task<ActionResult<GlobalResponse<object>>> GetPaymentCapabilities(int commercialUserId)
+        {
+            var commercialUser = await _dbConfig.Users
+                .FirstOrDefaultAsync(u => u.Id == commercialUserId && u.Role == "Commercial" && !u.IsDeleted);
+
+            if (commercialUser == null)
+            {
+                return NotFound(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "المطعم غير موجود"
+                });
+            }
+
+            var cardPaymentEnabled = await _dbConfig.PaymentDevices
+                .AnyAsync(d => !d.IsDeleted && d.IsActive && d.InsertByUserId == commercialUserId);
+
+            return Ok(new GlobalResponse<object>
+            {
+                Data = new { cardPaymentEnabled },
+                ErrorStatus = false,
+                Message = "OK"
+            });
+        }
+
+        [AllowAnonymous]
+        [HttpPost("{commercialUserId}/card-payment/start")]
+        public async Task<ActionResult<GlobalResponse<object>>> StartPublicCardPayment(
+            int commercialUserId,
+            [FromBody] CardPaymentSaleRequest request)
+        {
+            var commercialUser = await _dbConfig.Users
+                .FirstOrDefaultAsync(u => u.Id == commercialUserId && u.Role == "Commercial" && !u.IsDeleted);
+
+            if (commercialUser == null)
+            {
+                return NotFound(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "المطعم غير موجود"
+                });
+            }
+
+            try
+            {
+                var (tx, device, errorKey) = await _cardPaymentProcessing.PrepareTransactionAsync(
+                    commercialUserId,
+                    commercialUserId,
+                    request.Amount,
+                    request.TipAmount,
+                    request.CurrencyCode ?? "IQD",
+                    request.PaymentDeviceId);
+
+                if (tx == null || errorKey != null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = errorKey ?? "cardPaymentFailed"
+                    });
+                }
+
+                _cardPaymentProcessing.EnqueueSaleProcessing(tx.Id, commercialUserId);
+                var statusDto = _cardPaymentProcessing.ToStatusDto(tx, device);
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new
+                    {
+                        transactionId = tx.Id,
+                        status = statusDto.Status,
+                        amount = statusDto.Amount,
+                        currencyCode = statusDto.CurrencyCode,
+                        deviceName = statusDto.DeviceName,
+                        isTerminal = statusDto.IsTerminal
+                    },
+                    ErrorStatus = false,
+                    Message = "cardPaymentProcessing"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Public card payment start failed for Commercial user {CommercialUserId}", commercialUserId);
+                return StatusCode(500, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = ex.Message
+                });
+            }
+        }
+
+        [AllowAnonymous]
+        [HttpGet("{commercialUserId}/card-payment/{transactionId}/status")]
+        public async Task<ActionResult<GlobalResponse<CardPaymentStatusDto>>> GetPublicCardPaymentStatus(
+            int commercialUserId,
+            int transactionId)
+        {
+            var tx = await _dbConfig.CardPaymentTransactions
+                .Include(t => t.PaymentDevice)
+                .FirstOrDefaultAsync(t =>
+                    t.Id == transactionId
+                    && !t.IsDeleted
+                    && t.InsertByUserId == commercialUserId);
+
+            if (tx == null)
+            {
+                return NotFound(new GlobalResponse<CardPaymentStatusDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "cardPaymentTransactionNotFound"
+                });
+            }
+
+            return Ok(new GlobalResponse<CardPaymentStatusDto>
+            {
+                Data = _cardPaymentProcessing.ToStatusDto(tx, tx.PaymentDevice),
+                ErrorStatus = false
+            });
+        }
+
+        [AllowAnonymous]
+        [HttpPost("{commercialUserId}/card-payment/{transactionId}/cancel")]
+        public async Task<ActionResult<GlobalResponse<CardPaymentStatusDto>>> CancelPublicCardPayment(
+            int commercialUserId,
+            int transactionId)
+        {
+            var (success, errorKey) = await _cardPaymentProcessing.CancelTransactionAsync(
+                transactionId,
+                commercialUserId,
+                commercialUserId);
+
+            if (!success)
+            {
+                return BadRequest(new GlobalResponse<CardPaymentStatusDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = errorKey ?? "cardPaymentFailed"
+                });
+            }
+
+            var tx = await _dbConfig.CardPaymentTransactions
+                .Include(t => t.PaymentDevice)
+                .FirstOrDefaultAsync(t => t.Id == transactionId && !t.IsDeleted);
+
+            return Ok(new GlobalResponse<CardPaymentStatusDto>
+            {
+                Data = tx != null ? _cardPaymentProcessing.ToStatusDto(tx, tx.PaymentDevice) : null,
+                ErrorStatus = false,
+                Message = "cardPaymentCancelled"
+            });
+        }
+
+        [AllowAnonymous]
         [HttpPost("{commercialUserId}/order")]
         public async Task<ActionResult<GlobalResponse<object>>> CreatePublicOrder(int commercialUserId, PublicOrderRequest request)
         {
@@ -321,6 +491,35 @@ namespace RestaurantPOS.Controllers
 
                 var dailySequenceNumber = (lastOrderToday?.DailySequenceNumber ?? 0) + 1;
 
+                var orderSubTotal = CalculatePublicOrderSubTotal(request, items);
+                var paymentMethod = string.IsNullOrWhiteSpace(request.PaymentMethod)
+                    ? "Cash"
+                    : request.PaymentMethod.Trim();
+                var isCardPayment = string.Equals(paymentMethod, "Card", StringComparison.OrdinalIgnoreCase);
+
+                if (isCardPayment)
+                {
+                    if (!request.CardPaymentTransactionId.HasValue)
+                    {
+                        return BadRequest(new GlobalResponse<object>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "cardPaymentTransactionRequired"
+                        });
+                    }
+
+                    var validationError = await _orderCheckoutService.ValidateCardTransactionForCheckoutAsync(
+                        request.CardPaymentTransactionId.Value,
+                        orderSubTotal,
+                        commercialUserId);
+
+                    if (validationError != null)
+                    {
+                        return BadRequest(validationError);
+                    }
+                }
+
                 // Handle Delivery Driver
                 int? deliveryDriverId = null;
                 if (request.OrderType == "Delivery")
@@ -367,13 +566,13 @@ namespace RestaurantPOS.Controllers
                 var newOrder = new CustomerOrder
                 {
                     OrderCode = orderCode,
-                    PaymentMethod = request.PaymentMethod ?? "Cash",
+                    PaymentMethod = paymentMethod,
                     InsertByUserId = commercialUserId,
                     OrderType = request.OrderType ?? "Takeaway",
                     Notes = request.Notes,
                     PagerNumber = request.PagerNumber,
-                    OrderStatus = "Pending",
-                    PaymentStatus = "Pending",
+                    OrderStatus = isCardPayment ? "Processing" : "Pending",
+                    PaymentStatus = isCardPayment ? "Paid" : "Pending",
                     DailySequenceNumber = dailySequenceNumber,
                     DeliveryDriverId = deliveryDriverId,
                     DeliveryStatus = request.OrderType == "Delivery" ? (request.DeliveryStatus ?? "Pending") : null,
@@ -385,8 +584,8 @@ namespace RestaurantPOS.Controllers
                     DiscountValue = request.DiscountValue,
                     DiscountAmount = request.DiscountAmount,
                     DiscountPercent = request.DiscountPercent,
-                    OrderSubTotal = request.OrderSubTotal,
-                    OrderTotalAfterDiscount = request.OrderTotalAfterDiscount,
+                    OrderSubTotal = orderSubTotal,
+                    OrderTotalAfterDiscount = request.OrderTotalAfterDiscount ?? orderSubTotal,
                     DeliveryAssignedAt = deliveryDriverId.HasValue ? DateTime.UtcNow : null
                 };
 
@@ -428,6 +627,12 @@ namespace RestaurantPOS.Controllers
                 _dbConfig.CustomerOrderItems.AddRange(insertItems);
                 await _dbConfig.SaveChangesAsync();
 
+                if (isCardPayment && request.CardPaymentTransactionId.HasValue)
+                {
+                    await _orderCheckoutService.LinkCardTransactionToOrderAsync(
+                        request.CardPaymentTransactionId.Value,
+                        newOrder.Id);
+                }
 
                 var responseData = new
                 {
@@ -435,6 +640,8 @@ namespace RestaurantPOS.Controllers
                     OrderCode = newOrder.OrderCode,
                     PaymentMethod = newOrder.PaymentMethod,
                     OrderType = newOrder.OrderType,
+                    OrderStatus = newOrder.OrderStatus,
+                    PaymentStatus = newOrder.PaymentStatus,
                     InsertDate = newOrder.InsertDate,
                     Total = insertItems.Sum(x => x.SellingPrice * x.Quantity)
                 };
@@ -448,6 +655,10 @@ namespace RestaurantPOS.Controllers
                         OrderId = newOrder.Id,
                         OrderCode = newOrder.OrderCode,
                         OrderType = newOrder.OrderType,
+                        OrderStatus = newOrder.OrderStatus,
+                        PaymentStatus = newOrder.PaymentStatus,
+                        PaymentMethod = newOrder.PaymentMethod,
+                        ShouldAutoPrint = isCardPayment,
                         DailySequenceNumber = newOrder.DailySequenceNumber,
                         InsertDate = newOrder.InsertDate
                     });
@@ -475,6 +686,33 @@ namespace RestaurantPOS.Controllers
                     Message = $"حدث خطأ أثناء إنشاء الطلب: {ex.Message}"
                 });
             }
+        }
+
+        private static decimal CalculatePublicOrderSubTotal(PublicOrderRequest request, List<Item> items)
+        {
+            if (request.CustomerOrderItem == null || request.CustomerOrderItem.Count == 0)
+            {
+                return 0;
+            }
+
+            decimal total = 0;
+            foreach (var itemRequest in request.CustomerOrderItem)
+            {
+                var currentItem = items.FirstOrDefault(x => x.Id == itemRequest.ItemId);
+                if (currentItem == null)
+                {
+                    continue;
+                }
+
+                var finalPrice = currentItem.DisCountPrice > 0
+                    && currentItem.DisCountPrice != currentItem.SellingPrice
+                    ? currentItem.DisCountPrice
+                    : currentItem.SellingPrice;
+
+                total += finalPrice * itemRequest.Quantity;
+            }
+
+            return total;
         }
 
         private string GenerateOrderCode()
@@ -650,6 +888,131 @@ namespace RestaurantPOS.Controllers
                     Data = null,
                     ErrorStatus = true,
                     Message = $"حدث خطأ أثناء جلب الطلبات: {ex.Message}"
+                });
+            }
+        }
+
+        // GET: api/PublicMenu/{commercialUserId}/orders/{orderId}
+        [AuthorizeSection("publicOrders", "orderQueue", Roles = "Commercial,Admin,POS")]
+        [HttpGet("{commercialUserId}/orders/{orderId}")]
+        public async Task<ActionResult<GlobalResponse<object>>> GetPublicOrderById(int commercialUserId, int orderId)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == userId);
+
+                if (user == null)
+                {
+                    return Unauthorized(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "المستخدم غير موجود"
+                    });
+                }
+
+                var commercialUser = await _dbConfig.Users
+                    .FirstOrDefaultAsync(u => u.Id == commercialUserId && u.Role == "Commercial" && !u.IsDeleted);
+
+                if (commercialUser == null)
+                {
+                    return NotFound(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "المطعم غير موجود"
+                    });
+                }
+
+                if (userId != commercialUserId && user.InsertByUserId != commercialUserId)
+                {
+                    return Forbid();
+                }
+
+                var order = await _dbConfig.CustomerOrders
+                    .Include(x => x.CustomerOrderItem)
+                        .ThenInclude(x => x.Item)
+                    .Include(x => x.DeliveryDriver)
+                    .Where(x => !x.IsDeleted
+                        && x.Id == orderId
+                        && (x.OrderType == "Takeaway" || x.OrderType == "Delivery")
+                        && (x.InsertByUserId == commercialUserId
+                            || (x.User != null && x.User.InsertByUserId == commercialUserId)))
+                    .Select(x => new
+                    {
+                        Id = x.Id,
+                        OrderCode = x.OrderCode,
+                        PaymentMethod = x.PaymentMethod,
+                        OrderType = x.OrderType,
+                        OrderStatus = x.OrderStatus ?? "Pending",
+                        PaymentStatus = x.PaymentStatus ?? "Pending",
+                        HiddenFromQueueDisplay = x.HiddenFromQueueDisplay,
+                        DailySequenceNumber = x.DailySequenceNumber ?? 0,
+                        InsertDate = x.InsertDate,
+                        Notes = x.Notes,
+                        OrderPrice = x.CustomerOrderItem.Sum(item => item.SellingPrice * item.Quantity),
+                        DiscountType = x.DiscountType,
+                        DiscountValue = x.DiscountValue,
+                        DiscountAmount = x.DiscountAmount,
+                        DiscountPercent = x.DiscountPercent,
+                        OrderSubTotal = x.OrderSubTotal,
+                        OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
+                        ItemsCount = x.CustomerOrderItem.Count(),
+                        DeliveryDriverId = x.DeliveryDriverId,
+                        DeliveryDriver = x.DeliveryDriver != null ? new
+                        {
+                            Id = x.DeliveryDriver.Id,
+                            Name = x.DeliveryDriver.Name,
+                            PhoneNumber = x.DeliveryDriver.PhoneNumber,
+                            Address = x.DeliveryDriver.Address,
+                            VehicleType = x.DeliveryDriver.VehicleType,
+                            VehicleNumber = x.DeliveryDriver.VehicleNumber
+                        } : null,
+                        DeliveryStatus = x.DeliveryStatus,
+                        DeliveryAddress = x.DeliveryAddress,
+                        DeliveryPhoneNumber = x.DeliveryPhoneNumber,
+                        DeliveryCustomerName = x.DeliveryCustomerName,
+                        DeliveryFee = x.DeliveryFee,
+                        CustomerOrderItem = x.CustomerOrderItem.Select(item => new
+                        {
+                            Id = item.Id,
+                            ItemId = item.ItemId,
+                            ItemName = item.Item != null ? item.Item.Name : "",
+                            Tags = item.Item != null ? item.Item.Tags : null,
+                            Notes = item.Notes,
+                            Quantity = item.Quantity,
+                            SellingPrice = item.SellingPrice,
+                            Total = item.SellingPrice * item.Quantity
+                        }).ToList()
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (order == null)
+                {
+                    return NotFound(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "الطلب غير موجود"
+                    });
+                }
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = order,
+                    ErrorStatus = false,
+                    Message = "تم جلب الطلب بنجاح"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting public order {OrderId} for Commercial user {CommercialUserId}", orderId, commercialUserId);
+                return StatusCode(500, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ أثناء جلب الطلب: {ex.Message}"
                 });
             }
         }
@@ -1073,6 +1436,8 @@ namespace RestaurantPOS.Controllers
         public string? NewDriverAddress { get; set; }
         public string? NewDriverVehicleType { get; set; }
         public string? NewDriverVehicleNumber { get; set; }
+
+        public int? CardPaymentTransactionId { get; set; }
     }
 }
 

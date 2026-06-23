@@ -192,3 +192,20 @@ export function flatNavItemsForHub(role, t, allowedSections = []) {
     (item) => item.name !== "dashboard" && item.name !== "logout"
   );
 }
+
+/**
+ * عناصر شبكة أقسام النظام (الصفحة أو المودال) مع إدخال الرئيسية حسب الدور.
+ */
+export function buildSectionsHubItems(role, t, allowedSections = []) {
+  const modules = flatNavItemsForHub(role, t, allowedSections);
+  if (role === "Manager" || role === "POS") {
+    return modules;
+  }
+  const dashboardEntry = {
+    name: "dashboard-home",
+    label: t("appHomeLink") || t("home") || "الرئيسية",
+    link: "/dashboard",
+    icon: "house-door-fill",
+  };
+  return [dashboardEntry, ...modules];
+}

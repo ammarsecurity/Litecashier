@@ -157,25 +157,16 @@
       @toggle-pos-fullscreen="toggleFullscreen"
     >
       <template #header-start>
-        <div class="app-top-header-start-group">
-          <router-link
-            v-if="showBackToSections"
-            to="/sections"
-            class="app-top-header-sections-link app-top-header-sections-link--back"
-            :title="$t('backToSections') || $t('systemModules')"
-          >
-            <b-icon icon="arrow-right" class="app-top-header-sections-icon"></b-icon>
-          </router-link>
-          <button
-            type="button"
-            class="app-top-header-icon-btn app-top-header-icon-btn--table-plan"
-            :class="{ 'app-top-header-icon-btn--table-plan-active': posFloorPlanGateVisible }"
-            @click="initPosFloorPlanGate"
-            :title="$t('posFloorPlanGateTitle')"
-          >
-            <b-icon icon="grid-3x3-gap-fill" class="app-top-header-icon"></b-icon>
-          </button>
-        </div>
+        <button
+          type="button"
+          class="app-top-header-tables-btn"
+          :class="{ 'app-top-header-tables-btn--active': posFloorPlanGateVisible }"
+          @click="initPosFloorPlanGate"
+          :title="$t('backToTables') || 'الرجوع إلى الطاولات'"
+        >
+          <b-icon icon="table" class="app-top-header-tables-btn-icon"></b-icon>
+          <span class="app-top-header-tables-btn-text">{{ $t("tables") || "الطاولات" }}</span>
+        </button>
       </template>
     </AppHeader>
     <div
@@ -208,7 +199,15 @@
                     </div>
                   </div>
                   <div class="pos-tables-toolbar-end">
-                    
+                    <button
+                      v-if="selectedTableId"
+                      type="button"
+                      class="pos-table-action-btn pos-table-action-btn--off-table"
+                      @click="startOffTableOrderSession('Takeaway')"
+                    >
+                      <b-icon icon="bag"></b-icon>
+                      <span>{{ $t("newOffTableOrder") || "طلب بدون طاولة" }}</span>
+                    </button>
                     <div v-if="selectedTableId" class="pos-table-actions-buttons pos-table-actions-buttons--inline">
                       <template v-if="selectedTable && selectedTable.status === 'Occupied'">
                         <div class="pos-table-action-transfer-group">
@@ -1717,10 +1716,6 @@ export default {
   },
 
   computed: {
-    showBackToSections() {
-      const role = (localStorage.getItem("role") || "").trim();
-      return role !== "Waiter";
-    },
     posRootTagsList() {
       return rootTags(this.tags);
     },
@@ -2702,6 +2697,10 @@ export default {
       this.resetPosFloorPlanGateTools();
       this.posFloorPlanForceDefaultTab = false;
       this.posFloorPlanGateVisible = false;
+      this.resetOrderSession({
+        orderType: "Takeaway",
+        silent: true,
+      });
     },
     resetPosFloorPlanGateTools() {
       // merge/transfer tools removed
@@ -2720,10 +2719,19 @@ export default {
       };
     },
     cancelFloorPlanGuestModal() {
+      const pendingTable = this.floorPlanGuestModal.table;
       this.$bvModal.hide("modal-floor-table-guests");
       this.floorPlanGuestModal.table = null;
       this.floorPlanGuestModal.tableNumber = "";
       this.floorPlanGuestModal.count = 1;
+      if (
+        pendingTable &&
+        this.selectedTableId === pendingTable.id &&
+        (!Array.isArray(this.carditems) || this.carditems.length === 0) &&
+        !this.activeOrderId
+      ) {
+        this.resetOrderSession({ silent: true });
+      }
     },
     async confirmFloorPlanGuestModal() {
       const table = this.floorPlanGuestModal.table;
@@ -3683,15 +3691,12 @@ export default {
     },
 
     EmptycardList(id) {
-      this.carditems = [];
+      this.resetOrderSession({
+        orderType: "Takeaway",
+        resetPayment: true,
+        silent: true,
+      });
       this.$bvModal.hide(id);
-      this.setPosPaymentMethod("Cash");
-      // Reset table selection and order type when clearing cart
-      if (this.selectedTableId) {
-        this.selectedTableId = null;
-        this.orderForSend.tableId = null;
-        this.orderForSend.orderType = 'Takeaway'; // Default to Takeaway when no table
-      }
     },
     closeModel(id) {
       this.$bvModal.hide(id);
@@ -3764,6 +3769,10 @@ export default {
     },
     addToCartList(item) {
       try {
+        if (!this.guardCartModification()) {
+          return;
+        }
+
         const bodyElement = document.querySelector("body");
         const textDirection = bodyElement.getAttribute("dir");
         const toastPosition = textDirection === "rtl" ? "top-right" : "top-left";
@@ -4028,11 +4037,10 @@ export default {
                 table.status = data.Status;
                 // If table became available, clear selection
                 if (data.Status === 'Available') {
-                  this.selectedTableId = null;
-                  this.orderForSend.tableId = null;
-                  this.orderForSend.orderType = 'Takeaway';
-                  this.carditems = [];
-                  this.tableOrders = [];
+                  this.resetOrderSession({
+                    orderType: "Takeaway",
+                    silent: true,
+                  });
                 }
               }
             }
@@ -4374,29 +4382,6 @@ export default {
 
 <style scoped>
 /* Avoid double frame: main.css styles .pos-tables-section-compact; inner .pos-tables-block is the real card */
-.app-top-header-icon-btn--table-plan {
-  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
-  background: color-mix(in srgb, var(--primary-color) 14%, var(--bg-tertiary));
-  color: var(--primary-color);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-color) 20%, transparent),
-    0 6px 16px color-mix(in srgb, var(--primary-color) 20%, transparent);
-}
-
-.app-top-header-icon-btn--table-plan:hover {
-  background: color-mix(in srgb, var(--primary-color) 22%, var(--bg-tertiary));
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-color) 32%, transparent),
-    0 8px 18px color-mix(in srgb, var(--primary-color) 30%, transparent);
-}
-
-.app-top-header-icon-btn--table-plan-active {
-  border-color: var(--primary-color);
-  background: color-mix(in srgb, var(--primary-color) 28%, var(--bg-tertiary));
-  color: var(--text-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 42%, transparent),
-    0 10px 22px color-mix(in srgb, var(--primary-color) 35%, transparent);
-}
-
 .pos-tables-section-compact {
   background: transparent;
   border: none;
@@ -5027,7 +5012,7 @@ export default {
   gap: 0.65rem;
 }
 
-.pos-table-action-btn {
+.pos-table-action-btn:not(.pos-table-action-btn--off-table) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -6146,7 +6131,7 @@ export default {
 .pos-floor-plan-gate--fullscreen.pos-floor-plan-gate--page {
   position: fixed;
   inset: 0;
-  z-index: 10050;
+  z-index: 999;
   display: flex;
   flex-direction: column;
   align-items: stretch;

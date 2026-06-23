@@ -23,10 +23,6 @@
             <p class="po-tagline">{{ $t('orderOnlineHint') || 'اختر أصنافك وأكّد طلبك' }}</p>
           </div>
         </div>
-        <router-link :to="menuLink" class="po-menu-link">
-          <b-icon icon="book"></b-icon>
-          {{ $t('viewMenu') || 'عرض المنيو' }}
-        </router-link>
       </div>
     </header>
 
@@ -47,25 +43,6 @@
       <!-- Toolbar -->
       <div class="po-toolbar">
         <div class="po-toolbar-inner">
-          <div class="po-search">
-            <b-icon icon="search" class="po-search-icon"></b-icon>
-            <input
-              v-model="searchQuery"
-              type="search"
-              class="po-search-input"
-              :placeholder="$t('searchMenu') || 'ابحث عن صنف...'"
-              autocomplete="off"
-            />
-            <button
-              v-if="searchQuery"
-              type="button"
-              class="po-search-clear"
-              @click="searchQuery = ''"
-            >
-              <b-icon icon="x-lg"></b-icon>
-            </button>
-          </div>
-
           <div v-if="categories.length" class="po-cats">
             <button
               type="button"
@@ -161,7 +138,7 @@
 
         <div v-if="menuSections.length === 0" class="po-empty">
           <b-icon icon="inbox"></b-icon>
-          <p>{{ searchQuery ? ($t('noSearchResults') || 'لا توجد نتائج') : ($t('noItemsInCategory') || 'لا توجد عناصر') }}</p>
+          <p>{{ $t('noItemsInCategory') || 'لا توجد عناصر' }}</p>
         </div>
       </main>
     </template>
@@ -212,6 +189,7 @@
                 {{ $t('cash') || 'كاش' }}
               </button>
               <button
+                v-if="cardPaymentEnabled"
                 type="button"
                 class="po-pay-opt"
                 :class="{ 'po-pay-opt--active': paymentMethod === 'Card' }"
@@ -221,14 +199,6 @@
                 {{ $t('card') || 'بطاقة' }}
               </button>
             </div>
-
-            <label class="po-notes-label">{{ $t('notes') || 'ملاحظات' }} ({{ $t('optional') || 'اختياري' }})</label>
-            <textarea
-              v-model="orderNotes"
-              class="po-notes"
-              :placeholder="$t('notesPlaceholder') || 'أضف ملاحظات للطلب...'"
-              rows="2"
-            ></textarea>
 
             <button
               type="button"
@@ -248,6 +218,22 @@
       </transition>
     </div>
 
+    <CardPaymentWaitModal
+      theme="light"
+      :visible.sync="cardPaymentWait.show"
+      :status="cardPaymentWait.status"
+      :amount="cardPaymentWait.amount"
+      :currency-code="cardPaymentWait.currencyCode"
+      :device-name="cardPaymentWait.deviceName"
+      :message="cardPaymentWait.message"
+      :auth-code="cardPaymentWait.authCode"
+      :ref-no="cardPaymentWait.refNo"
+      :error-message="cardPaymentWait.errorMessage"
+      :cancelling="cardPaymentWait.cancelling"
+      @cancel="onPublicCardPaymentWaitCancel"
+      @close="onPublicCardPaymentWaitClose"
+    />
+
     <!-- Success -->
     <transition name="po-fade">
       <div v-if="showSuccessModal" class="po-success-backdrop">
@@ -264,15 +250,7 @@
           </div>
 
           <div class="po-success-actions">
-            <router-link
-              :to="trackLink"
-              class="po-btn po-btn--primary"
-              @click.native="showSuccessModal = false"
-            >
-              <b-icon icon="geo-alt"></b-icon>
-              {{ $t('trackOrder') || 'تتبع الطلب' }}
-            </router-link>
-            <button type="button" class="po-btn po-btn--ghost" @click="resetOrder">
+            <button type="button" class="po-btn po-btn--primary" @click="resetOrder">
               {{ $t('newOrder') || 'طلب جديد' }}
             </button>
           </div>
@@ -289,11 +267,17 @@
 
 <script>
 import { HTTP } from '../http/api.js';
+import CardPaymentWaitModal from '@/components/CardPaymentWaitModal.vue';
+import publicCardPaymentMixin from '@/mixins/publicCardPaymentMixin.js';
 
 const UNCategorized = 'أخرى';
 
 export default {
   name: 'PublicOrderView',
+  components: {
+    CardPaymentWaitModal,
+  },
+  mixins: [publicCardPaymentMixin],
   data() {
     return {
       loading: true,
@@ -301,7 +285,6 @@ export default {
       items: [],
       categories: [],
       selectedCategory: null,
-      searchQuery: '',
       restaurantName: '',
       restaurantLogo: null,
       logoError: false,
@@ -309,19 +292,12 @@ export default {
       cartItems: [],
       showCart: false,
       paymentMethod: 'Cash',
-      orderNotes: '',
       submitting: false,
       showSuccessModal: false,
       orderCode: '',
     };
   },
   computed: {
-    menuLink() {
-      return `/menu/${this.commercialUserId}`;
-    },
-    trackLink() {
-      return `/order-status/${this.commercialUserId}/${this.orderCode}`;
-    },
     categoryCounts() {
       const counts = {};
       this.items.forEach((item) => {
@@ -335,22 +311,14 @@ export default {
       if (this.selectedCategory) {
         list = list.filter((item) => (item.tags || UNCategorized) === this.selectedCategory);
       }
-      const q = this.searchQuery.trim().toLowerCase();
-      if (!q) return list;
-      return list.filter(
-        (item) =>
-          (item.name && item.name.toLowerCase().includes(q)) ||
-          (item.description && item.description.toLowerCase().includes(q)) ||
-          (item.tags && item.tags.toLowerCase().includes(q))
-      );
+      return list;
     },
     menuSections() {
       const items = this.filteredItems;
       if (!items.length) return [];
 
-      if (this.selectedCategory || this.searchQuery.trim()) {
-        const name = this.selectedCategory || (this.$t('searchResults') || 'نتائج البحث');
-        return [{ name, items }];
+      if (this.selectedCategory) {
+        return [{ name: this.selectedCategory, items }];
       }
 
       const groups = {};
@@ -385,12 +353,33 @@ export default {
 
     this.loadMenu();
     this.loadCategories();
+    this.loadPaymentCapabilities();
     document.documentElement.classList.add('public-order-page');
   },
   beforeDestroy() {
     document.documentElement.classList.remove('public-order-page');
   },
   methods: {
+    async loadPaymentCapabilities() {
+      if (!this.commercialUserId) {
+        this.cardPaymentEnabled = false;
+        return;
+      }
+      try {
+        const res = await HTTP.get(`PublicMenu/${this.commercialUserId}/payment-capabilities`);
+        const enabled = res?.data?.data?.cardPaymentEnabled === true;
+        this.cardPaymentEnabled = enabled;
+        if (!enabled && this.paymentMethod === 'Card') {
+          this.paymentMethod = 'Cash';
+        }
+      } catch (e) {
+        console.warn('loadPaymentCapabilities', e);
+        this.cardPaymentEnabled = false;
+        if (this.paymentMethod === 'Card') {
+          this.paymentMethod = 'Cash';
+        }
+      }
+    },
     async loadMenu() {
       try {
         this.loading = true;
@@ -483,14 +472,31 @@ export default {
       try {
         this.submitting = true;
 
+        let cardPaymentTransactionId = null;
+        if (this.paymentMethod === 'Card') {
+          if (!this.cardPaymentEnabled) {
+            this.$bvToast.toast(
+              this.$t('noPaymentDeviceConfigured') || 'جهاز الدفع غير مُعد',
+              { title: this.$t('error') || 'خطأ', variant: 'danger', solid: true }
+            );
+            return;
+          }
+          cardPaymentTransactionId = await this.processPublicCardPayment(this.cartTotal);
+          if (!cardPaymentTransactionId) {
+            return;
+          }
+        }
+
         const orderRequest = {
           PaymentMethod: this.paymentMethod,
+          CardPaymentTransactionId: cardPaymentTransactionId,
           CustomerOrderItem: this.cartItems.map((item) => ({
             ItemId: item.id,
             Quantity: item.quantity,
           })),
           OrderType: 'Takeaway',
-          Notes: this.orderNotes || null,
+          OrderSubTotal: this.cartTotal,
+          OrderTotalAfterDiscount: this.cartTotal,
         };
 
         const response = await HTTP.post(`PublicMenu/${this.commercialUserId}/order`, orderRequest);
@@ -519,7 +525,6 @@ export default {
     },
     resetOrder() {
       this.cartItems = [];
-      this.orderNotes = '';
       this.paymentMethod = 'Cash';
       this.showSuccessModal = false;
       this.orderCode = '';
@@ -534,15 +539,15 @@ export default {
 
 <style scoped>
 .po {
-  --po-bg: #f7f3ee;
+  --po-bg: #f8fafc;
   --po-surface: #ffffff;
-  --po-accent: #b8864a;
-  --po-accent-dark: #966b35;
-  --po-accent-soft: rgba(184, 134, 74, 0.12);
-  --po-text: #1c1917;
-  --po-muted: #78716c;
-  --po-border: #e7e0d8;
-  --po-shadow: 0 4px 24px rgba(28, 25, 23, 0.08);
+  --po-accent: var(--primary-color, #6366f1);
+  --po-accent-dark: #4f46e5;
+  --po-accent-soft: color-mix(in srgb, var(--primary-color, #6366f1) 12%, transparent);
+  --po-text: #0f172a;
+  --po-muted: #64748b;
+  --po-border: #e2e8f0;
+  --po-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
   --po-radius: 16px;
 
   min-height: 100vh;
@@ -556,16 +561,22 @@ export default {
 .po-hero {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(145deg, #2c2419 0%, #1a1612 55%, #0f0d0b 100%);
-  color: #fff;
+  background: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #f8fafc 42%,
+    color-mix(in srgb, var(--po-accent) 10%, #f8fafc) 100%
+  );
+  color: var(--po-text);
+  border-bottom: 1px solid var(--po-border);
 }
 
 .po-hero-bg {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 60% at 80% 20%, rgba(184, 134, 74, 0.25), transparent),
-    radial-gradient(ellipse 60% 50% at 10% 80%, rgba(184, 134, 74, 0.12), transparent);
+    radial-gradient(ellipse 75% 70% at 95% 5%, color-mix(in srgb, var(--po-accent) 22%, transparent), transparent),
+    radial-gradient(ellipse 55% 55% at 5% 95%, color-mix(in srgb, var(--po-accent) 12%, transparent), transparent);
   pointer-events: none;
 }
 
@@ -589,7 +600,8 @@ export default {
   border-radius: 50%;
   background: #fff;
   padding: 0.4rem;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--po-border);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--po-accent) 18%, transparent);
 }
 
 .po-logo-fallback {
@@ -597,7 +609,7 @@ export default {
   height: 76px;
   border-radius: 50%;
   background: var(--po-accent-soft);
-  border: 2px solid rgba(184, 134, 74, 0.5);
+  border: 2px solid color-mix(in srgb, var(--po-accent) 35%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -608,8 +620,9 @@ export default {
 .po-eyebrow {
   margin: 0 0 0.2rem;
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.55);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--po-accent-dark);
 }
 
 .po-title {
@@ -617,36 +630,15 @@ export default {
   font-size: clamp(1.375rem, 4vw, 1.875rem);
   font-weight: 800;
   line-height: 1.25;
-  color: #fff8f0;
+  color: var(--po-text);
   background: none;
-  -webkit-text-fill-color: #fff8f0;
+  -webkit-text-fill-color: var(--po-text);
 }
 
 .po-tagline {
   margin: 0;
   font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.62);
-}
-
-.po-menu-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 1rem;
-  padding: 0.45rem 0.875rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 0.8125rem;
-  font-weight: 700;
-  text-decoration: none;
-  transition: background 0.2s;
-}
-
-.po-menu-link:hover {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  color: var(--po-muted);
 }
 
 /* States */
@@ -682,56 +674,17 @@ export default {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: rgba(247, 243, 238, 0.92);
+  background: color-mix(in srgb, #ffffff 90%, var(--po-bg));
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--po-border);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
 }
 
 .po-toolbar-inner {
   max-width: 920px;
   margin: 0 auto;
-  padding: 0.875rem 1.25rem 1rem;
-}
-
-.po-search {
-  position: relative;
-  margin-bottom: 0.75rem;
-}
-
-.po-search-icon {
-  position: absolute;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--po-muted);
-}
-
-.po-search-input {
-  width: 100%;
-  padding: 0.75rem 2.75rem 0.75rem 2.5rem;
-  border: 1.5px solid var(--po-border);
-  border-radius: 999px;
-  background: var(--po-surface);
-  font-family: inherit;
-  font-size: 0.9375rem;
-  color: var(--po-text);
-}
-
-.po-search-input:focus {
-  outline: none;
-  border-color: var(--po-accent);
-  box-shadow: 0 0 0 3px var(--po-accent-soft);
-}
-
-.po-search-clear {
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--po-muted);
-  cursor: pointer;
+  padding: 0.75rem 1.25rem 0.875rem;
 }
 
 .po-cats {
@@ -739,6 +692,7 @@ export default {
   gap: 0.5rem;
   overflow-x: auto;
   scrollbar-width: none;
+  padding-bottom: 0.15rem;
 }
 
 .po-cats::-webkit-scrollbar {
@@ -757,19 +711,31 @@ export default {
   font-family: inherit;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--po-muted);
+  color: var(--po-text);
   cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.po-cat:hover {
+  border-color: color-mix(in srgb, var(--po-accent) 45%, var(--po-border));
+  color: var(--po-accent-dark);
 }
 
 .po-cat--active {
   background: var(--po-accent);
   border-color: var(--po-accent);
   color: #fff;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--po-accent) 30%, transparent);
 }
 
 .po-cat-count {
   font-size: 0.75rem;
-  opacity: 0.75;
+  font-weight: 700;
+  color: var(--po-muted);
+}
+
+.po-cat--active .po-cat-count {
+  color: rgba(255, 255, 255, 0.92);
 }
 
 /* Main */
@@ -800,6 +766,7 @@ export default {
   font-size: 1.125rem;
   font-weight: 800;
   white-space: nowrap;
+  color: var(--po-text);
 }
 
 .po-section-line {
@@ -836,8 +803,8 @@ export default {
 }
 
 .po-card--in-cart {
-  border-color: rgba(184, 134, 74, 0.55);
-  box-shadow: 0 4px 20px rgba(184, 134, 74, 0.15);
+  border-color: color-mix(in srgb, var(--po-accent) 45%, transparent);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--po-accent) 18%, transparent);
 }
 
 .po-card-media {
@@ -888,6 +855,7 @@ export default {
   font-size: 0.9375rem;
   font-weight: 700;
   line-height: 1.35;
+  color: var(--po-text);
 }
 
 .po-card-desc {
@@ -939,7 +907,7 @@ export default {
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  box-shadow: 0 3px 10px rgba(184, 134, 74, 0.35);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--po-accent) 35%, transparent);
 }
 
 .po-qty-ctrl {
@@ -1097,8 +1065,7 @@ export default {
   padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0));
 }
 
-.po-checkout-label,
-.po-notes-label {
+.po-checkout-label {
   margin: 0 0 0.5rem;
   font-size: 0.875rem;
   font-weight: 700;
@@ -1133,24 +1100,6 @@ export default {
   background: var(--po-accent-soft);
   border-color: var(--po-accent);
   color: var(--po-accent-dark);
-}
-
-.po-notes {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1.5px solid var(--po-border);
-  border-radius: 12px;
-  font-family: inherit;
-  font-size: 0.875rem;
-  resize: vertical;
-  margin-bottom: 1rem;
-  background: var(--po-bg);
-  color: var(--po-text);
-}
-
-.po-notes:focus {
-  outline: none;
-  border-color: var(--po-accent);
 }
 
 .po-submit {
@@ -1337,12 +1286,23 @@ export default {
 <style>
 html.public-order-page,
 html.public-order-page body {
-  background: #f7f3ee !important;
-  color: #1c1917 !important;
+  background: #f8fafc !important;
+  color: #0f172a !important;
 }
 
 html.public-order-page #app {
-  background: #f7f3ee;
+  background: #f8fafc;
+}
+
+html.public-order-page .po h2,
+html.public-order-page .po h3,
+html.public-order-page .po-card-name,
+html.public-order-page .po-section-title {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  background: none !important;
+  background-clip: unset !important;
+  -webkit-background-clip: unset !important;
 }
 
 html.public-order-page .po-hero h1,
@@ -1354,13 +1314,19 @@ html.public-order-page .po-hero p {
 }
 
 html.public-order-page .po-title {
-  color: #fff8f0 !important;
-  -webkit-text-fill-color: #fff8f0 !important;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+html.public-order-page .po-eyebrow {
+  color: #4f46e5 !important;
+}
+
+html.public-order-page .po-tagline {
+  color: #64748b !important;
 }
 
 html.public-order-page .po-empty p,
-html.public-order-page .po-tagline,
-html.public-order-page .po-eyebrow,
 html.public-order-page .po-footer,
 html.public-order-page .po-state,
 html.public-order-page .po-hint {
@@ -1369,6 +1335,81 @@ html.public-order-page .po-hint {
 }
 
 html.public-order-page .po-empty p {
-  color: #78716c !important;
+  color: #64748b !important;
+}
+
+/* Toasts — match public order light / indigo theme */
+html.public-order-page .b-toaster {
+  padding: 1rem;
+  max-width: min(92vw, 380px);
+}
+
+html.public-order-page .b-toast {
+  --po-toast-accent: #6366f1;
+  overflow: hidden;
+  border-radius: 16px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-inline-start: 4px solid var(--po-toast-accent) !important;
+  background: #ffffff !important;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08) !important;
+  font-family: 'Cairo', sans-serif;
+  color: #0f172a !important;
+  min-width: min(92vw, 320px);
+  max-width: 380px;
+}
+
+html.public-order-page .b-toast-solid.b-toast-danger {
+  --po-toast-accent: #ef4444;
+}
+
+html.public-order-page .b-toast-solid.b-toast-success {
+  --po-toast-accent: #6366f1;
+}
+
+html.public-order-page .b-toast-solid.b-toast-warning {
+  --po-toast-accent: #f59e0b;
+}
+
+html.public-order-page .b-toast-solid.b-toast-info {
+  --po-toast-accent: #6366f1;
+}
+
+html.public-order-page .b-toast-solid.b-toast-danger,
+html.public-order-page .b-toast-solid.b-toast-success,
+html.public-order-page .b-toast-solid.b-toast-warning,
+html.public-order-page .b-toast-solid.b-toast-info,
+html.public-order-page .b-toast-solid.b-toast-default {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.public-order-page .b-toast .toast-header {
+  background: transparent !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+  font-weight: 700;
+  padding: 0.75rem 1rem 0.5rem !important;
+}
+
+html.public-order-page .b-toast .toast-header strong {
+  color: #0f172a !important;
+}
+
+html.public-order-page .b-toast .toast-header .close {
+  color: #64748b !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+html.public-order-page .b-toast .toast-header .close:hover {
+  color: #0f172a !important;
+  background: color-mix(in srgb, #6366f1 10%, #f1f5f9);
+}
+
+html.public-order-page .b-toast .toast-body {
+  padding: 0.5rem 1rem 0.85rem !important;
+  color: #64748b !important;
+  font-size: 0.875rem;
+  line-height: 1.45;
 }
 </style>

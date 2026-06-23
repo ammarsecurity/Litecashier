@@ -23,20 +23,20 @@
           <div v-if="!serverStatus && !loading" class="server-alert-card">
             <div class="server-alert-header">
               <b-icon icon="exclamation-triangle-fill" class="alert-icon"></b-icon>
-              <h2 class="alert-title">{{ $t("serverNotAvailable") || "الخادم غير متاح" }}</h2>
+              <h2 class="alert-title">{{ $t("serverNotAvailable") || "خادم الطباعة غير متصل" }}</h2>
             </div>
             <div class="server-alert-body">
               <p class="alert-message">
-                {{ $t("serverNotAvailableMessage") || "الخدمة غير متاحة. يرجى تحميل وتشغيل نظام الطباعة (Print Server) أولاً" }}
+                {{ $t("serverNotAvailableMessage") || "يمكنك إعداد الطابعات أدناه. لتفعيل الطباعة الفعلية، شغّل Print Server على هذا الجهاز." }}
               </p>
-              <button 
-                class="users-add-button" 
-                @click="downloadPrintServer"
-                :disabled="downloading"
+              <button
+                class="users-add-button"
+                type="button"
+                @click="showInstallInstructions"
               >
-                <b-icon icon="download" class="button-icon"></b-icon>
+                <b-icon icon="info-circle" class="button-icon"></b-icon>
                 <span class="button-text">
-                  {{ downloading ? ($t("downloading") || "جاري التحميل...") : ($t("downloadPrintServer") || "تحميل Print Server") }}
+                  {{ showInstallGuide ? ($t("hideInstallGuide") || "إخفاء التعليمات") : ($t("showInstallGuide") || "تعليمات التشغيل") }}
                 </span>
               </button>
 
@@ -44,46 +44,46 @@
               <div v-if="showInstallGuide" class="install-instructions-section">
                 <h4 class="instructions-title">
                   <b-icon icon="info-circle-fill" class="me-2"></b-icon>
-                  {{ $t("installInstructions") || "تعليمات التثبيت والتشغيل" }}
+                  {{ $t("installInstructions") || "تعليمات تشغيل Print Server (C#)" }}
                 </h4>
                 <ol class="instructions-list-detailed">
                   <li>
                     <strong>{{ $t("installStep1") || "الخطوة 1:" }}</strong>
-                    {{ $t("installStep1Desc") || "حمّل ملف Print Server من الزر أعلاه" }}
+                    {{ $t("installStep1Desc") }}
                   </li>
                   <li>
                     <strong>{{ $t("installStep2") || "الخطوة 2:" }}</strong>
-                    {{ $t("installStep2Desc") || "استخرج الملف المضغوط (ZIP) في أي مجلد على جهازك" }}
+                    {{ $t("installStep2Desc") }}
                   </li>
                   <li>
                     <strong>{{ $t("installStep3") || "الخطوة 3:" }}</strong>
-                    {{ $t("installStep3Desc") || "انقر نقراً مزدوجاً على ملف start_print_server.bat (في Windows)" }}
+                    {{ $t("installStep3Desc") }}
                   </li>
                   <li>
                     <strong>{{ $t("installStep4") || "الخطوة 4:" }}</strong>
-                    {{ $t("installStep4Desc") || "سيتم تثبيت المتطلبات تلقائياً وتشغيل الخادم. انتظر حتى تظهر رسالة 'Starting server on http://localhost:5000'" }}
+                    {{ $t("installStep4Desc") }}
                   </li>
                   <li>
                     <strong>{{ $t("installStep5") || "الخطوة 5:" }}</strong>
-                    {{ $t("installStep5Desc") || "ارجع إلى هذه الصفحة واضغط زر 'تحديث' لفحص حالة الخادم" }}
+                    {{ $t("installStep5Desc") }}
                   </li>
                 </ol>
                 
                 <div class="alternative-instructions">
-                  <h5>{{ $t("alternativeMethod") || "طريقة بديلة (يدوية):" }}</h5>
+                  <h5>{{ $t("alternativeMethod") || "طريقة بديلة (سطر الأوامر):" }}</h5>
                   <div class="command-box-large">
-                    <code class="command-text-large">dotnet run --project restaurant_back/PrintServer</code>
+                    <code class="command-text-large">{{ printServerManualCommand }}</code>
                     <button 
                       class="btn-copy-large" 
-                      @click="copyCommand('dotnet run --project restaurant_back/PrintServer')"
-                      :title="$t('copyCommand') || 'نسخ الأمر'"
+                      @click="copyCommand(printServerManualCommand)"
+                      :title="$t('copyCommand') || 'نسخ'"
                     >
                       <b-icon icon="clipboard"></b-icon>
                       {{ $t("copyCommand") || "نسخ" }}
                     </button>
                   </div>
                   <p class="command-help">
-                    {{ $t("commandHelp") || "افتح Terminal أو Command Prompt في مجلد المشروع وشغّل الأمر أعلاه" }}
+                    {{ $t("commandHelp") }}
                   </p>
                 </div>
               </div>
@@ -118,7 +118,7 @@
           </div>
 
           <!-- Printers Management Section -->
-          <div v-if="serverStatus" class="printers-section">
+          <div class="printers-section">
             <!-- Section Header -->
             <div class="users-header-section">
               <div class="users-header-content">
@@ -169,6 +169,9 @@
                     <div class="printer-badges">
                       <span v-if="printer.isMain" class="badge badge-main">
                         {{ $t("mainPrinter") || "رئيسية" }}
+                      </span>
+                      <span v-if="printer.isPublicOrderPrinter" class="badge badge-public">
+                        {{ $t("publicOrderPrinter") || "طلبات عامة" }}
                       </span>
                       <span v-if="!printer.isActive" class="badge badge-inactive">
                         {{ $t("inactive") || "غير مفعل" }}
@@ -238,7 +241,7 @@
           </div>
 
           <!-- Tag Printers Management Section -->
-          <div v-if="serverStatus" class="tag-printers-section">
+          <div class="tag-printers-section">
             <div class="users-header-section">
               <div class="users-header-content">
                 <h2 class="section-title">{{ $t("tagPrintersManagement") || "إدارة طباعة الأقسام" }}</h2>
@@ -408,6 +411,22 @@
               </span>
               <span class="form-toggle-switch" aria-hidden="true"></span>
             </label>
+            <label
+              class="form-toggle-card form-toggle-card--accent-info"
+              :class="{ 'form-toggle-card--on': printerForm.isPublicOrderPrinter }"
+            >
+              <input v-model="printerForm.isPublicOrderPrinter" type="checkbox" class="form-toggle-card-input" />
+              <span class="form-toggle-card-body">
+                <span class="form-toggle-card-icon form-toggle-card-icon--info">
+                  <b-icon icon="bag-check-fill"></b-icon>
+                </span>
+                <span class="form-toggle-card-text">
+                  <span class="form-toggle-card-title">{{ $t("publicOrderPrinter") || "طابعة الطلبات العامة" }}</span>
+                  <span class="form-toggle-card-desc">{{ $t("publicOrderPrinterHint") || "تطبع إيصال طلبات الصفحة العامة للزبون" }}</span>
+                </span>
+              </span>
+              <span class="form-toggle-switch" aria-hidden="true"></span>
+            </label>
           </div>
           <div class="users-form-actions">
             <button type="submit" class="users-form-button users-form-button-primary" :disabled="savingPrinter">
@@ -515,6 +534,22 @@
                 <span class="form-toggle-card-text">
                   <span class="form-toggle-card-title">{{ $t("mainPrinter") || "طابعة رئيسية" }}</span>
                   <span class="form-toggle-card-desc">{{ $t("mainPrinterHint") || "تطبع كل الفواتير والإيصالات" }}</span>
+                </span>
+              </span>
+              <span class="form-toggle-switch" aria-hidden="true"></span>
+            </label>
+            <label
+              class="form-toggle-card form-toggle-card--accent-info"
+              :class="{ 'form-toggle-card--on': printerForm.isPublicOrderPrinter }"
+            >
+              <input v-model="printerForm.isPublicOrderPrinter" type="checkbox" class="form-toggle-card-input" />
+              <span class="form-toggle-card-body">
+                <span class="form-toggle-card-icon form-toggle-card-icon--info">
+                  <b-icon icon="bag-check-fill"></b-icon>
+                </span>
+                <span class="form-toggle-card-text">
+                  <span class="form-toggle-card-title">{{ $t("publicOrderPrinter") || "طابعة الطلبات العامة" }}</span>
+                  <span class="form-toggle-card-desc">{{ $t("publicOrderPrinterHint") || "تطبع إيصال طلبات الصفحة العامة للزبون" }}</span>
                 </span>
               </span>
               <span class="form-toggle-switch" aria-hidden="true"></span>
@@ -747,7 +782,8 @@ export default {
         printerType: 'windows',
         printCategory: '',
         isActive: true,
-        isMain: false
+        isMain: false,
+        isPublicOrderPrinter: false
       },
       printForm: {
         printerId: null,
@@ -757,14 +793,19 @@ export default {
       availablePrintCategories: [
         { value: 'Receipt', label: 'كاشير رئيسية' },
         { value: 'Kitchen', label: 'مطبخ' },
-        { value: 'CustomerOrder', label: 'طلبات الزبائن' },
+        { value: 'CustomerOrder', label: 'الطلبات العامة' },
         { value: 'Report', label: 'تقارير' },
         { value: 'Other', label: 'أخرى' }
       ]
     };
   },
+  computed: {
+    printServerManualCommand() {
+      return "cd restaurant_back\\PrintServer && start_print_server.bat";
+    },
+  },
   mounted() {
-    this.checkServerHealth();
+    this.checkServerHealth(true);
     this.loadManagedPrinters();
     this.loadPrinters();
     this.loadTagPrinters();
@@ -775,12 +816,19 @@ export default {
     this.stopStatusPolling();
   },
   methods: {
-    async checkServerHealth() {
+    async checkServerHealth(silent = false) {
       this.loading = true;
       try {
         const response = await fetch(`${PRINT_SERVER_URL}/health`);
         if (response.ok) {
           this.serverStatus = await response.json();
+          if (!silent) {
+            this.$toast.success(this.$i18n.t("serverStatusUpdated") || 'تم تحديث حالة الخادم', {
+              position: "top-right",
+              timeout: 3000,
+              rtl: this.$i18n.locale === 'ar'
+            });
+          }
         } else {
           this.serverStatus = null;
         }
@@ -1073,7 +1121,8 @@ export default {
         printerType: printer.printerType || 'windows',
         printCategory: printer.printCategory || '',
         isActive: printer.isActive,
-        isMain: printer.isMain
+        isMain: printer.isMain,
+        isPublicOrderPrinter: printer.isPublicOrderPrinter || false
       };
       this.$bvModal.show('modal-editPrinter');
     },
@@ -1248,7 +1297,8 @@ export default {
         printerType: 'windows',
         printCategory: '',
         isActive: true,
-        isMain: false
+        isMain: false,
+        isPublicOrderPrinter: false
       };
       this.selectedPrinter = null;
     },
@@ -1479,6 +1529,12 @@ export default {
   background: rgba(255, 255, 255, 0.25);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.badge-public {
+  background: rgba(99, 102, 241, 0.25);
+  color: #ffffff;
+  border: 1px solid rgba(99, 102, 241, 0.45);
 }
 
 .badge-inactive {
