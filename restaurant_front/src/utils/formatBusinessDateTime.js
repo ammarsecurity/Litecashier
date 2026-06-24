@@ -36,6 +36,31 @@ export function businessDateStringFrom(dateTime) {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
+/** Display time only (12-hour) in business TZ. */
+export function formatBusinessTime(dateTime) {
+  if (dateTime == null || dateTime === "") return "";
+
+  const timeFormatOptions = {
+    timeZone: BUSINESS_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  };
+
+  const d = new Date(dateTime);
+  if (Number.isNaN(d.getTime())) {
+    const s = String(dateTime);
+    const timePart = s.includes("T") ? s.split("T")[1] : s.split(" ")[1];
+    if (!timePart) return "";
+    const [hours, minutes] = timePart.split(":");
+    const parsed = new Date();
+    parsed.setHours(Number(hours) || 0, Number(minutes) || 0, 0, 0);
+    return new Intl.DateTimeFormat("ar-IQ", timeFormatOptions).format(parsed);
+  }
+
+  return new Intl.DateTimeFormat("ar-IQ", timeFormatOptions).format(d);
+}
+
 /** Display date only (no time) in business TZ. */
 export function formatBusinessDate(dateTime) {
   if (dateTime == null || dateTime === "") return "";

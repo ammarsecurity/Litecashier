@@ -1263,6 +1263,17 @@ namespace RestaurantPOS.Controllers
 
                 if (!string.IsNullOrEmpty(request.OrderStatus))
                 {
+                    if (string.Equals(request.OrderStatus, "Cancelled", StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(oldOrderStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return BadRequest(new GlobalResponse<object>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "cannotCancelNonPendingOrder"
+                        });
+                    }
+
                     order.OrderStatus = request.OrderStatus;
                     
                     // Auto-update DeliveryStatus when OrderStatus is Completed for Delivery orders

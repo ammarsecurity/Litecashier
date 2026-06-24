@@ -13,6 +13,19 @@ export function filterQueuePending(orders) {
   );
 }
 
+/** إلغاء الطلب العام مسموح فقط عندما تكون حالة الطلب Pending */
+export function canCancelPendingPublicOrder(order) {
+  return normalizeOrderStatus(order?.orderStatus) === "Pending";
+}
+
+export async function cancelPendingPublicOrder(http, commercialUserId, orderId) {
+  const response = await http.put(
+    `PublicMenu/${commercialUserId}/orders/${orderId}/status`,
+    { OrderStatus: "Cancelled" }
+  );
+  return response.data;
+}
+
 export function filterQueueProcessing(orders) {
   return (orders || []).filter(
     (o) => normalizeOrderStatus(o.orderStatus) === "Processing"

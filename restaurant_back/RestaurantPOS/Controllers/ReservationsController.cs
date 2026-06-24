@@ -26,17 +26,20 @@ namespace RestaurantPOS.Controllers
         private readonly ILogger<ReservationsController> _logger;
         private readonly IMapper _mapper;
         private readonly IReservationTableSyncService _reservationTableSync;
+        private readonly IReservationExpiryService _reservationExpiry;
 
         public ReservationsController(
             ILogger<ReservationsController> logger,
             DbConfig dbConfig,
             IMapper mapper,
-            IReservationTableSyncService reservationTableSync)
+            IReservationTableSyncService reservationTableSync,
+            IReservationExpiryService reservationExpiry)
         {
             _logger = logger;
             _dbConfig = dbConfig;
             _mapper = mapper;
             _reservationTableSync = reservationTableSync;
+            _reservationExpiry = reservationExpiry;
         }
 
         private int GetCommercialUserId()
@@ -341,6 +344,7 @@ namespace RestaurantPOS.Controllers
         {
             var commercialUserId = GetCommercialUserId();
             var actingUserId = GetActingUserId();
+            await _reservationExpiry.ExpireOverdueForCommercialAsync(commercialUserId, actingUserId);
             await _reservationTableSync.ReconcileAllTablesAsync(commercialUserId, actingUserId);
 
             return Ok(new GlobalResponse<int>
@@ -471,6 +475,9 @@ namespace RestaurantPOS.Controllers
         public async Task<ActionResult<GlobalResponse<TableActiveReservationDto?>>> GetActiveReservationForTable(int tableId)
         {
             var commercialUserId = GetCommercialUserId();
+            var actingUserId = GetActingUserId();
+            await _reservationExpiry.ExpireOverdueForCommercialAsync(commercialUserId, actingUserId);
+
             var now = DateTime.Now;
 
             var candidates = await _dbConfig.Reservations

@@ -152,6 +152,7 @@
       rounded="sm"
     >
     <AppHeader
+      v-if="!posFloorPlanGateVisible"
       :show-pos-fullscreen-button="true"
       :pos-fullscreen-active="isFullscreen"
       @toggle-pos-fullscreen="toggleFullscreen"
@@ -199,24 +200,19 @@
                     </div>
                   </div>
                   <div class="pos-tables-toolbar-end">
-                    <button
-                      v-if="selectedTableId"
-                      type="button"
-                      class="pos-table-action-btn pos-table-action-btn--off-table"
-                      @click="startOffTableOrderSession('Takeaway')"
-                    >
-                      <b-icon icon="bag"></b-icon>
-                      <span>{{ $t("newOffTableOrder") || "طلب بدون طاولة" }}</span>
-                    </button>
                     <div v-if="selectedTableId" class="pos-table-actions-buttons pos-table-actions-buttons--inline">
-                      <template v-if="selectedTable && selectedTable.status === 'Occupied'">
-                        <div class="pos-table-action-transfer-group">
+                      <div class="pos-table-action-row pos-table-action-row--ops">
+                        <div
+                          v-if="selectedTable && selectedTable.status === 'Occupied'"
+                          class="pos-table-action-transfer-group"
+                          dir="ltr"
+                        >
                           <button
-                            class="pos-table-action-btn pos-table-action-transfer pos-table-action-transfer--item"
-                            @click="openOrderMoveModal('item')"
+                            class="pos-table-action-btn pos-table-action-transfer pos-table-action-transfer--merge"
+                            @click="openOrderMoveModal('merge')"
                           >
-                            <b-icon icon="arrow-left-right"></b-icon>
-                            <span>{{ $t("transferOneItem") || "نقل عنصر" }}</span>
+                            <b-icon icon="layers"></b-icon>
+                            <span>{{ $t("mergeTwoInvoices") || "دمج فاتورتين" }}</span>
                           </button>
                           <button
                             class="pos-table-action-btn pos-table-action-transfer pos-table-action-transfer--full"
@@ -226,34 +222,44 @@
                             <span>{{ $t("transferFullOrder") || "نقل الطلب كامل" }}</span>
                           </button>
                           <button
-                            class="pos-table-action-btn pos-table-action-transfer pos-table-action-transfer--merge"
-                            @click="openOrderMoveModal('merge')"
+                            class="pos-table-action-btn pos-table-action-transfer pos-table-action-transfer--item"
+                            @click="openOrderMoveModal('item')"
                           >
-                            <b-icon icon="layers"></b-icon>
-                            <span>{{ $t("mergeTwoInvoices") || "دمج فاتورتين" }}</span>
+                            <b-icon icon="arrow-left-right"></b-icon>
+                            <span>{{ $t("transferOneItem") || "نقل عنصر" }}</span>
                           </button>
                         </div>
-                      </template>
-                      <template v-if="mergedTableIds.length > 1">
-                        <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" :disabled="orderPersisting" @click="addOrderAndClear(true)">
-                          <b-icon icon="check-circle-fill"></b-icon>
-                          <span>{{ $t("saveForAllMergedTables") || "حفظ لجميع الطاولات" }}</span>
+                        <button
+                          type="button"
+                          class="pos-table-action-btn pos-table-action-btn--off-table"
+                          @click="startOffTableOrderSession('Takeaway')"
+                        >
+                          <b-icon icon="bag"></b-icon>
+                          <span>{{ $t("newOffTableOrder") || "طلب بدون طاولة" }}</span>
                         </button>
-                        <button class="pos-table-action-btn pos-table-action-save-print" v-if="carditems.length > 0" :disabled="orderPersisting" @click="addOrderAndClear(false)">
-                          <b-icon icon="printer-fill"></b-icon>
-                          <span>{{ $t("saveAndPrint") || "حفظ وطباعة" }}</span>
-                        </button>
-                      </template>
-                      <template v-else>
-                        <button class="pos-table-action-btn pos-table-action-save" v-if="carditems.length > 0" :disabled="orderPersisting" @click="addOrderAndClear(true)">
-                          <b-icon icon="check-circle-fill"></b-icon>
-                          <span>{{ $t("save") || "حفظ" }}</span>
-                        </button>
-                        <button class="pos-table-action-btn pos-table-action-save-print" v-if="carditems.length > 0" :disabled="orderPersisting" @click="addOrderAndClear(false)">
-                          <b-icon icon="printer-fill"></b-icon>
-                          <span>{{ $t("saveAndPrint") || "حفظ وطباعة" }}</span>
-                        </button>
-                      </template>
+                      </div>
+                      <div v-if="carditems.length > 0" class="pos-table-action-row pos-table-action-row--save">
+                        <template v-if="mergedTableIds.length > 1">
+                          <button class="pos-table-action-btn pos-table-action-save" :disabled="orderPersisting" @click="addOrderAndClear(true)">
+                            <b-icon icon="check-circle-fill"></b-icon>
+                            <span>{{ $t("saveForAllMergedTables") || "حفظ لجميع الطاولات" }}</span>
+                          </button>
+                          <button class="pos-table-action-btn pos-table-action-save-print" :disabled="orderPersisting" @click="addOrderAndClear(false)">
+                            <b-icon icon="printer-fill"></b-icon>
+                            <span>{{ $t("saveAndPrint") || "حفظ وطباعة" }}</span>
+                          </button>
+                        </template>
+                        <template v-else>
+                          <button class="pos-table-action-btn pos-table-action-save" :disabled="orderPersisting" @click="addOrderAndClear(true)">
+                            <b-icon icon="check-circle-fill"></b-icon>
+                            <span>{{ $t("save") || "حفظ" }}</span>
+                          </button>
+                          <button class="pos-table-action-btn pos-table-action-save-print" :disabled="orderPersisting" @click="addOrderAndClear(false)">
+                            <b-icon icon="printer-fill"></b-icon>
+                            <span>{{ $t("saveAndPrint") || "حفظ وطباعة" }}</span>
+                          </button>
+                        </template>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2718,21 +2724,6 @@ export default {
         top: `${p.y * 100}%`,
       };
     },
-    cancelFloorPlanGuestModal() {
-      const pendingTable = this.floorPlanGuestModal.table;
-      this.$bvModal.hide("modal-floor-table-guests");
-      this.floorPlanGuestModal.table = null;
-      this.floorPlanGuestModal.tableNumber = "";
-      this.floorPlanGuestModal.count = 1;
-      if (
-        pendingTable &&
-        this.selectedTableId === pendingTable.id &&
-        (!Array.isArray(this.carditems) || this.carditems.length === 0) &&
-        !this.activeOrderId
-      ) {
-        this.resetOrderSession({ silent: true });
-      }
-    },
     async confirmFloorPlanGuestModal() {
       const table = this.floorPlanGuestModal.table;
       const guestCount = Number(this.floorPlanGuestModal.count || 0);
@@ -2752,7 +2743,7 @@ export default {
       await this.selectTable(table, null);
       this.posFloorPlanGateVisible = false;
       this.resetPosFloorPlanGateTools();
-      this.cancelFloorPlanGuestModal();
+      this.clearFloorPlanGuestModalState();
     },
     posFloorZoneRectStyle(z) {
       return {
@@ -5009,7 +5000,37 @@ export default {
 }
 
 .pos-table-actions-buttons.pos-table-actions-buttons--inline {
-  gap: 0.65rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.pos-table-actions-buttons--inline:dir(rtl) {
+  align-items: flex-end;
+}
+
+.pos-table-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.pos-table-action-row--ops {
+  justify-content: flex-start;
+}
+
+.pos-table-action-row--ops:dir(rtl) {
+  justify-content: flex-end;
+}
+
+.pos-table-action-row--save {
+  justify-content: flex-start;
+}
+
+.pos-table-action-row--save:dir(rtl) {
+  justify-content: flex-end;
 }
 
 .pos-table-action-btn:not(.pos-table-action-btn--off-table) {
@@ -5037,10 +5058,15 @@ export default {
 }
 
 .pos-table-action-transfer-group {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
-  width: 100%;
+  width: auto;
+  flex: 0 1 auto;
+}
+
+.pos-table-action-transfer-group .pos-table-action-transfer {
+  flex: 0 1 auto;
 }
 
 .pos-table-action-transfer {
@@ -5173,8 +5199,8 @@ export default {
 
 /* سطح المكتب: عرض مرن بجانب ملخص الطاولات، بدل ثُلث صفّ فارغ عند زرّين فقط */
 @media (min-width: 992px) {
-  .pos-table-actions-buttons--inline > .pos-table-action-save,
-  .pos-table-actions-buttons--inline > .pos-table-action-save-print {
+  .pos-table-action-row--save > .pos-table-action-save,
+  .pos-table-action-row--save > .pos-table-action-save-print {
     flex: 0 1 auto;
     width: auto;
     min-width: 10rem;
@@ -5210,15 +5236,26 @@ export default {
     padding: 0.35rem 0.5rem !important;
   }
 
-  /* صف مرن للأوامر في المقاسات الصغيرة */
+  /* صفوف الأوامر في المقاسات الصغيرة */
   .pos-table-actions-buttons.pos-table-actions-buttons--inline {
-    display: grid !important;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    gap: 0.3rem !important;
     width: 100% !important;
     flex: 0 0 auto !important;
-    justify-content: stretch !important;
-    align-items: center;
+  }
+
+  .pos-table-action-row--ops {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.3rem !important;
+  }
+
+  .pos-table-action-transfer-group {
+    display: contents;
+  }
+
+  .pos-table-action-row--save {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.3rem !important;
   }
 
   .pos-table-actions-buttons,
@@ -5252,14 +5289,12 @@ export default {
   }
 
   .pos-table-action-transfer-group {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-column: 1 / -1;
     gap: 0.3rem;
   }
 }
 
 @media (max-width: 767px) {
-  .pos-table-actions-buttons.pos-table-actions-buttons--inline {
+  .pos-table-action-row--ops {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 0.38rem !important;
   }
@@ -5273,16 +5308,6 @@ export default {
   .pos-table-action-btn span {
     font-size: 0.72rem !important;
     line-height: 1.2 !important;
-  }
-
-  .pos-table-action-transfer-group {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.38rem;
-    grid-column: 1 / -1;
-  }
-
-  .pos-table-action-transfer-group .pos-table-action-transfer:last-child:nth-child(odd) {
-    grid-column: 1 / -1;
   }
 
   .pos-table-action-transfer span {
@@ -5324,11 +5349,12 @@ export default {
 
 /* عرض ضيق جداً: عمودان للأزرار الطويلة عند الدمج */
 @media (max-width: 400px) {
-  .pos-table-actions-buttons.pos-table-actions-buttons--inline {
+  .pos-table-action-row--ops,
+  .pos-table-action-row--save {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
-  .pos-table-actions-buttons.pos-table-actions-buttons--inline .pos-table-action-btn:last-child:nth-child(odd) {
+  .pos-table-action-row--ops .pos-table-action-btn:last-child:nth-child(odd) {
     grid-column: 1 / -1;
   }
 }

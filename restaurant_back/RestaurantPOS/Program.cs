@@ -82,6 +82,10 @@ builder.Services.AddScoped<ICommercialTenantDeleteService, CommercialTenantDelet
 builder.Services.AddScoped<ISystemBackupService, SystemBackupService>();
 builder.Services.AddScoped<ICreditAccountService, CreditAccountService>();
 builder.Services.AddScoped<IReservationTableSyncService, ReservationTableSyncService>();
+builder.Services.AddScoped<IReservationExpiryService, ReservationExpiryService>();
+builder.Services.AddHostedService<ReservationExpiryBackgroundService>();
+builder.Services.Configure<RestaurantPOS.Configuration.ReservationSettingsOptions>(
+    builder.Configuration.GetSection(RestaurantPOS.Configuration.ReservationSettingsOptions.SectionName));
 builder.Services.AddScoped<ITableOrderSyncService, TableOrderSyncService>();
 builder.Services.AddSingleton<ICardPaymentProcessingService, CardPaymentProcessingService>();
 builder.Services.Configure<RestaurantPOS.Configuration.SyncSettingsOptions>(

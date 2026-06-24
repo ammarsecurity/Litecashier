@@ -50,12 +50,31 @@
             <span class="res-info-stat-value res-info-stat-value--guests">{{ numberOfGuests }}</span>
           </div>
         </div>
+
+        <div v-if="reservationDateTime" class="res-info-stat res-info-stat--datetime">
+          <span class="res-info-stat-icon-wrap" aria-hidden="true">
+            <b-icon icon="calendar-event-fill" class="res-info-stat-icon"></b-icon>
+          </span>
+          <div class="res-info-stat-body">
+            <span class="res-info-stat-label">{{ $t("reservationDateTime") || "تاريخ ووقت الحجز" }}</span>
+            <span class="res-info-stat-value" :title="formattedReservationDateTime">
+              <span class="res-info-datetime-date">{{ formattedReservationDate }}</span>
+              <span v-if="formattedReservationTime" class="res-info-datetime-sep" aria-hidden="true">·</span>
+              <span v-if="formattedReservationTime" class="res-info-stat-value--ltr res-info-datetime-time">{{ formattedReservationTime }}</span>
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import {
+  formatBusinessDate,
+  formatBusinessTime,
+} from "@/utils/formatBusinessDateTime.js";
+
 export default {
   name: "TableReservationInfoBanner",
   props: {
@@ -72,6 +91,26 @@ export default {
     numberOfGuests() {
       return this.reservation?.numberOfGuests ?? this.reservation?.NumberOfGuests ?? "";
     },
+    reservationDateTime() {
+      return (
+        this.reservation?.reservationDateTime ??
+        this.reservation?.ReservationDateTime ??
+        null
+      );
+    },
+    formattedReservationDate() {
+      return formatBusinessDate(this.reservationDateTime);
+    },
+    formattedReservationTime() {
+      return (
+        this.reservation?.reservationTime ||
+        formatBusinessTime(this.reservationDateTime)
+      );
+    },
+    formattedReservationDateTime() {
+      const parts = [this.formattedReservationDate, this.formattedReservationTime].filter(Boolean);
+      return parts.join(" · ");
+    },
     status() {
       return String(this.reservation?.status ?? this.reservation?.Status ?? "").trim();
     },
@@ -86,7 +125,12 @@ export default {
       return map[this.status] || "";
     },
     hasData() {
-      return !!(this.customerName || this.phoneNumber || this.numberOfGuests);
+      return !!(
+        this.customerName ||
+        this.phoneNumber ||
+        this.numberOfGuests ||
+        this.reservationDateTime
+      );
     },
   },
 };
@@ -177,7 +221,7 @@ export default {
 
 .res-info-card-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.45rem;
 }
 
@@ -244,6 +288,16 @@ export default {
   font-size: 0.9375rem;
 }
 
+.res-info-datetime-date,
+.res-info-datetime-time {
+  display: inline;
+}
+
+.res-info-datetime-sep {
+  margin-inline: 0.2rem;
+  opacity: 0.65;
+}
+
 .res-info-stat-link {
   color: #c4b5fd;
   text-decoration: none;
@@ -256,7 +310,7 @@ export default {
 
 @media (max-width: 900px) {
   .res-info-card-stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

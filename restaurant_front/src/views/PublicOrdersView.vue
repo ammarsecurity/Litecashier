@@ -167,6 +167,17 @@
                   <button type="button" class="action-btn action-btn--icon action-btn--view" @click="showItemsModal(row.item)">
                     <b-icon icon="eye-fill" class="action-icon"></b-icon>
                   </button>
+                  <button
+                    v-if="canCancelPendingPublicOrder(row.item)"
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--delete"
+                    :disabled="cancellingOrderId === row.item.id"
+                    :title="$t('cancelPendingOrder') || 'إلغاء الطلب'"
+                    @click="confirmCancelPendingOrder(row.item)"
+                  >
+                    <b-spinner v-if="cancellingOrderId === row.item.id" small></b-spinner>
+                    <b-icon v-else icon="x-circle-fill" class="action-icon"></b-icon>
+                  </button>
                 </div>
               </template>
             </b-table>
@@ -342,6 +353,17 @@
         </div>
         <div class="users-form-actions">
           <button
+            v-if="selectedOrder && canCancelPendingPublicOrder(selectedOrder)"
+            type="button"
+            class="users-form-cancel-button"
+            :disabled="cancellingOrderId === selectedOrder.id"
+            @click="confirmCancelPendingOrder(selectedOrder)"
+          >
+            <b-spinner v-if="cancellingOrderId === selectedOrder.id" small class="me-1"></b-spinner>
+            <b-icon v-else icon="x-circle-fill" class="me-1"></b-icon>
+            {{ $t("cancelPendingOrder") || "إلغاء الطلب" }}
+          </button>
+          <button
             v-if="selectedOrder && canPrintOrder(selectedOrder.orderStatus)"
             type="button"
             class="users-form-submit-button"
@@ -370,7 +392,11 @@ import {
   formatBusinessDate,
   businessDateStringFrom,
 } from '../utils/formatBusinessDateTime.js';
-import { resolveCommercialUserIdFromStorage } from '../utils/queueOrders.js';
+import {
+  resolveCommercialUserIdFromStorage,
+  canCancelPendingPublicOrder as isPendingPublicOrderCancellable,
+  cancelPendingPublicOrder,
+} from '../utils/queueOrders.js';
 import {
   printPublicOrderLikePos,
   canPrintOrderStatus,
@@ -406,6 +432,7 @@ export default {
       selectedOrder: null,
       commercialUserId: null,
       printingOrderId: null,
+      cancellingOrderId: null,
     };
   },
   computed: {
@@ -605,6 +632,86 @@ export default {
           variant: 'danger',
           solid: true
         });
+      }
+    },
+    canCancelPendingPublicOrder(order) {
+      return isPendingPublicOrderCancellable(order);
+    },
+    async confirmCancelPendingOrder(order) {
+      if (!order?.id || !isPendingPublicOrderCancellable(order)) return;
+
+      const confirmed = await this.$confirm({
+        title: this.$t("confirmCancelPendingOrderTitle") || "تأكيد إلغاء الطلب",
+        message:
+          this.$t("confirmCancelPendingOrderMessage") ||
+          "هل تريد إلغاء هذا الطلب؟ يُسمح بالإلغاء فقط للطلبات قيد الانتظار.",
+        confirmText: this.$t("cancelPendingOrder") || "إلغاء الطلب",
+        cancelText: this.$t("cancelButtonLabel") || "تراجع",
+        variant: "danger",
+      });
+      if (!confirmed) return;
+
+      await this.cancelPendingOrder(order.id);
+    },
+    mapCancelPendingOrderError(error) {
+      const apiMessage = error?.response?.data?.message || error?.response?.data?.Message;
+      if (apiMessage === "cannotCancelNonPendingOrder") {
+        return (
+          this.$t("cannotCancelNonPendingOrder") ||
+          "لا يمكن إلغاء الطلب إلا وهو قيد الانتظار"
+        );
+      }
+      return (
+        error?.response?.data?.message ||
+        this.$t("errorCancellingOrder") ||
+        "حدث خطأ أثناء إلغاء الطلب"
+      );
+    },
+    async cancelPendingOrder(orderId) {
+      if (!this.commercialUserId || this.cancellingOrderId != null) return;
+
+      this.cancellingOrderId = orderId;
+      try {
+        const result = await cancelPendingPublicOrder(
+          HTTP,
+          this.commercialUserId,
+          orderId
+        );
+
+        if (result && !result.errorStatus) {
+          const orderIndex = this.Orders.findIndex((o) => o.id === orderId);
+          if (orderIndex !== -1) {
+            this.Orders[orderIndex].orderStatus = "Cancelled";
+          }
+
+          if (this.selectedOrder?.id === orderId) {
+            this.selectedOrder.orderStatus = "Cancelled";
+          }
+
+          this.$bvToast.toast(
+            this.$t("orderCancelledSuccessfully") || "تم إلغاء الطلب بنجاح",
+            {
+              title: this.$t("success") || "نجاح",
+              variant: "success",
+              solid: true,
+            }
+          );
+        } else {
+          this.$bvToast.toast(result?.message || this.mapCancelPendingOrderError({}), {
+            title: this.$t("error") || "خطأ",
+            variant: "danger",
+            solid: true,
+          });
+        }
+      } catch (error) {
+        console.error("Error cancelling pending order:", error);
+        this.$bvToast.toast(this.mapCancelPendingOrderError(error), {
+          title: this.$t("error") || "خطأ",
+          variant: "danger",
+          solid: true,
+        });
+      } finally {
+        this.cancellingOrderId = null;
       }
     },
     showItemsModal(order) {

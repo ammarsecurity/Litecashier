@@ -1,5 +1,9 @@
 import { HTTP } from "@/http/api.js";
 import { mergeCartLines } from "@/utils/mergeCartLines.js";
+import {
+  businessDateStringFrom,
+  formatBusinessTime,
+} from "@/utils/formatBusinessDateTime.js";
 
 /**
  * Shared table selection / floor-plan status logic for POS and Waiter views.
@@ -8,7 +12,11 @@ export default {
   data() {
     return {
       activeTableReservation: null,
+      activeReservationPollTimer: null,
     };
+  },
+  beforeDestroy() {
+    this.stopActiveReservationPoll();
   },
   methods: {
     getTableCurrentOrderId(table) {
@@ -127,7 +135,26 @@ export default {
 
       return this.loadActiveReservationForTable(table.id);
     },
+    stopActiveReservationPoll() {
+      if (this.activeReservationPollTimer) {
+        clearInterval(this.activeReservationPollTimer);
+        this.activeReservationPollTimer = null;
+      }
+    },
+    startActiveReservationPoll(tableId) {
+      this.stopActiveReservationPoll();
+      if (!tableId) return;
+
+      this.activeReservationPollTimer = setInterval(() => {
+        if (this.selectedTableId === tableId) {
+          this.loadActiveReservationForTable(tableId);
+        } else {
+          this.stopActiveReservationPoll();
+        }
+      }, 60000);
+    },
     clearActiveTableReservation() {
+      this.stopActiveReservationPoll();
       this.activeTableReservation = null;
       if (this.orderForSend) {
         this.orderForSend.reservationId = null;
@@ -137,12 +164,20 @@ export default {
       if (!row) {
         return null;
       }
+      const reservationDateTime =
+        row.reservationDateTime ?? row.ReservationDateTime ?? null;
       return {
         id: row.id ?? row.Id ?? null,
         customerName: row.customerName ?? row.CustomerName ?? "",
         phoneNumber: row.phoneNumber ?? row.PhoneNumber ?? "",
         numberOfGuests: Number(row.numberOfGuests ?? row.NumberOfGuests ?? 0),
-        reservationDateTime: row.reservationDateTime ?? row.ReservationDateTime ?? null,
+        reservationDateTime,
+        reservationDate: reservationDateTime
+          ? businessDateStringFrom(reservationDateTime)
+          : "",
+        reservationTime: reservationDateTime
+          ? formatBusinessTime(reservationDateTime)
+          : "",
         status: row.status ?? row.Status ?? "",
       };
     },
@@ -163,6 +198,11 @@ export default {
             if (data.numberOfGuests > 0) {
               this.orderForSend.numberOfGuests = data.numberOfGuests;
             }
+          }
+          if (data.reservationDateTime) {
+            this.startActiveReservationPoll(tableId);
+          } else {
+            this.stopActiveReservationPoll();
           }
         } else {
           this.clearActiveTableReservation();
@@ -368,6 +408,24 @@ export default {
       }
 
       await this.attachTableForOrderSession(table, { sessionGen });
+    },
+    clearFloorPlanGuestModalState() {
+      this.$bvModal.hide("modal-floor-table-guests");
+      this.floorPlanGuestModal.table = null;
+      this.floorPlanGuestModal.tableNumber = "";
+      this.floorPlanGuestModal.count = 1;
+    },
+    cancelFloorPlanGuestModal() {
+      const pendingTable = this.floorPlanGuestModal.table;
+      this.clearFloorPlanGuestModalState();
+      if (
+        pendingTable &&
+        this.selectedTableId === pendingTable.id &&
+        (!Array.isArray(this.carditems) || this.carditems.length === 0) &&
+        !this.activeOrderId
+      ) {
+        this.resetOrderSession({ silent: true });
+      }
     },
   },
 };
