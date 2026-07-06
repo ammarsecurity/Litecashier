@@ -12,5 +12,11 @@
         public decimal? DiscountPercent { get; set; }
         public decimal? OrderSubTotal { get; set; }
         public decimal? OrderTotalAfterDiscount { get; set; }
+
+        public bool IsCheckout { get; set; }
+
+        public int? CardPaymentTransactionId { get; set; }
+
+        public int? CreditCustomerId { get; set; }
     }
 }

@@ -2,33 +2,94 @@
     <b-overlay :show="show" spinner-variant="primary" spinner-type="grow" spinner-large rounded="sm">
         <AppHeader />
         <div class="main-content-wrapper">
-        <div class="users-page-container">
-            <div class="users-page-content">
-                <!-- Header Section -->
+        <div class="app-page-container">
+            <div class="app-page-content users-page">
                 <div class="users-header-section">
-                    <div class="users-header-content">
-                        <h1 class="users-page-title">{{ $t('all_accounts') }}</h1>
-                        <button class="users-add-button" v-b-modal.modal-addUser>
-                            <b-icon icon="person-plus-fill" class="button-icon"></b-icon>
-                            <span class="button-text">{{ $t('add_account') }}</span>
-                        </button>
+                    <div class="users-header-content app-header-row">
+                        <div class="header-title-wrapper">
+                            <div class="header-icon-wrapper">
+                                <b-icon icon="people-fill" class="header-icon"></b-icon>
+                            </div>
+                            <div>
+                                <h1 class="users-page-title">{{ $t('all_accounts') }}</h1>
+                                <p class="header-subtitle">{{ $t('usersPageDescription') || 'إدارة حسابات النظام والصلاحيات' }}</p>
+                            </div>
+                        </div>
+                        <div class="app-header-actions">
+                            <button type="button" class="btn-refresh" @click="refreshPage" :disabled="show">
+                                <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: show }"></b-icon>
+                                <span class="button-text">{{ $t('refresh') || 'تحديث' }}</span>
+                            </button>
+                            <button class="users-add-button" v-b-modal.modal-addUser>
+                                <b-icon icon="person-plus-fill" class="button-icon"></b-icon>
+                                <span class="button-text">{{ $t('add_account') }}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Search Section -->
-                <div class="users-search-section">
-                    <div class="users-search-container">
-                        <b-icon icon="search" class="search-icon"></b-icon>
-                        <input 
-                            v-model="search.info" 
-                            type="search" 
-                            :placeholder="$t('search')"
-                            class="users-search-input"
-                        />
+                <div class="app-overview-grid">
+                    <div class="app-overview-stat">
+                        <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                            <b-icon icon="people-fill"></b-icon>
+                        </span>
+                        <div>
+                            <div class="app-overview-stat-value">{{ totalUsers }}</div>
+                            <div class="app-overview-stat-label">{{ $t('usersOverviewTotal') || 'إجمالي الحسابات' }}</div>
+                        </div>
+                    </div>
+                    <div class="app-overview-stat">
+                        <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                            <b-icon icon="person-badge-fill"></b-icon>
+                        </span>
+                        <div>
+                            <div class="app-overview-stat-value">{{ usersOnPageCount }}</div>
+                            <div class="app-overview-stat-label">{{ $t('usersOverviewOnPage') || 'في الصفحة الحالية' }}</div>
+                        </div>
+                    </div>
+                    <div class="app-overview-stat">
+                        <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                            <b-icon icon="shield-check"></b-icon>
+                        </span>
+                        <div>
+                            <div class="app-overview-stat-value">{{ adminCountOnPage }}</div>
+                            <div class="app-overview-stat-label">{{ $t('Admin') || 'مدير' }}</div>
+                        </div>
+                    </div>
+                    <div class="app-overview-stat">
+                        <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                            <b-icon icon="cash-register"></b-icon>
+                        </span>
+                        <div>
+                            <div class="app-overview-stat-value">{{ posCountOnPage }}</div>
+                            <div class="app-overview-stat-label">{{ $t('POS') || 'كاشير' }}</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Users Grid -->
+                <div class="app-section-card">
+                    <div class="app-section-header app-section-header--toolbar">
+                        <div class="app-section-title-wrap">
+                            <div class="app-section-icon-wrap">
+                                <b-icon icon="person-lines-fill"></b-icon>
+                            </div>
+                            <div>
+                                <h3 class="app-section-title">{{ $t('all_accounts') }}</h3>
+                                <p class="app-section-subtitle">{{ $t('usersListHint') || 'قائمة الحسابات مع الأدوار والصلاحيات' }}</p>
+                            </div>
+                        </div>
+                        <div class="app-search-wrap app-search-wrap--wide">
+                            <b-icon icon="search" class="app-search-icon"></b-icon>
+                            <input
+                                v-model="search.info"
+                                type="search"
+                                :placeholder="$t('search')"
+                                class="app-search-input"
+                                autocomplete="off"
+                            />
+                        </div>
+                    </div>
+                    <div class="app-section-body">
                 <div class="users-grid-container">
                     <div class="users-grid">
                         <div class="user-card" v-for="User in Users" v-bind:key="User.id">
@@ -78,6 +139,8 @@
                         aria-controls="users-table"
                         class="users-pagination"
                     ></b-pagination>
+                </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -543,9 +606,21 @@ export default {
         assignableSectionKeys() {
             return ASSIGNABLE_SECTION_KEYS;
         },
+        usersOnPageCount() {
+            return (this.Users || []).length;
+        },
+        adminCountOnPage() {
+            return (this.Users || []).filter((u) => u.role === 'Admin').length;
+        },
+        posCountOnPage() {
+            return (this.Users || []).filter((u) => u.role === 'POS').length;
+        },
     },
 
     methods: {
+        refreshPage() {
+            this.GetAllUsers();
+        },
         getRoleClass(role) {
             const roleClasses = {
                 'Admin': 'role-admin',

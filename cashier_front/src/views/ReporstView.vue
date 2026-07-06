@@ -364,11 +364,13 @@
 
                         <!-- Top Selling Items -->
                         <div v-if="activeTab === 'topItems'" class="report-section">
-                            <div class="report-info-banner" v-if="topSellingItems.length > 0">
-                                <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
-                                <span>{{ $t('topSellingItemsDescription') || 'عرض أفضل المنتجات مبيعاً حسب الكمية المباعة' }}</span>
+                            <div class="report-section-intro" v-if="topSellingItems.length > 0">
+                                <div class="report-info-banner">
+                                    <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
+                                    <span>{{ $t('topSellingItemsDescription') || 'عرض أفضل المنتجات مبيعاً حسب الكمية المباعة' }}</span>
+                                </div>
                             </div>
-                            <div class="app-overview-grid reports-orders-summary">
+                            <div class="app-overview-grid reports-orders-summary" v-if="topSellingItems.length > 0">
                                 <div class="app-overview-stat">
                                     <span class="app-overview-stat-icon app-overview-stat-icon--success"><b-icon icon="currency-dollar"></b-icon></span>
                                     <div>
@@ -398,10 +400,10 @@
                                     </div>
                                 </div>
                             </div>
-                            <p class="reports-orders-summary-period reports-summary-note">
+                            <p v-if="topSellingItems.length > 0" class="reports-summary-note">
                                 {{ $t('topSellingGrandTotalHint') || 'المجموع الكلي لجميع الأصناف المباعة في الفترة (وليس أعلى 10 فقط)' }}
                             </p>
-                            <div class="report-table-container">
+                            <div class="report-table-container" v-if="topSellingItems.length > 0">
                                 <table class="report-table">
                                     <thead>
                                         <tr>
@@ -435,11 +437,13 @@
 
                         <!-- Sales By Category -->
                         <div v-if="activeTab === 'byCategory'" class="report-section">
-                            <div class="report-info-banner" v-if="salesByCategory.length > 0">
-                                <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
-                                <span>{{ $t('salesByCategoryDescription') || 'تحليل المبيعات حسب الفئات المختلفة' }}</span>
+                            <div class="report-section-intro" v-if="salesByCategory.length > 0">
+                                <div class="report-info-banner">
+                                    <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
+                                    <span>{{ $t('salesByCategoryDescription') || 'تحليل المبيعات حسب الفئات المختلفة' }}</span>
+                                </div>
                             </div>
-                            <div class="report-table-container">
+                            <div class="report-table-container" v-if="salesByCategory.length > 0">
                                 <table class="report-table">
                                     <thead>
                                         <tr>
@@ -472,11 +476,13 @@
 
                         <!-- Sales By Employee -->
                         <div v-if="activeTab === 'byEmployee'" class="report-section">
-                            <div class="report-info-banner" v-if="salesByEmployee.length > 0">
-                                <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
-                                <span>{{ $t('salesByEmployeeDescription') || 'مقارنة أداء الموظفين في المبيعات' }}</span>
+                            <div class="report-section-intro" v-if="salesByEmployee.length > 0">
+                                <div class="report-info-banner">
+                                    <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
+                                    <span>{{ $t('salesByEmployeeDescription') || 'مقارنة أداء الموظفين في المبيعات' }}</span>
+                                </div>
                             </div>
-                            <div class="report-table-container">
+                            <div class="report-table-container" v-if="salesByEmployee.length > 0">
                                 <table class="report-table">
                                     <thead>
                                         <tr>

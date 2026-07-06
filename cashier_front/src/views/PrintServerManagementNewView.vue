@@ -39,30 +39,58 @@
           </div>
 
           <!-- Server Status Alert -->
-          <div v-if="!serverStatus && !loading" class="server-alert-card">
-            <div class="server-alert-header">
-              <b-icon icon="exclamation-triangle-fill" class="alert-icon"></b-icon>
-              <h2 class="alert-title">{{ $t("serverNotAvailable") || "الخادم غير متاح" }}</h2>
-            </div>
-            <div class="server-alert-body">
-              <p class="alert-message">
+          <div v-if="!serverStatus && !loading" class="app-section-card server-offline-card">
+            <div class="server-offline-content">
+              <div class="server-offline-icon-wrap">
+                <b-icon icon="printer-fill" class="server-offline-icon"></b-icon>
+                <span class="server-offline-status-dot"></span>
+              </div>
+              <h2 class="server-offline-title">{{ $t("printServerOfflineTitle") || "خادم الطباعة غير متصل" }}</h2>
+              <p class="server-offline-message">
                 {{ $t("serverNotAvailableMessage") || "الخدمة غير متاحة. يرجى تحميل وتشغيل نظام الطباعة (Print Server) أولاً" }}
               </p>
-              <button 
-                class="users-add-button" 
-                @click="downloadPrintServer"
-                :disabled="downloading"
-              >
-                <b-icon icon="download" class="button-icon"></b-icon>
-                <span class="button-text">
-                  {{ downloading ? ($t("downloading") || "جاري التحميل...") : ($t("downloadPrintServer") || "تحميل Print Server") }}
+              <div class="server-offline-meta">
+                <span class="server-offline-chip">
+                  <b-icon icon="hdd-network"></b-icon>
+                  localhost:5000
                 </span>
-              </button>
+                <span class="server-offline-chip server-offline-chip--warning">
+                  <b-icon icon="exclamation-circle"></b-icon>
+                  {{ $t("offline") || "غير متصل" }}
+                </span>
+              </div>
+              <div class="server-offline-actions">
+                <button
+                  type="button"
+                  class="server-offline-btn server-offline-btn--primary"
+                  @click="downloadPrintServer"
+                  :disabled="downloading"
+                >
+                  <b-spinner small v-if="downloading" class="me-1"></b-spinner>
+                  <b-icon v-else icon="download" class="button-icon"></b-icon>
+                  <span class="button-text">
+                    {{ downloading ? ($t("downloading") || "جاري التحميل...") : ($t("downloadPrintServer") || "تحميل Print Server") }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="server-offline-btn server-offline-btn--secondary"
+                  @click="toggleInstallGuide"
+                >
+                  <b-icon :icon="showInstallGuide ? 'chevron-up' : 'info-circle'" class="button-icon"></b-icon>
+                  <span class="button-text">
+                    {{ showInstallGuide ? ($t("hideInstallGuide") || "إخفاء التعليمات") : ($t("showInstallGuide") || "تعليمات التشغيل") }}
+                  </span>
+                </button>
+                <button type="button" class="server-offline-btn server-offline-btn--ghost" @click="refreshPage">
+                  <b-icon icon="arrow-clockwise" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+                </button>
+              </div>
 
-              <!-- Install Instructions Section -->
               <div v-if="showInstallGuide" class="install-instructions-section">
                 <h4 class="instructions-title">
-                  <b-icon icon="info-circle-fill" class="me-2"></b-icon>
+                  <b-icon icon="list-ol" class="me-2"></b-icon>
                   {{ $t("installInstructions") || "تعليمات التثبيت والتشغيل" }}
                 </h4>
                 <ol class="instructions-list-detailed">
@@ -87,13 +115,14 @@
                     {{ $t("installStep5Desc") || "ارجع إلى هذه الصفحة واضغط زر 'تحديث' لفحص حالة الخادم" }}
                   </li>
                 </ol>
-                
+
                 <div class="alternative-instructions">
                   <h5>{{ $t("alternativeMethod") || "طريقة بديلة (يدوية):" }}</h5>
                   <div class="command-box-large">
                     <code class="command-text-large">dotnet run --project cashier_back/PrintServer</code>
-                    <button 
-                      class="btn-copy-large" 
+                    <button
+                      type="button"
+                      class="btn-copy-large"
                       @click="copyCommand('dotnet run --project cashier_back/PrintServer')"
                       :title="$t('copyCommand') || 'نسخ الأمر'"
                     >
@@ -901,6 +930,9 @@ export default {
         this.testingPrint = false;
       }
     },
+    toggleInstallGuide() {
+      this.showInstallGuide = !this.showInstallGuide;
+    },
     async downloadPrintServer() {
       this.downloading = true;
       try {
@@ -1007,45 +1039,154 @@ export default {
   margin: 0 0 0.35rem;
 }
 
-.server-alert-card {
-  background: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  margin-bottom: 2rem;
-  overflow: hidden;
-  border: 2px solid var(--warning-color);
+.server-offline-card {
+  margin-bottom: 1.5rem;
+  border: 1px dashed color-mix(in srgb, #d97706 35%, var(--border-color));
+  background: color-mix(in srgb, #f59e0b 5%, var(--bg-primary));
 }
 
-.server-alert-header {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.15) 100%);
-  padding: 1.5rem;
+.server-offline-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 1.5rem 1.75rem;
+  gap: 0.75rem;
+}
+
+.server-offline-icon-wrap {
+  position: relative;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  border-bottom: 2px solid var(--warning-color);
+  justify-content: center;
+  background: color-mix(in srgb, var(--primary-color) 12%, var(--bg-primary));
+  border: 1px solid var(--border-color);
+  margin-bottom: 0.25rem;
 }
 
-.alert-icon {
-  font-size: 2rem;
-  color: var(--warning-color);
+.server-offline-icon {
+  font-size: 1.75rem;
+  color: var(--primary-color);
 }
 
-.alert-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
+.server-offline-status-dot {
+  position: absolute;
+  bottom: 0.2rem;
+  inset-inline-end: 0.35rem;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 2px solid var(--bg-primary);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+}
+
+.server-offline-title {
   margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.35;
+  max-width: 28rem;
 }
 
-.server-alert-body {
-  padding: 1.5rem;
-}
-
-.alert-message {
-  font-size: 1rem;
+.server-offline-message {
+  margin: 0;
+  font-size: 0.9rem;
   color: var(--text-secondary);
-  margin-bottom: 1.5rem;
-  line-height: 1.6;
+  line-height: 1.55;
+  max-width: 32rem;
+}
+
+.server-offline-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.15rem 0 0.35rem;
+}
+
+.server-offline-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  direction: ltr;
+}
+
+.server-offline-chip--warning {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #b45309;
+  direction: inherit;
+}
+
+.server-offline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+  width: 100%;
+}
+
+.server-offline-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  border-radius: 0.55rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.server-offline-btn--primary {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.server-offline-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.server-offline-btn--primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.server-offline-btn--secondary {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.server-offline-btn--secondary:hover {
+  background: var(--bg-tertiary);
+}
+
+.server-offline-btn--ghost {
+  background: transparent;
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.server-offline-btn--ghost:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .retail-print-hint {
@@ -1121,18 +1262,21 @@ export default {
 }
 
 .install-instructions-section {
-  background: var(--bg-tertiary);
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-  margin-top: 2rem;
+  width: 100%;
+  max-width: 40rem;
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  text-align: start;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
 }
 
 .instructions-title {
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 1.5rem;
+  margin: 0 0 0.85rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -1148,9 +1292,10 @@ export default {
 
 .instructions-list-detailed {
   color: var(--text-secondary);
-  margin: 1rem 0;
+  margin: 0;
   padding: 0;
-  line-height: 2;
+  line-height: 1.7;
+  font-size: 0.85rem;
 }
 
 [dir="rtl"] .instructions-list-detailed {
@@ -1164,7 +1309,7 @@ export default {
 }
 
 .instructions-list-detailed li {
-  margin-bottom: 1rem;
+  margin-bottom: 0.65rem;
 }
 
 .instructions-list-detailed li strong {
@@ -1173,9 +1318,9 @@ export default {
 }
 
 .alternative-instructions {
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 2px solid var(--border-color);
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border-color);
 }
 
 .alternative-instructions h5 {
@@ -1250,6 +1395,21 @@ export default {
 
 [dir="ltr"] .command-help {
   text-align: left;
+}
+
+@media (max-width: 640px) {
+  .server-offline-content {
+    padding: 1.5rem 1rem;
+  }
+
+  .server-offline-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .server-offline-btn {
+    width: 100%;
+  }
 }
 </style>
 

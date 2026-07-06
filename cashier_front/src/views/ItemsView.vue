@@ -8,33 +8,107 @@
   >
     <AppHeader />
     <div class="main-content-wrapper">
-      <div class="users-page-container">
-        <div class="users-page-content">
-          <!-- Header Section -->
+      <div class="app-page-container">
+        <div class="app-page-content items-page">
           <div class="users-header-section">
-            <div class="users-header-content">
-              <h1 class="users-page-title">{{ $t("allItemsLabel") }}</h1>
-              <button class="users-add-button" v-b-modal.modal-addItem>
-                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
-                <span class="button-text">{{ $t("addItemLabel") }}</span>
-              </button>
+            <div class="users-header-content app-header-row">
+              <div class="header-title-wrapper">
+                <div class="header-icon-wrapper">
+                  <b-icon icon="box-seam-fill" class="header-icon"></b-icon>
+                </div>
+                <div>
+                  <h1 class="users-page-title">{{ $t("allItemsLabel") }}</h1>
+                  <p class="header-subtitle">{{ $t("itemsPageDescription") || "إدارة المنتجات والأسعار والمخزون" }}</p>
+                </div>
+              </div>
+              <div class="app-header-actions">
+                <button type="button" class="btn-refresh" @click="refreshPage" :disabled="show">
+                  <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: show }"></b-icon>
+                  <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+                </button>
+                <button type="button" class="export-excel-btn" v-b-modal.modal-importItems>
+                  <b-icon icon="file-earmark-arrow-up-fill" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("importItems") }}</span>
+                </button>
+                <button type="button" class="users-add-button" v-b-modal.modal-addItem>
+                  <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("addItemLabel") }}</span>
+                </button>
+                <button
+                  v-if="isCommercialUser"
+                  type="button"
+                  class="catalog-clear-btn"
+                  v-b-modal.modal-clearCatalog
+                >
+                  <b-icon icon="trash-fill" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("clearCatalogData") }}</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Search Section -->
-          <div class="users-search-section">
-            <div class="users-search-container">
-              <b-icon icon="search" class="search-icon"></b-icon>
-              <input 
-                v-model="search.info" 
-                type="search" 
-                :placeholder="$t('searchPlaceholder')"
-                class="users-search-input"
-              />
+          <div class="app-overview-grid">
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                <b-icon icon="box-seam-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ totalItems }}</div>
+                <div class="app-overview-stat-label">{{ $t("itemsOverviewTotal") || "إجمالي المنتجات" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                <b-icon icon="check-circle-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ itemsInStockOnPage }}</div>
+                <div class="app-overview-stat-label">{{ $t("itemsOverviewInStock") || "متوفر (الصفحة)" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--danger">
+                <b-icon icon="exclamation-triangle-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ itemsOutOfStockOnPage }}</div>
+                <div class="app-overview-stat-label">{{ $t("itemsOverviewOutOfStock") || "نفد (الصفحة)" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                <b-icon icon="list-ul"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ Items.length }}</div>
+                <div class="app-overview-stat-label">{{ $t("itemsOverviewOnPage") || "في الصفحة الحالية" }}</div>
+              </div>
             </div>
           </div>
 
-          <!-- Items Table -->
+          <div class="app-section-card">
+            <div class="app-section-header app-section-header--toolbar">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap">
+                  <b-icon icon="list-ul"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("allItemsLabel") }}</h3>
+                  <p class="app-section-subtitle">{{ $t("itemsListHint") || "قائمة المنتجات مع الأسعار والكميات" }}</p>
+                </div>
+              </div>
+              <div class="app-search-wrap app-search-wrap--wide">
+                <b-icon icon="search" class="app-search-icon"></b-icon>
+                <input
+                  v-model="search.info"
+                  type="search"
+                  :placeholder="$t('searchPlaceholder')"
+                  class="app-search-input"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+            <div class="app-section-body app-section-body--no-padding">
           <div class="items-table-container report-table-container">
             <b-table
               :items="Items"
@@ -42,20 +116,16 @@
               striped
               hover
               responsive
-              class="items-table"
+              class="items-table reports-table"
             >
               <template #cell(image)="row">
                 <div class="item-image-cell">
-                  <img 
-                    v-if="row.item.image && !row.item.imageError" 
-                    :src="row.item.image" 
+                  <img
+                    :src="productImageSrc(row.item.image, row.item.imageError)"
                     :alt="row.item.name"
                     class="item-table-image"
-                    @error="row.item.imageError = true"
+                    @error="onProductImageError(row.item)"
                   />
-                  <div v-else class="item-image-placeholder-small">
-                    <b-icon icon="box-fill" class="item-placeholder-icon-small"></b-icon>
-                  </div>
                 </div>
               </template>
 
@@ -65,6 +135,15 @@
 
               <template #cell(sellingPrice)="row">
                 <span class="item-price-text">{{ formatPrice(row.item.sellingPrice) }} {{ $t("currency") }}</span>
+              </template>
+
+              <template #cell(quantity)="row">
+                <span
+                  class="item-quantity-text"
+                  :class="{ 'item-quantity-text--low': Number(row.item.quantity) <= 0 }"
+                >
+                  {{ formatQuantity(row.item.quantity) }}
+                </span>
               </template>
 
               <template #cell(tags)="row">
@@ -118,8 +197,96 @@
               </div>
             </div>
           </div>
+            </div>
+          </div>
         </div>
       </div>
+
+      <!-- Import Items Modal -->
+      <b-modal id="modal-importItems" hide-header hide-footer class="users-modal" size="lg">
+        <div class="modal-content-wrapper">
+          <h2 class="modal-title">{{ $t("importItemsTitle") }}</h2>
+          <p class="import-items-hint">{{ $t("importItemsHint") }}</p>
+
+          <div class="import-file-section">
+            <label
+              class="import-file-drop"
+              :class="{ 'import-file-drop--selected': !!importFileName }"
+            >
+              <input
+                ref="importFileInput"
+                type="file"
+                accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                class="import-file-drop__input"
+                @change="onImportFileSelected"
+              />
+              <div class="import-file-drop__content">
+                <span class="import-file-drop__icon-wrap">
+                  <b-icon icon="file-earmark-excel-fill" class="import-file-drop__icon"></b-icon>
+                </span>
+                <div class="import-file-drop__text-wrap">
+                  <span class="import-file-drop__title">
+                    {{ importFileName || $t("importItemsSelectFile") }}
+                  </span>
+                  <span class="import-file-drop__sub">
+                    {{ importFileName ? $t("importItemsChangeFile") : $t("importItemsDropHint") }}
+                  </span>
+                </div>
+                <b-icon icon="cloud-upload-fill" class="import-file-drop__action-icon"></b-icon>
+              </div>
+            </label>
+            <button
+              v-if="importFileName"
+              type="button"
+              class="import-file-clear"
+              @click="clearImportFile"
+            >
+              <b-icon icon="x-circle-fill"></b-icon>
+              <span>{{ $t("removeFile") }}</span>
+            </button>
+          </div>
+
+          <div v-if="importResult" class="import-items-summary">
+            <div class="import-items-summary-row">
+              <span>{{ $t("importItemsCreated") }}</span>
+              <strong>{{ importResult.itemsCreated }}</strong>
+            </div>
+            <div class="import-items-summary-row">
+              <span>{{ $t("importItemsSkipped") }}</span>
+              <strong>{{ importResult.itemsSkipped }}</strong>
+            </div>
+            <div class="import-items-summary-row">
+              <span>{{ $t("importTagsCreated") }}</span>
+              <strong>{{ importResult.tagsCreated }}</strong>
+            </div>
+            <div v-if="importResult.rowsWithErrors > 0" class="import-items-errors">
+              <p class="import-items-errors-title">{{ $t("importItemsErrors") }} ({{ importResult.rowsWithErrors }})</p>
+              <ul>
+                <li v-for="(err, idx) in importResult.errors" :key="idx">
+                  {{ $t("row") || "صف" }} {{ err.rowNumber }}: {{ mapImportError(err.message) }}
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="users-form-actions">
+            <button
+              type="button"
+              class="users-form-submit-button"
+              :disabled="!importFile || importUploading"
+              @click="uploadImportFile"
+            >
+              <b-spinner small v-if="importUploading" class="me-2"></b-spinner>
+              <b-icon v-else icon="cloud-upload-fill" class="me-2"></b-icon>
+              {{ $t("importItems") }}
+            </button>
+            <button type="button" class="users-form-cancel-button" @click="closeImportModal">
+              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+              {{ $t("closeButton") }}
+            </button>
+          </div>
+        </div>
+      </b-modal>
 
       <!-- Add Item Modal -->
       <b-modal id="modal-addItem" :title="$t('addItemModalTitle')" hide-header hide-footer class="users-modal" size="lg" scrollable>
@@ -445,6 +612,70 @@
         </div>
       </b-modal>
 
+      <!-- Clear catalog modal -->
+      <b-modal id="modal-clearCatalog" hide-header hide-footer class="users-modal">
+        <div class="modal-content-wrapper">
+          <div class="delete-confirmation-content">
+            <div class="delete-icon-wrapper">
+              <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
+            </div>
+            <h3 class="delete-confirmation-title">{{ $t("clearCatalogTitle") }}</h3>
+            <p class="delete-confirmation-text">{{ $t("clearCatalogWarning") }}</p>
+            <ul class="clear-catalog-list">
+              <li>{{ $t("clearCatalogTags") }}</li>
+              <li>{{ $t("clearCatalogItems") }}</li>
+              <li>{{ $t("clearCatalogOrders") }}</li>
+            </ul>
+            <div class="users-form-group">
+              <label class="users-form-label">{{ $t("clearCatalogPasswordLabel") }}</label>
+              <input
+                v-model="clearCatalogPassword"
+                type="password"
+                class="users-form-input"
+                :placeholder="$t('clearCatalogPasswordPlaceholder')"
+                autocomplete="current-password"
+                @keyup.enter="executeClearCatalog"
+              />
+            </div>
+            <div v-if="clearCatalogResult" class="import-items-summary">
+              <div class="import-items-summary-row">
+                <span>{{ $t("clearCatalogTags") }}</span>
+                <strong>{{ clearCatalogResult.tagsCleared }}</strong>
+              </div>
+              <div class="import-items-summary-row">
+                <span>{{ $t("clearCatalogItems") }}</span>
+                <strong>{{ clearCatalogResult.itemsCleared }}</strong>
+              </div>
+              <div class="import-items-summary-row">
+                <span>{{ $t("clearCatalogOrders") }}</span>
+                <strong>{{ clearCatalogResult.ordersCleared }}</strong>
+              </div>
+            </div>
+            <div class="delete-confirmation-actions">
+              <button
+                type="button"
+                class="delete-confirm-button"
+                :disabled="clearCatalogLoading || !clearCatalogPassword"
+                @click="executeClearCatalog"
+              >
+                <b-spinner small v-if="clearCatalogLoading" class="me-2"></b-spinner>
+                <b-icon v-else icon="trash-fill" class="me-2"></b-icon>
+                {{ $t("clearCatalogConfirm") }}
+              </button>
+              <button
+                type="button"
+                class="delete-cancel-button"
+                :disabled="clearCatalogLoading"
+                @click="closeClearCatalogModal"
+              >
+                <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                {{ $t("cancelButtonLabel") }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </b-modal>
+
       <!-- Delete Confirmation Modal -->
       <b-modal id="modal-delete" :title="$t('deleteConfirmationModalTitle')" hide-header hide-footer class="users-modal">
         <div class="modal-content-wrapper">
@@ -499,6 +730,10 @@ import ClockVue from "@/components/ClockVue.vue";
 import VueBarcode from "@chenfengyuan/vue-barcode";
 
 import { HTTP } from "../http/api.js";
+import {
+  productImageSrc,
+  onProductImageError,
+} from "@/utils/productImage.js";
 export default {
   name: "ItemsView",
   components: {
@@ -549,6 +784,13 @@ export default {
       barCodeList: [],
       itemId: "",
       tags: [],
+      importFile: null,
+      importFileName: "",
+      importUploading: false,
+      importResult: null,
+      clearCatalogPassword: "",
+      clearCatalogLoading: false,
+      clearCatalogResult: null,
     };
   },
 
@@ -605,6 +847,12 @@ export default {
           thClass: 'item-header-cell'
         },
         {
+          key: 'quantity',
+          label: this.$t('quantityLabel') || this.$t('quantity') || 'الكمية',
+          sortable: true,
+          thClass: 'item-header-cell'
+        },
+        {
           key: 'tags',
           label: this.$t('categoryPlaceholder') || 'القسم',
           sortable: true,
@@ -620,10 +868,24 @@ export default {
     },
     totalPages() {
       return Math.ceil(this.totalItems / this.pageSize);
-    }
+    },
+    itemsInStockOnPage() {
+      return (this.Items || []).filter((item) => Number(item.quantity) > 0).length;
+    },
+    itemsOutOfStockOnPage() {
+      return (this.Items || []).filter((item) => Number(item.quantity) <= 0).length;
+    },
+    isCommercialUser() {
+      return localStorage.getItem("role") === "Commercial";
+    },
   },
 
   methods: {
+    productImageSrc,
+    onProductImageError,
+    refreshPage() {
+      this.GetAllItems();
+    },
     getTags() {
       HTTP.get(`Admin/GetTags?pageNumber=0&pageSize=10000`)
         .then((response) => {
@@ -879,6 +1141,11 @@ export default {
       }
       return "";
     },
+    formatQuantity(quantity) {
+      const value = Number(quantity);
+      if (Number.isNaN(value)) return "0";
+      return value.toLocaleString("en-EG");
+    },
     closeModel(id) {
       this.$bvModal.hide(id);
       if (id === 'modal-editItem') {
@@ -910,6 +1177,111 @@ export default {
     onPageChange(page) {
       this.pageNumber = page;
       this.GetAllItems();
+    },
+    clearImportFile() {
+      this.importFile = null;
+      this.importFileName = "";
+      this.importResult = null;
+      if (this.$refs.importFileInput) {
+        this.$refs.importFileInput.value = "";
+      }
+    },
+    onImportFileSelected(event) {
+      const file = event.target.files?.[0];
+      this.importFile = file || null;
+      this.importFileName = file?.name || "";
+      this.importResult = null;
+    },
+    mapImportError(key) {
+      if (key && this.$te(key)) return this.$t(key);
+      return key || this.$t("error");
+    },
+    closeImportModal() {
+      this.$bvModal.hide("modal-importItems");
+      this.resetImportState();
+    },
+    resetImportState() {
+      this.importFile = null;
+      this.importFileName = "";
+      this.importResult = null;
+      this.importUploading = false;
+      if (this.$refs.importFileInput) {
+        this.$refs.importFileInput.value = "";
+      }
+    },
+    async uploadImportFile() {
+      if (!this.importFile || this.importUploading) return;
+
+      this.importUploading = true;
+      this.importResult = null;
+
+      const formData = new FormData();
+      formData.append("file", this.importFile);
+
+      try {
+        const response = await HTTP.post("Admin/ImportItems", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+          timeout: 120000,
+        });
+        const payload = response?.data;
+        this.importResult = payload?.data || null;
+
+        this.$notify.success(
+          this.$te(payload?.message) ? this.$t(payload.message) : this.$t("importItemsSuccess"),
+          { position: "top-right", timeout: 4000, maxToasts: 1 }
+        );
+        this.GetAllItems();
+        this.getTags();
+      } catch (error) {
+        const msg = error?.response?.data?.message;
+        this.$notify.error(this.mapImportError(msg) || this.$t("importItemsFailed"), {
+          position: "top-right",
+          timeout: 4000,
+          maxToasts: 1,
+        });
+      } finally {
+        this.importUploading = false;
+      }
+    },
+    closeClearCatalogModal() {
+      this.$bvModal.hide("modal-clearCatalog");
+      this.clearCatalogPassword = "";
+      this.clearCatalogResult = null;
+      this.clearCatalogLoading = false;
+    },
+    async executeClearCatalog() {
+      if (!this.clearCatalogPassword || this.clearCatalogLoading) return;
+
+      this.clearCatalogLoading = true;
+      this.clearCatalogResult = null;
+
+      try {
+        const response = await HTTP.post("Admin/ClearCatalog", {
+          password: this.clearCatalogPassword,
+        });
+        const payload = response?.data;
+        this.clearCatalogResult = payload?.data || null;
+
+        this.$notify.success(
+          this.$te(payload?.message) ? this.$t(payload.message) : this.$t("catalogClearSuccess"),
+          { position: "top-right", timeout: 4500, maxToasts: 1 }
+        );
+        this.GetAllItems();
+        this.getTags();
+      } catch (error) {
+        const msg = error?.response?.data?.message;
+        const text =
+          msg && this.$te(msg)
+            ? this.$t(msg)
+            : this.$t("catalogClearFailed");
+        this.$notify.error(text, {
+          position: "top-right",
+          timeout: 4000,
+          maxToasts: 1,
+        });
+      } finally {
+        this.clearCatalogLoading = false;
+      }
     },
   },
 };
@@ -973,6 +1345,17 @@ export default {
   color: var(--primary-color);
 }
 
+.item-quantity-text {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: #111827;
+  font-variant-numeric: tabular-nums;
+}
+
+.item-quantity-text--low {
+  color: var(--danger-color, #dc2626);
+}
+
 .item-tags-text {
   color: var(--text-muted);
   font-size: 0.875rem;
@@ -1008,5 +1391,173 @@ export default {
   background-color: rgba(99, 102, 241, 0.1);
   border-color: var(--border-dark);
   color: var(--primary-color);
+}
+
+.import-items-hint {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  white-space: pre-line;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.65rem;
+}
+
+.import-file-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.import-file-drop {
+  position: relative;
+  display: block;
+  cursor: pointer;
+  border: 2px dashed rgba(13, 110, 47, 0.35);
+  border-radius: 0.75rem;
+  background: rgba(13, 110, 47, 0.06);
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.import-file-drop:hover {
+  border-color: rgba(13, 110, 47, 0.65);
+  background: rgba(13, 110, 47, 0.1);
+  box-shadow: 0 4px 14px rgba(13, 110, 47, 0.1);
+}
+
+.import-file-drop--selected {
+  border-style: solid;
+  border-color: rgba(13, 110, 47, 0.55);
+  background: rgba(13, 110, 47, 0.12);
+}
+
+.import-file-drop__input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.import-file-drop__content {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+}
+
+.import-file-drop__icon-wrap {
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13, 110, 47, 0.16);
+  border: 1px solid rgba(13, 110, 47, 0.28);
+}
+
+.import-file-drop__icon {
+  font-size: 1.35rem;
+  color: #0d6e2f;
+}
+
+.import-file-drop__text-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.import-file-drop__title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.import-file-drop__sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.import-file-drop__action-icon {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  color: #0d6e2f;
+  opacity: 0.85;
+}
+
+.import-file-clear {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.import-file-clear:hover {
+  color: var(--danger-color, #ef4444);
+  background: var(--danger-light, rgba(239, 68, 68, 0.12));
+}
+
+.import-items-summary {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.import-items-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.25rem 0;
+  font-size: 0.875rem;
+}
+
+.import-items-errors {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.import-items-errors-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--danger-color, #dc2626);
+}
+
+.import-items-errors ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.clear-catalog-list {
+  margin: 0 0 1rem;
+  padding-inline-start: 1.35rem;
+  text-align: start;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
 }
 </style>

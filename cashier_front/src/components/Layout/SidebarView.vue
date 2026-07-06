@@ -85,6 +85,7 @@ export default {
         { name: "reports", label: this.$t("Reports"), link: "/reports", icon: "file-earmark-bar-graph-fill" },
         { name: "priceReader", label: this.$t("PriceReader"), link: "/priceReader", icon: "upc-scan" },
         { name: "printServer", label: this.$t("printServerManagement") || "إدارة خادم الطباعة", link: "/print-server", icon: "server" },
+        { name: "paymentDevices", label: this.$t("paymentDevicesManagement") || "إدارة أجهزة الدفع", link: "/payment-devices", icon: "credit-card-2-front-fill" },
         { name: "logout", label: this.$t("Logout"), link: "/logout", icon: "box-arrow-right", class: "nav-item-logout" },
       ],
     };

@@ -2,30 +2,52 @@
   <div>
     <AppHeader />
     <div class="main-content-wrapper">
-      <div class="sections-page-container">
-        <div class="sections-page-content">
-          <div class="sections-page-header">
-            <h1 class="sections-page-title">{{ $t("systemModules") }}</h1>
-            <p class="sections-page-subtitle">
-              {{ $t("sectionsPageSubtitle") || "اختر القسم للانتقال السريع" }}
-            </p>
+      <div class="app-page-container">
+        <div class="app-page-content sections-page">
+          <div class="users-header-section">
+            <div class="users-header-content app-header-row">
+              <div class="header-title-wrapper">
+                <div class="header-icon-wrapper">
+                  <b-icon icon="grid-3x3-gap-fill" class="header-icon"></b-icon>
+                </div>
+                <div>
+                  <h1 class="users-page-title">{{ $t("systemModules") }}</h1>
+                  <p class="header-subtitle">
+                    {{ $t("sectionsPageSubtitle") || "اختر القسم للانتقال السريع" }}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <section v-if="flatHubItems.length" class="dashboard-modules-hub">
-            <div class="hub-cards-grid">
-              <router-link
-                v-for="item in flatHubItems"
-                :key="item.name"
-                :to="item.link"
-                class="hub-module-card"
-              >
-                <div class="hub-module-icon-wrap">
-                  <b-icon :icon="item.icon" class="hub-module-icon"></b-icon>
+          <div class="app-section-card" v-if="flatHubItems.length">
+            <div class="app-section-header">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap">
+                  <b-icon icon="grid-fill"></b-icon>
                 </div>
-                <span class="hub-module-label">{{ item.label }}</span>
-              </router-link>
+                <div>
+                  <h3 class="app-section-title">{{ $t("systemModules") }}</h3>
+                  <p class="app-section-subtitle">{{ flatHubItems.length }} {{ $t("sectionsAvailable") || "قسم متاح" }}</p>
+                </div>
+              </div>
             </div>
-          </section>
+            <div class="app-section-body">
+              <div class="hub-cards-grid">
+                <router-link
+                  v-for="item in flatHubItems"
+                  :key="item.name"
+                  :to="item.link"
+                  class="hub-module-card"
+                >
+                  <div class="hub-module-icon-wrap">
+                    <b-icon :icon="item.icon" class="hub-module-icon"></b-icon>
+                  </div>
+                  <span class="hub-module-label">{{ item.label }}</span>
+                </router-link>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -69,33 +91,6 @@ export default {
 </script>
 
 <style scoped>
-.sections-page-container {
-  padding: 1.25rem 1rem 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.sections-page-header {
-  margin-bottom: 1.75rem;
-}
-
-.sections-page-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 0.35rem;
-}
-
-.sections-page-subtitle {
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.dashboard-modules-hub {
-  margin-bottom: 1rem;
-}
-
 .hub-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
@@ -109,7 +104,7 @@ export default {
   justify-content: center;
   gap: 0.65rem;
   padding: 1.15rem 0.75rem;
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 0.75rem;
   text-decoration: none;
@@ -122,14 +117,14 @@ export default {
 .hub-module-card:hover {
   transform: translateY(-3px);
   border-color: var(--primary-color);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .hub-module-icon-wrap {
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: var(--bg-primary);
+  background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-primary));
   display: flex;
   align-items: center;
   justify-content: center;

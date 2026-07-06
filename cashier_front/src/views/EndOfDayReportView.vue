@@ -2,9 +2,8 @@
   <div class="main-content-wrapper" :dir="direction">
     <AppHeader />
     <b-overlay :show="loading" spinner-variant="primary" spinner-type="grow" spinner-small rounded="sm">
-      <div class="app-page-container eod-page">
-        <div class="app-page-content">
-          <!-- Header -->
+      <div class="app-page-container">
+        <div class="app-page-content reports-page-content eod-page-content">
           <div class="users-header-section">
             <div class="users-header-content app-header-row">
               <div class="header-title-wrapper">
@@ -17,14 +16,9 @@
                 </div>
               </div>
               <div class="app-header-actions">
-                <button
-                  type="button"
-                  class="users-form-submit-button"
-                  @click="fetchReport"
-                  :disabled="loading"
-                >
-                  <b-icon icon="search" class="me-1"></b-icon>
-                  {{ $t("generateTodayReport") || "استخراج تقرير اليوم" }}
+                <button type="button" class="btn-refresh" @click="fetchReport" :disabled="loading">
+                  <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: loading }"></b-icon>
+                  <span class="button-text">{{ $t("generateTodayReport") || "استخراج تقرير اليوم" }}</span>
                 </button>
                 <button
                   type="button"
@@ -40,17 +34,16 @@
             </div>
           </div>
 
-          <!-- Hint before generate -->
-          <div v-if="!report && !loading" class="eod-hint-card">
-            <b-icon icon="info-circle-fill" class="eod-hint-icon"></b-icon>
-            <p>{{ $t("endOfDayHint") }}</p>
-          </div>
-
-          <!-- Empty -->
           <div v-if="!report && !loading" class="eod-empty-state">
-            <b-icon icon="bar-chart-line-fill" class="eod-empty-icon"></b-icon>
+            <div class="eod-empty-icon-wrap">
+              <b-icon icon="calendar2-check" class="eod-empty-icon"></b-icon>
+            </div>
             <h3>{{ $t("endOfDayEmptyTitle") || "لم يُستخرج التقرير بعد" }}</h3>
-            <p>{{ $t("endOfDayEmptyText") || "اضغط «استخراج تقرير اليوم» لعرض ملخص اليوم." }}</p>
+            <p class="eod-empty-text">{{ $t("endOfDayEmptyText") || "اضغط «استخراج تقرير اليوم» لعرض ملخص اليوم." }}</p>
+            <div class="report-info-banner eod-empty-hint">
+              <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
+              <span>{{ $t("endOfDayHint") }}</span>
+            </div>
             <button type="button" class="eod-empty-btn" @click="fetchReport">
               <b-icon icon="search"></b-icon>
               {{ $t("generateTodayReport") || "استخراج تقرير اليوم" }}
@@ -58,98 +51,106 @@
           </div>
 
           <template v-if="report">
-            <!-- Period -->
-            <div class="eod-period-banner">
-              <b-icon icon="clock-history" class="eod-period-icon"></b-icon>
+            <div class="report-info-banner eod-period-banner">
+              <b-icon icon="clock-history" class="banner-icon"></b-icon>
               <div>
                 <span class="eod-period-label">{{ $t("endOfDayPeriod") || "فترة التقرير" }}</span>
                 <strong class="eod-period-value">{{ reportPeriodLabel }}</strong>
               </div>
             </div>
 
-            <!-- KPIs -->
-            <div class="report-stats-grid eod-stats-grid">
-              <div class="report-stat-card report-stat-primary">
-                <div class="report-stat-icon">
+            <div class="app-overview-grid eod-overview-grid">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--primary">
                   <b-icon icon="receipt-cutoff"></b-icon>
-                </div>
-                <div class="report-stat-content">
-                  <h3 class="report-stat-value">{{ report.totals.ordersCount || 0 }}</h3>
-                  <p class="report-stat-label">{{ $t("orders") || "الفواتير" }}</p>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value">{{ report.totals.ordersCount || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("orders") || "الفواتير" }}</div>
                 </div>
               </div>
-              <div class="report-stat-card report-stat-info">
-                <div class="report-stat-icon">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--info">
                   <b-icon icon="currency-dollar"></b-icon>
-                </div>
-                <div class="report-stat-content">
-                  <h3 class="report-stat-value">{{ formatPrice(report.totals.grossSales) }}</h3>
-                  <p class="report-stat-label">{{ $t("grossSales") || "إجمالي المبيعات" }}</p>
-                  <p class="report-stat-detail" v-if="report.totals.discountAmount">
-                    {{ $t("discountLabel") || "الخصم" }}: {{ formatPrice(report.totals.discountAmount) }}
-                  </p>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value app-overview-stat-value--text">
+                    {{ formatPrice(report.totals.grossSales) }} {{ $t("currency") }}
+                  </div>
+                  <div class="app-overview-stat-label">{{ $t("grossSales") || "إجمالي المبيعات" }}</div>
                 </div>
               </div>
-              <div class="report-stat-card report-stat-success">
-                <div class="report-stat-icon">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                  <b-icon icon="percent"></b-icon>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value app-overview-stat-value--text">
+                    {{ formatPrice(report.totals.discountAmount) }} {{ $t("currency") }}
+                  </div>
+                  <div class="app-overview-stat-label">{{ $t("discountLabel") || "الخصم" }}</div>
+                </div>
+              </div>
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--success">
                   <b-icon icon="cash-stack"></b-icon>
-                </div>
-                <div class="report-stat-content">
-                  <h3 class="report-stat-value">{{ formatPrice(report.totals.netSales) }}</h3>
-                  <p class="report-stat-label">{{ $t("netSales") || "صافي المبيعات" }}</p>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value app-overview-stat-value--text">
+                    {{ formatPrice(report.totals.netSales) }} {{ $t("currency") }}
+                  </div>
+                  <div class="app-overview-stat-label">{{ $t("netSales") || "صافي المبيعات" }}</div>
                 </div>
               </div>
-              <div class="report-stat-card report-stat-success">
-                <div class="report-stat-icon">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--success">
                   <b-icon icon="graph-up-arrow"></b-icon>
-                </div>
-                <div class="report-stat-content">
-                  <h3 class="report-stat-value">{{ formatPrice(report.totals.profit) }}</h3>
-                  <p class="report-stat-label">{{ $t("profitReport") || "الربح" }}</p>
-                  <p class="report-stat-detail" v-if="profitMargin">
-                    {{ $t("profitMargin") || "هامش الربح" }}: {{ profitMargin }}%
-                  </p>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value app-overview-stat-value--text">
+                    {{ formatPrice(report.totals.profit) }} {{ $t("currency") }}
+                  </div>
+                  <div class="app-overview-stat-label">
+                    {{ $t("profitReport") || "الربح" }}
+                    <span v-if="profitMargin" class="eod-stat-extra">({{ profitMargin }}%)</span>
+                  </div>
                 </div>
               </div>
-              <div class="report-stat-card report-stat-danger">
-                <div class="report-stat-icon">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--danger">
                   <b-icon icon="arrow-counterclockwise"></b-icon>
-                </div>
-                <div class="report-stat-content">
-                  <h3 class="report-stat-value">{{ report.totals.returnedCount || 0 }}</h3>
-                  <p class="report-stat-label">{{ $t("returnedItemsReport") || "المواد المسترجعة" }}</p>
-                  <p class="report-stat-detail" v-if="report.totals.returnedAmount">
-                    {{ formatPrice(report.totals.returnedAmount) }} {{ $t("currency") }}
-                  </p>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value">{{ report.totals.returnedCount || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("returnedItemsReport") || "المواد المسترجعة" }}</div>
                 </div>
               </div>
-              <div class="report-stat-card report-stat-primary">
-                <div class="report-stat-icon">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--primary">
                   <b-icon icon="box-seam"></b-icon>
-                </div>
-                <div class="report-stat-content">
-                  <h3 class="report-stat-value">{{ report.totals.itemsQuantity || 0 }}</h3>
-                  <p class="report-stat-label">{{ $t("itemsSoldToday") || "المواد المباعة" }}</p>
-                  <p class="report-stat-detail">
-                    {{ report.totals.itemsCount || 0 }} {{ $t("uniqueItems") || "صنف مختلف" }}
-                  </p>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value">{{ report.totals.itemsQuantity || 0 }}</div>
+                  <div class="app-overview-stat-label">
+                    {{ $t("itemsSoldToday") || "المواد المباعة" }}
+                    <span class="eod-stat-extra">· {{ report.totals.itemsCount || 0 }} {{ $t("uniqueItems") || "صنف" }}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- Tables status (retail: hidden when no tables) -->
-            <div class="eod-section-card" v-if="showTableSections">
-              <div class="eod-section-header">
-                <div class="eod-section-title-wrap">
-                  <div class="eod-section-icon-wrap">
+            <div class="app-section-card" v-if="showTableSections">
+              <div class="app-section-header">
+                <div class="app-section-title-wrap">
+                  <div class="app-section-icon-wrap">
                     <b-icon icon="grid-3x3-gap-fill"></b-icon>
                   </div>
                   <div>
-                    <h3 class="eod-section-title">{{ $t("tablesStatusSummary") || "ملخص حالات الطاولات" }}</h3>
+                    <h3 class="app-section-title">{{ $t("tablesStatusSummary") || "ملخص حالات الطاولات" }}</h3>
                   </div>
                 </div>
               </div>
-              <div class="eod-section-body">
+              <div class="app-section-body">
                 <div class="eod-table-status-grid">
                   <div
                     v-for="chip in tableStatusChips"
@@ -164,114 +165,148 @@
               </div>
             </div>
 
-            <!-- Payment breakdown -->
-            <div class="eod-section-card">
-              <div class="eod-section-header">
-                <div class="eod-section-title-wrap">
-                  <div class="eod-section-icon-wrap eod-section-icon-wrap--payment">
+            <div class="app-section-card">
+              <div class="app-section-header">
+                <div class="app-section-title-wrap">
+                  <div class="app-section-icon-wrap eod-icon--payment">
                     <b-icon icon="credit-card-fill"></b-icon>
                   </div>
                   <div>
-                    <h3 class="eod-section-title">{{ $t("paymentMethod") || "طريقة الدفع" }}</h3>
+                    <h3 class="app-section-title">{{ $t("paymentMethod") || "طريقة الدفع" }}</h3>
+                    <p class="app-section-subtitle">{{ $t("paymentBreakdownHint") || "توزيع المبيعات حسب طريقة الدفع" }}</p>
                   </div>
                 </div>
               </div>
-              <div class="eod-section-body">
-                <div v-if="(report.paymentBreakdown || []).length" class="report-table-container">
-                <b-table
-                  :items="paymentRows"
-                  :fields="paymentFields"
-                  small
-                  responsive
-                  class="reports-table"
-                  striped
-                  hover
-                />
+              <div class="app-section-body">
+                <div v-if="(report.paymentBreakdown || []).length" class="eod-payment-grid">
+                  <div
+                    v-for="row in report.paymentBreakdown"
+                    :key="row.method"
+                    class="eod-payment-card"
+                    :class="`eod-payment-card--${paymentMethodKey(row.method)}`"
+                  >
+                    <span class="eod-payment-card-icon">
+                      <b-icon :icon="paymentMethodIcon(row.method)"></b-icon>
+                    </span>
+                    <span class="eod-payment-card-method">{{ paymentMethodLabel(row.method) }}</span>
+                    <span class="eod-payment-card-amount">{{ formatPrice(row.amount) }} {{ $t("currency") }}</span>
+                    <span class="eod-payment-card-count">
+                      {{ row.ordersCount || 0 }} {{ $t("orders") || "فاتورة" }}
+                    </span>
+                  </div>
                 </div>
                 <p v-else class="eod-section-empty">{{ $t("noDataForSection") || "لا توجد بيانات" }}</p>
               </div>
             </div>
 
-            <div class="eod-section-card" v-if="showTableSections">
-              <div class="eod-section-header">
-                <div class="eod-section-title-wrap">
-                  <div class="eod-section-icon-wrap eod-section-icon-wrap--tables">
+            <div class="app-section-card" v-if="showTableSections">
+              <div class="app-section-header">
+                <div class="app-section-title-wrap">
+                  <div class="app-section-icon-wrap eod-icon--tables">
                     <b-icon icon="table"></b-icon>
                   </div>
                   <div>
-                    <h3 class="eod-section-title">{{ $t("invoicesByTable") || "عدد الفواتير لكل طاولة" }}</h3>
+                    <h3 class="app-section-title">{{ $t("invoicesByTable") || "عدد الفواتير لكل طاولة" }}</h3>
                   </div>
                 </div>
               </div>
-              <div class="eod-section-body">
+              <div class="app-section-body">
                 <div v-if="(report.invoicesByTable || []).length" class="report-table-container">
-                <b-table
-                  :items="invoicesByTableRows"
-                  :fields="invoicesByTableFields"
-                  small
-                  responsive
-                  class="reports-table"
-                  striped
-                  hover
-                />
+                  <table class="report-table">
+                    <thead>
+                      <tr>
+                        <th>{{ $t("table") || "الطاولة" }}</th>
+                        <th>{{ $t("orders") || "الفواتير" }}</th>
+                        <th>{{ $t("totalAmount") || "المبلغ" }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="row in report.invoicesByTable" :key="row.tableNumber">
+                        <td><span class="report-item-code">{{ row.tableNumber }}</span></td>
+                        <td><span class="quantity-badge">{{ row.invoicesCount }}</span></td>
+                        <td><span class="report-item-price">{{ formatPrice(row.totalAmount) }} {{ $t("currency") }}</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
                 <p v-else class="eod-section-empty">{{ $t("noDataForSection") || "لا توجد بيانات" }}</p>
               </div>
             </div>
 
-            <!-- Top items -->
-            <div class="eod-section-card">
-              <div class="eod-section-header">
-                <div class="eod-section-title-wrap">
-                  <div class="eod-section-icon-wrap eod-section-icon-wrap--top">
+            <div class="app-section-card">
+              <div class="app-section-header">
+                <div class="app-section-title-wrap">
+                  <div class="app-section-icon-wrap eod-icon--top">
                     <b-icon icon="trophy-fill"></b-icon>
                   </div>
                   <div>
-                    <h3 class="eod-section-title">{{ $t("topSellingItems") || "الأكثر مبيعاً" }}</h3>
+                    <h3 class="app-section-title">{{ $t("topSellingItems") || "الأكثر مبيعاً" }}</h3>
+                    <p class="app-section-subtitle">{{ $t("topSellingItemsDescription") || "أفضل المنتجات مبيعاً اليوم" }}</p>
                   </div>
                 </div>
               </div>
-              <div class="eod-section-body">
+              <div class="app-section-body">
                 <div v-if="(report.topItems || []).length" class="report-table-container">
-                <b-table
-                  :items="topItemsRows"
-                  :fields="topItemsFields"
-                  small
-                  responsive
-                  class="reports-table"
-                  striped
-                  hover
-                />
+                  <table class="report-table">
+                    <thead>
+                      <tr>
+                        <th class="report-item-rank">#</th>
+                        <th>{{ $t("itemName") || "المادة" }}</th>
+                        <th>{{ $t("quantity") || "الكمية" }}</th>
+                        <th>{{ $t("totalSales") || "المبيعات" }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(item, index) in report.topItems" :key="item.itemId || index">
+                        <td class="report-item-rank">
+                          <span class="rank-badge" :class="getRankClass(index)">{{ index + 1 }}</span>
+                        </td>
+                        <td><span class="report-item-name">{{ item.itemName }}</span></td>
+                        <td><span class="quantity-badge">{{ item.quantity }}</span></td>
+                        <td><span class="report-item-price">{{ formatPrice(item.salesAmount) }} {{ $t("currency") }}</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
                 <p v-else class="eod-section-empty">{{ $t("noDataForSection") || "لا توجد بيانات" }}</p>
               </div>
             </div>
 
-            <!-- Returned items -->
-            <div class="eod-section-card">
-              <div class="eod-section-header">
-                <div class="eod-section-title-wrap">
-                  <div class="eod-section-icon-wrap eod-section-icon-wrap--return">
+            <div class="app-section-card">
+              <div class="app-section-header">
+                <div class="app-section-title-wrap">
+                  <div class="app-section-icon-wrap eod-icon--return">
                     <b-icon icon="arrow-counterclockwise"></b-icon>
                   </div>
                   <div>
-                    <h3 class="eod-section-title">{{ $t("returnedItemsReport") || "المواد المسترجعة" }}</h3>
+                    <h3 class="app-section-title">{{ $t("returnedItemsReport") || "المواد المسترجعة" }}</h3>
                   </div>
                 </div>
               </div>
-              <div class="eod-section-body">
+              <div class="app-section-body">
                 <div v-if="(report.returnedItems || []).length" class="report-table-container">
-                <b-table
-                  :items="returnedRows"
-                  :fields="returnedFields"
-                  small
-                  responsive
-                  class="reports-table"
-                  striped
-                  hover
-                />
+                  <table class="report-table">
+                    <thead>
+                      <tr>
+                        <th>{{ $t("invoiceNumber") || "الفاتورة" }}</th>
+                        <th>{{ $t("itemName") || "المادة" }}</th>
+                        <th>{{ $t("quantity") || "الكمية" }}</th>
+                        <th>{{ $t("lineTotal") || "المجموع" }}</th>
+                        <th>{{ $t("deletedBy") || "حذف بواسطة" }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(row, index) in report.returnedItems" :key="index">
+                        <td><span class="report-item-code">{{ row.orderCode }}</span></td>
+                        <td><span class="report-item-name">{{ row.itemName }}</span></td>
+                        <td><span class="quantity-badge">{{ row.quantity }}</span></td>
+                        <td><span class="report-item-price">{{ formatPrice(row.lineTotal) }} {{ $t("currency") }}</span></td>
+                        <td>{{ row.deletedByUsername || "—" }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
-                <p v-else class="eod-section-empty">{{ $t("noDataForSection") || "لا توجد بيانات" }}</p>
+                <p v-else class="eod-section-empty">{{ $t("eodNoReturnsToday") || "لا توجد مواد مسترجعة اليوم" }}</p>
               </div>
             </div>
           </template>
@@ -327,74 +362,39 @@ export default {
         { key: "out", label: this.$t("outOfService") || "خارج الخدمة", value: s.outOfServiceTables || 0 },
       ];
     },
-    paymentRows() {
-      return (this.report?.paymentBreakdown || []).map((row) => ({
-        ...row,
-        amount: this.formatPrice(row.amount),
-      }));
-    },
-    invoicesByTableRows() {
-      return (this.report?.invoicesByTable || []).map((row) => ({
-        ...row,
-        totalAmount: this.formatPrice(row.totalAmount),
-      }));
-    },
-    topItemsRows() {
-      return (this.report?.topItems || []).map((row) => ({
-        ...row,
-        salesAmount: this.formatPrice(row.salesAmount),
-      }));
-    },
-    returnedRows() {
-      return (this.report?.returnedItems || []).map((row) => ({
-        ...row,
-        lineTotal: this.formatPrice(row.lineTotal),
-      }));
-    },
-    tableStatusFields() {
-      return [
-        { key: "totalTables", label: this.$t("tables") || "الطاولات" },
-        { key: "availableTables", label: this.$t("available") || "متاحة" },
-        { key: "occupiedTables", label: this.$t("occupied") || "مشغولة" },
-        { key: "reservedTables", label: this.$t("reserved") || "محجوزة" },
-        { key: "outOfServiceTables", label: this.$t("outOfService") || "خارج الخدمة" },
-      ];
-    },
-    paymentFields() {
-      return [
-        { key: "method", label: this.$t("paymentMethod") || "طريقة الدفع" },
-        { key: "ordersCount", label: this.$t("orders") || "الفواتير" },
-        { key: "amount", label: this.$t("totalAmount") || "المبلغ" },
-      ];
-    },
-    invoicesByTableFields() {
-      return [
-        { key: "tableNumber", label: this.$t("table") || "الطاولة" },
-        { key: "invoicesCount", label: this.$t("orders") || "الفواتير" },
-        { key: "totalAmount", label: this.$t("totalAmount") || "المبلغ" },
-      ];
-    },
-    topItemsFields() {
-      return [
-        { key: "itemName", label: this.$t("itemName") || "المادة" },
-        { key: "quantity", label: this.$t("quantity") || "الكمية" },
-        { key: "salesAmount", label: this.$t("totalSales") || "المبيعات" },
-      ];
-    },
-    returnedFields() {
-      return [
-        { key: "orderCode", label: this.$t("invoiceNumber") || "الفاتورة" },
-        { key: "itemName", label: this.$t("itemName") || "المادة" },
-        { key: "quantity", label: this.$t("quantity") || "الكمية" },
-        { key: "lineTotal", label: this.$t("lineTotal") || "المجموع" },
-        { key: "deletedByUsername", label: this.$t("deletedBy") || "حذف بواسطة" },
-      ];
-    },
   },
   methods: {
     formatPrice(value) {
       const n = Number(value || 0);
-      return Number.isFinite(n) ? n.toLocaleString("en-EG") : "0";
+      const locale = this.$i18n?.locale === "en" ? "en" : "ar-IQ";
+      return Number.isFinite(n) ? n.toLocaleString(locale) : "0";
+    },
+    paymentMethodLabel(method) {
+      const labels = {
+        Cash: this.$t("cash") || "نقد",
+        Card: this.$t("card") || "بطاقة",
+        Credit: this.$t("credit") || "دفع لاحق",
+        BankTransfer: this.$t("bankTransfer") || "تحويل",
+      };
+      return labels[method] || method || "—";
+    },
+    paymentMethodKey(method) {
+      return String(method || "other").toLowerCase();
+    },
+    paymentMethodIcon(method) {
+      const icons = {
+        Cash: "cash-stack",
+        Card: "credit-card-fill",
+        Credit: "wallet2",
+        BankTransfer: "bank",
+      };
+      return icons[method] || "cash-coin";
+    },
+    getRankClass(index) {
+      if (index === 0) return "rank-gold";
+      if (index === 1) return "rank-silver";
+      if (index === 2) return "rank-bronze";
+      return "";
     },
     formatDateTime(value) {
       if (!value) return "—";
@@ -469,31 +469,6 @@ export default {
 </script>
 
 <style scoped>
-.eod-hint-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.9rem 1.1rem;
-  margin-bottom: 1rem;
-  border-radius: 0.85rem;
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, rgba(245, 158, 11, 0.06) 100%);
-  color: var(--text-primary);
-  font-size: 0.88rem;
-  line-height: 1.5;
-}
-
-.eod-hint-card p {
-  margin: 0;
-}
-
-.eod-hint-icon {
-  color: #d97706;
-  font-size: 1.25rem;
-  flex-shrink: 0;
-  margin-top: 0.1rem;
-}
-
 .eod-empty-state {
   margin-top: 0.5rem;
   padding: 2.5rem 1.5rem;
@@ -504,13 +479,23 @@ export default {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
+}
+
+.eod-empty-icon-wrap {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--primary-color) 12%, var(--bg-primary));
+  margin-bottom: 0.25rem;
 }
 
 .eod-empty-icon {
-  font-size: 2.5rem;
+  font-size: 1.75rem;
   color: var(--primary-color);
-  margin-bottom: 0.25rem;
 }
 
 .eod-empty-state h3 {
@@ -520,10 +505,17 @@ export default {
   color: var(--text-primary);
 }
 
-.eod-empty-state p {
-  margin: 0 0 0.75rem;
+.eod-empty-text {
+  margin: 0;
   color: var(--text-secondary);
   font-size: 0.9rem;
+  max-width: 28rem;
+}
+
+.eod-empty-hint {
+  max-width: 32rem;
+  text-align: start;
+  margin: 0.25rem 0 0.5rem;
 }
 
 .eod-empty-btn {
@@ -532,7 +524,7 @@ export default {
   gap: 0.45rem;
   padding: 0.65rem 1.2rem;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-md, 0.55rem);
   background: var(--primary-color);
   color: #fff;
   font-weight: 600;
@@ -546,99 +538,52 @@ export default {
 }
 
 .eod-period-banner {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.25rem;
-  border-radius: 0.85rem;
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.05) 100%);
-}
-
-.eod-period-icon {
-  font-size: 1.5rem;
-  color: var(--primary-color);
+  margin-bottom: 1rem;
 }
 
 .eod-period-label {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-secondary);
+  font-weight: 600;
   margin-bottom: 0.15rem;
 }
 
 .eod-period-value {
-  font-size: 0.95rem;
+  display: block;
+  font-size: 0.92rem;
   color: var(--text-primary);
+  font-weight: 700;
 }
 
-.eod-stats-grid {
-  margin-bottom: 1.5rem;
-}
-
-.eod-section-card {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 1rem;
+.eod-overview-grid {
   margin-bottom: 1.25rem;
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
 }
 
-.eod-section-header {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-secondary);
+.eod-stat-extra {
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
 }
 
-.eod-section-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.eod-section-icon-wrap {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.65rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.14) 0%, rgba(79, 70, 229, 0.08) 100%);
-  color: var(--primary-color);
-  font-size: 1.1rem;
-}
-
-.eod-section-icon-wrap--payment {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(5, 150, 105, 0.08) 100%);
+.eod-icon--payment {
+  background: rgba(16, 185, 129, 0.14);
   color: #059669;
 }
 
-.eod-section-icon-wrap--tables {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.14) 0%, rgba(37, 99, 235, 0.08) 100%);
+.eod-icon--tables {
+  background: rgba(59, 130, 246, 0.14);
   color: #2563eb;
 }
 
-.eod-section-icon-wrap--top {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.16) 0%, rgba(217, 119, 6, 0.08) 100%);
+.eod-icon--top {
+  background: rgba(245, 158, 11, 0.16);
   color: #d97706;
 }
 
-.eod-section-icon-wrap--return {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.14) 0%, rgba(220, 38, 38, 0.08) 100%);
+.eod-icon--return {
+  background: rgba(239, 68, 68, 0.12);
   color: #dc2626;
-}
-
-.eod-section-title {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.eod-section-body {
-  padding: 1rem 1.25rem 1.25rem;
 }
 
 .eod-section-empty {
@@ -647,6 +592,70 @@ export default {
   color: var(--text-secondary);
   font-size: 0.88rem;
   padding: 1.5rem 0;
+}
+
+.eod-payment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.eod-payment-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.35rem;
+  padding: 1rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.eod-payment-card-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  background: rgba(99, 102, 241, 0.12);
+  color: #4f46e5;
+}
+
+.eod-payment-card--cash .eod-payment-card-icon {
+  background: rgba(16, 185, 129, 0.14);
+  color: #059669;
+}
+
+.eod-payment-card--card .eod-payment-card-icon {
+  background: rgba(59, 130, 246, 0.14);
+  color: #2563eb;
+}
+
+.eod-payment-card--credit .eod-payment-card-icon {
+  background: rgba(245, 158, 11, 0.14);
+  color: #d97706;
+}
+
+.eod-payment-card-method {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.eod-payment-card-amount {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.eod-payment-card-count {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .eod-table-status-grid {
@@ -659,7 +668,7 @@ export default {
   text-align: center;
   padding: 0.85rem 0.5rem;
   border-radius: 0.75rem;
-  border: 1.5px solid var(--border-color);
+  border: 1px solid var(--border-color);
   background: var(--bg-secondary);
 }
 
@@ -680,23 +689,23 @@ export default {
 }
 
 .eod-table-status-chip--available {
-  border-color: rgba(16, 185, 129, 0.4);
-  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.06);
 }
 
 .eod-table-status-chip--occupied {
-  border-color: rgba(239, 68, 68, 0.4);
-  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.06);
 }
 
 .eod-table-status-chip--reserved {
-  border-color: rgba(245, 158, 11, 0.45);
-  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.08);
 }
 
 .eod-table-status-chip--out {
-  border-color: rgba(148, 163, 184, 0.5);
-  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.45);
+  background: rgba(148, 163, 184, 0.08);
 }
 
 .export-excel-btn {
@@ -724,24 +733,14 @@ export default {
   cursor: not-allowed;
 }
 
-.reports-table ::v-deep .table {
-  margin-bottom: 0;
+.spinning {
+  animation: eod-spin 1s linear infinite;
 }
 
-.reports-table ::v-deep thead th .sr-only,
-.reports-table ::v-deep thead th .visually-hidden {
-  display: none !important;
-}
-
-.reports-table ::v-deep tbody td {
-  padding: 0.85rem 1rem;
-  vertical-align: middle;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 0.88rem;
-}
-
-.reports-table ::v-deep tbody tr:hover {
-  background: var(--bg-secondary);
+@keyframes eod-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 992px) {
@@ -753,6 +752,10 @@ export default {
 @media (max-width: 768px) {
   .eod-table-status-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .eod-payment-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 </style>

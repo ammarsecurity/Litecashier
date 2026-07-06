@@ -181,6 +181,14 @@
                     <div class="actions-cell">
                       <button
                         type="button"
+                        class="action-btn action-btn--icon action-btn--view"
+                        @click="viewDeferredPayments(row.item)"
+                        :title="$t('viewDeferredPayments') || 'عرض الدفع اللاحق'"
+                      >
+                        <b-icon icon="wallet2" class="action-icon"></b-icon>
+                      </button>
+                      <button
+                        type="button"
                         class="action-btn action-btn--icon action-btn--edit"
                         @click="editCustomer(row.item)"
                         :title="$t('edit')"
@@ -449,6 +457,9 @@ export default {
       this.selectedCustomer = null;
       this.resetCustomerForm();
       this.showCustomerModal = true;
+    },
+    viewDeferredPayments(c) {
+      this.$router.push({ path: "/deferred-payments", query: { customerId: c.id } });
     },
     editCustomer(c) {
       this.selectedCustomer = c;

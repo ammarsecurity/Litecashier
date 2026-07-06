@@ -1,5 +1,20 @@
 import axios from "axios";
 
+/** PAX Nebula sale can wait for card/PIN on device — longer than default API calls. */
+export const CARD_PAYMENT_REQUEST_TIMEOUT_MS = 180000;
+
+/** Poll interval while waiting for card payment on device. */
+export const CARD_PAYMENT_STATUS_POLL_MS = 2000;
+
+export const startCardPaymentSale = (payload) =>
+    HTTP.post("CardPayments/sale/start", payload, { timeout: 30000 });
+
+export const getCardPaymentStatus = (transactionId) =>
+    HTTP.get(`CardPayments/${transactionId}/status`, { timeout: 10000 });
+
+export const cancelCardPayment = (transactionId) =>
+    HTTP.post(`CardPayments/${transactionId}/cancel`, null, { timeout: 15000 });
+
 export const HTTP = axios.create({
     baseURL: process.env.VUE_APP_API_URL ||
         (process.env.NODE_ENV === 'production'

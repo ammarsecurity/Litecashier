@@ -16,6 +16,9 @@ import CustomersView from '../views/CustomersView.vue'
 import ExpensesView from '../views/ExpensesView.vue'
 import InventoryView from '../views/InventoryView.vue'
 import AuditLogView from '../views/AuditLogView.vue'
+import PaymentDevicesView from '../views/PaymentDevicesView.vue'
+import CardPaymentsView from '../views/CardPaymentsView.vue'
+import DeferredPaymentsView from '../views/DeferredPaymentsView.vue'
 import { i18n } from '../main'
 import { managerCanAccessPath } from '../navigation/sectionRegistry.js'
 Vue.use(VueRouter)
@@ -156,6 +159,24 @@ const routes = [
     }
   },
   {
+    path: '/payment-devices',
+    name: 'paymentDevices',
+    component: PaymentDevicesView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
+    }
+  },
+  {
+    path: '/card-payments',
+    name: 'cardPayments',
+    component: CardPaymentsView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
+    }
+  },
+  {
     path: '/employees',
     name: 'employees',
     component: EmployeesView,
@@ -168,6 +189,15 @@ const routes = [
     path: '/customers',
     name: 'customers',
     component: CustomersView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
+    }
+  },
+  {
+    path: '/deferred-payments',
+    name: 'deferredPayments',
+    component: DeferredPaymentsView,
     meta: {
       requiresAuth: true,
       roles: ['Commercial', 'Admin']
@@ -263,7 +293,8 @@ router.beforeEach((to, from, next) => {
           to.path !== '/logout' &&
           to.path !== '/sections' &&
           to.path !== '/customers' &&
-          to.path !== '/category'
+          to.path !== '/category' &&
+          to.path !== '/payment-devices'
         ) {
           return next('/users');
         }

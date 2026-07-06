@@ -35,11 +35,18 @@ export default {
         ? this.buildOrderDiscountPayload()
         : {};
       Object.assign(this.orderForSend, discountPayload);
+
+      this.orderForSend.isCheckout = !!this.isCheckoutPersist;
+      this.orderForSend.cardPaymentTransactionId =
+        this.cardPaymentTransactionIdForCheckout || null;
     },
     mapOrderPersistErrorMessage(error) {
       let errorMessage = this.$i18n.t("error") || "حدث خطأ ما";
       if (error.response) {
         const apiMessage = error.response.data?.message;
+        if (apiMessage && this.$te(apiMessage)) {
+          return this.$t(apiMessage);
+        }
         if (apiMessage) return apiMessage;
         if (error.response.status === 400) {
           return this.$i18n.t("badRequest") || "طلب غير صحيح";
@@ -73,6 +80,7 @@ export default {
       const shouldPrint = printOnSave || (!skipPrint && isCheckout);
 
       this.orderPersisting = true;
+      this.isCheckoutPersist = isCheckout;
       this.show = true;
       this.prepareOrderPayload();
 
@@ -101,6 +109,7 @@ export default {
 
         this.carditems = [];
         this.orderForSend.notes = "";
+        this.orderForSend.creditCustomerId = null;
         if (typeof this.clearOrderDiscount === "function") {
           this.clearOrderDiscount();
         }
@@ -127,6 +136,8 @@ export default {
       } finally {
         this.show = false;
         this.orderPersisting = false;
+        this.isCheckoutPersist = false;
+        this.cardPaymentTransactionIdForCheckout = null;
       }
     },
     addOrderAndClear(skipPrint = false) {
@@ -134,6 +145,45 @@ export default {
     },
     addOrder(isPrint) {
       return this.persistOrder({ skipPrint: !isPrint, isCheckout: true });
+    },
+    validateCreditForOrder(toastPosition) {
+      if (this.orderForSend.paymentMethod !== "Credit") return true;
+      const c = this.orderForSend.creditCustomerId;
+      const hasC = c != null && c !== "";
+      if (hasC) return true;
+      const notify = this.$notify?.error || this.$toast?.error;
+      const msg =
+        this.$i18n.t("pleaseSelectCreditAccount") || "اختر حساباً للدفع الآجل";
+      if (notify) {
+        notify(msg, {
+          position: toastPosition,
+          timeout: 2500,
+          maxToasts: 1,
+        });
+      }
+      return false;
+    },
+    async checkoutWithPayment(withPrint = false) {
+      if (this.carditems.length <= 0) {
+        this.$notify.error(this.$i18n.t("emptyCartMessage"), {
+          position: this.getOrderPersistToastPosition(),
+          timeout: 2500,
+          maxToasts: 1,
+        });
+        return;
+      }
+
+      if (this.orderForSend.paymentMethod === "Card") {
+        const txId = await this.processCardPaymentBeforeCheckout();
+        if (!txId) return;
+        this.cardPaymentTransactionIdForCheckout = txId;
+      }
+
+      if (!this.validateCreditForOrder(this.getOrderPersistToastPosition())) {
+        return;
+      }
+
+      await this.addOrder(withPrint);
     },
   },
 };

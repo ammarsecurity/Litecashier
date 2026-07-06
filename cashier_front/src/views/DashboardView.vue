@@ -8,16 +8,24 @@
         spinner-type="border"
         rounded="sm"
       >
-        <div class="dashboard-page-container">
-          <div class="dashboard-page-content">
-            <!-- Welcome Header -->
-            <div class="dashboard-welcome-section">
-              <div class="users-header-content app-header-row" style="margin-bottom: 0.5rem;">
-                <div>
-                  <h1 class="dashboard-welcome-title">{{ $t("welcomeToDashboard") || "مرحباً بك في لوحة التحكم" }}</h1>
-                  <p class="dashboard-welcome-subtitle">{{ $t("dashboardSubtitle") || "نظرة شاملة على إحصائيات متجرك" }}</p>
+        <div class="app-page-container">
+          <div class="app-page-content dashboard-page">
+            <div class="users-header-section">
+              <div class="users-header-content app-header-row">
+                <div class="header-title-wrapper">
+                  <div class="header-icon-wrapper">
+                    <b-icon icon="speedometer2" class="header-icon"></b-icon>
+                  </div>
+                  <div>
+                    <h1 class="users-page-title">{{ $t("welcomeToDashboard") || "لوحة التحكم" }}</h1>
+                    <p class="header-subtitle">{{ $t("dashboardSubtitle") || "نظرة شاملة على إحصائيات متجرك" }}</p>
+                  </div>
                 </div>
                 <div class="app-header-actions">
+                  <button type="button" class="btn-refresh" @click="refreshPage" :disabled="show">
+                    <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: show }"></b-icon>
+                    <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+                  </button>
                   <router-link to="/sections" class="users-add-button dashboard-sections-link">
                     <b-icon icon="grid-3x3-gap-fill" class="button-icon"></b-icon>
                     <span class="button-text">{{ $t("systemModules") || "أقسام النظام" }}</span>
@@ -26,42 +34,43 @@
               </div>
             </div>
 
-            <!-- Quick Stats Overview -->
-            <div class="dashboard-quick-stats">
-              <div class="quick-stat-card quick-stat-primary">
-                <div class="quick-stat-icon">
+            <div class="app-overview-grid">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--primary">
                   <b-icon icon="receipt-cutoff"></b-icon>
-                </div>
-                <div class="quick-stat-content">
-                  <h3 class="quick-stat-value">{{ stats.orders?.total || 0 }}</h3>
-                  <p class="quick-stat-label">{{ $t("all_sales") }}</p>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value">{{ stats.orders?.total || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("all_sales") }}</div>
                 </div>
               </div>
-              <div class="quick-stat-card quick-stat-success">
-                <div class="quick-stat-icon">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--success">
                   <b-icon icon="currency-dollar"></b-icon>
-                </div>
-                <div class="quick-stat-content">
-                  <h3 class="quick-stat-value">{{ formattedNumber(stats.salesAmount?.total || 0) }} {{ $t("currency") }}</h3>
-                  <p class="quick-stat-label">{{ $t("totalLabel") }} {{ $t("salesAmountStatisticsLabel") }}</p>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value app-overview-stat-value--text">
+                    {{ formattedNumber(stats.salesAmount?.total || 0) }} {{ $t("currency") }}
+                  </div>
+                  <div class="app-overview-stat-label">{{ $t("salesAmountStatisticsLabel") }}</div>
                 </div>
               </div>
-              <div class="quick-stat-card quick-stat-info">
-                <div class="quick-stat-icon">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--info">
                   <b-icon icon="box-fill"></b-icon>
-                </div>
-                <div class="quick-stat-content">
-                  <h3 class="quick-stat-value">{{ stats.products?.total || 0 }}</h3>
-                  <p class="quick-stat-label">{{ $t("Items") }}</p>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value">{{ stats.products?.total || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("Items") }}</div>
                 </div>
               </div>
-              <div class="quick-stat-card quick-stat-warning">
-                <div class="quick-stat-icon">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--warning">
                   <b-icon icon="people"></b-icon>
-                </div>
-                <div class="quick-stat-content">
-                  <h3 class="quick-stat-value">{{ stats.users?.total || 0 }}</h3>
-                  <p class="quick-stat-label">{{ $t("all_accounts") }}</p>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value">{{ stats.users?.total || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("all_accounts") }}</div>
                 </div>
               </div>
             </div>
@@ -542,6 +551,9 @@ export default {
     this.getDashboardStats();
   },
   methods: {
+    refreshPage() {
+      this.getDashboardStats();
+    },
     formattedNumber(info) {
       if (typeof info === 'number') {
         return info.toLocaleString("en-EG");

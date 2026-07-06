@@ -10,6 +10,7 @@ using POS.Models;
 using POS.Models.Dtos;
 using POS.Models.Requests;
 using POS.Models.Response;
+using POS.Services;
 using System.Security.Claims;
 using System.Text;
 
@@ -26,13 +27,26 @@ namespace POS.Controllers
         private readonly ILogger<AdminController> _logger;
         private readonly IMapper _mapper;
         private readonly IConfiguration _configuration;
+        private readonly IOrderCheckoutService _orderCheckoutService;
+        private readonly IItemImportService _itemImportService;
+        private readonly ICommercialCatalogClearService _catalogClearService;
 
-        public AdminController(ILogger<AdminController> logger, DbConfig dbConfig, IMapper mapper, IConfiguration configuration)
+        public AdminController(
+            ILogger<AdminController> logger,
+            DbConfig dbConfig,
+            IMapper mapper,
+            IConfiguration configuration,
+            IOrderCheckoutService orderCheckoutService,
+            IItemImportService itemImportService,
+            ICommercialCatalogClearService catalogClearService)
         {
             _logger = logger;
             _dbConfig = dbConfig;
             _mapper = mapper;
             _configuration = configuration;
+            _orderCheckoutService = orderCheckoutService;
+            _itemImportService = itemImportService;
+            _catalogClearService = catalogClearService;
         }
 
         private int GetCommercialUserId()
@@ -987,6 +1001,143 @@ namespace POS.Controllers
             });
         }
 
+        [Authorize(Roles = "Commercial,POS")]
+        [HttpPost("ImportItems")]
+        [RequestSizeLimit(10 * 1024 * 1024)]
+        public async Task<ActionResult<GlobalResponse<ItemImportResultDto>>> ImportItems(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new GlobalResponse<ItemImportResultDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "invalidImportFile"
+                });
+            }
+
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (extension is not ".xlsx" and not ".xls")
+            {
+                return BadRequest(new GlobalResponse<ItemImportResultDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "invalidImportFile"
+                });
+            }
+
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var commercialUserId = GetCommercialUserId();
+
+                await using var stream = file.OpenReadStream();
+                var importResult = await _itemImportService.ImportFromExcelAsync(stream, userId, commercialUserId);
+
+                try
+                {
+                    await _dbConfig.LogAuditAsync(
+                        "Import",
+                        "Item",
+                        0,
+                        file.FileName,
+                        userId,
+                        commercialUserId,
+                        description: $"Created={importResult.ItemsCreated}, Skipped={importResult.ItemsSkipped}, Tags={importResult.TagsCreated}, Errors={importResult.RowsWithErrors}");
+                }
+                catch (Exception auditEx)
+                {
+                    _logger.LogWarning(auditEx, "Audit log failed after ImportItems");
+                }
+
+                return Ok(new GlobalResponse<ItemImportResultDto>
+                {
+                    Data = importResult,
+                    ErrorStatus = false,
+                    Message = "importItemsSuccess"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ImportItems failed");
+                return StatusCode(500, new GlobalResponse<ItemImportResultDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "importItemsFailed"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial")]
+        [HttpPost("ClearCatalog")]
+        public async Task<ActionResult<GlobalResponse<CatalogClearResultDto>>> ClearCatalog(
+            [FromBody] CatalogClearRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return BadRequest(new GlobalResponse<CatalogClearResultDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "passwordRequired"
+                });
+            }
+
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var commercialUserId = GetCommercialUserId();
+
+                var auth = await TryVerifySensitiveCredentialAsync(commercialUserId, request.Password);
+                if (!auth.Ok)
+                {
+                    return Unauthorized(new GlobalResponse<CatalogClearResultDto>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = auth.ErrorKey ?? "invalidSensitiveAuth"
+                    });
+                }
+
+                var result = await _catalogClearService.ClearCatalogAsync(commercialUserId);
+
+                try
+                {
+                    await _dbConfig.LogAuditAsync(
+                        "ClearCatalog",
+                        "Catalog",
+                        0,
+                        "Tags,Items,Orders",
+                        userId,
+                        commercialUserId,
+                        description: $"Tags={result.TagsCleared}, Items={result.ItemsCleared}, Orders={result.OrdersCleared}");
+                }
+                catch (Exception auditEx)
+                {
+                    _logger.LogWarning(auditEx, "Audit log failed after ClearCatalog");
+                }
+
+                return Ok(new GlobalResponse<CatalogClearResultDto>
+                {
+                    Data = result,
+                    ErrorStatus = false,
+                    Message = "catalogClearSuccess"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ClearCatalog failed");
+                return StatusCode(500, new GlobalResponse<CatalogClearResultDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "catalogClearFailed"
+                });
+            }
+        }
+
         // update item 
         [Authorize(Roles = "Commercial")]
         [HttpPut("UpdateItem")]
@@ -1201,10 +1352,51 @@ namespace POS.Controllers
                     .ToList();
 
                 var orderCode = request.OrderCode ?? RandomCode();
+                var paymentMethod = request.PaymentMethod ?? "Cash";
+                int? creditCustomerId = null;
+
+                if (string.Equals(paymentMethod, "Credit", StringComparison.OrdinalIgnoreCase))
+                {
+                    var commercialUserIdForCredit = GetCommercialUserId();
+
+                    if (!request.CreditCustomerId.HasValue)
+                    {
+                        return BadRequest(new GlobalResponse<CustomerOrder>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "pleaseSelectCreditAccount"
+                        });
+                    }
+
+                    var cust = await _dbConfig.Customers
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(c =>
+                            c.Id == request.CreditCustomerId.Value
+                            && !c.IsDeleted
+                            && c.InsertByUserId == commercialUserIdForCredit);
+
+                    if (cust == null)
+                    {
+                        return BadRequest(new GlobalResponse<CustomerOrder>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "invalidCreditCustomer"
+                        });
+                    }
+
+                    creditCustomerId = cust.Id;
+                }
+
+                var paymentStatus = string.Equals(paymentMethod, "Credit", StringComparison.OrdinalIgnoreCase)
+                    ? "Pending"
+                    : (request.IsCheckout ? "Paid" : "Pending");
+
                 var newOrder = new CustomerOrder
                 {
                     OrderCode = orderCode,
-                    PaymentMethod = request.PaymentMethod ?? "Cash",
+                    PaymentMethod = paymentMethod,
                     InsertByUserId = userId,
                     DiscountType = request.DiscountType,
                     DiscountValue = request.DiscountValue,
@@ -1212,6 +1404,8 @@ namespace POS.Controllers
                     DiscountPercent = request.DiscountPercent,
                     OrderSubTotal = request.OrderSubTotal,
                     OrderTotalAfterDiscount = request.OrderTotalAfterDiscount,
+                    CreditCustomerId = creditCustomerId,
+                    PaymentStatus = paymentStatus,
                 };
                 _dbConfig.CustomerOrders.Add(newOrder);
                 await _dbConfig.SaveChangesAsync();
@@ -1327,6 +1521,19 @@ namespace POS.Controllers
 
                     _dbConfig.CustomerOrderItems.AddRange(insertItems);
                     await _dbConfig.SaveChangesAsync();
+                }
+
+                if (request.IsCheckout)
+                {
+                    var checkoutError = await _orderCheckoutService.ApplyCheckoutAsync(
+                        newOrder,
+                        request,
+                        userId,
+                        GetCommercialUserId());
+                    if (checkoutError != null)
+                    {
+                        return BadRequest(checkoutError);
+                    }
                 }
 
                 _logger.LogInformation("Order created successfully: {OrderCode} by user {UserId}", orderCode, userId);

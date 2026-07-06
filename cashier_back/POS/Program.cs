@@ -1,12 +1,15 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 using POS.Db;
+using POS.Hubs;
 using POS.Models;
 using POS.Models.Requests;
+using POS.Services;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +24,14 @@ builder.Services.AddDbContext<DbConfig>(options =>
 );
 
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddHttpClient("NebulaPayment");
+builder.Services.AddScoped<INebulaPaymentService, NebulaPaymentService>();
+builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
+builder.Services.AddScoped<IItemImportService, ItemImportService>();
+builder.Services.AddScoped<ICommercialCatalogClearService, CommercialCatalogClearService>();
+builder.Services.AddScoped<ICreditAccountService, CreditAccountService>();
+builder.Services.AddSingleton<ICardPaymentProcessingService, CardPaymentProcessingService>();
 
 builder.Services.AddAutoMapper(typeof(Program));
 
@@ -51,6 +62,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey))
+    };
+
+    jwtBearerOptions.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/orderHub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -85,10 +111,15 @@ builder.Services.AddSwaggerGen(opt =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsPolicy",
-               builder => builder.AllowAnyOrigin()
+               builder => builder
+                      .SetIsOriginAllowed(_ => true)
                       .AllowAnyMethod()
-                             .AllowAnyHeader());
+                      .AllowAnyHeader()
+                      .AllowCredentials());
 });
+
+builder.Services.AddSingleton<IUserIdProvider, NameIdentifierUserIdProvider>();
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -155,5 +186,6 @@ app.UseAuthentication();
 app.UseCors("CorsPolicy");
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<OrderHub>("/orderHub");
 
 app.Run();

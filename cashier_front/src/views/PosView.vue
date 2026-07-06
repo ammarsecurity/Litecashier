@@ -31,6 +31,7 @@
           'pos-fullscreen': isFullscreen,
           'pos-has-checkout-bar': showPosCheckoutBar,
           'pos-has-checkout-bar--with-discounts': carditems.length > 0,
+          'pos-has-checkout-bar--change-calc': changeCalcOpen && carditems.length > 0,
         }"
       >
         <b-container fluid class="pos-container-fluid">
@@ -114,25 +115,31 @@
                     </div>
                   </div>
 
-                  <div class="pos-categories-scroll">
-                    <div class="pos-categories-list">
+                  <div class="pos-categories-scroll pos-categories-scroll--pills">
+                    <div class="pos-categories-list pos-categories-list--pills">
                       <button
                         type="button"
-                        class="pos-category-btn pos-category-btn-accent"
+                        class="pos-category-btn pos-category-btn--pill pos-category-btn-accent"
                         :class="{ 'pos-category-btn-active': activeCategory === '' }"
                         @click="selectCategory('')"
                       >
-                        {{ $t("all") }}
+                        <span class="pos-category-btn-icon" aria-hidden="true">
+                          <b-icon icon="grid-3x3-gap-fill"></b-icon>
+                        </span>
+                        <span class="pos-category-btn-label">{{ $t("all") }}</span>
                       </button>
                       <button
                         v-for="tag in tags"
                         :key="tag.id"
                         type="button"
-                        class="pos-category-btn"
+                        class="pos-category-btn pos-category-btn--pill"
                         :class="{ 'pos-category-btn-active': activeCategory === tag.name }"
                         @click="selectCategory(tag.name)"
                       >
-                        {{ tag.name }}
+                        <span class="pos-category-btn-icon" aria-hidden="true">
+                          <b-icon icon="tag-fill"></b-icon>
+                        </span>
+                        <span class="pos-category-btn-label">{{ tag.name }}</span>
                       </button>
                     </div>
                   </div>
@@ -170,21 +177,29 @@
                           />
                           <div v-else class="pos-product-image-container">
                             <img
-                              v-if="item.image && !item.imageError"
-                              :src="item.image"
+                              :src="productImageSrc(item.image, item.imageError)"
                               :alt="item.name"
                               class="pos-product-image"
-                              @error="item.imageError = true"
+                              @error="onProductImageError(item)"
                             />
-                            <div v-else class="pos-product-image-placeholder">
-                              <b-icon icon="box-fill" class="pos-product-placeholder-icon"></b-icon>
-                            </div>
                           </div>
+                          <span
+                            v-if="!item.quantity || item.quantity <= 0"
+                            class="pos-product-stock-badge pos-product-stock-badge--out"
+                          >
+                            {{ $t("itemOutOfStock") || "غير متوفر" }}
+                          </span>
+                          <span
+                            v-else
+                            class="pos-product-stock-badge pos-product-stock-badge--qty"
+                          >
+                            {{ item.quantity }}
+                          </span>
                         </div>
 
                         <div class="pos-product-info">
-                          <h4 class="pos-product-name">{{ item.name }}</h4>
-                          <div class="pos-product-meta">
+                          <h4 class="pos-product-name" :title="item.name">{{ item.name }}</h4>
+                          <div class="pos-product-footer">
                             <div class="pos-product-price">
                               <div
                                 v-if="item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
@@ -201,14 +216,13 @@
                                 {{ formatPrice(item.sellingPrice) }} {{ $t("currency") }}
                               </div>
                             </div>
-                          </div>
-                          <div class="pos-product-add-badge" v-if="item.quantity && item.quantity > 0">
-                            <b-icon icon="plus-circle-fill" class="me-1"></b-icon>
-                            {{ $t("addButton") || "أضف" }}
-                          </div>
-                          <div class="pos-product-out-of-stock-badge" v-if="!item.quantity || item.quantity <= 0">
-                            <b-icon icon="x-circle-fill" class="me-1"></b-icon>
-                            {{ $t("itemOutOfStock") || "غير متوفر" }}
+                            <span
+                              v-if="item.quantity && item.quantity > 0"
+                              class="pos-product-add-btn"
+                              aria-hidden="true"
+                            >
+                              <b-icon icon="plus-lg"></b-icon>
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -274,56 +288,65 @@
                         ref="posCartItemsList"
                       >
                         <div
-                          class="pos-cart-item pos-cart-item--v2 pos-cart-item--row"
+                          class="pos-cart-item pos-cart-item--v2"
                           v-for="(item, index) in carditems"
                           :key="index"
                           @dblclick="increaseQuantity(index)"
                         >
-                          <div class="pos-cart-item-qty-row">
-                            <button
-                              type="button"
-                              class="pos-quantity-btn pos-quantity-decrease"
-                              @click.stop="decreaseQuantity(index)"
-                              :title="$t('decrease') || 'تقليل'"
-                            >
-                              <b-icon icon="dash-lg"></b-icon>
-                            </button>
-                            <span class="pos-cart-item-qty-num">{{ item.quantity }}</span>
-                            <button
-                              type="button"
-                              class="pos-quantity-btn pos-quantity-increase"
-                              @click.stop="increaseQuantity(index)"
-                              :title="$t('increase') || 'زيادة'"
-                            >
-                              <b-icon icon="plus-lg"></b-icon>
-                            </button>
+                          <div class="pos-cart-item-top">
+                            <div class="pos-cart-item-name-wrap">
+                              <h4 class="pos-cart-item-name">{{ item.name }}</h4>
+                            </div>
+                            <div class="pos-cart-item-line-total">
+                              {{ formatPrice(item.total) }} {{ $t("currency") }}
+                            </div>
                           </div>
-                          <div class="pos-cart-item-body">
-                            <div class="pos-cart-item-name">{{ item.name }}</div>
-                            <div class="pos-cart-item-meta">
-                              <span class="pos-cart-item-unit-line">
+                          <div class="pos-cart-item-bottom">
+                            <div class="pos-cart-item-unit-wrap">
+                              <span class="pos-cart-item-unit-price">
                                 {{ formatPrice(cartLineUnitPrice(item)) }} × {{ item.quantity }}
                               </span>
                               <span v-if="cartLineHasDiscount(item)" class="pos-cart-item-discount-tag">
                                 {{ $t("discountLabel") }}
                               </span>
                             </div>
+                            <div class="pos-cart-item-controls">
+                              <div class="pos-cart-item-quantity">
+                                <button
+                                  type="button"
+                                  class="pos-quantity-btn pos-quantity-decrease"
+                                  @click.stop="decreaseQuantity(index)"
+                                  :title="$t('decrease') || 'تقليل'"
+                                >
+                                  <b-icon icon="dash-lg"></b-icon>
+                                </button>
+                                <input
+                                  type="number"
+                                  :value="item.quantity"
+                                  @input="updateQuantity(index, $event.target.value)"
+                                  @click.stop
+                                  class="pos-quantity-input"
+                                  min="1"
+                                />
+                                <button
+                                  type="button"
+                                  class="pos-quantity-btn pos-quantity-increase"
+                                  @click.stop="increaseQuantity(index)"
+                                  :title="$t('increase') || 'زيادة'"
+                                >
+                                  <b-icon icon="plus-lg"></b-icon>
+                                </button>
+                              </div>
+                              <button
+                                type="button"
+                                class="pos-cart-item-delete"
+                                @click.stop="deleteItem(index, { silent: true })"
+                                :title="$t('delete') || 'حذف'"
+                              >
+                                <b-icon icon="x-lg"></b-icon>
+                              </button>
+                            </div>
                           </div>
-                          <div class="pos-cart-item-end">
-                            <span class="pos-cart-item-line-total">
-                              {{ formatPrice(item.total) }}
-                              <span class="pos-cart-currency">{{ $t("currency") }}</span>
-                            </span>
-                        
-                          </div>
-                          <button
-                              type="button"
-                              class="pos-cart-item-delete"
-                              @click.stop="deleteItem(index, { silent: true })"
-                              :title="$t('delete') || 'حذف'"
-                            >
-                              <b-icon icon="x-lg"></b-icon>
-                            </button>
                         </div>
                       </div>
                       <div
@@ -479,6 +502,21 @@
               </div>
             </b-modal>
 
+            <CardPaymentWaitModal
+              :visible.sync="cardPaymentWait.show"
+              :status="cardPaymentWait.status"
+              :amount="cardPaymentWait.amount"
+              :currency-code="cardPaymentWait.currencyCode"
+              :device-name="cardPaymentWait.deviceName"
+              :message="cardPaymentWait.message"
+              :auth-code="cardPaymentWait.authCode"
+              :ref-no="cardPaymentWait.refNo"
+              :error-message="cardPaymentWait.errorMessage"
+              :cancelling="cardPaymentWait.cancelling"
+              @cancel="onCardPaymentWaitCancel"
+              @close="onCardPaymentWaitClose"
+            />
+
             <b-modal id="modal-print-only-confirm" :title="$t('printOnly')" hide-header hide-footer class="users-modal">
               <div class="modal-content-wrapper">
                 <div class="delete-confirmation-content">
@@ -499,6 +537,61 @@
                       {{ $t("cancelButton") }}
                     </button>
                   </div>
+                </div>
+              </div>
+            </b-modal>
+
+            <b-modal
+              id="modal-credit-payment"
+              modal-class="users-modal"
+              hide-header
+              hide-footer
+              centered
+              size="lg"
+            >
+              <div class="modal-content-wrapper">
+                <div class="pos-modal-custom-header">
+                  <h3 class="delete-confirmation-title mb-0">
+                    {{ $t("creditPaymentModalTitle") }}
+                  </h3>
+                  <button type="button" class="pos-modal-close-btn" @click="cancelCreditPaymentModal">
+                    <b-icon icon="x-lg" class="me-2"></b-icon>
+                    {{ $t("close") || "إغلاق" }}
+                  </button>
+                </div>
+                <div class="delivery-info-section">
+                  <form class="users-form" @submit.prevent="confirmCreditPaymentSelection">
+                    <div class="users-form-group">
+                      <label class="users-form-label">
+                        <b-icon icon="people-fill" class="form-label-icon"></b-icon>
+                        {{ $t("selectCreditCustomer") }}
+                      </label>
+                      <select
+                        v-model="orderForSend.creditCustomerId"
+                        class="users-form-select"
+                        :disabled="loadingCreditCustomers"
+                      >
+                        <option value="">{{ $t("selectCreditCustomer") }}</option>
+                        <option
+                          v-for="c in creditCustomers.filter((x) => x.isActive !== false)"
+                          :key="'cc-' + c.id"
+                          :value="c.id"
+                        >
+                          {{ c.name }} — {{ c.phoneNumber }}
+                        </option>
+                      </select>
+                    </div>
+                    <div class="order-notes-actions mt-3">
+                      <button type="submit" class="order-notes-confirm-button">
+                        <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                        {{ $t("confirm") || "تأكيد" }}
+                      </button>
+                      <button type="button" class="order-notes-cancel-button" @click="cancelCreditPaymentModal">
+                        <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                        {{ $t("cancelButton") }}
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
             </b-modal>
@@ -524,6 +617,69 @@
                       @click="clearOrderDiscount"
                     >
                       {{ $t("clear") || "مسح" }}
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="carditems.length > 0 && changeCalcOpen" class="pos-checkout-change-panel">
+                  <div class="pos-change-calc-grid">
+                    <div class="pos-change-calc-field">
+                      <span class="pos-change-calc-label">{{ $t("changeCalcOrderTotal") }}</span>
+                      <strong class="pos-change-calc-total">
+                        {{ formatPrice(finalOrderTotal) }} {{ $t("currency") }}
+                      </strong>
+                    </div>
+                    <div class="pos-change-calc-field">
+                      <label class="pos-change-calc-label" for="pos-customer-paid-input">
+                        {{ $t("changeCalcAmountReceived") }}
+                      </label>
+                      <input
+                        id="pos-customer-paid-input"
+                        ref="customerPaidInput"
+                        v-model.number="customerPaidAmount"
+                        type="number"
+                        min="0"
+                        step="250"
+                        class="pos-change-calc-input"
+                        :placeholder="$t('changeCalcAmountReceivedPlaceholder')"
+                        @keyup.enter="focusPosBarcode"
+                      />
+                    </div>
+                    <div class="pos-change-calc-field pos-change-calc-field--result">
+                      <span class="pos-change-calc-label">{{ $t("changeCalcChangeDue") }}</span>
+                      <strong
+                        class="pos-change-calc-result"
+                        :class="{
+                          'pos-change-calc-result--ok': changeDueAmount > 0,
+                          'pos-change-calc-result--exact': changeDueAmount === 0 && customerPaidAmount > 0,
+                          'pos-change-calc-result--warn': isInsufficientPayment,
+                        }"
+                      >
+                        <template v-if="isInsufficientPayment">
+                          {{ $t("changeCalcInsufficient") }} − {{ formatPrice(paymentShortfall) }} {{ $t("currency") }}
+                        </template>
+                        <template v-else-if="customerPaidAmount > 0">
+                          {{ formatPrice(changeDueAmount) }} {{ $t("currency") }}
+                        </template>
+                        <template v-else>—</template>
+                      </strong>
+                    </div>
+                  </div>
+                  <div class="pos-change-calc-presets">
+                    <button type="button" class="pos-change-calc-preset-btn" @click="setCustomerPaidAmount(finalOrderTotal)">
+                      {{ $t("changeCalcExactAmount") }}
+                    </button>
+                    <button
+                      v-for="amount in changeCalcQuickAmounts"
+                      :key="amount"
+                      type="button"
+                      class="pos-change-calc-preset-btn"
+                      @click="setCustomerPaidAmount(amount)"
+                    >
+                      {{ formatPrice(amount) }} {{ $t("currency") }}
+                    </button>
+                    <button type="button" class="pos-change-calc-clear-btn" @click="resetChangeCalculator(true)">
+                      {{ $t("clear") }}
                     </button>
                   </div>
                 </div>
@@ -590,6 +746,17 @@
                         <button
                           type="button"
                           class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
+                          :class="{ 'pos-cart-checkout-action-btn--active': changeCalcOpen }"
+                          @click="toggleChangeCalculator"
+                          :disabled="totalCardItems <= 0"
+                          :title="$t('changeCalculator')"
+                        >
+                          <b-icon icon="calculator-fill" class="me-1"></b-icon>
+                          {{ $t("changeCalculator") }}
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
                           @click="openOrderExtrasModal"
                           :disabled="totalCardItems <= 0"
                           :title="`${$t('discountAndNotes') || 'خصم وملاحظات'} (F8)`"
@@ -626,7 +793,7 @@
                           type="button"
                           class="pos-payment-method-btn"
                           :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Credit' }"
-                          @click="setPosPaymentMethod('Credit')"
+                          @click="openCreditPaymentModal"
                         >
                           <b-icon icon="clock-history" class="pos-payment-icon"></b-icon>
                           <span class="pos-payment-label">{{ $t("credit") || "دفع لاحق" }}</span>
@@ -837,23 +1004,30 @@ import ClockVue from "@/components/ClockVue.vue";
 import VueBarcode from "@chenfengyuan/vue-barcode";
 import { HTTP } from "../http/api.js";
 import posOrderPersistMixin from "@/mixins/posOrderPersistMixin.js";
+import posCardPaymentMixin from "@/mixins/posCardPaymentMixin.js";
 import posPrintMixin from "@/mixins/posPrintMixin.js";
+import CardPaymentWaitModal from "@/components/CardPaymentWaitModal.vue";
 import {
   findCartLineIndex,
   getCartLineUnitPrice,
   getCartLineTotal,
   hasCartLineDiscount,
 } from "@/utils/mergeCartLines.js";
-import { applyPosPageSize } from "@/utils/posPageSize.js";
+import { applyPosPageSize, POS_ITEMS_PER_PAGE } from "@/utils/posPageSize.js";
+import {
+  productImageSrc,
+  onProductImageError,
+} from "@/utils/productImage.js";
 
 export default {
   name: "PosView",
-  mixins: [posOrderPersistMixin, posPrintMixin],
+  mixins: [posOrderPersistMixin, posCardPaymentMixin, posPrintMixin],
   components: {
     AppHeader,
     ClockVue,
     "vue-barcode": VueBarcode,
     CalculatorComp,
+    CardPaymentWaitModal,
   },
   data() {
     return {
@@ -873,7 +1047,7 @@ export default {
       tags: [],
       pageNumber: 1,
       totalItems: 0,
-      pageSize: 36,
+      pageSize: POS_ITEMS_PER_PAGE,
       search: {
         info: "",
       },
@@ -892,6 +1066,7 @@ export default {
         customerOrderItem: [],
         orderType: "Takeaway",
         notes: "",
+        creditCustomerId: null,
       },
       isFullscreen: false,
       posMobileCartOpen: false,
@@ -901,6 +1076,11 @@ export default {
       activeCategory: "",
       orderDiscountType: "amount",
       orderDiscountValue: null,
+      changeCalcOpen: false,
+      customerPaidAmount: null,
+      changeCalcQuickAmounts: [25000, 50000, 100000],
+      creditCustomers: [],
+      loadingCreditCustomers: false,
       orderDiscountPresets: [
         { id: "p5", type: "percentage", value: 5, label: "5%" },
         { id: "p10", type: "percentage", value: 10, label: "10%" },
@@ -926,6 +1106,20 @@ export default {
     formattedNumber() {
       return this.finalOrderTotal.toLocaleString();
     },
+    changeDueAmount() {
+      const paid = Number(this.customerPaidAmount) || 0;
+      if (paid <= 0) return 0;
+      return Math.max(0, paid - this.finalOrderTotal);
+    },
+    isInsufficientPayment() {
+      const paid = Number(this.customerPaidAmount) || 0;
+      return paid > 0 && paid < this.finalOrderTotal;
+    },
+    paymentShortfall() {
+      const paid = Number(this.customerPaidAmount) || 0;
+      if (!this.isInsufficientPayment) return 0;
+      return this.finalOrderTotal - paid;
+    },
     orderDiscountPreviewLabel() {
       if (!this.orderDiscountAmount) {
         return this.$t("noDiscount") || "بدون خصم";
@@ -938,6 +1132,13 @@ export default {
     showPosCheckoutBar() {
       if (Array.isArray(this.carditems) && this.carditems.length > 0) return true;
       return this.activeCheckoutPrinters.length > 0;
+    },
+    isCreditPayment() {
+      return this.orderForSend?.paymentMethod === "Credit";
+    },
+    hasCreditAccountSelected() {
+      const c = this.orderForSend?.creditCustomerId;
+      return c != null && c !== "";
     },
     cardfields() {
       const lang = this.$i18n.locale;
@@ -1126,6 +1327,8 @@ export default {
   },
 
   methods: {
+    productImageSrc,
+    onProductImageError,
     loadCommercialUserInfo() {
       HTTP.get("Admin/CommercialUserInfo")
         .then((response) => {
@@ -1163,8 +1366,92 @@ export default {
       applyPosPageSize(this, reload);
     },
     setPosPaymentMethod(method) {
+      if (method === "Credit") {
+        this.openCreditPaymentModal();
+        return;
+      }
       this.orderForSend.paymentMethod = method;
+      this.orderForSend.creditCustomerId = null;
       localStorage.setItem("posPaymentMethod", method);
+      if (method !== "Cash") {
+        this.resetChangeCalculator(false);
+      }
+    },
+    async loadCreditCustomers() {
+      try {
+        this.loadingCreditCustomers = true;
+        const response = await HTTP.get("Customers");
+        if (response.data && !response.data.errorStatus) {
+          this.creditCustomers = response.data.data || [];
+        } else {
+          this.creditCustomers = [];
+        }
+      } catch (error) {
+        console.error("Error loading customers:", error);
+        this.creditCustomers = [];
+      } finally {
+        this.loadingCreditCustomers = false;
+      }
+    },
+    async openCreditPaymentModal() {
+      await this.loadCreditCustomers();
+      this.$bvModal.show("modal-credit-payment");
+    },
+    confirmCreditPaymentSelection() {
+      const textDirection = document.documentElement.dir;
+      const toastPosition = textDirection === "rtl" ? "top-right" : "top-left";
+      if (
+        this.orderForSend.creditCustomerId == null ||
+        this.orderForSend.creditCustomerId === ""
+      ) {
+        this.$notify.error(this.$i18n.t("selectCreditCustomer") || "اختر العميل", {
+          position: toastPosition,
+          timeout: 2500,
+          maxToasts: 1,
+        });
+        return;
+      }
+      this.orderForSend.paymentMethod = "Credit";
+      localStorage.setItem("posPaymentMethod", "Credit");
+      this.resetChangeCalculator(false);
+      this.$bvModal.hide("modal-credit-payment");
+    },
+    cancelCreditPaymentModal() {
+      this.$bvModal.hide("modal-credit-payment");
+    },
+    validateCreditForOrder(toastPosition) {
+      if (this.orderForSend.paymentMethod !== "Credit") return true;
+      const c = this.orderForSend.creditCustomerId;
+      const hasC = c != null && c !== "";
+      if (hasC) return true;
+      this.$notify.error(
+        this.$i18n.t("pleaseSelectCreditAccount") || "اختر حساباً للدفع الآجل",
+        {
+          position: toastPosition,
+          timeout: 2500,
+          maxToasts: 1,
+        }
+      );
+      return false;
+    },
+    toggleChangeCalculator() {
+      this.changeCalcOpen = !this.changeCalcOpen;
+      if (this.changeCalcOpen) {
+        this.$nextTick(() => {
+          this.$refs.customerPaidInput?.focus?.();
+          this.$refs.customerPaidInput?.select?.();
+        });
+      }
+    },
+    setCustomerPaidAmount(amount) {
+      this.customerPaidAmount = Math.max(0, Number(amount) || 0);
+      if (!this.changeCalcOpen) {
+        this.changeCalcOpen = true;
+      }
+    },
+    resetChangeCalculator(keepOpen = true) {
+      this.customerPaidAmount = null;
+      this.changeCalcOpen = keepOpen;
     },
     focusPosBarcode() {
       if (this.$refs.codeNumber) {
@@ -1248,15 +1535,18 @@ export default {
       }
     },
     async quickPay(withPrint = false) {
-      if (this.carditems.length <= 0) {
-        this.$notify.error(this.$i18n.t("emptyCartMessage") || this.$i18n.t("emptyCart"), {
-          position: "top-right",
-          timeout: 2500,
-          maxToasts: 1,
-        });
+      if (this.orderForSend.paymentMethod === "Credit" && !this.hasCreditAccountSelected) {
+        await this.openCreditPaymentModal();
         return;
       }
-      await this.addOrder(withPrint);
+      const toastPosition = this.getOrderPersistToastPosition
+        ? this.getOrderPersistToastPosition()
+        : "top-right";
+      if (!this.validateCreditForOrder(toastPosition)) {
+        await this.openCreditPaymentModal();
+        return;
+      }
+      await this.checkoutWithPayment(withPrint);
       this.$nextTick(() => this.focusPosBarcode());
     },
     openOrderExtrasModal() {
@@ -1432,6 +1722,7 @@ export default {
       this.$bvModal.hide(id);
       this.orderForSend.orderType = "Takeaway";
       this.clearOrderDiscount();
+      this.resetChangeCalculator(false);
       this.orderForSend.notes = "";
       this.focusPosBarcode();
     },

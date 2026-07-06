@@ -25,5 +25,19 @@ namespace POS.Models
         public decimal? DiscountPercent { get; set; }
         public decimal? OrderSubTotal { get; set; }
         public decimal? OrderTotalAfterDiscount { get; set; }
+
+        public string PaymentStatus { get; set; } = "Pending"; // Pending, Paid, Refunded
+
+        /// <summary>دفع لاحق — حساب زبون مسجل.</summary>
+        public int? CreditCustomerId { get; set; }
+
+        [ForeignKey("CreditCustomerId")]
+        public Customer? CreditCustomer { get; set; }
+
+        /// <summary>طريقة التسديد الفعلية عند إغلاق فاتورة آجلة (Cash, Card, BankTransfer).</summary>
+        [MaxLength(20)]
+        public string? SettlementPaymentMethod { get; set; }
+
+        public DateTime? SettledAt { get; set; }
     }
 }

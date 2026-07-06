@@ -81,6 +81,125 @@ namespace POS.Migrations
                     b.ToTable("AuditLogs");
                 });
 
+            modelBuilder.Entity("POS.Models.CardPaymentTransaction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AcquirerName")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("AuthCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<long?>("BatchNo")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CardNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("CardType")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<int?>("CustomerOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InsertByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("InsertDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("IssuerName")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("MerchantId")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("MerchantName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int>("PaymentDeviceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RawResponse")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("RefNo")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("RequestedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResultCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("TerminalId")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<decimal>("TipAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("TotalAmount")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("TransTime")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("VoucherNo")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerOrderId");
+
+                    b.HasIndex("InsertByUserId");
+
+                    b.HasIndex("PaymentDeviceId");
+
+                    b.HasIndex("RequestedByUserId");
+
+                    b.ToTable("CardPaymentTransactions");
+                });
+
             modelBuilder.Entity("POS.Models.Customer", b =>
                 {
                     b.Property<int>("Id")
@@ -137,6 +256,9 @@ namespace POS.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("CreditCustomerId")
+                        .HasColumnType("int");
+
                     b.Property<decimal?>("DiscountAmount")
                         .HasColumnType("decimal(65,30)");
 
@@ -172,10 +294,23 @@ namespace POS.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("SettledAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("SettlementPaymentMethod")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
                     b.Property<DateTime>("UpdateDate")
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreditCustomerId");
 
                     b.HasIndex("InsertByUserId");
 
@@ -434,6 +569,74 @@ namespace POS.Migrations
                     b.HasIndex("InsertByUserId");
 
                     b.ToTable("Items");
+                });
+
+            modelBuilder.Entity("POS.Models.PaymentDevice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BaseUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("CloudConfigJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ComPort")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("ConnectionType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("InsertByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("InsertDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("WifiConfigJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("WifiHost")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int?>("WifiPort")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PaymentDevices");
                 });
 
             modelBuilder.Entity("POS.Models.Printer", b =>
@@ -770,6 +973,39 @@ namespace POS.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("POS.Models.CardPaymentTransaction", b =>
+                {
+                    b.HasOne("POS.Models.CustomerOrder", "CustomerOrder")
+                        .WithMany()
+                        .HasForeignKey("CustomerOrderId");
+
+                    b.HasOne("POS.Models.User", "CommercialUser")
+                        .WithMany()
+                        .HasForeignKey("InsertByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("POS.Models.PaymentDevice", "PaymentDevice")
+                        .WithMany()
+                        .HasForeignKey("PaymentDeviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("POS.Models.User", "RequestedByUser")
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CommercialUser");
+
+                    b.Navigation("CustomerOrder");
+
+                    b.Navigation("PaymentDevice");
+
+                    b.Navigation("RequestedByUser");
+                });
+
             modelBuilder.Entity("POS.Models.Customer", b =>
                 {
                     b.HasOne("POS.Models.User", "User")
@@ -783,11 +1019,18 @@ namespace POS.Migrations
 
             modelBuilder.Entity("POS.Models.CustomerOrder", b =>
                 {
+                    b.HasOne("POS.Models.Customer", "CreditCustomer")
+                        .WithMany()
+                        .HasForeignKey("CreditCustomerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("POS.Models.User", "User")
                         .WithMany("CustomerOrders")
                         .HasForeignKey("InsertByUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("CreditCustomer");
 
                     b.Navigation("User");
                 });
@@ -880,6 +1123,15 @@ namespace POS.Migrations
                         .HasForeignKey("InsertByUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("POS.Models.PaymentDevice", b =>
+                {
+                    b.HasOne("POS.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
 
                     b.Navigation("User");
                 });

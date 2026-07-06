@@ -74,6 +74,18 @@ export function buildNavItems(t) {
       icon: "server",
     },
     {
+      name: "paymentDevices",
+      label: t("paymentDevicesManagement") || "إدارة أجهزة الدفع",
+      link: "/payment-devices",
+      icon: "credit-card-2-front-fill",
+    },
+    {
+      name: "cardPayments",
+      label: t("cardPaymentTransactions") || "معاملات البطاقة",
+      link: "/card-payments",
+      icon: "credit-card-fill",
+    },
+    {
       name: "employees",
       label: t("employeesManagement") || "إدارة الموظفين",
       link: "/employees",
@@ -84,6 +96,12 @@ export function buildNavItems(t) {
       label: t("customersManagement") || "إدارة العملاء",
       link: "/customers",
       icon: "person-lines-fill",
+    },
+    {
+      name: "deferredPayments",
+      label: t("deferredPaymentsTitle") || "الدفع اللاحق",
+      link: "/deferred-payments",
+      icon: "wallet2",
     },
     {
       name: "auditLog",

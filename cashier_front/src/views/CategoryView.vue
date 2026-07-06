@@ -2,33 +2,94 @@
     <b-overlay :show="show" spinner-variant="primary" spinner-type="grow" spinner-large rounded="sm">
         <AppHeader />
         <div class="main-content-wrapper">
-            <div class="users-page-container">
-                <div class="users-page-content">
-                    <!-- Header Section -->
+            <div class="app-page-container">
+                <div class="app-page-content category-page">
                     <div class="users-header-section">
-                        <div class="users-header-content">
-                            <h1 class="users-page-title">{{ $t('all_categories') }}</h1>
-                            <button class="users-add-button" v-b-modal.modal-addTags>
-                                <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
-                                <span class="button-text">{{ $t('add_category') }}</span>
-                            </button>
+                        <div class="users-header-content app-header-row">
+                            <div class="header-title-wrapper">
+                                <div class="header-icon-wrapper">
+                                    <b-icon icon="tags-fill" class="header-icon"></b-icon>
+                                </div>
+                                <div>
+                                    <h1 class="users-page-title">{{ $t('all_categories') }}</h1>
+                                    <p class="header-subtitle">{{ $t('categoriesPageDescription') || 'إدارة فئات المنتجات' }}</p>
+                                </div>
+                            </div>
+                            <div class="app-header-actions">
+                                <button type="button" class="btn-refresh" @click="refreshPage" :disabled="show">
+                                    <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: show }"></b-icon>
+                                    <span class="button-text">{{ $t('refresh') || 'تحديث' }}</span>
+                                </button>
+                                <button type="button" class="users-add-button" v-b-modal.modal-addTags>
+                                    <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
+                                    <span class="button-text">{{ $t('add_category') }}</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Search Section -->
-                    <div class="users-search-section">
-                        <div class="users-search-container">
-                            <b-icon icon="search" class="search-icon"></b-icon>
-                            <input 
-                                v-model="search.info" 
-                                type="search" 
-                                :placeholder="$t('search')"
-                                class="users-search-input"
-                            />
+                    <div class="app-overview-grid">
+                        <div class="app-overview-stat">
+                            <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                                <b-icon icon="tags-fill"></b-icon>
+                            </span>
+                            <div>
+                                <div class="app-overview-stat-value">{{ totalTagss }}</div>
+                                <div class="app-overview-stat-label">{{ $t('categoriesOverviewTotal') || 'إجمالي الفئات' }}</div>
+                            </div>
+                        </div>
+                        <div class="app-overview-stat">
+                            <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                                <b-icon icon="list-ul"></b-icon>
+                            </span>
+                            <div>
+                                <div class="app-overview-stat-value">{{ Tagss.length }}</div>
+                                <div class="app-overview-stat-label">{{ $t('categoriesOverviewOnPage') || 'في الصفحة الحالية' }}</div>
+                            </div>
+                        </div>
+                        <div class="app-overview-stat">
+                            <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                                <b-icon icon="layers-fill"></b-icon>
+                            </span>
+                            <div>
+                                <div class="app-overview-stat-value">{{ totalPages }}</div>
+                                <div class="app-overview-stat-label">{{ $t('categoriesOverviewPages') || 'عدد الصفحات' }}</div>
+                            </div>
+                        </div>
+                        <div class="app-overview-stat">
+                            <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                                <b-icon icon="search"></b-icon>
+                            </span>
+                            <div>
+                                <div class="app-overview-stat-value">{{ searchActive ? Tagss.length : '—' }}</div>
+                                <div class="app-overview-stat-label">{{ $t('categoriesOverviewSearch') || 'نتائج البحث' }}</div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Categories Table -->
+                    <div class="app-section-card">
+                        <div class="app-section-header app-section-header--toolbar">
+                            <div class="app-section-title-wrap">
+                                <div class="app-section-icon-wrap">
+                                    <b-icon icon="tags-fill"></b-icon>
+                                </div>
+                                <div>
+                                    <h3 class="app-section-title">{{ $t('all_categories') }}</h3>
+                                    <p class="app-section-subtitle">{{ $t('categoriesListHint') || 'قائمة الفئات مع التعديل والحذف' }}</p>
+                                </div>
+                            </div>
+                            <div class="app-search-wrap app-search-wrap--wide">
+                                <b-icon icon="search" class="app-search-icon"></b-icon>
+                                <input
+                                    v-model="search.info"
+                                    type="search"
+                                    :placeholder="$t('search')"
+                                    class="app-search-input"
+                                    autocomplete="off"
+                                />
+                            </div>
+                        </div>
+                        <div class="app-section-body app-section-body--no-padding">
                     <div class="categories-table-container report-table-container">
                         <b-table
                             :items="Tagss"
@@ -36,7 +97,7 @@
                             striped
                             hover
                             responsive
-                            class="categories-table"
+                            class="categories-table reports-table"
                         >
                             <template #cell(name)="row">
                                 <div class="category-name-cell">
@@ -82,6 +143,8 @@
                             <div class="pagination-info">
                                 <span>{{ $t('showing') || 'عرض' }} {{ ((pageNumber - 1) * pageSize) + 1 }} - {{ Math.min(pageNumber * pageSize, totalTagss) }} {{ $t('of') || 'من' }} {{ totalTagss }}</span>
                             </div>
+                        </div>
+                    </div>
                         </div>
                     </div>
                 </div>
@@ -262,10 +325,16 @@ export default {
         },
         totalPages() {
             return Math.ceil(this.totalTagss / this.pageSize);
-        }
+        },
+        searchActive() {
+            return !!(this.search.info || '').trim();
+        },
     },
 
     methods: {
+        refreshPage() {
+            this.GetAllTagss();
+        },
         deleteTagsModel(id) {
             this.TagsId = id;
             this.$bvModal.show("modal-delete");
