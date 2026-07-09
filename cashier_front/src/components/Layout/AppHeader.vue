@@ -23,19 +23,18 @@
         </div>
 
         <button
-          v-if="showPosFullscreenButton"
           type="button"
           class="app-top-header-fullscreen-btn"
-          :class="{ 'app-top-header-fullscreen-btn--active': posFullscreenActive }"
-          @click="onTogglePosFullscreen"
+          :class="{ 'app-top-header-fullscreen-btn--active': isBrowserFullscreen }"
+          @click="toggleBrowserFullscreen"
           :title="
-            posFullscreenActive
+            isBrowserFullscreen
               ? $t('exitFullscreen') || 'الخروج من الوضع الكامل'
               : $t('enterFullscreen') || 'عرض كامل'
           "
         >
           <b-icon
-            :icon="posFullscreenActive ? 'fullscreen-exit' : 'fullscreen'"
+            :icon="isBrowserFullscreen ? 'fullscreen-exit' : 'fullscreen'"
           ></b-icon>
         </button>
 
@@ -77,19 +76,10 @@ import { syncNotifyLocale } from '@/plugins/notifyPlugin';
 
 export default {
   name: "AppHeader",
-  props: {
-    showPosFullscreenButton: {
-      type: Boolean,
-      default: false,
-    },
-    posFullscreenActive: {
-      type: Boolean,
-      default: false,
-    },
-  },
   data() {
     return {
       currentTheme: "dark",
+      isBrowserFullscreen: false,
     };
   },
   methods: {
@@ -120,14 +110,84 @@ export default {
       this.currentTheme = savedTheme;
       this.applyTheme(savedTheme);
     },
-    onTogglePosFullscreen() {
-      this.$emit("toggle-pos-fullscreen");
+    getFullscreenElement() {
+      return (
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.msFullscreenElement ||
+        null
+      );
+    },
+    syncBrowserFullscreenState() {
+      this.isBrowserFullscreen = !!this.getFullscreenElement();
+      if (typeof document !== "undefined") {
+        document.documentElement.classList.toggle(
+          "app-browser-fullscreen",
+          this.isBrowserFullscreen
+        );
+      }
+    },
+    async requestBrowserFullscreen() {
+      const element = document.documentElement;
+      if (element.requestFullscreen) {
+        await element.requestFullscreen();
+        return;
+      }
+      if (element.webkitRequestFullscreen) {
+        await element.webkitRequestFullscreen();
+        return;
+      }
+      if (element.msRequestFullscreen) {
+        await element.msRequestFullscreen();
+      }
+    },
+    async exitBrowserFullscreen() {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+        return;
+      }
+      if (document.webkitExitFullscreen) {
+        await document.webkitExitFullscreen();
+        return;
+      }
+      if (document.msExitFullscreen) {
+        await document.msExitFullscreen();
+      }
+    },
+    async toggleBrowserFullscreen() {
+      try {
+        if (this.getFullscreenElement()) {
+          await this.exitBrowserFullscreen();
+        } else {
+          await this.requestBrowserFullscreen();
+        }
+      } catch (error) {
+        this.$notify.error(this.$t("fullscreenUnavailable") || "الوضع الكامل غير مدعوم", {
+          position: "top-right",
+          timeout: 2500,
+        });
+      }
+    },
+    onFullscreenChange() {
+      this.syncBrowserFullscreenState();
     },
   },
   mounted() {
     this.initializeTheme();
     const lang = localStorage.getItem("language") || "ar";
     document.body.dir = lang === "en" ? "ltr" : "rtl";
+    this.syncBrowserFullscreenState();
+    document.addEventListener("fullscreenchange", this.onFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", this.onFullscreenChange);
+    document.addEventListener("MSFullscreenChange", this.onFullscreenChange);
+  },
+  beforeDestroy() {
+    document.removeEventListener("fullscreenchange", this.onFullscreenChange);
+    document.removeEventListener("webkitfullscreenchange", this.onFullscreenChange);
+    document.removeEventListener("MSFullscreenChange", this.onFullscreenChange);
+    if (!this.getFullscreenElement()) {
+      document.documentElement.classList.remove("app-browser-fullscreen");
+    }
   },
 };
 </script>

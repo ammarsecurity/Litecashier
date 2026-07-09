@@ -34,15 +34,6 @@
                   <b-icon icon="plus-circle-fill" class="button-icon"></b-icon>
                   <span class="button-text">{{ $t("addItemLabel") }}</span>
                 </button>
-                <button
-                  v-if="isCommercialUser"
-                  type="button"
-                  class="catalog-clear-btn"
-                  v-b-modal.modal-clearCatalog
-                >
-                  <b-icon icon="trash-fill" class="button-icon"></b-icon>
-                  <span class="button-text">{{ $t("clearCatalogData") }}</span>
-                </button>
               </div>
             </div>
           </div>
@@ -140,9 +131,15 @@
               <template #cell(quantity)="row">
                 <span
                   class="item-quantity-text"
-                  :class="{ 'item-quantity-text--low': Number(row.item.quantity) <= 0 }"
+                  :class="quantityCellClass(row.item)"
                 >
                   {{ formatQuantity(row.item.quantity) }}
+                  <b-icon
+                    v-if="isStockAlertActive(row.item)"
+                    icon="exclamation-triangle-fill"
+                    class="item-stock-alert-icon"
+                    :title="$t('stockAlertActiveHint')"
+                  />
                 </span>
               </template>
 
@@ -405,6 +402,21 @@
                   class="users-form-input"
                 />
               </div>
+              <div class="users-form-group">
+                <label class="users-form-label">
+                  <b-icon icon="bell-fill" class="form-label-icon"></b-icon>
+                  {{ $t("lowStockAlertQuantityLabel") || "تنبيه الكمية" }}
+                </label>
+                <input
+                  id="inputLowStockAlert"
+                  v-model="addForm.lowStockAlertQuantity"
+                  type="number"
+                  min="0"
+                  :placeholder="$t('lowStockAlertQuantityHint') || 'اتركه فارغاً لتعطيل التنبيه'"
+                  class="users-form-input"
+                />
+                <small class="users-form-hint">{{ $t("lowStockAlertQuantityHint") }}</small>
+              </div>
             </div>
 
             <!-- Description Full Width -->
@@ -567,6 +579,21 @@
                   class="users-form-input"
                 />
               </div>
+              <div class="users-form-group">
+                <label class="users-form-label">
+                  <b-icon icon="bell-fill" class="form-label-icon"></b-icon>
+                  {{ $t("lowStockAlertQuantityLabel") || "تنبيه الكمية" }}
+                </label>
+                <input
+                  id="editInputLowStockAlert"
+                  v-model="editForm.lowStockAlertQuantity"
+                  type="number"
+                  min="0"
+                  :placeholder="$t('lowStockAlertQuantityHint') || 'اتركه فارغاً لتعطيل التنبيه'"
+                  class="users-form-input"
+                />
+                <small class="users-form-hint">{{ $t("lowStockAlertQuantityHint") }}</small>
+              </div>
             </div>
 
             <!-- Description Full Width -->
@@ -609,70 +636,6 @@
               </button>
             </div>
           </form>
-        </div>
-      </b-modal>
-
-      <!-- Clear catalog modal -->
-      <b-modal id="modal-clearCatalog" hide-header hide-footer class="users-modal">
-        <div class="modal-content-wrapper">
-          <div class="delete-confirmation-content">
-            <div class="delete-icon-wrapper">
-              <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
-            </div>
-            <h3 class="delete-confirmation-title">{{ $t("clearCatalogTitle") }}</h3>
-            <p class="delete-confirmation-text">{{ $t("clearCatalogWarning") }}</p>
-            <ul class="clear-catalog-list">
-              <li>{{ $t("clearCatalogTags") }}</li>
-              <li>{{ $t("clearCatalogItems") }}</li>
-              <li>{{ $t("clearCatalogOrders") }}</li>
-            </ul>
-            <div class="users-form-group">
-              <label class="users-form-label">{{ $t("clearCatalogPasswordLabel") }}</label>
-              <input
-                v-model="clearCatalogPassword"
-                type="password"
-                class="users-form-input"
-                :placeholder="$t('clearCatalogPasswordPlaceholder')"
-                autocomplete="current-password"
-                @keyup.enter="executeClearCatalog"
-              />
-            </div>
-            <div v-if="clearCatalogResult" class="import-items-summary">
-              <div class="import-items-summary-row">
-                <span>{{ $t("clearCatalogTags") }}</span>
-                <strong>{{ clearCatalogResult.tagsCleared }}</strong>
-              </div>
-              <div class="import-items-summary-row">
-                <span>{{ $t("clearCatalogItems") }}</span>
-                <strong>{{ clearCatalogResult.itemsCleared }}</strong>
-              </div>
-              <div class="import-items-summary-row">
-                <span>{{ $t("clearCatalogOrders") }}</span>
-                <strong>{{ clearCatalogResult.ordersCleared }}</strong>
-              </div>
-            </div>
-            <div class="delete-confirmation-actions">
-              <button
-                type="button"
-                class="delete-confirm-button"
-                :disabled="clearCatalogLoading || !clearCatalogPassword"
-                @click="executeClearCatalog"
-              >
-                <b-spinner small v-if="clearCatalogLoading" class="me-2"></b-spinner>
-                <b-icon v-else icon="trash-fill" class="me-2"></b-icon>
-                {{ $t("clearCatalogConfirm") }}
-              </button>
-              <button
-                type="button"
-                class="delete-cancel-button"
-                :disabled="clearCatalogLoading"
-                @click="closeClearCatalogModal"
-              >
-                <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-                {{ $t("cancelButtonLabel") }}
-              </button>
-            </div>
-          </div>
         </div>
       </b-modal>
 
@@ -767,8 +730,10 @@ export default {
         code: "",
         id: "",
         quantity: 0,
+        lowStockAlertQuantity: "",
       },
       imagePreview: "",
+      itemPhoto: null,
       itemImage: "",
       showUpload: false,
       addForm: {
@@ -780,6 +745,7 @@ export default {
         tags: "مواد اخرى",
         code: "",
         quantity: 0,
+        lowStockAlertQuantity: "",
       },
       barCodeList: [],
       itemId: "",
@@ -788,9 +754,6 @@ export default {
       importFileName: "",
       importUploading: false,
       importResult: null,
-      clearCatalogPassword: "",
-      clearCatalogLoading: false,
-      clearCatalogResult: null,
     };
   },
 
@@ -874,9 +837,6 @@ export default {
     },
     itemsOutOfStockOnPage() {
       return (this.Items || []).filter((item) => Number(item.quantity) <= 0).length;
-    },
-    isCommercialUser() {
-      return localStorage.getItem("role") === "Commercial";
     },
   },
 
@@ -980,6 +940,8 @@ export default {
         tags: item.tags || "مواد اخرى",
         code: item.code || "",
         quantity: item.quantity || 0,
+        lowStockAlertQuantity:
+          item.lowStockAlertQuantity ?? item.LowStockAlertQuantity ?? "",
       };
       this.$bvModal.show("modal-editItem");
     },
@@ -995,6 +957,7 @@ export default {
       formData.append("Image", this.itemPhoto);
       formData.append("DisCountPrice", this.addForm.disCountPrice);
       formData.append("Quantity", this.addForm.quantity);
+      this.appendLowStockAlertQuantity(formData, this.addForm.lowStockAlertQuantity);
 
       HTTP.post(`Admin/AddItem`, formData)
         .then((response) => {
@@ -1020,6 +983,7 @@ export default {
           ).toString();
           this.addForm.disCountPrice = 0;
           this.addForm.quantity = 0;
+          this.addForm.lowStockAlertQuantity = "";
           this.imagePreview = "";
           this.itemPhoto = null;
           this.GetAllItems();
@@ -1054,6 +1018,7 @@ export default {
       formData.append("Image", this.itemPhoto);
       formData.append("DisCountPrice", this.editForm.disCountPrice);
       formData.append("Quantity", this.editForm.quantity);
+      this.appendLowStockAlertQuantity(formData, this.editForm.lowStockAlertQuantity, true);
 
       this.show = true;
       HTTP.put(`Admin/UpdateItem?id=${this.editForm.id}`, formData)
@@ -1145,6 +1110,32 @@ export default {
       const value = Number(quantity);
       if (Number.isNaN(value)) return "0";
       return value.toLocaleString("en-EG");
+    },
+    getLowStockAlertThreshold(item) {
+      const raw = item?.lowStockAlertQuantity ?? item?.LowStockAlertQuantity;
+      if (raw === null || raw === undefined || raw === "") return null;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : null;
+    },
+    isStockAlertActive(item) {
+      const threshold = this.getLowStockAlertThreshold(item);
+      if (threshold === null) return false;
+      return Number(item?.quantity) <= threshold;
+    },
+    quantityCellClass(item) {
+      if (Number(item?.quantity) <= 0) return "item-quantity-text--low";
+      if (this.isStockAlertActive(item)) return "item-quantity-text--alert";
+      return "";
+    },
+    appendLowStockAlertQuantity(formData, value, force = false) {
+      const isEmpty = value === null || value === undefined || String(value).trim() === "";
+      if (force) {
+        formData.append("LowStockAlertQuantity", isEmpty ? "" : String(value));
+        return;
+      }
+      if (!isEmpty) {
+        formData.append("LowStockAlertQuantity", value);
+      }
     },
     closeModel(id) {
       this.$bvModal.hide(id);
@@ -1243,46 +1234,6 @@ export default {
         this.importUploading = false;
       }
     },
-    closeClearCatalogModal() {
-      this.$bvModal.hide("modal-clearCatalog");
-      this.clearCatalogPassword = "";
-      this.clearCatalogResult = null;
-      this.clearCatalogLoading = false;
-    },
-    async executeClearCatalog() {
-      if (!this.clearCatalogPassword || this.clearCatalogLoading) return;
-
-      this.clearCatalogLoading = true;
-      this.clearCatalogResult = null;
-
-      try {
-        const response = await HTTP.post("Admin/ClearCatalog", {
-          password: this.clearCatalogPassword,
-        });
-        const payload = response?.data;
-        this.clearCatalogResult = payload?.data || null;
-
-        this.$notify.success(
-          this.$te(payload?.message) ? this.$t(payload.message) : this.$t("catalogClearSuccess"),
-          { position: "top-right", timeout: 4500, maxToasts: 1 }
-        );
-        this.GetAllItems();
-        this.getTags();
-      } catch (error) {
-        const msg = error?.response?.data?.message;
-        const text =
-          msg && this.$te(msg)
-            ? this.$t(msg)
-            : this.$t("catalogClearFailed");
-        this.$notify.error(text, {
-          position: "top-right",
-          timeout: 4000,
-          maxToasts: 1,
-        });
-      } finally {
-        this.clearCatalogLoading = false;
-      }
-    },
   },
 };
 </script>
@@ -1354,6 +1305,25 @@ export default {
 
 .item-quantity-text--low {
   color: var(--danger-color, #dc2626);
+}
+
+.item-quantity-text--alert {
+  color: #d97706;
+  font-weight: 600;
+}
+
+.item-stock-alert-icon {
+  margin-inline-start: 0.35rem;
+  color: #d97706;
+  font-size: 0.85rem;
+  vertical-align: middle;
+}
+
+.users-form-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text-muted, #6c757d);
 }
 
 .item-tags-text {

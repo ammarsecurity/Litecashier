@@ -104,10 +104,22 @@ export function buildNavItems(t) {
       icon: "wallet2",
     },
     {
+      name: "stockAlerts",
+      label: t("stockAlertsTitle") || "تنبيهات المخزون",
+      link: "/stock-alerts",
+      icon: "bell-fill",
+    },
+    {
       name: "auditLog",
       label: t("auditLog") || "سجل العمليات",
       link: "/audit-log",
       icon: "journal-text",
+    },
+    {
+      name: "settings",
+      label: t("settingsTitle") || "الإعدادات",
+      link: "/settings",
+      icon: "gear-fill",
     },
     {
       name: "logout",
@@ -132,7 +144,8 @@ export function filterNavByRole(role, items, allowedSections = []) {
       (item) =>
         item.name === "users" ||
         item.name === "logout" ||
-        item.name === "customers"
+        item.name === "customers" ||
+        item.name === "stockAlerts"
     );
   }
   if (role === "POS") {
@@ -141,6 +154,7 @@ export function filterNavByRole(role, items, allowedSections = []) {
         item.name === "items" ||
         item.name === "pos" ||
         item.name === "inventory" ||
+        item.name === "stockAlerts" ||
         item.name === "printServer" ||
         item.name === "logout"
     );

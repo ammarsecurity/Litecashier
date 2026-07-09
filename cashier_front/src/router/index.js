@@ -19,6 +19,8 @@ import AuditLogView from '../views/AuditLogView.vue'
 import PaymentDevicesView from '../views/PaymentDevicesView.vue'
 import CardPaymentsView from '../views/CardPaymentsView.vue'
 import DeferredPaymentsView from '../views/DeferredPaymentsView.vue'
+import StockAlertsView from '../views/StockAlertsView.vue'
+import SettingsView from '../views/SettingsView.vue'
 import { i18n } from '../main'
 import { managerCanAccessPath } from '../navigation/sectionRegistry.js'
 Vue.use(VueRouter)
@@ -204,6 +206,15 @@ const routes = [
     }
   },
   {
+    path: '/stock-alerts',
+    name: 'stockAlerts',
+    component: StockAlertsView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'POS', 'Admin']
+    }
+  },
+  {
     path: '/expenses',
     name: 'expenses',
     component: ExpensesView,
@@ -225,6 +236,15 @@ const routes = [
     path: '/audit-log',
     name: 'auditLog',
     component: AuditLogView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial']
+    }
+  },
+  {
+    path: '/settings',
+    name: 'settings',
+    component: SettingsView,
     meta: {
       requiresAuth: true,
       roles: ['Commercial']
@@ -294,7 +314,8 @@ router.beforeEach((to, from, next) => {
           to.path !== '/sections' &&
           to.path !== '/customers' &&
           to.path !== '/category' &&
-          to.path !== '/payment-devices'
+          to.path !== '/payment-devices' &&
+          to.path !== '/stock-alerts'
         ) {
           return next('/users');
         }
@@ -303,6 +324,7 @@ router.beforeEach((to, from, next) => {
           to.path !== '/items' &&
           to.path !== '/pos' &&
           to.path !== '/inventory' &&
+          to.path !== '/stock-alerts' &&
           to.path !== '/print-server' &&
           to.path !== '/logout' &&
           to.path !== '/sections'

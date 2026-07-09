@@ -23,6 +23,7 @@ public static class SectionDefinitions
         "employees",
         "customers",
         "deferredPayments",
+        "stockAlerts",
         "auditLog",
         "users",
         "dashboard",

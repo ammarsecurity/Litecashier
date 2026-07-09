@@ -1109,10 +1109,10 @@ namespace POS.Controllers
                         "ClearCatalog",
                         "Catalog",
                         0,
-                        "Tags,Items,Orders",
+                        "Tags,Items,Orders,StockMovements,Suppliers",
                         userId,
                         commercialUserId,
-                        description: $"Tags={result.TagsCleared}, Items={result.ItemsCleared}, Orders={result.OrdersCleared}");
+                        description: $"Tags={result.TagsCleared}, Items={result.ItemsCleared}, Orders={result.OrdersCleared}, StockMovements={result.StockMovementsCleared}, Suppliers={result.SuppliersCleared}, TagPrinters={result.TagPrintersCleared}");
                 }
                 catch (Exception auditEx)
                 {
@@ -1139,7 +1139,7 @@ namespace POS.Controllers
         }
 
         // update item 
-        [Authorize(Roles = "Commercial")]
+        [Authorize(Roles = "Commercial,POS")]
         [HttpPut("UpdateItem")]
         public async Task<ActionResult<GlobalResponse<Item>>> UpdateItem([FromForm]  ItemRequest request, int id)
         {
@@ -1164,6 +1164,17 @@ namespace POS.Controllers
             item.Description = request.Description;
             item.SellingPrice = request.SellingPrice;
             item.Quantity = request.Quantity;
+            if (Request.Form.ContainsKey("LowStockAlertQuantity"))
+            {
+                var alertRaw = Request.Form["LowStockAlertQuantity"].ToString();
+                item.LowStockAlertQuantity = string.IsNullOrWhiteSpace(alertRaw)
+                    ? null
+                    : int.TryParse(alertRaw, out var alertQty) ? alertQty : null;
+            }
+            else
+            {
+                item.LowStockAlertQuantity = request.LowStockAlertQuantity;
+            }
             item.Code = request.Code;
             item.Name = request.Name;
             item.Image = request.Image != null ? await UploadIamgesAsync(request.Image): item.Image;
@@ -2411,8 +2422,8 @@ namespace POS.Controllers
                 var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
                 var itemsQuery = _dbConfig.Items
-                    .Where(x => x.IsDeleted == false && 
-                                (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+                    .Where(x => x.IsDeleted == false &&
+                                (x.InsertByUserId == userId || x.User!.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
 
                 var lowStockItems = itemsQuery
                     .Where(x => x.Quantity <= threshold)
@@ -2438,6 +2449,62 @@ namespace POS.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting low stock items");
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ: {ex.Message}"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial,POS,Admin")]
+        [HttpGet("GetStockAlerts")]
+        public ActionResult<GlobalResponse<object>> GetStockAlerts()
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+                if (user == null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "User not found"
+                    });
+                }
+
+                var alerts = _dbConfig.Items
+                    .Where(x => x.IsDeleted == false &&
+                                x.LowStockAlertQuantity != null &&
+                                x.Quantity <= x.LowStockAlertQuantity &&
+                                (x.InsertByUserId == userId || x.User!.Id == user.InsertByUserId || x.User.InsertByUserId == userId))
+                    .Select(x => new
+                    {
+                        itemId = x.Id,
+                        itemName = x.Name,
+                        itemCode = x.Code,
+                        currentQuantity = x.Quantity,
+                        alertThreshold = x.LowStockAlertQuantity,
+                        category = x.Tags,
+                        status = x.Quantity == 0 ? "out" : "low"
+                    })
+                    .OrderBy(x => x.currentQuantity)
+                    .ThenBy(x => x.itemName)
+                    .ToList();
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = alerts,
+                    ErrorStatus = false,
+                    Message = "Success"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting stock alerts");
                 return BadRequest(new GlobalResponse<object>
                 {
                     Data = null,

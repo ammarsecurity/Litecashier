@@ -1,13 +1,15 @@
 /* POS v2 layout & checkout (ported from restaurant) */
 
-.main-content-wrapper.pos-fullscreen {
+.app-browser-fullscreen .main-content-wrapper,
+html:fullscreen .main-content-wrapper {
   margin-left: 0 !important;
   margin-right: 0 !important;
   width: 100% !important;
   max-width: 100% !important;
 }
 
-[dir="rtl"] .main-content-wrapper.pos-fullscreen {
+[dir="rtl"] .app-browser-fullscreen .main-content-wrapper,
+[dir="rtl"] html:fullscreen .main-content-wrapper {
   margin-left: 0 !important;
   margin-right: 0 !important;
   width: 100% !important;

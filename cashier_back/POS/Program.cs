@@ -2,6 +2,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
@@ -182,10 +183,40 @@ if (app.Environment.IsDevelopment())
 app.UseSwagger();
 app.UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "EppReservations Project API"); });
 app.UseStaticFiles();
+
+var spaRoot = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "app");
+if (Directory.Exists(spaRoot))
+{
+    var spaFileProvider = new PhysicalFileProvider(spaRoot);
+
+    app.UseDefaultFiles(new DefaultFilesOptions
+    {
+        FileProvider = spaFileProvider,
+        RequestPath = "",
+        DefaultFileNames = { "index.html" }
+    });
+
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = spaFileProvider,
+        RequestPath = ""
+    });
+}
+
 app.UseAuthentication();
 app.UseCors("CorsPolicy");
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<OrderHub>("/orderHub");
+
+if (Directory.Exists(spaRoot))
+{
+    var spaFileProvider = new PhysicalFileProvider(spaRoot);
+    app.MapFallbackToFile("index.html", new StaticFileOptions
+    {
+        FileProvider = spaFileProvider,
+        RequestPath = ""
+    });
+}
 
 app.Run();

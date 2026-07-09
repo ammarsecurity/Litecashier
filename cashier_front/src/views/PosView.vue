@@ -7,11 +7,7 @@
       spinner-large
       rounded="sm"
     >
-      <AppHeader
-        :show-pos-fullscreen-button="true"
-        :pos-fullscreen-active="isFullscreen"
-        @toggle-pos-fullscreen="toggleFullscreen"
-      >
+      <AppHeader>
         <template #pos-center>
           <div class="pos-quick-search pos-quick-search--header">
             <b-icon icon="search" class="pos-quick-search-icon"></b-icon>
@@ -28,7 +24,6 @@
       <div
         class="main-content-wrapper pos-route pos-route--v2"
         :class="{
-          'pos-fullscreen': isFullscreen,
           'pos-has-checkout-bar': showPosCheckoutBar,
           'pos-has-checkout-bar--with-discounts': carditems.length > 0,
           'pos-has-checkout-bar--change-calc': changeCalcOpen && carditems.length > 0,
@@ -1068,7 +1063,6 @@ export default {
         notes: "",
         creditCustomerId: null,
       },
-      isFullscreen: false,
       posMobileCartOpen: false,
       quickSearch: "",
       quickSearchTimer: null,
@@ -1235,20 +1229,10 @@ export default {
         window.matchMedia("(max-width: 1200px)").matches;
       document.body.style.overflow = val && isNarrowViewport ? "hidden" : "";
     },
-    isFullscreen() {
-      this.$nextTick(() => {
-        applyPosPageSize(this);
-      });
-    },
   },
 
   mounted() {
     try {
-      const savedFullscreen = localStorage.getItem("posFullscreen");
-      if (savedFullscreen === "true") {
-        this.isFullscreen = true;
-      }
-
       this.getTags();
       this.$nextTick(() => {
         if (this.$refs.codeNumber) {
@@ -1563,18 +1547,6 @@ export default {
     applyOrderExtras() {
       this.$bvModal.hide("modal-order-notes");
       this.focusPosBarcode();
-    },
-    toggleFullscreen() {
-      this.isFullscreen = !this.isFullscreen;
-      localStorage.setItem("posFullscreen", this.isFullscreen);
-      const message = this.isFullscreen
-        ? this.$i18n.t("fullscreenEnabled") || "تم تفعيل الوضع الكامل"
-        : this.$i18n.t("fullscreenDisabled") || "تم إلغاء الوضع الكامل";
-      this.$notify.info(message, {
-        position: "top-right",
-        timeout: 2000,
-        maxToasts: 1,
-      });
     },
     openPosMobileCart() {
       this.posMobileCartOpen = true;

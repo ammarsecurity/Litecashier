@@ -83,16 +83,37 @@ namespace POS.Services
                         .SetProperty(x => x.IsDeleted, true)
                         .SetProperty(x => x.UpdateDate, now));
 
+                result.TagPrintersCleared = await _dbConfig.TagPrinters
+                    .Where(tp => !tp.IsDeleted && tenantUserIds.Contains(tp.InsertByUserId))
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(x => x.IsDeleted, true)
+                        .SetProperty(x => x.UpdateDate, now));
+
+                result.StockMovementsCleared = await _dbConfig.StockMovements
+                    .Where(sm => !sm.IsDeleted && tenantUserIds.Contains(sm.InsertByUserId))
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(x => x.IsDeleted, true)
+                        .SetProperty(x => x.UpdateDate, now));
+
+                result.SuppliersCleared = await _dbConfig.Suppliers
+                    .Where(s => !s.IsDeleted && tenantUserIds.Contains(s.InsertByUserId))
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(x => x.IsDeleted, true)
+                        .SetProperty(x => x.UpdateDate, now));
+
                 await transaction.CommitAsync();
 
                 _logger.LogWarning(
-                    "Catalog cleared for commercial user {CommercialUserId}: tags={Tags}, items={Items}, orders={Orders}, orderItems={OrderItems}, cardPayments={CardPayments}",
+                    "Catalog cleared for commercial user {CommercialUserId}: tags={Tags}, items={Items}, orders={Orders}, orderItems={OrderItems}, cardPayments={CardPayments}, stockMovements={StockMovements}, suppliers={Suppliers}, tagPrinters={TagPrinters}",
                     commercialUserId,
                     result.TagsCleared,
                     result.ItemsCleared,
                     result.OrdersCleared,
                     result.OrderItemsCleared,
-                    result.CardPaymentsCleared);
+                    result.CardPaymentsCleared,
+                    result.StockMovementsCleared,
+                    result.SuppliersCleared,
+                    result.TagPrintersCleared);
 
                 return result;
             }

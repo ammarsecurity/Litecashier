@@ -22,6 +22,9 @@ namespace POS.Models
         [Required]
         public int Quantity { get; set; } = 0; // Inventory quantity
 
+        /// <summary>When set, alert when Quantity is at or below this value. Null = no alert.</summary>
+        public int? LowStockAlertQuantity { get; set; }
+
         [ForeignKey("InsertByUserId")]
         public int InsertByUserId { get; set; }
         public  User? User { get; set; }
