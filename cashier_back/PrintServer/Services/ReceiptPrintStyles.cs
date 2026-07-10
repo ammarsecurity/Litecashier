@@ -70,6 +70,11 @@ public static class ReceiptPrintStyles
           .bill-notes-text { font-size: 11px; color: #333; line-height: 1.4; word-wrap: break-word; }
           .bill-footer { text-align: center; margin-top: 12px; padding-top: 8px; border-top: 1px dashed #000; }
           .bill-footer-text { font-size: 10px; margin: 2px 0; color: #666; }
+          .bill-footer-date { font-size: 8px; margin: 2px 0; color: #666; }
+          .bill-footer-credit { font-size: 8px; margin: 6px 0 0 0; color: #000; font-weight: 600; }
+          .bill-footer-credit-phone { font-size: 8px; margin: 1px 0 0 0; color: #000; font-weight: 600; letter-spacing: 0.5px; }
+          .receipt-credit { font-size: 8px; margin: 6px 0 0 0; color: #000; font-weight: 600; }
+          .receipt-credit-phone { font-size: 8px; margin: 1px 0 0 0; color: #000; font-weight: 600; }
           @media print {
             body { width: 72mm !important; max-width: 72mm !important; padding: 3mm 3mm 3mm 5mm !important; }
             .bill-container { width: 100% !important; max-width: 100% !important; padding: 0 2mm 0 3mm !important; }

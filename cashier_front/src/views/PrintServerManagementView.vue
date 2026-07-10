@@ -660,6 +660,8 @@ Server is working correctly
               <p><strong>طريقة الدفع:</strong> ${testReceipt.paymentMethod}</p>
               <hr>
               <p>شكراً لزيارتك</p>
+              <p>نظام لايت كاشير - برمجة وتصميم عمار الاصفر</p>
+              <p>07830200030</p>
             </div>`
           }),
         });

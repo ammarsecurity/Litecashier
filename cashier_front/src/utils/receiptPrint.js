@@ -351,6 +351,27 @@ export const RECEIPT_PRINT_STYLES_HTML = `
         color: #666;
       }
 
+      .bill-footer-date {
+        font-size: 8px;
+        margin: 2px 0;
+        color: #666;
+      }
+
+      .bill-footer-credit {
+        font-size: 8px;
+        margin: 6px 0 0 0;
+        color: #000;
+        font-weight: 600;
+      }
+
+      .bill-footer-credit-phone {
+        font-size: 8px;
+        margin: 1px 0 0 0;
+        color: #000;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+
       @media print {
         body {
           width: 72mm !important;

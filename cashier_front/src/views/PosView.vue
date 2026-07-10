@@ -986,6 +986,8 @@
         <div class="bill-footer">
           <p class="bill-footer-text">{{ $t("thankYouMessage") || "شكراً لزيارتك" }}</p>
           <p class="bill-footer-date">{{ getCurrentDate() }}</p>
+          <p class="bill-footer-credit">نظام لايت كاشير - برمجة وتصميم عمار الاصفر</p>
+          <p class="bill-footer-credit-phone">07830200030</p>
         </div>
       </div>
     </div>

@@ -144,6 +144,22 @@ namespace POS.Services
                 candidates.Add(Path.Combine(programFiles, "Litecashier", "mariadb", "bin", "mysqldump.exe"));
             }
 
+            // Common XAMPP locations
+            candidates.Add(@"C:\xampp\mysql\bin\mysqldump.exe");
+            candidates.Add(@"C:\XAMPP\mysql\bin\mysqldump.exe");
+            var driveRoot = Path.GetPathRoot(Environment.SystemDirectory);
+            if (!string.IsNullOrWhiteSpace(driveRoot))
+            {
+                candidates.Add(Path.Combine(driveRoot, "xampp", "mysql", "bin", "mysqldump.exe"));
+            }
+
+            if (!string.IsNullOrWhiteSpace(programFiles))
+            {
+                candidates.Add(Path.Combine(programFiles, "MySQL", "MySQL Server 8.0", "bin", "mysqldump.exe"));
+                candidates.Add(Path.Combine(programFiles, "MySQL", "MySQL Server 8.4", "bin", "mysqldump.exe"));
+                candidates.Add(Path.Combine(programFiles, "MariaDB 11.4", "bin", "mysqldump.exe"));
+            }
+
             foreach (var path in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 if (File.Exists(path))

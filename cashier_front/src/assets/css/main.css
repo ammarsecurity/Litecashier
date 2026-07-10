@@ -1217,6 +1217,27 @@ table a:hover,
   font-weight: 500;
 }
 
+.bill-footer-date {
+  font-size: 0.75rem;
+  margin: 0.25rem 0;
+  color: var(--text-secondary);
+}
+
+.bill-footer-credit {
+  font-size: 0.7rem;
+  margin: 0.75rem 0 0 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.bill-footer-credit-phone {
+  font-size: 0.7rem;
+  margin: 0.15rem 0 0 0;
+  color: var(--text-primary);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
 .report-header {
   display: flex;
   flex-direction: column;

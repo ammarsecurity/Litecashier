@@ -2,7 +2,7 @@
 ; Build staging first: powershell -ExecutionPolicy Bypass -File build-installer.ps1
 
 #define MyAppName "Litecashier"
-#define MyAppVersion "1.0.9"
+#define MyAppVersion "1.0.12"
 #define MyAppPublisher "Litecashier"
 #define MyAppExeName "Litecashier.exe"
 
@@ -33,16 +33,12 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Dirs]
 Name: "{commonappdata}\Litecashier"; Permissions: users-modify
-Name: "{commonappdata}\Litecashier\mariadb"; Permissions: users-modify
-Name: "{commonappdata}\Litecashier\mariadb\data"; Permissions: users-modify
-Name: "{commonappdata}\Litecashier\mariadb\tmp"; Permissions: users-modify
 Name: "{commonappdata}\Litecashier\Logs"; Permissions: users-modify
 
 [Files]
 Source: "staging\Litecashier.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "staging\POS\*"; DestDir: "{app}\POS"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "staging\PrintServer\*"; DestDir: "{app}\PrintServer"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "staging\mariadb\*"; DestDir: "{app}\mariadb"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "deps\MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 Source: "deps\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 

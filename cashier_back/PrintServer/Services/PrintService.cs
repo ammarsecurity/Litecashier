@@ -824,6 +824,8 @@ public class PrintService
         // Footer
         html.AppendLine("<div class='receipt-footer'>");
         html.AppendLine("<div class='footer-text'>شكراً لزيارتكم</div>");
+        html.AppendLine("<div class='footer-text receipt-credit'>نظام لايت كاشير - برمجة وتصميم عمار الاصفر</div>");
+        html.AppendLine("<div class='footer-text receipt-credit-phone'>07830200030</div>");
         html.AppendLine("</div>");
         
         html.AppendLine("</div>");
