@@ -2,7 +2,7 @@
 ; Build staging first: powershell -ExecutionPolicy Bypass -File build-installer.ps1
 
 #define MyAppName "Litecashier"
-#define MyAppVersion "1.0.5"
+#define MyAppVersion "1.0.9"
 #define MyAppPublisher "Litecashier"
 #define MyAppExeName "Litecashier.exe"
 
@@ -53,6 +53,11 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 [Run]
 Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing Microsoft Visual C++ Runtime..."; Check: NeedsVCRedist; Flags: waituntilterminated
 Filename: "{tmp}\MicrosoftEdgeWebview2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "Installing WebView2 Runtime..."; Check: NeedsWebView2; Flags: waituntilterminated
+Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name=""Litecashier POS"" & netsh advfirewall firewall add rule name=""Litecashier POS"" dir=in action=allow protocol=TCP localport=5189"; StatusMsg: "Opening firewall for Litecashier..."; Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name=""Litecashier PrintServer"" & netsh advfirewall firewall add rule name=""Litecashier PrintServer"" dir=in action=allow protocol=TCP localport=5000"; Flags: runhidden
+
+[UninstallRun]
+Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name=""Litecashier POS"" & netsh advfirewall firewall delete rule name=""Litecashier PrintServer"""; Flags: runhidden
 
 [Code]
 function NeedsVCRedist: Boolean;

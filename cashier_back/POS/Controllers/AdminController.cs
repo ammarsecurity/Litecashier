@@ -30,6 +30,7 @@ namespace POS.Controllers
         private readonly IOrderCheckoutService _orderCheckoutService;
         private readonly IItemImportService _itemImportService;
         private readonly ICommercialCatalogClearService _catalogClearService;
+        private readonly IDatabaseBackupService _databaseBackupService;
 
         public AdminController(
             ILogger<AdminController> logger,
@@ -38,7 +39,8 @@ namespace POS.Controllers
             IConfiguration configuration,
             IOrderCheckoutService orderCheckoutService,
             IItemImportService itemImportService,
-            ICommercialCatalogClearService catalogClearService)
+            ICommercialCatalogClearService catalogClearService,
+            IDatabaseBackupService databaseBackupService)
         {
             _logger = logger;
             _dbConfig = dbConfig;
@@ -47,6 +49,7 @@ namespace POS.Controllers
             _orderCheckoutService = orderCheckoutService;
             _itemImportService = itemImportService;
             _catalogClearService = catalogClearService;
+            _databaseBackupService = databaseBackupService;
         }
 
         private int GetCommercialUserId()
@@ -1134,6 +1137,64 @@ namespace POS.Controllers
                     Data = null,
                     ErrorStatus = true,
                     Message = "catalogClearFailed"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial")]
+        [HttpGet("DownloadDatabaseBackup")]
+        public async Task<IActionResult> DownloadDatabaseBackup(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var commercialUserId = GetCommercialUserId();
+
+                var (content, fileName) = await _databaseBackupService.CreateBackupAsync(cancellationToken);
+
+                try
+                {
+                    await _dbConfig.LogAuditAsync(
+                        "DownloadDatabaseBackup",
+                        "Database",
+                        0,
+                        fileName,
+                        userId,
+                        commercialUserId,
+                        description: $"BackupSizeBytes={content.Length}");
+                }
+                catch (Exception auditEx)
+                {
+                    _logger.LogWarning(auditEx, "Audit log failed after DownloadDatabaseBackup");
+                }
+
+                return File(content, "application/sql", fileName);
+            }
+            catch (FileNotFoundException)
+            {
+                return StatusCode(500, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "mysqldumpNotFound"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DownloadDatabaseBackup failed");
+                var message = ex.Message switch
+                {
+                    "mysqldumpNotFound" => "mysqldumpNotFound",
+                    "backupEmpty" => "backupEmpty",
+                    "backupProcessFailed" => "backupFailed",
+                    "connectionStringMissing" => "backupFailed",
+                    _ => "backupFailed"
+                };
+                return StatusCode(500, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = message
                 });
             }
         }
@@ -2816,50 +2877,17 @@ namespace POS.Controllers
             return fileName;
         }
 
-        // Seed Database
-   //     [Authorize(Roles = "Admin")]
+        // Seed Database — disabled (keep system Admin from EF HasData only)
+        [Authorize(Roles = "Admin")]
         [HttpPost("SeedData")]
         public ActionResult<GlobalResponse<string>> ExecuteSeedData([FromBody] SeedDataRequest request)
         {
-            try
+            return StatusCode(StatusCodes.Status410Gone, new GlobalResponse<string>
             {
-                POS.Db.SeedData.SeedSummary summary;
-                if (request.SeedDemoAccounts)
-                {
-                    summary = POS.Db.SeedData.SeedDemoEnvironment(_dbConfig);
-                }
-                else if (request.CatalogOnly)
-                {
-                    var catalog = POS.Db.SeedData.SeedCatalogOnly(_dbConfig, request.CommercialUserId);
-                    summary = new POS.Db.SeedData.SeedSummary
-                    {
-                        CommercialUserId = request.CommercialUserId,
-                        Tags = catalog.Tags,
-                        Items = catalog.Items
-                    };
-                }
-                else
-                {
-                    summary = POS.Db.SeedData.SeedDatabase(_dbConfig, request.CommercialUserId);
-                }
-
-                return Ok(new GlobalResponse<string>
-                {
-                    Data = summary.ToMessage(),
-                    ErrorStatus = false,
-                    Message = summary.ToMessage()
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error seeding database");
-                return BadRequest(new GlobalResponse<string>
-                {
-                    Data = null,
-                    ErrorStatus = true,
-                    Message = $"حدث خطأ أثناء إضافة البيانات: {ex.Message}"
-                });
-            }
+                Data = null,
+                ErrorStatus = true,
+                Message = "seedDataDisabled"
+            });
         }
 
     }

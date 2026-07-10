@@ -31,6 +31,7 @@ builder.Services.AddScoped<INebulaPaymentService, NebulaPaymentService>();
 builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
 builder.Services.AddScoped<IItemImportService, ItemImportService>();
 builder.Services.AddScoped<ICommercialCatalogClearService, CommercialCatalogClearService>();
+builder.Services.AddScoped<IDatabaseBackupService, DatabaseBackupService>();
 builder.Services.AddScoped<ICreditAccountService, CreditAccountService>();
 builder.Services.AddSingleton<ICardPaymentProcessingService, CardPaymentProcessingService>();
 
@@ -141,36 +142,7 @@ if (applyMigrations)
             throw;
         }
 
-        var seedOnStartup = app.Configuration.GetValue("DatabaseSettings:SeedOnStartup", false);
-        if (seedOnStartup)
-        {
-            try
-            {
-                var seedDemo = app.Configuration.GetValue("DatabaseSettings:SeedDemoAccounts", true);
-                if (seedDemo)
-                {
-                    var summary = POS.Db.SeedData.SeedDemoEnvironment(db);
-                    migrateLogger.LogInformation("Database seed completed: {Message}", summary.ToMessage());
-                }
-                else
-                {
-                    var commercialUserId = app.Configuration.GetValue("DatabaseSettings:CommercialUserId", 0);
-                    if (commercialUserId <= 0)
-                    {
-                        migrateLogger.LogWarning("DatabaseSettings:SeedOnStartup is enabled but CommercialUserId is not set.");
-                    }
-                    else
-                    {
-                        var summary = POS.Db.SeedData.SeedDatabase(db, commercialUserId);
-                        migrateLogger.LogInformation("Database seed completed: {Message}", summary.ToMessage());
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                migrateLogger.LogWarning(ex, "Database seed on startup failed (app will continue).");
-            }
-        }
+        // Demo SeedData is disabled. System Admin (Id=1) comes from EF HasData migration only.
     }
 }
 

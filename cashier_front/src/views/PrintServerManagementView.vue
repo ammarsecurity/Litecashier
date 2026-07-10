@@ -386,8 +386,7 @@
 
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
-
-const PRINT_SERVER_URL = 'http://localhost:5000';
+import { resolvePrintServerUrl } from "@/utils/apiBase.js";
 
 export default {
   name: "PrintServerManagementView",
@@ -438,7 +437,7 @@ Server is working correctly
     async checkServerHealth() {
       this.loading = true;
       try {
-        const response = await fetch(`${PRINT_SERVER_URL}/health`, {
+        const response = await fetch(`${resolvePrintServerUrl()}/health`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -476,7 +475,7 @@ Server is working correctly
     async loadPrinters() {
       this.loadingPrinters = true;
       try {
-        const response = await fetch(`${PRINT_SERVER_URL}/printers`, {
+        const response = await fetch(`${resolvePrintServerUrl()}/printers`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -508,7 +507,7 @@ Server is working correctly
     async setDefaultPrinter(printerName) {
       this.settingDefault = true;
       try {
-        const response = await fetch(`${PRINT_SERVER_URL}/config/printer`, {
+        const response = await fetch(`${resolvePrintServerUrl()}/config/printer`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -560,7 +559,7 @@ Server is working correctly
 
       this.testing = true;
       try {
-        const response = await fetch(`${PRINT_SERVER_URL}/print`, {
+        const response = await fetch(`${resolvePrintServerUrl()}/print`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -621,7 +620,7 @@ Server is working correctly
           paymentMethod: 'نقدي'
         };
 
-        const response = await fetch(`${PRINT_SERVER_URL}/print`, {
+        const response = await fetch(`${resolvePrintServerUrl()}/print`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -691,7 +690,7 @@ Server is working correctly
     async loadConfig() {
       this.loadingConfig = true;
       try {
-        const response = await fetch(`${PRINT_SERVER_URL}/config`, {
+        const response = await fetch(`${resolvePrintServerUrl()}/config`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -725,7 +724,7 @@ Server is working correctly
       
       this.savingConfig = true;
       try {
-        const response = await fetch(`${PRINT_SERVER_URL}/config`, {
+        const response = await fetch(`${resolvePrintServerUrl()}/config`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -796,7 +795,7 @@ Server is working correctly
       this.downloading = true;
       try {
         // Download from backend
-        const response = await fetch(`${PRINT_SERVER_URL}/download`, {
+        const response = await fetch(`${resolvePrintServerUrl()}/download`, {
           method: 'GET',
         });
         

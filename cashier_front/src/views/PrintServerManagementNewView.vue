@@ -52,7 +52,7 @@
               <div class="server-offline-meta">
                 <span class="server-offline-chip">
                   <b-icon icon="hdd-network"></b-icon>
-                  localhost:5000
+                  {{ printServerDisplayUrl }}
                 </span>
                 <span class="server-offline-chip server-offline-chip--warning">
                   <b-icon icon="exclamation-circle"></b-icon>
@@ -580,8 +580,7 @@
 <script>
 import AppHeader from '../components/Layout/AppHeader.vue';
 import { HTTP } from '../http/api.js';
-
-const PRINT_SERVER_URL = 'http://localhost:5000';
+import { resolvePrintServerUrl } from '@/utils/apiBase.js';
 
 export default {
   name: "PrintServerManagementNewView",
@@ -628,6 +627,9 @@ export default {
     serverOnline() {
       return !!(this.serverStatus && this.serverStatus.status === 'ok');
     },
+    printServerDisplayUrl() {
+      return resolvePrintServerUrl().replace(/^https?:\/\//, '');
+    },
   },
   mounted() {
     this.refreshPage();
@@ -660,7 +662,7 @@ export default {
     async checkServerHealth() {
       this.loading = true;
       try {
-        const response = await fetch(`${PRINT_SERVER_URL}/health`);
+        const response = await fetch(`${resolvePrintServerUrl()}/health`);
         if (response.ok) {
           this.serverStatus = await response.json();
         } else {
@@ -680,7 +682,7 @@ export default {
       }
       this.loadingSystemPrinters = true;
       try {
-        const response = await fetch(`${PRINT_SERVER_URL}/printers`);
+        const response = await fetch(`${resolvePrintServerUrl()}/printers`);
         if (response.ok) {
           const data = await response.json();
           this.printers = Array.isArray(data) ? data : (data.printers || []);
@@ -936,7 +938,7 @@ export default {
     async downloadPrintServer() {
       this.downloading = true;
       try {
-        const response = await fetch(`${PRINT_SERVER_URL}/download`, {
+        const response = await fetch(`${resolvePrintServerUrl()}/download`, {
           method: 'GET'
         });
         

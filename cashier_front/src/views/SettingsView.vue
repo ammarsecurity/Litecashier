@@ -18,6 +18,41 @@
             </div>
           </div>
 
+          <div class="app-section-card settings-backup-zone">
+            <div class="app-section-header">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap settings-backup-zone__icon">
+                  <b-icon icon="cloud-download-fill"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("settingsBackupTitle") }}</h3>
+                  <p class="app-section-subtitle">{{ $t("settingsBackupSubtitle") }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="app-section-body">
+              <p class="settings-backup-zone__intro">{{ $t("settingsBackupHint") }}</p>
+              <div class="settings-danger-zone__actions">
+                <button
+                  type="button"
+                  class="users-add-button"
+                  :disabled="backupLoading"
+                  @click="downloadDatabaseBackup"
+                >
+                  <b-spinner small v-if="backupLoading" class="button-icon"></b-spinner>
+                  <b-icon v-else icon="download" class="button-icon"></b-icon>
+                  <span class="button-text">
+                    {{
+                      backupLoading
+                        ? $t("settingsBackupDownloading")
+                        : $t("settingsBackupDownload")
+                    }}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div class="app-section-card settings-danger-zone">
             <div class="app-section-header">
               <div class="app-section-title-wrap">
@@ -146,9 +181,73 @@ export default {
       clearCatalogPassword: "",
       clearCatalogLoading: false,
       clearCatalogResult: null,
+      backupLoading: false,
     };
   },
   methods: {
+    async downloadDatabaseBackup() {
+      if (this.backupLoading) return;
+      this.backupLoading = true;
+      try {
+        const response = await HTTP.get("Admin/DownloadDatabaseBackup", {
+          responseType: "blob",
+          timeout: 300000,
+        });
+
+        const contentType = response.headers["content-type"] || "";
+        if (contentType.includes("application/json")) {
+          const text = await response.data.text();
+          const payload = JSON.parse(text);
+          const msg = payload?.message;
+          throw new Error(msg || "backupFailed");
+        }
+
+        const disposition = response.headers["content-disposition"] || "";
+        const matchedName = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(disposition);
+        const fallbackName = `litecashier-backup-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.sql`;
+        const fileName = decodeURIComponent(
+          (matchedName?.[1] || fallbackName).replace(/"/g, "")
+        );
+
+        const blob = new Blob([response.data], { type: "application/sql" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+
+        this.$notify.success(this.$t("settingsBackupSuccess"), {
+          position: "top-right",
+          timeout: 4000,
+          maxToasts: 1,
+        });
+      } catch (error) {
+        let msg = error?.message;
+        if (error?.response?.data instanceof Blob) {
+          try {
+            const text = await error.response.data.text();
+            const payload = JSON.parse(text);
+            msg = payload?.message || msg;
+          } catch (_) {
+            /* ignore */
+          }
+        } else {
+          msg = error?.response?.data?.message || msg;
+        }
+        const text =
+          msg && this.$te(msg) ? this.$t(msg) : this.$t("settingsBackupFailed");
+        this.$notify.error(text, {
+          position: "top-right",
+          timeout: 4500,
+          maxToasts: 1,
+        });
+      } finally {
+        this.backupLoading = false;
+      }
+    },
     closeClearCatalogModal() {
       this.$bvModal.hide("modal-clearCatalog");
       this.clearCatalogPassword = "";
@@ -190,6 +289,21 @@ export default {
 </script>
 
 <style scoped>
+.settings-backup-zone {
+  margin-bottom: 1.25rem;
+}
+
+.settings-backup-zone__icon {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.settings-backup-zone__intro {
+  margin: 0 0 1.25rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.6;
+}
+
 .settings-danger-zone {
   border-color: rgba(239, 68, 68, 0.35);
   background: linear-gradient(

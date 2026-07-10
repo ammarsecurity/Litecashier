@@ -10,6 +10,8 @@ internal static class ServiceManager
     private const string AppUrl = "http://localhost:5189/";
     private const string PosHealthUrl = "http://127.0.0.1:5189/";
     private const string PrintServerHealthUrl = "http://127.0.0.1:5000/swagger/index.html";
+    /// <summary>Bundled MariaDB port — isolated from system MySQL/XAMPP on 3306.</summary>
+    private const int MariaDbPort = 3307;
 
     private static readonly string InstallDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     private static readonly string DataRoot = Path.Combine(
@@ -19,6 +21,7 @@ internal static class ServiceManager
     private static readonly string MariaDbBin = Path.Combine(MariaDbDir, "bin");
     private static readonly string MariaDbData = Path.Combine(DataRoot, "mariadb", "data");
     private static readonly string MariaDbIni = Path.Combine(DataRoot, "mariadb", "my.ini");
+    private static readonly string MariaDbInitializedMarker = Path.Combine(DataRoot, "mariadb", ".initialized");
     private static readonly string LegacyMariaDbData = Path.Combine(MariaDbDir, "data");
     private static readonly string PosExe = Path.Combine(InstallDir, "POS", "POS.exe");
     private static readonly string PrintServerExe = Path.Combine(InstallDir, "PrintServer", "PrintServer.exe");
@@ -91,10 +94,20 @@ internal static class ServiceManager
 
     private static async Task EnsureMariaDbAsync(Action<string> setStatus)
     {
-        if (await IsPortOpenAsync(3306).ConfigureAwait(false))
+        WriteStartupLog($"MariaDB datadir: {MariaDbData}");
+        WriteStartupLog($"MariaDB port: {MariaDbPort}");
+
+        if (await IsOurMariaDbListeningAsync().ConfigureAwait(false))
         {
-            WriteStartupLog("Port 3306 is already open.");
+            WriteStartupLog($"Bundled MariaDB already listening on port {MariaDbPort}.");
             return;
+        }
+
+        if (await IsPortOpenAsync(MariaDbPort).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException(
+                $"المنفذ {MariaDbPort} مستخدم من برنامج آخر وليس MariaDB الخاص بـ Litecashier.{Environment.NewLine}" +
+                "أغلق البرنامج المتعارض أو غيّر منفذه ثم أعد المحاولة.");
         }
 
         if (!File.Exists(Path.Combine(MariaDbBin, "mysqld.exe")))
@@ -109,7 +122,7 @@ internal static class ServiceManager
         {
             PrepareMariaDbDataDirectory();
             setStatus("جاري تهيئة قاعدة البيانات لأول مرة...");
-            WriteStartupLog("Initializing MariaDB data directory.");
+            WriteStartupLog("Initializing MariaDB data directory (first run).");
 
             var initResult = RunMariaDbProcess(
                 "--initialize-insecure",
@@ -125,18 +138,35 @@ internal static class ServiceManager
                 throw new InvalidOperationException(
                     $"فشل تهيئة قاعدة البيانات (رمز {initResult.ExitCode}).{Environment.NewLine}{details}{Environment.NewLine}{Environment.NewLine}راجع mariadb-init.log في مجلد السجلات.");
             }
+
+            WriteInitializedMarker();
+            WriteStartupLog("MariaDB initialize completed; wrote .initialized marker.");
+        }
+        else
+        {
+            WriteStartupLog("Reusing existing MariaDB data directory (not re-initializing).");
+            if (!File.Exists(MariaDbInitializedMarker))
+            {
+                WriteInitializedMarker();
+            }
         }
 
-        if (!await IsPortOpenAsync(3306).ConfigureAwait(false))
+        if (!await IsOurMariaDbListeningAsync().ConfigureAwait(false))
         {
-            WriteStartupLog("Starting mysqld.");
+            WriteStartupLog("Starting bundled mysqld.");
             StartBackgroundProcess(
                 Path.Combine(MariaDbBin, "mysqld.exe"),
                 MariaDbDir,
                 "mariadb.log",
                 extraMariaDbArgs: "--standalone");
 
-            await WaitForPortAsync(3306, TimeSpan.FromSeconds(90), setStatus).ConfigureAwait(false);
+            await WaitForPortAsync(MariaDbPort, TimeSpan.FromSeconds(90), setStatus).ConfigureAwait(false);
+
+            if (!await IsOurMariaDbListeningAsync().ConfigureAwait(false))
+            {
+                throw new InvalidOperationException(
+                    $"تم فتح المنفذ {MariaDbPort} لكن العملية ليست MariaDB الخاص بـ Litecashier. راجع mariadb.log.");
+            }
         }
     }
 
@@ -159,6 +189,11 @@ internal static class ServiceManager
 
     private static bool IsMariaDbInitialized()
     {
+        if (File.Exists(MariaDbInitializedMarker))
+        {
+            return true;
+        }
+
         if (!Directory.Exists(MariaDbData))
         {
             return false;
@@ -169,6 +204,15 @@ internal static class ServiceManager
             || File.Exists(Path.Combine(MariaDbData, "aria_log_control"));
     }
 
+    private static void WriteInitializedMarker()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(MariaDbInitializedMarker)!);
+        File.WriteAllText(
+            MariaDbInitializedMarker,
+            $"initialized={DateTime.UtcNow:O}{Environment.NewLine}datadir={MariaDbData}{Environment.NewLine}port={MariaDbPort}{Environment.NewLine}",
+            Utf8WithoutBom);
+    }
+
     private static void PrepareMariaDbDataDirectory()
     {
         if (IsMariaDbInitialized())
@@ -176,23 +220,69 @@ internal static class ServiceManager
             return;
         }
 
+        Directory.CreateDirectory(Path.Combine(DataRoot, "mariadb", "tmp"));
+
         if (Directory.Exists(MariaDbData))
         {
-            WriteStartupLog("Removing incomplete MariaDB data directory before initialize.");
-            try
+            var hasAnyContent = Directory.EnumerateFileSystemEntries(MariaDbData).Any();
+            if (hasAnyContent)
             {
-                Directory.Delete(MariaDbData, recursive: true);
-            }
-            catch (Exception ex)
-            {
+                WriteStartupLog($"Refusing to delete non-empty data directory: {MariaDbData}");
                 throw new InvalidOperationException(
-                    $"تعذر تنظيف مجلد قاعدة البيانات التالف. احذف المجلد يدوياً ثم أعد المحاولة:{Environment.NewLine}{MariaDbData}",
-                    ex);
+                    "مجلد قاعدة البيانات موجود لكن حالته غير واضحة، ولن يتم حذفه تلقائياً لحماية بياناتك." +
+                    Environment.NewLine +
+                    MariaDbData +
+                    Environment.NewLine +
+                    Environment.NewLine +
+                    "راجع السجلات أو انقل/أصلح المجلد يدوياً ثم أعد المحاولة.");
             }
         }
 
         Directory.CreateDirectory(MariaDbData);
-        Directory.CreateDirectory(Path.Combine(DataRoot, "mariadb", "tmp"));
+    }
+
+    private static async Task<bool> IsOurMariaDbListeningAsync()
+    {
+        if (!await IsPortOpenAsync(MariaDbPort).ConfigureAwait(false))
+        {
+            return false;
+        }
+
+        try
+        {
+            var expectedBin = Path.GetFullPath(MariaDbBin);
+            foreach (var process in Process.GetProcessesByName("mysqld"))
+            {
+                try
+                {
+                    var path = process.MainModule?.FileName;
+                    if (string.IsNullOrWhiteSpace(path))
+                    {
+                        continue;
+                    }
+
+                    var dir = Path.GetFullPath(Path.GetDirectoryName(path)!);
+                    if (string.Equals(dir, expectedBin, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // Access denied for other users' processes — ignore
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            WriteStartupLog($"Could not verify mysqld process ownership: {ex.Message}");
+        }
+
+        return false;
     }
 
     private sealed class ProcessResult
@@ -216,19 +306,19 @@ internal static class ServiceManager
             $"basedir={basedir}",
             $"datadir={datadir}",
             $"tmpdir={tmpdir}",
-            "port=3306",
+            $"port={MariaDbPort}",
             "bind-address=127.0.0.1",
             "character-set-server=utf8mb4",
             "collation-server=utf8mb4_unicode_ci",
             "skip-name-resolve=1",
             string.Empty,
             "[client]",
-            "port=3306",
+            $"port={MariaDbPort}",
             "default-character-set=utf8mb4"
         });
 
         File.WriteAllText(MariaDbIni, content, Utf8WithoutBom);
-        WriteStartupLog($"Wrote MariaDB config: {MariaDbIni}");
+        WriteStartupLog($"Wrote MariaDB config: {MariaDbIni} (datadir={MariaDbData}, port={MariaDbPort})");
     }
 
     private static string ToIniPath(string path) => $"\"{path.Replace('\\', '/')}\"";

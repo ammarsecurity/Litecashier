@@ -1,12 +1,11 @@
 import { HTTP } from "@/http/api.js";
+import { resolvePrintServerUrl } from "@/utils/apiBase.js";
 import {
   PRINT_API_TIMEOUT_MS,
   PRINT_SERVER_FETCH_TIMEOUT_MS,
   buildReceiptPrintDocument,
   ensurePrintOrderCodeInHtml,
 } from "@/utils/receiptPrint.js";
-
-const PRINT_SERVER_URL = "http://localhost:5000";
 
 export default {
   data() {
@@ -124,7 +123,7 @@ export default {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 4000);
-        const response = await fetch(`${PRINT_SERVER_URL}/health`, {
+        const response = await fetch(`${resolvePrintServerUrl()}/health`, {
           method: "GET",
           signal: controller.signal,
         });
@@ -150,7 +149,7 @@ export default {
           PRINT_SERVER_FETCH_TIMEOUT_MS
         );
 
-        const response = await fetch(`${PRINT_SERVER_URL}/print`, {
+        const response = await fetch(`${resolvePrintServerUrl()}/print`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

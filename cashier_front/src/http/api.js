@@ -1,4 +1,5 @@
 import axios from "axios";
+import { resolveApiBaseUrl } from "@/utils/apiBase.js";
 
 /** PAX Nebula sale can wait for card/PIN on device — longer than default API calls. */
 export const CARD_PAYMENT_REQUEST_TIMEOUT_MS = 180000;
@@ -16,10 +17,7 @@ export const cancelCardPayment = (transactionId) =>
     HTTP.post(`CardPayments/${transactionId}/cancel`, null, { timeout: 15000 });
 
 export const HTTP = axios.create({
-    baseURL: process.env.VUE_APP_API_URL ||
-        (process.env.NODE_ENV === 'production'
-            ? `https://pos-api.tanfeeth-iq.tech/`
-            : `https://pos-api.tanfeeth-iq.tech/`),
+    baseURL: resolveApiBaseUrl(),
     timeout: 30000,
 });
 

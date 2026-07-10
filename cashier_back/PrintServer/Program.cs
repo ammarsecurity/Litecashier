@@ -23,7 +23,7 @@ builder.Services.AddSingleton<ConfigurationService>();
 builder.Services.AddScoped<PrintService>();
 
 // ✅ حدد الـ URL هنا
-builder.WebHost.UseUrls("http://localhost:5000");
+builder.WebHost.UseUrls("http://0.0.0.0:5000");
 
 var app = builder.Build();
 
@@ -48,7 +48,7 @@ Console.WriteLine("Restaurant POS Print Server (C#)");
 Console.WriteLine("=" + new string('=', 49));
 Console.WriteLine("Windows Print API Available: True");
 Console.WriteLine("=" + new string('=', 49));
-Console.WriteLine("Starting server on http://localhost:5000");
+Console.WriteLine("Starting server on http://0.0.0.0:5000 (LAN accessible)");
 Console.WriteLine("Endpoints:");
 Console.WriteLine("  GET  /health - Health check");
 Console.WriteLine("  POST /print - Print receipt (JSON)");
