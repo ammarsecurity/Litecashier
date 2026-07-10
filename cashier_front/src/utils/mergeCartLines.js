@@ -2,23 +2,36 @@ export function normalizeCartLineNote(note) {
   return note ? String(note).trim() : "";
 }
 
-/** Effective unit price for cart line (discount only when valid and below selling price). */
-export function getCartLineUnitPrice(line) {
+/**
+ * Effective unit price for a cart line.
+ * Retail: discount when valid and below selling price.
+ * Wholesale: wholesalePrice when > 0, else selling price (no retail discount).
+ */
+export function getCartLineUnitPrice(line, isWholesale) {
+  const wholesaleMode = isWholesale ?? !!line?.isWholesale;
   const price = Number(line?.price ?? line?.sellingPrice ?? 0);
+
+  if (wholesaleMode) {
+    const wholesale = Number(line?.wholesalePrice ?? 0);
+    return wholesale > 0 ? wholesale : price;
+  }
+
   const discount = Number(line?.disCountPrice ?? 0);
   if (discount > 0 && discount < price) return discount;
   return price;
 }
 
-export function hasCartLineDiscount(line) {
+export function hasCartLineDiscount(line, isWholesale) {
+  const wholesaleMode = isWholesale ?? !!line?.isWholesale;
+  if (wholesaleMode) return false;
   const price = Number(line?.price ?? line?.sellingPrice ?? 0);
   const discount = Number(line?.disCountPrice ?? 0);
   return discount > 0 && discount < price;
 }
 
-export function getCartLineTotal(line) {
+export function getCartLineTotal(line, isWholesale) {
   const qty = Math.max(0, Number(line?.quantity) || 0);
-  return getCartLineUnitPrice(line) * qty;
+  return getCartLineUnitPrice(line, isWholesale) * qty;
 }
 
 export function cartLineMergeKey(line) {

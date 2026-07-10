@@ -149,7 +149,7 @@
                         @click="item.quantity > 0 ? addToCartList(item) : null"
                       >
                         <div
-                          v-if="item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
+                          v-if="!isWholesale && item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
                           class="pos-product-discount-badge"
                         >
                           <b-icon icon="tag-fill" class="me-1"></b-icon>
@@ -197,7 +197,7 @@
                           <div class="pos-product-footer">
                             <div class="pos-product-price">
                               <div
-                                v-if="item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
+                                v-if="!isWholesale && item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
                                 class="pos-product-price-discounted"
                               >
                                 <span class="pos-product-price-current">
@@ -208,7 +208,7 @@
                                 </span>
                               </div>
                               <div v-else class="pos-product-price-regular">
-                                {{ formatPrice(item.sellingPrice) }} {{ $t("currency") }}
+                                {{ formatPrice(displayCatalogUnitPrice(item)) }} {{ $t("currency") }}
                               </div>
                             </div>
                             <span
@@ -264,8 +264,27 @@
                             {{ totalCardItems }}
                           </span>
                         </h3>
-                        <div class="pos-cart-header-actions" v-if="carditems.length > 0">
+                        <div class="pos-cart-header-actions">
+                          <div class="pos-price-mode-toggle" role="group" :aria-label="$t('wholesalePriceMode')">
+                            <button
+                              type="button"
+                              class="pos-price-mode-btn"
+                              :class="{ 'pos-price-mode-btn-active': !isWholesale }"
+                              @click="setPriceMode(false)"
+                            >
+                              {{ $t("retailPriceMode") || "مفرد" }}
+                            </button>
+                            <button
+                              type="button"
+                              class="pos-price-mode-btn"
+                              :class="{ 'pos-price-mode-btn-active': isWholesale }"
+                              @click="setPriceMode(true)"
+                            >
+                              {{ $t("wholesalePriceMode") || "جملة" }}
+                            </button>
+                          </div>
                           <button
+                            v-if="carditems.length > 0"
                             type="button"
                             class="pos-cart-header-clear-btn"
                             v-b-modal.modal-empty
@@ -904,6 +923,10 @@
             <span class="bill-info-value">{{ getPaymentMethodText(orderForSend.paymentMethod) }}</span>
           </div>
           <div class="bill-info-row">
+            <span class="bill-info-label">{{ $t("priceModeLabel") || "نوع السعر" }}:</span>
+            <span class="bill-info-value">{{ isWholesale ? ($t("wholesalePriceMode") || "جملة") : ($t("retailPriceMode") || "مفرد") }}</span>
+          </div>
+          <div class="bill-info-row">
             <span class="bill-info-label">{{ $t("from_date") }}:</span>
             <span class="bill-info-value">{{ getCurrentDateTime() }}</span>
           </div>
@@ -927,29 +950,23 @@
                 <td class="bill-item-name">
                   {{ item.name }}
                   <span
-                    v-if="item.disCountPrice > 0 && item.disCountPrice !== item.price"
+                    v-if="cartLineHasDiscount(item)"
                     class="bill-discount-badge"
                   >{{ $t("discountLabel") || "خصم" }}</span>
                 </td>
                 <td class="bill-item-qty">{{ item.quantity }}</td>
                 <td class="bill-item-price">
                   <span
-                    v-if="item.disCountPrice > 0 && item.disCountPrice !== item.price"
+                    v-if="cartLineHasDiscount(item)"
                     class="bill-price-discounted"
                   >
                     <span class="bill-original-price">{{ formatPrice(item.price || 0) }}</span>
-                    <span class="bill-discount-price">{{ formatPrice(item.disCountPrice) }}</span>
+                    <span class="bill-discount-price">{{ formatPrice(cartLineUnitPrice(item)) }}</span>
                   </span>
-                  <span v-else>{{ formatPrice(item.price || 0) }}</span>
+                  <span v-else>{{ formatPrice(cartLineUnitPrice(item)) }}</span>
                 </td>
                 <td class="bill-item-total">
-                  {{
-                    formatPrice(
-                      (item.disCountPrice > 0 && item.disCountPrice !== item.price
-                        ? item.disCountPrice
-                        : (item.price || 0)) * (item.quantity || 1)
-                    )
-                  }}
+                  {{ formatPrice(cartLineUnitPrice(item) * (item.quantity || 1)) }}
                 </td>
               </tr>
             </tbody>
@@ -1032,6 +1049,7 @@ export default {
       show: false,
       totaPrice: 0,
       carditems: [],
+      isWholesale: false,
       typingTimer: null,
       doneTypingInterval: 300,
       silentCartToasts: true,
@@ -1194,7 +1212,8 @@ export default {
       handler() {
         this.totaPrice = 0;
         this.carditems.forEach((item) => {
-          item.total = getCartLineTotal(item);
+          item.isWholesale = this.isWholesale;
+          item.total = getCartLineTotal(item, this.isWholesale);
           this.totaPrice += item.total || 0;
         });
         this.totalCardItems = this.carditems.reduce(
@@ -1624,11 +1643,27 @@ export default {
       if (!Number.isFinite(n)) return "0";
       return n.toLocaleString("en-EG");
     },
+    displayCatalogUnitPrice(item) {
+      if (this.isWholesale) {
+        const wholesale = Number(item?.wholesalePrice) || 0;
+        return wholesale > 0 ? wholesale : Number(item?.sellingPrice) || 0;
+      }
+      return Number(item?.sellingPrice) || 0;
+    },
+    setPriceMode(wholesale) {
+      const next = !!wholesale;
+      if (this.isWholesale === next) return;
+      this.isWholesale = next;
+      this.carditems.forEach((line) => {
+        line.isWholesale = next;
+        line.total = getCartLineTotal(line, next);
+      });
+    },
     cartLineUnitPrice(item) {
-      return getCartLineUnitPrice(item);
+      return getCartLineUnitPrice(item, this.isWholesale);
     },
     cartLineHasDiscount(item) {
-      return hasCartLineDiscount(item);
+      return hasCartLineDiscount(item, this.isWholesale);
     },
     clearOrderDiscount() {
       this.orderDiscountType = "amount";
@@ -1693,6 +1728,7 @@ export default {
 
     EmptycardList(id) {
       this.carditems = [];
+      this.isWholesale = false;
       this.$bvModal.hide(id);
       this.orderForSend.orderType = "Takeaway";
       this.clearOrderDiscount();
@@ -1727,8 +1763,10 @@ export default {
         
         if (existingItemIndex !== -1) {
           this.carditems[existingItemIndex].quantity += 1;
+          this.carditems[existingItemIndex].isWholesale = this.isWholesale;
           this.carditems[existingItemIndex].total = getCartLineTotal(
-            this.carditems[existingItemIndex]
+            this.carditems[existingItemIndex],
+            this.isWholesale
           );
         } else {
           const cartItem = {
@@ -1736,9 +1774,11 @@ export default {
             quantity: 1,
             price: Number(item.sellingPrice) || 0,
             disCountPrice: Number(item.disCountPrice) || 0,
+            wholesalePrice: Number(item.wholesalePrice) || 0,
+            isWholesale: this.isWholesale,
             id: item.id,
           };
-          cartItem.total = getCartLineTotal(cartItem);
+          cartItem.total = getCartLineTotal(cartItem, this.isWholesale);
           this.carditems.push(cartItem);
         }
 
@@ -1792,7 +1832,11 @@ export default {
     },
     updateItemTotal(index) {
       if (this.carditems[index]) {
-        this.carditems[index].total = getCartLineTotal(this.carditems[index]);
+        this.carditems[index].isWholesale = this.isWholesale;
+        this.carditems[index].total = getCartLineTotal(
+          this.carditems[index],
+          this.isWholesale
+        );
       }
     },
     GetAllItems() {
@@ -1874,8 +1918,14 @@ export default {
             
             if (existingItemIndex !== -1) {
               this.carditems[existingItemIndex].quantity += 1;
+              this.carditems[existingItemIndex].isWholesale = this.isWholesale;
+              this.carditems[existingItemIndex].wholesalePrice =
+                Number(this.SearchItems.wholesalePrice) ||
+                this.carditems[existingItemIndex].wholesalePrice ||
+                0;
               this.carditems[existingItemIndex].total = getCartLineTotal(
-                this.carditems[existingItemIndex]
+                this.carditems[existingItemIndex],
+                this.isWholesale
               );
             } else {
               // Check if item has available quantity
@@ -1903,9 +1953,11 @@ export default {
                 quantity: 1,
                 price: Number(this.SearchItems.sellingPrice) || 0,
                 disCountPrice: Number(this.SearchItems.disCountPrice) || 0,
+                wholesalePrice: Number(this.SearchItems.wholesalePrice) || 0,
+                isWholesale: this.isWholesale,
                 id: this.SearchItems.id,
               };
-              item.total = getCartLineTotal(item);
+              item.total = getCartLineTotal(item, this.isWholesale);
               this.carditems.push(item);
             }
             

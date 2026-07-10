@@ -1222,6 +1222,7 @@ namespace POS.Controllers
             item.Tags = request.Tags;
             item.PurchasingPrice = request.PurchasingPrice;
             item.DisCountPrice = request.DisCountPrice;
+            item.WholesalePrice = request.WholesalePrice;
             item.Description = request.Description;
             item.SellingPrice = request.SellingPrice;
             item.Quantity = request.Quantity;
@@ -1478,6 +1479,7 @@ namespace POS.Controllers
                     OrderTotalAfterDiscount = request.OrderTotalAfterDiscount,
                     CreditCustomerId = creditCustomerId,
                     PaymentStatus = paymentStatus,
+                    IsWholesale = request.IsWholesale,
                 };
                 _dbConfig.CustomerOrders.Add(newOrder);
                 await _dbConfig.SaveChangesAsync();
@@ -1554,10 +1556,8 @@ namespace POS.Controllers
                                 });
                             }
 
-                            // Use discount price if available, otherwise use selling price
-                            var finalPrice = currentItem.DisCountPrice > 0 && currentItem.DisCountPrice != currentItem.SellingPrice
-                                ? currentItem.DisCountPrice
-                                : currentItem.SellingPrice;
+                            // Retail: discount if set and different; Wholesale: wholesale if > 0 else selling
+                            var finalPrice = ResolveItemUnitPrice(currentItem, request.IsWholesale);
 
                             var newOrderItem = new CustomerOrderItem
                             {
@@ -1736,6 +1736,7 @@ namespace POS.Controllers
                         ItemsCount = activeOrderItems.Count,
                         InsertDate = x.InsertDate,
                         PaymentMethod = x.PaymentMethod,
+                        IsWholesale = x.IsWholesale,
                         CreatedByUserId = x.User != null ? x.User.Id : null,
                         CreatedByUsername = x.User != null ? x.User.Username : null,
                         DiscountType = x.DiscountType,
@@ -1869,6 +1870,7 @@ namespace POS.Controllers
                 existingOrder.DiscountPercent = request.DiscountPercent;
                 existingOrder.OrderSubTotal = request.OrderSubTotal;
                 existingOrder.OrderTotalAfterDiscount = request.OrderTotalAfterDiscount;
+                existingOrder.IsWholesale = request.IsWholesale;
 
                 var now = DateTime.UtcNow;
                 foreach (var item in activeOrderItems)
@@ -1898,9 +1900,7 @@ namespace POS.Controllers
                             });
                         }
 
-                        var sellingPrice = currentItem.DisCountPrice > 0 && currentItem.DisCountPrice < currentItem.SellingPrice
-                            ? currentItem.DisCountPrice
-                            : currentItem.SellingPrice;
+                        var sellingPrice = ResolveItemUnitPrice(currentItem, request.IsWholesale);
 
                         var normalizedNotes = string.IsNullOrWhiteSpace(itemRequest.Notes)
                             ? null
@@ -2004,6 +2004,18 @@ namespace POS.Controllers
             var randomPart = random.Next(100000, 999999); // 6 digits
             var code = (timestamp + randomPart) % 1000000000; // Ensure 9 digits
             return code.ToString().PadLeft(9, '0'); // Ensure exactly 9 digits
+        }
+
+        private static decimal ResolveItemUnitPrice(Item item, bool isWholesale)
+        {
+            if (isWholesale)
+            {
+                return item.WholesalePrice > 0 ? item.WholesalePrice : item.SellingPrice;
+            }
+
+            return item.DisCountPrice > 0 && item.DisCountPrice < item.SellingPrice
+                ? item.DisCountPrice
+                : item.SellingPrice;
         }
 
         // get selse count

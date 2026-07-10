@@ -251,6 +251,14 @@
                                 <template #cell(paymentMethod)="row">
                                     <span>{{ getPaymentMethodText(row.item.paymentMethod) }}</span>
                                 </template>
+                                <template #cell(priceMode)="row">
+                                    <span
+                                      class="report-price-mode-badge"
+                                      :class="row.item.isWholesale ? 'report-price-mode-badge--wholesale' : 'report-price-mode-badge--retail'"
+                                    >
+                                      {{ row.item.isWholesale ? ($t("wholesalePriceMode") || "جملة") : ($t("retailPriceMode") || "مفرد") }}
+                                    </span>
+                                </template>
                                 <template #cell(orderType)="row">
                                     <span>{{ getOrderTypeText(row.item.orderType) }}</span>
                                 </template>
@@ -611,6 +619,10 @@
                                     <span class="bill-info-label">{{ $t('paymentMethod') }}:</span>
                                     <span class="bill-info-value">{{ getPaymentMethodText(order.paymentMethod) }}</span>
                                 </div>
+                                <div class="bill-info-row" v-if="order">
+                                    <span class="bill-info-label">{{ $t('priceModeLabel') || 'نوع السعر' }}:</span>
+                                    <span class="bill-info-value">{{ order.isWholesale ? ($t('wholesalePriceMode') || 'جملة') : ($t('retailPriceMode') || 'مفرد') }}</span>
+                                </div>
                                 <div class="bill-info-row" v-if="order && order.orderType">
                                     <span class="bill-info-label">{{ $t('orderType') }}:</span>
                                     <span class="bill-info-value">{{ getOrderTypeText(order.orderType) }}</span>
@@ -645,9 +657,9 @@
                                             <td class="bill-item-price">
                                                 <span v-if="hasDiscount(item)" class="bill-price-discounted">
                                                     <span class="bill-original-price">{{ formatPrice(item.item.sellingPrice) }}</span>
-                                                    <span class="bill-discount-price">{{ formatPrice(item.item.disCountPrice) }}</span>
+                                                    <span class="bill-discount-price">{{ formatPrice(getSellingPrice(item)) }}</span>
                                                 </span>
-                                                <span v-else>{{ formatPrice(item.item.sellingPrice) }}</span>
+                                                <span v-else>{{ formatPrice(getSellingPrice(item)) }}</span>
                                             </td>
                                             <td class="bill-item-total">{{ formatPrice(item.totalPrice) }}</td>
                                         </tr>
@@ -942,6 +954,7 @@ export default {
                 { key: "orderCode", label: this.$t("invoice_number") || "رقم الفاتورة", sortable: true },
                 { key: "insertDate", label: this.$t("date") || "التاريخ", sortable: true },
                 { key: "paymentMethod", label: this.$t("paymentMethod") || "طريقة الدفع", sortable: true },
+                { key: "priceMode", label: this.$t("priceModeLabel") || "نوع السعر", sortable: false },
                 { key: "orderType", label: this.$t("orderType") || "نوع الطلب", sortable: true },
                 { key: "itemsCount", label: this.$t("items_count") || "عدد العناصر", sortable: true },
                 { key: "discountAmount", label: this.$t("discountLabel") || "الخصم", sortable: true },
@@ -1104,16 +1117,21 @@ export default {
             this.loadAdvancedReport();
         },
         hasDiscount(item) {
+            if (this.order?.isWholesale) return false;
             return item.item && 
                    item.item.disCountPrice && 
                    item.item.disCountPrice > 0 && 
-                   item.item.disCountPrice !== item.item.sellingPrice;
+                   item.item.disCountPrice !== item.item.sellingPrice &&
+                   Number(item.sellingPrice) === Number(item.item.disCountPrice);
         },
         getSellingPrice(item) {
+            if (item.sellingPrice != null && item.sellingPrice !== undefined) {
+                return Number(item.sellingPrice) || 0;
+            }
             if (this.hasDiscount(item)) {
                 return item.item.disCountPrice;
             }
-            return item.item.sellingPrice;
+            return item.item?.sellingPrice || 0;
         },
         getRankClass(index) {
             if (index === 0) return 'rank-gold';
@@ -1544,7 +1562,13 @@ export default {
             if (existingItem) {
                 existingItem.quantity++;
             } else {
-                const price = item.disCountPrice > 0 && item.disCountPrice < item.sellingPrice ? item.disCountPrice : item.sellingPrice;
+                let price;
+                if (this.editOrderData?.isWholesale) {
+                    const wholesale = Number(item.wholesalePrice) || 0;
+                    price = wholesale > 0 ? wholesale : item.sellingPrice;
+                } else {
+                    price = item.disCountPrice > 0 && item.disCountPrice < item.sellingPrice ? item.disCountPrice : item.sellingPrice;
+                }
                 this.editOrderForm.items.push({ id: item.id, name: item.name, code: item.code, price, quantity: 1, itemId: item.id });
             }
             this.$bvModal.hide('modal-add-item');
@@ -1558,6 +1582,7 @@ export default {
             try {
                 const request = {
                     paymentMethod: this.editOrderForm.paymentMethod,
+                    isWholesale: !!this.editOrderData.isWholesale,
                     discountType: this.editOrderDiscountAmount > 0 ? this.editOrderForm.discountType : null,
                     discountValue: this.editOrderDiscountAmount > 0 ? (Number(this.editOrderForm.discountValue) || 0) : null,
                     discountAmount: this.editOrderDiscountAmount > 0 ? this.editOrderDiscountAmount : 0,

@@ -347,7 +347,9 @@
                           <tr v-for="invoice in invoices" :key="invoice.id">
                             <td>{{ invoice.orderCode || "-" }}</td>
                             <td>{{ formatDate(invoice.createdAt || invoice.insertDate) }}</td>
-                            <td>{{ getPaymentMethodText(invoice.paymentMethod) }}</td>
+                            <td>{{ getPaymentMethodText(invoice.paymentMethod) }}
+                              <span v-if="invoice.isWholesale" class="report-wholesale-badge">{{ $t("wholesalePriceMode") || "جملة" }}</span>
+                            </td>
                             <td>{{ formatPrice(invoice.orderTotalAfterDiscount ?? invoice.total ?? invoice.orderPrice ?? 0) }} {{ $t("currency") }}</td>
                             <td>
                               <button
@@ -422,6 +424,10 @@
             <div class="invoice-detail-item">
               <label class="invoice-detail-label">{{ $t("paymentMethod") || "طريقة الدفع" }}</label>
               <span class="invoice-detail-value">{{ getPaymentMethodText(selectedInvoice.paymentMethod) }}</span>
+            </div>
+            <div class="invoice-detail-item">
+              <label class="invoice-detail-label">{{ $t("priceModeLabel") || "نوع السعر" }}</label>
+              <span class="invoice-detail-value">{{ selectedInvoice.isWholesale ? ($t("wholesalePriceMode") || "جملة") : ($t("retailPriceMode") || "مفرد") }}</span>
             </div>
             <div class="invoice-detail-item">
               <label class="invoice-detail-label">{{ $t("total") || "المجموع" }}</label>

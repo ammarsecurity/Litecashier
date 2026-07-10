@@ -462,7 +462,12 @@ export function computeGroupPrintTotals(items, orderSubtotal, orderDiscountAmoun
 }
 
 function receiptLineUnitPrice(item) {
+  const wholesaleMode = !!item?.isWholesale;
   const price = Number(item?.price ?? item?.sellingPrice ?? 0);
+  if (wholesaleMode) {
+    const wholesale = Number(item?.wholesalePrice ?? 0);
+    return wholesale > 0 ? wholesale : price;
+  }
   const discount = Number(item?.disCountPrice ?? 0);
   if (discount > 0 && discount < price) return discount;
   return price;

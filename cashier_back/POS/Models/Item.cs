@@ -18,6 +18,9 @@ namespace POS.Models
         [Required]
         public decimal SellingPrice { get; set; }
         public decimal PurchasingPrice { get; set; }
+
+        /// <summary>Wholesale unit price. When 0, POS wholesale mode falls back to SellingPrice.</summary>
+        public decimal WholesalePrice { get; set; }
         
         [Required]
         public int Quantity { get; set; } = 0; // Inventory quantity

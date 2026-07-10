@@ -25,6 +25,7 @@ namespace POS.Services
             ["tags"] = new[] { "اسم القسم", "tags", "category", "قسم", "القسم" },
             ["sellingPrice"] = new[] { "السعر", "selling price", "price", "سعر البيع" },
             ["disCountPrice"] = new[] { "سعر الخصم", "discount price", "discount", "خصم" },
+            ["wholesalePrice"] = new[] { "سعر الجملة", "wholesale price", "wholesale", "جملة" },
         };
 
         public ItemImportService(DbConfig dbConfig, ILogger<ItemImportService> logger)
@@ -137,6 +138,13 @@ namespace POS.Services
                     disCountPrice = sellingPrice;
                 }
 
+                var wholesaleRaw = GetCellString(row, columns.WholesalePrice);
+                decimal wholesalePrice = 0;
+                if (!string.IsNullOrWhiteSpace(wholesaleRaw) && TryParseDecimal(wholesaleRaw, out var parsedWholesale) && parsedWholesale >= 0)
+                {
+                    wholesalePrice = parsedWholesale;
+                }
+
                 var tagName = GetCellString(row, columns.Tags);
                 if (!string.IsNullOrWhiteSpace(tagName))
                 {
@@ -162,6 +170,7 @@ namespace POS.Services
                     Tags = string.IsNullOrWhiteSpace(tagName) ? null : tagName.Trim(),
                     SellingPrice = sellingPrice,
                     DisCountPrice = disCountPrice,
+                    WholesalePrice = wholesalePrice,
                     PurchasingPrice = 0,
                     Quantity = 0,
                     InsertByUserId = userId,
@@ -240,6 +249,7 @@ namespace POS.Services
             public int Tags { get; set; } = 6;
             public int SellingPrice { get; set; } = 7;
             public int DisCountPrice { get; set; } = 8;
+            public int WholesalePrice { get; set; } = 9;
         }
 
         private static ColumnMap ResolveColumns(IXLWorksheet worksheet)
@@ -261,6 +271,7 @@ namespace POS.Services
                 else if (MatchesHeader(header, "tags")) { map.Tags = col; foundAny = true; }
                 else if (MatchesHeader(header, "sellingPrice")) { map.SellingPrice = col; foundAny = true; }
                 else if (MatchesHeader(header, "disCountPrice")) { map.DisCountPrice = col; foundAny = true; }
+                else if (MatchesHeader(header, "wholesalePrice")) { map.WholesalePrice = col; foundAny = true; }
             }
 
             return foundAny ? map : new ColumnMap();

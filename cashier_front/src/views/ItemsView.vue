@@ -128,6 +128,10 @@
                 <span class="item-price-text">{{ formatPrice(row.item.sellingPrice) }} {{ $t("currency") }}</span>
               </template>
 
+              <template #cell(wholesalePrice)="row">
+                <span class="item-price-text">{{ formatPrice(row.item.wholesalePrice) }} {{ $t("currency") }}</span>
+              </template>
+
               <template #cell(quantity)="row">
                 <span
                   class="item-quantity-text"
@@ -361,6 +365,20 @@
               </div>
               <div class="users-form-group">
                 <label class="users-form-label">
+                  <b-icon icon="cash-stack" class="form-label-icon"></b-icon>
+                  {{ $t("wholesalePricePlaceholder") }}
+                </label>
+                <input 
+                  id="inputWholesalePrice"
+                  v-model="addForm.wholesalePrice" 
+                  type="number"
+                  :placeholder="$t('wholesalePricePlaceholder')" 
+                  min="0"
+                  class="users-form-input"
+                />
+              </div>
+              <div class="users-form-group">
+                <label class="users-form-label">
                   <b-icon icon="cart" class="form-label-icon"></b-icon>
                   {{ $t("purchasingPricePlaceholder") }}
                 </label>
@@ -533,6 +551,20 @@
                   type="number"
                   :placeholder="$t('disCountPricePlaceholder')" 
                   required 
+                  class="users-form-input"
+                />
+              </div>
+              <div class="users-form-group">
+                <label class="users-form-label">
+                  <b-icon icon="cash-stack" class="form-label-icon"></b-icon>
+                  {{ $t("wholesalePricePlaceholder") }}
+                </label>
+                <input 
+                  id="editInputWholesalePrice"
+                  v-model="editForm.wholesalePrice" 
+                  type="number"
+                  :placeholder="$t('wholesalePricePlaceholder')" 
+                  min="0"
                   class="users-form-input"
                 />
               </div>
@@ -726,6 +758,7 @@ export default {
         sellingPrice: 0,
         purchasingPrice: 0,
         disCountPrice: 0,
+        wholesalePrice: 0,
         tags: "مواد اخرى",
         code: "",
         id: "",
@@ -742,6 +775,7 @@ export default {
         sellingPrice: 0,
         purchasingPrice: 0,
         disCountPrice : 0,
+        wholesalePrice: 0,
         tags: "مواد اخرى",
         code: "",
         quantity: 0,
@@ -806,6 +840,12 @@ export default {
         {
           key: 'sellingPrice',
           label: this.$t('itemPriceLabel') || 'السعر',
+          sortable: true,
+          thClass: 'item-header-cell'
+        },
+        {
+          key: 'wholesalePrice',
+          label: this.$t('wholesalePricePlaceholder') || 'سعر الجملة',
           sortable: true,
           thClass: 'item-header-cell'
         },
@@ -937,6 +977,7 @@ export default {
         sellingPrice: item.sellingPrice || 0,
         purchasingPrice: item.purchasingPrice || 0,
         disCountPrice: item.disCountPrice || 0,
+        wholesalePrice: item.wholesalePrice || 0,
         tags: item.tags || "مواد اخرى",
         code: item.code || "",
         quantity: item.quantity || 0,
@@ -956,6 +997,7 @@ export default {
       formData.append("Code", this.addForm.code);
       formData.append("Image", this.itemPhoto);
       formData.append("DisCountPrice", this.addForm.disCountPrice);
+      formData.append("WholesalePrice", this.addForm.wholesalePrice);
       formData.append("Quantity", this.addForm.quantity);
       this.appendLowStockAlertQuantity(formData, this.addForm.lowStockAlertQuantity);
 
@@ -982,6 +1024,7 @@ export default {
             Math.random() * 1000000000000
           ).toString();
           this.addForm.disCountPrice = 0;
+          this.addForm.wholesalePrice = 0;
           this.addForm.quantity = 0;
           this.addForm.lowStockAlertQuantity = "";
           this.imagePreview = "";
@@ -1017,6 +1060,7 @@ export default {
       formData.append("Code", this.editForm.code);
       formData.append("Image", this.itemPhoto);
       formData.append("DisCountPrice", this.editForm.disCountPrice);
+      formData.append("WholesalePrice", this.editForm.wholesalePrice);
       formData.append("Quantity", this.editForm.quantity);
       this.appendLowStockAlertQuantity(formData, this.editForm.lowStockAlertQuantity, true);
 

@@ -13,6 +13,9 @@ namespace POS.Models
 
         public string PaymentMethod { get; set; } = "Cash"; // Cash, Card, BankTransfer, Credit
 
+        /// <summary>When true, line prices were resolved using Item.WholesalePrice.</summary>
+        public bool IsWholesale { get; set; }
+
         public List<CustomerOrderItem>? CustomerOrderItem { get; set; }
 
         [ForeignKey("InsertByUserId")]

@@ -39,6 +39,7 @@ export default {
       this.orderForSend.isCheckout = !!this.isCheckoutPersist;
       this.orderForSend.cardPaymentTransactionId =
         this.cardPaymentTransactionIdForCheckout || null;
+      this.orderForSend.isWholesale = !!this.isWholesale;
     },
     mapOrderPersistErrorMessage(error) {
       let errorMessage = this.$i18n.t("error") || "حدث خطأ ما";
@@ -110,6 +111,10 @@ export default {
         this.carditems = [];
         this.orderForSend.notes = "";
         this.orderForSend.creditCustomerId = null;
+        this.orderForSend.isWholesale = false;
+        if (typeof this.isWholesale !== "undefined") {
+          this.isWholesale = false;
+        }
         if (typeof this.clearOrderDiscount === "function") {
           this.clearOrderDiscount();
         }

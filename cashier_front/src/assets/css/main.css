@@ -13945,6 +13945,63 @@ table .b-icon,
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem;
 }
 
+.pos-price-mode-toggle {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+  min-width: 7.5rem;
+}
+
+.pos-price-mode-btn {
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border-radius: 0.5rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.pos-price-mode-btn-active {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: rgba(8, 145, 178, 0.1);
+  box-shadow: 0 0 0 2px rgba(8, 145, 178, 0.1);
+}
+
+.report-wholesale-badge {
+  display: inline-block;
+  margin-inline-start: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 0.35rem;
+  color: var(--primary-color);
+  background: rgba(8, 145, 178, 0.12);
+  vertical-align: middle;
+}
+
+.report-price-mode-badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 0.4rem;
+  line-height: 1.2;
+}
+
+.report-price-mode-badge--retail {
+  color: #475569;
+  background: rgba(100, 116, 139, 0.12);
+}
+
+.report-price-mode-badge--wholesale {
+  color: var(--primary-color);
+  background: rgba(8, 145, 178, 0.14);
+}
+
 .order-discount-type-btn {
   border: 1px solid var(--border-color); background: var(--bg-primary);
   color: var(--text-primary); border-radius: 0.65rem; padding: 0.55rem 0.75rem;
@@ -14028,6 +14085,8 @@ table .b-icon,
   align-items: center !important;
   gap: 0.35rem !important;
   flex-shrink: 0 !important;
+  flex-wrap: wrap !important;
+  justify-content: flex-end !important;
 }
 
 .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-clear-btn {

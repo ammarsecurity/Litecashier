@@ -11,6 +11,7 @@ namespace POS.Models.Dtos
         public int? ItemsCount { get; set;}
         public DateTime InsertDate { get; set;}
         public string? PaymentMethod { get; set; }
+        public bool IsWholesale { get; set; }
         public int? CreatedByUserId { get; set; }
         public string? CreatedByUsername { get; set; }
         public string? DiscountType { get; set; }

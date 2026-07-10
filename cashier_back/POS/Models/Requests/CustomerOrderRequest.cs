@@ -4,6 +4,10 @@
     {
         public string?  OrderCode { get; set; }
         public string PaymentMethod { get; set; } = "Cash"; // Cash, Card, BankTransfer, Credit
+
+        /// <summary>When true, resolve line prices from Item.WholesalePrice.</summary>
+        public bool IsWholesale { get; set; }
+
         public required List<CustomerOrderItemRequest>? CustomerOrderItem { get; set; }
 
         public string? DiscountType { get; set; }
