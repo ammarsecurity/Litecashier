@@ -2,3 +2,5 @@ staging/
 output/
 deps/
 temp-mariadb-extract/
+Litecashier-Setup.exe
+*.Setup.exe

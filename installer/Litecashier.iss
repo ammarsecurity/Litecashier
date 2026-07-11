@@ -37,6 +37,7 @@ Name: "{commonappdata}\Litecashier\Logs"; Permissions: users-modify
 
 [Files]
 Source: "staging\Litecashier.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "Stop-Litecashier.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "staging\POS\*"; DestDir: "{app}\POS"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "staging\PrintServer\*"; DestDir: "{app}\PrintServer"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "deps\MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
@@ -44,7 +45,9 @@ Source: "deps\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\إيقاف Litecashier"; Filename: "{app}\Stop-Litecashier.bat"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autodesktop}\إيقاف Litecashier"; Filename: "{app}\Stop-Litecashier.bat"; Tasks: desktopicon
 
 [Run]
 Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing Microsoft Visual C++ Runtime..."; Check: NeedsVCRedist; Flags: waituntilterminated
