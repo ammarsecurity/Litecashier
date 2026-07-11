@@ -260,6 +260,8 @@
    "itemsOverviewOutOfStock": "Out of stock (page)",
    "itemsOverviewOnPage": "On current page",
    "itemsListHint": "Product list with prices and quantities",
+   "itemsSearchPlaceholder": "Search by name or code",
+   "allStockStatuses": "All stock statuses",
    "categoriesPageDescription": "Manage product categories",
    "categoriesOverviewTotal": "Total categories",
    "categoriesOverviewOnPage": "On current page",

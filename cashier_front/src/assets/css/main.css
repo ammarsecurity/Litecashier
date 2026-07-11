@@ -13104,6 +13104,20 @@ table .b-icon,
   align-items: end;
 }
 
+.items-filters-section {
+  padding: 0 1.25rem 1rem;
+  margin-top: 1rem;
+}
+
+.items-filters-grid {
+  margin: 0;
+  grid-template-columns: minmax(160px, 0.9fr) minmax(160px, 0.9fr) minmax(220px, 1.4fr) auto;
+}
+
+.items-filter-search {
+  min-width: 0;
+}
+
 .reports-filters-grid--low-stock {
   margin-bottom: 1rem;
   max-width: 280px;

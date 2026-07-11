@@ -88,15 +88,43 @@
                   <p class="app-section-subtitle">{{ $t("itemsListHint") || "قائمة المنتجات مع الأسعار والكميات" }}</p>
                 </div>
               </div>
-              <div class="app-search-wrap app-search-wrap--wide">
-                <b-icon icon="search" class="app-search-icon"></b-icon>
-                <input
-                  v-model="search.info"
-                  type="search"
-                  :placeholder="$t('searchPlaceholder')"
-                  class="app-search-input"
-                  autocomplete="off"
-                />
+            </div>
+            <div class="users-search-section items-filters-section">
+              <div class="reports-filters-grid items-filters-grid">
+                <div class="users-search-container">
+                  <b-icon icon="tags" class="search-icon"></b-icon>
+                  <select v-model="search.tag" class="users-search-input reports-filter-select">
+                    <option value="">{{ $t("all_categories") || "جميع الاقسام" }}</option>
+                    <option v-for="tag in tags" :key="tag.id || tag.name" :value="tag.name">
+                      {{ tag.name }}
+                    </option>
+                  </select>
+                </div>
+                <div class="users-search-container">
+                  <b-icon icon="box-seam" class="search-icon"></b-icon>
+                  <select v-model="search.stockStatus" class="users-search-input reports-filter-select">
+                    <option value="">{{ $t("allStockStatuses") || "كل حالات المخزون" }}</option>
+                    <option value="inStock">{{ $t("inStock") || "متوفر" }}</option>
+                    <option value="outOfStock">{{ $t("outOfStock") || "نفد" }}</option>
+                    <option value="lowStock">{{ $t("lowStock") || "تنبيه كمية" }}</option>
+                  </select>
+                </div>
+                <div class="users-search-container items-filter-search">
+                  <b-icon icon="search" class="search-icon"></b-icon>
+                  <input
+                    v-model="search.info"
+                    type="search"
+                    :placeholder="$t('itemsSearchPlaceholder') || $t('searchPlaceholder')"
+                    class="users-search-input"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="users-search-container" v-if="hasActiveItemFilters">
+                  <button type="button" class="users-filter-clear-btn" @click="clearItemFilters">
+                    <b-icon icon="x-circle-fill" class="me-1"></b-icon>
+                    {{ $t("clearFilters") || "مسح الفلاتر" }}
+                  </button>
+                </div>
               </div>
             </div>
             <div class="app-section-body app-section-body--no-padding">
@@ -741,13 +769,14 @@ export default {
       selected: null,
       options: ["list", "of", "options"],
       show: false,
-      search: "",
       Items: [],
       pageNumber: 1,
       totalItems: 0,
       pageSize: 12,
       search: {
         info: "",
+        tag: "",
+        stockStatus: "",
       },
       SearchItems: [],
       totalCardItems: 0,
@@ -794,6 +823,10 @@ export default {
   watch: {
     search: {
       handler() {
+        if (this.pageNumber !== 1) {
+          this.pageNumber = 1;
+          return;
+        }
         this.GetAllItems();
       },
       deep: true,
@@ -877,6 +910,13 @@ export default {
     },
     itemsOutOfStockOnPage() {
       return (this.Items || []).filter((item) => Number(item.quantity) <= 0).length;
+    },
+    hasActiveItemFilters() {
+      return !!(
+        (this.search.info && String(this.search.info).trim()) ||
+        this.search.tag ||
+        this.search.stockStatus
+      );
     },
   },
 
@@ -1192,11 +1232,15 @@ export default {
 
     GetAllItems() {
       this.show = true;
-      HTTP.get(
-        `Admin/GetItems?pageNumber=${this.pageNumber - 1}&pageSize=${
-          this.pageSize
-        }&info=${this.search.info}`
-      )
+      const params = new URLSearchParams();
+      params.append("pageNumber", String(this.pageNumber - 1));
+      params.append("pageSize", String(this.pageSize));
+      const info = String(this.search.info || "").trim();
+      if (info) params.append("info", info);
+      if (this.search.tag) params.append("tag", this.search.tag);
+      if (this.search.stockStatus) params.append("stockStatus", this.search.stockStatus);
+
+      HTTP.get(`Admin/GetItems?${params.toString()}`)
         .then((response) => {
           this.Items = response.data.data.items.map(item => ({
             ...item,
@@ -1208,6 +1252,13 @@ export default {
         .catch((error) => {
           this.show = false;
         });
+    },
+    clearItemFilters() {
+      this.search = {
+        info: "",
+        tag: "",
+        stockStatus: "",
+      };
     },
     onPageChange(page) {
       this.pageNumber = page;

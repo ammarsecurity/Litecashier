@@ -261,6 +261,8 @@
    "itemsOverviewOutOfStock": "نفد (الصفحة)",
    "itemsOverviewOnPage": "في الصفحة الحالية",
    "itemsListHint": "قائمة المنتجات مع الأسعار والكميات",
+   "itemsSearchPlaceholder": "بحث بالاسم أو الكود",
+   "allStockStatuses": "كل حالات المخزون",
    "categoriesPageDescription": "إدارة فئات المنتجات",
    "categoriesOverviewTotal": "إجمالي الفئات",
    "categoriesOverviewOnPage": "في الصفحة الحالية",

@@ -1288,7 +1288,12 @@ namespace POS.Controllers
 
         [Authorize(Roles = "Commercial,POS")]
         [HttpGet("GetItems")]
-        public ActionResult<GlobalResponse<PagedList<Item>>> GetItems(int pageNumber, int pageSize, string? info)
+        public ActionResult<GlobalResponse<PagedList<Item>>> GetItems(
+            int pageNumber,
+            int pageSize,
+            string? info,
+            string? tag = null,
+            string? stockStatus = null)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
             var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
@@ -1306,9 +1311,38 @@ namespace POS.Controllers
             var userInsertByUserId = user.InsertByUserId;
             var item = _dbConfig.Items.Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId)).AsQueryable();
 
-            if (info != null)
+            if (!string.IsNullOrWhiteSpace(info))
             {
-                item = item.Where(x => x.Code == info || x.Name.Contains(info) || x.Description!.Contains(info) || x.Tags!.Contains(info));
+                var search = info.Trim();
+                item = item.Where(x =>
+                    x.Code == search ||
+                    x.Name.Contains(search) ||
+                    (x.Description != null && x.Description.Contains(search)) ||
+                    (x.Tags != null && x.Tags.Contains(search)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(tag))
+            {
+                var tagFilter = tag.Trim();
+                item = item.Where(x => x.Tags != null && x.Tags == tagFilter);
+            }
+
+            if (!string.IsNullOrWhiteSpace(stockStatus))
+            {
+                switch (stockStatus.Trim().ToLowerInvariant())
+                {
+                    case "instock":
+                        item = item.Where(x => x.Quantity > 0);
+                        break;
+                    case "outofstock":
+                        item = item.Where(x => x.Quantity <= 0);
+                        break;
+                    case "lowstock":
+                        item = item.Where(x =>
+                            x.LowStockAlertQuantity != null &&
+                            x.Quantity <= x.LowStockAlertQuantity.Value);
+                        break;
+                }
             }
 
             var totalItems = item.Count();
