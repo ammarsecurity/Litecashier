@@ -104,7 +104,7 @@
               </div>
               <div class="app-overview-stat">
                 <span class="app-overview-stat-icon app-overview-stat-icon--success">
-                  <b-icon icon="graph-up-arrow"></b-icon>
+                  <b-icon icon="graph-up"></b-icon>
                 </span>
                 <div>
                   <div class="app-overview-stat-value app-overview-stat-value--text">

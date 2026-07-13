@@ -1253,7 +1253,7 @@ namespace POS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial")]
+        [Authorize(Roles = "Commercial,POS")]
         [HttpDelete("DeleteItem")]
         public async Task<ActionResult<GlobalResponse<int>>> DeleteItem(int id)
         {
@@ -1275,6 +1275,15 @@ namespace POS.Controllers
 
             item!.IsDeleted = true;
             _dbConfig.Items.Update(item);
+
+            var relatedCodes = await _dbConfig.ItemCodes
+                .Where(c => c.ItemId == item.Id && !c.IsDeleted)
+                .ToListAsync();
+            foreach (var codeRow in relatedCodes)
+            {
+                codeRow.IsDeleted = true;
+            }
+
             await _dbConfig.SaveChangesAsync();
 
             return Ok(new GlobalResponse<Item>
@@ -1318,7 +1327,11 @@ namespace POS.Controllers
                     x.Code == search ||
                     x.Name.Contains(search) ||
                     (x.Description != null && x.Description.Contains(search)) ||
-                    (x.Tags != null && x.Tags.Contains(search)));
+                    (x.Tags != null && x.Tags.Contains(search)) ||
+                    _dbConfig.ItemCodes.Any(c =>
+                        !c.IsDeleted &&
+                        c.ItemId == x.Id &&
+                        c.Code == search));
             }
 
             if (!string.IsNullOrWhiteSpace(tag))
@@ -1392,9 +1405,7 @@ namespace POS.Controllers
             }
 
             var userInsertByUserId = user.InsertByUserId;
-            var item =await _dbConfig.Items.Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId) && x.Code == code).FirstOrDefaultAsync();
-
-
+            var item = await FindItemByAnyCodeAsync(code, userId, userInsertByUserId);
 
             if (item == null)
             {
@@ -1421,6 +1432,176 @@ namespace POS.Controllers
             };
 
             return response;
+        }
+
+        [Authorize(Roles = "Commercial,POS")]
+        [HttpGet("GetItemCodes")]
+        public async Task<ActionResult<GlobalResponse<object>>> GetItemCodes(int itemId)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+            var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+            if (user == null)
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "User not found"
+                });
+            }
+
+            var item = await FindAccessibleItemAsync(itemId, userId, user.InsertByUserId);
+            if (item == null)
+            {
+                return NotFound(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "item not exsit"
+                });
+            }
+
+            var codes = await _dbConfig.ItemCodes
+                .AsNoTracking()
+                .Where(c => c.ItemId == itemId && !c.IsDeleted)
+                .OrderByDescending(c => c.Id)
+                .Select(c => new { c.Id, c.ItemId, c.Code, c.InsertDate })
+                .ToListAsync();
+
+            return Ok(new GlobalResponse<object>
+            {
+                Data = new { primaryCode = item.Code, codes },
+                ErrorStatus = false,
+                Message = "Success"
+            });
+        }
+
+        [Authorize(Roles = "Commercial,POS")]
+        [HttpPost("AddItemCode")]
+        public async Task<ActionResult<GlobalResponse<ItemCode>>> AddItemCode([FromBody] ItemCodeRequest request)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+            var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+            if (user == null)
+            {
+                return BadRequest(new GlobalResponse<ItemCode>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "User not found"
+                });
+            }
+
+            var code = (request.Code ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                return BadRequest(new GlobalResponse<ItemCode>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "itemCodeRequired"
+                });
+            }
+
+            var item = await FindAccessibleItemAsync(request.ItemId, userId, user.InsertByUserId);
+            if (item == null)
+            {
+                return NotFound(new GlobalResponse<ItemCode>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "item not exsit"
+                });
+            }
+
+            if (string.Equals(item.Code?.Trim(), code, StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new GlobalResponse<ItemCode>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "itemCodeSameAsPrimary"
+                });
+            }
+
+            if (await IsCodeTakenAsync(code, userId, user.InsertByUserId, excludeItemCodeId: null))
+            {
+                return BadRequest(new GlobalResponse<ItemCode>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "itemCodeAlreadyExists"
+                });
+            }
+
+            var row = new ItemCode
+            {
+                ItemId = item.Id,
+                Code = code,
+                InsertByUserId = userId,
+            };
+            _dbConfig.ItemCodes.Add(row);
+            await _dbConfig.SaveChangesAsync();
+
+            return Ok(new GlobalResponse<ItemCode>
+            {
+                Data = row,
+                ErrorStatus = false,
+                Message = "done"
+            });
+        }
+
+        [Authorize(Roles = "Commercial,POS")]
+        [HttpDelete("DeleteItemCode")]
+        public async Task<ActionResult<GlobalResponse<int>>> DeleteItemCode(int id)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+            var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+            if (user == null)
+            {
+                return BadRequest(new GlobalResponse<int>
+                {
+                    Data = 0,
+                    ErrorStatus = true,
+                    Message = "User not found"
+                });
+            }
+
+            var row = await _dbConfig.ItemCodes
+                .Include(c => c.Item)
+                .ThenInclude(i => i!.User)
+                .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
+
+            if (row?.Item == null || row.Item.IsDeleted)
+            {
+                return NotFound(new GlobalResponse<int>
+                {
+                    Data = 0,
+                    ErrorStatus = true,
+                    Message = "itemCodeNotFound"
+                });
+            }
+
+            var item = row.Item;
+            var allowed =
+                item.InsertByUserId == userId ||
+                (item.User != null && item.User.Id == user.InsertByUserId) ||
+                (item.User != null && item.User.InsertByUserId == userId);
+
+            if (!allowed)
+            {
+                return Forbid();
+            }
+
+            row.IsDeleted = true;
+            await _dbConfig.SaveChangesAsync();
+
+            return Ok(new GlobalResponse<int>
+            {
+                Data = id,
+                ErrorStatus = false,
+                Message = "done"
+            });
         }
 
         [Authorize(Roles = "Commercial,POS")]
@@ -1693,7 +1874,7 @@ namespace POS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial")]
+        [Authorize(Roles = "Commercial,POS")]
         [HttpGet("GetOrders")]
         public ActionResult<GlobalResponse<OrdersPagedResult>> GetOrders(int pageNumber, int pageSize, string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod)
         {
@@ -1793,7 +1974,7 @@ namespace POS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial")]
+        [Authorize(Roles = "Commercial,POS")]
         [HttpGet("ExportOrders")]
         public ActionResult ExportOrders(string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod)
         {
@@ -2052,6 +2233,73 @@ namespace POS.Controllers
                 : item.SellingPrice;
         }
 
+        private IQueryable<Item> AccessibleItemsQuery(int userId, int userInsertByUserId)
+        {
+            return _dbConfig.Items.Where(x =>
+                !x.IsDeleted &&
+                (x.InsertByUserId == userId ||
+                 x.User!.Id == userInsertByUserId ||
+                 x.User.InsertByUserId == userId));
+        }
+
+        private Task<Item?> FindAccessibleItemAsync(int itemId, int userId, int userInsertByUserId)
+        {
+            return AccessibleItemsQuery(userId, userInsertByUserId)
+                .FirstOrDefaultAsync(x => x.Id == itemId);
+        }
+
+        private async Task<Item?> FindItemByAnyCodeAsync(string? code, int userId, int userInsertByUserId)
+        {
+            if (string.IsNullOrWhiteSpace(code)) return null;
+            var trimmed = code.Trim();
+
+            var byPrimary = await AccessibleItemsQuery(userId, userInsertByUserId)
+                .FirstOrDefaultAsync(x => x.Code == trimmed);
+            if (byPrimary != null) return byPrimary;
+
+            var extra = await _dbConfig.ItemCodes
+                .AsNoTracking()
+                .Include(c => c.Item)
+                .ThenInclude(i => i!.User)
+                .FirstOrDefaultAsync(c =>
+                    !c.IsDeleted &&
+                    c.Code == trimmed &&
+                    c.Item != null &&
+                    !c.Item.IsDeleted &&
+                    (c.Item.InsertByUserId == userId ||
+                     c.Item.User!.Id == userInsertByUserId ||
+                     c.Item.User.InsertByUserId == userId));
+
+            return extra?.Item;
+        }
+
+        private async Task<bool> IsCodeTakenAsync(string code, int userId, int userInsertByUserId, int? excludeItemCodeId)
+        {
+            var trimmed = code.Trim();
+            var primaryTaken = await AccessibleItemsQuery(userId, userInsertByUserId)
+                .AnyAsync(x => x.Code == trimmed);
+            if (primaryTaken) return true;
+
+            var query = _dbConfig.ItemCodes
+                .Include(c => c.Item)
+                .ThenInclude(i => i!.User)
+                .Where(c =>
+                    !c.IsDeleted &&
+                    c.Code == trimmed &&
+                    c.Item != null &&
+                    !c.Item.IsDeleted &&
+                    (c.Item.InsertByUserId == userId ||
+                     c.Item.User!.Id == userInsertByUserId ||
+                     c.Item.User.InsertByUserId == userId));
+
+            if (excludeItemCodeId.HasValue)
+            {
+                query = query.Where(c => c.Id != excludeItemCodeId.Value);
+            }
+
+            return await query.AnyAsync();
+        }
+
         // get selse count
 
         [Authorize(Roles = "Commercial")]
@@ -2278,7 +2526,7 @@ namespace POS.Controllers
 
         // Advanced Reports Endpoints
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [Authorize(Roles = "Commercial,Admin,POS")]
         [HttpGet("GetProfitReport")]
         public ActionResult<GlobalResponse<object>> GetProfitReport(DateTime? startDate, DateTime? endDate)
         {
@@ -2346,7 +2594,7 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [Authorize(Roles = "Commercial,Admin,POS")]
         [HttpGet("GetTopSellingItems")]
         public ActionResult<GlobalResponse<object>> GetTopSellingItems(int topCount = 10, DateTime? startDate = null, DateTime? endDate = null)
         {
@@ -2412,7 +2660,7 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [Authorize(Roles = "Commercial,Admin,POS")]
         [HttpGet("GetSalesByCategory")]
         public ActionResult<GlobalResponse<object>> GetSalesByCategory(DateTime? startDate = null, DateTime? endDate = null)
         {
@@ -2466,7 +2714,7 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [Authorize(Roles = "Commercial,Admin,POS")]
         [HttpGet("GetSalesByEmployee")]
         public ActionResult<GlobalResponse<object>> GetSalesByEmployee(DateTime? startDate = null, DateTime? endDate = null)
         {
@@ -2519,7 +2767,7 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin")]
+        [Authorize(Roles = "Commercial,Admin,POS")]
         [HttpGet("GetLowStockItems")]
         public ActionResult<GlobalResponse<object>> GetLowStockItems(int threshold = 10)
         {
@@ -2626,7 +2874,7 @@ namespace POS.Controllers
         public async Task<ActionResult<GlobalResponse<Item>>> ItemPrice(string code)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
-            var user = _dbConfig.Users.Where(x => x.InsertByUserId == userId).FirstOrDefault();
+            var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId && !x.IsDeleted);
 
             if (user == null)
             {
@@ -2638,7 +2886,7 @@ namespace POS.Controllers
                 });
             }
 
-            var item = await _dbConfig.Items.FirstOrDefaultAsync(x => x.Code == code && (x.InsertByUserId == userId || x.User!.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+            var item = await FindItemByAnyCodeAsync(code, userId, user.InsertByUserId);
             if (item == null)
             {
                 return BadRequest(new GlobalResponse<Item>

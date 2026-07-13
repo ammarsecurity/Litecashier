@@ -36,7 +36,7 @@
               <div>
                 <div class="app-overview-stat-value">
                   <b-spinner small v-if="loading"></b-spinner>
-                  <template v-else>{{ alerts.length }}</template>
+                  <template v-else>{{ filteredAlerts.length }}</template>
                 </div>
                 <div class="app-overview-stat-label">{{ $t("stockAlertsOverviewTotal") || "إجمالي التنبيهات" }}</div>
               </div>
@@ -68,34 +68,98 @@
           </div>
 
           <div class="app-section-card">
-            <div class="app-section-header app-section-header--toolbar">
+            <div class="app-section-header">
               <div class="app-section-title-wrap">
-                <h2 class="app-section-title">{{ $t("stockAlertsListTitle") || "قائمة التنبيهات" }}</h2>
-                <p class="app-section-subtitle">{{ $t("stockAlertsListHint") || "منتجات مفعّل لها تنبيه كمية ووصلت للحد المحدد" }}</p>
-              </div>
-              <div class="app-section-toolbar">
-                <div class="users-search-wrapper">
-                  <b-icon icon="search" class="search-icon"></b-icon>
-                  <input
-                    v-model="search"
-                    type="text"
-                    class="users-search-input"
-                    :placeholder="$t('searchPlaceholder') || 'بحث...'"
-                  />
+                <div class="app-section-icon-wrap">
+                  <b-icon icon="bell-fill"></b-icon>
+                </div>
+                <div>
+                  <h2 class="app-section-title">{{ $t("stockAlertsListTitle") || "قائمة التنبيهات" }}</h2>
+                  <p class="app-section-subtitle">{{ $t("stockAlertsListHint") || "منتجات مفعّل لها تنبيه كمية ووصلت للحد المحدد" }}</p>
                 </div>
               </div>
             </div>
 
-            <div class="app-section-body">
+            <div class="users-search-section stock-alerts-filters">
+              <div class="reports-filters-grid stock-alerts-filters-grid">
+                <div class="users-search-container">
+                  <b-icon icon="tags" class="search-icon"></b-icon>
+                  <select
+                    v-model="selectedCategory"
+                    class="users-search-input reports-filter-select"
+                  >
+                    <option value="">{{ $t("all_categories") || "جميع الاقسام" }}</option>
+                    <option
+                      v-for="tag in tags"
+                      :key="tag.id || tag.name"
+                      :value="tag.name"
+                    >
+                      {{ tag.name }}
+                    </option>
+                  </select>
+                </div>
+                <div class="users-search-container">
+                  <b-icon icon="funnel" class="search-icon"></b-icon>
+                  <select
+                    v-model="selectedStatus"
+                    class="users-search-input reports-filter-select"
+                  >
+                    <option value="">{{ $t("allStockStatuses") || "كل الحالات" }}</option>
+                    <option value="out">{{ $t("stockAlertStatusOut") || "نفد" }}</option>
+                    <option value="low">{{ $t("stockAlertStatusLow") || "قليل" }}</option>
+                  </select>
+                </div>
+                <div class="users-search-container stock-alerts-filter-search">
+                  <b-icon icon="search" class="search-icon"></b-icon>
+                  <input
+                    v-model="search"
+                    type="search"
+                    class="users-search-input"
+                    :placeholder="$t('searchPlaceholder') || 'بحث...'"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="users-search-container stock-alerts-clear-wrap" v-if="hasActiveFilters">
+                  <button type="button" class="users-filter-clear-btn" @click="clearFilters">
+                    <b-icon icon="x-circle-fill" class="me-1"></b-icon>
+                    {{ $t("clearFilters") || "مسح الفلاتر" }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="app-section-body app-section-body--no-padding">
               <div v-if="loading" class="stock-alerts-loading">
                 <b-spinner></b-spinner>
               </div>
               <div v-else-if="filteredAlerts.length === 0" class="stock-alerts-empty">
-                <b-icon icon="check-circle" class="stock-alerts-empty-icon"></b-icon>
-                <p>{{ $t("noStockAlerts") || "لا توجد تنبيهات حالياً" }}</p>
+                <b-icon
+                  :icon="hasActiveFilters ? 'search' : 'check-circle'"
+                  class="stock-alerts-empty-icon"
+                  :class="{ 'stock-alerts-empty-icon--muted': hasActiveFilters }"
+                ></b-icon>
+                <p class="stock-alerts-empty-title">
+                  {{
+                    hasActiveFilters
+                      ? ($t("noFilterResults") || "لا توجد نتائج مطابقة للفلاتر")
+                      : ($t("noStockAlerts") || "لا توجد تنبيهات حالياً")
+                  }}
+                </p>
+                <p v-if="hasActiveFilters" class="stock-alerts-empty-hint">
+                  {{ $t("tryClearFilters") || "جرّب مسح الفلاتر أو تغيير القسم" }}
+                </p>
+                <button
+                  v-if="hasActiveFilters"
+                  type="button"
+                  class="btn-refresh stock-alerts-empty-clear"
+                  @click="clearFilters"
+                >
+                  <b-icon icon="x-circle-fill" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("clearFilters") || "مسح الفلاتر" }}</span>
+                </button>
               </div>
-              <div v-else class="table-responsive">
-                <table class="table stock-alerts-table">
+              <div v-else class="table-responsive stock-alerts-table-wrap">
+                <table class="table stock-alerts-table reports-table">
                   <thead>
                     <tr>
                       <th>{{ $t("itemNamePlaceholder") || "اسم المنتج" }}</th>
@@ -112,11 +176,13 @@
                       :key="item.itemId"
                       :class="{ 'stock-alerts-row--out': item.status === 'out' }"
                     >
-                      <td>{{ item.itemName }}</td>
-                      <td>{{ item.itemCode || "—" }}</td>
-                      <td>{{ item.category || "—" }}</td>
+                      <td class="stock-alerts-name">{{ item.itemName }}</td>
+                      <td class="stock-alerts-code">{{ item.itemCode || "—" }}</td>
+                      <td>
+                        <span class="stock-alerts-category">{{ item.category || "—" }}</span>
+                      </td>
                       <td class="stock-alerts-qty">{{ item.currentQuantity }}</td>
-                      <td>{{ item.alertThreshold }}</td>
+                      <td class="stock-alerts-threshold">{{ item.alertThreshold }}</td>
                       <td>
                         <span
                           class="stock-alerts-badge"
@@ -148,31 +214,60 @@ export default {
     return {
       loading: false,
       search: "",
+      selectedCategory: "",
+      selectedStatus: "",
+      tags: [],
       alerts: [],
     };
   },
   computed: {
+    hasActiveFilters() {
+      return !!(
+        this.selectedCategory ||
+        this.selectedStatus ||
+        (this.search || "").trim()
+      );
+    },
     filteredAlerts() {
       const q = (this.search || "").trim().toLowerCase();
-      if (!q) return this.alerts;
+      const category = (this.selectedCategory || "").trim();
+      const status = (this.selectedStatus || "").trim();
+
       return this.alerts.filter((item) => {
+        if (category && String(item.category || "").trim() !== category) {
+          return false;
+        }
+        if (status && item.status !== status) {
+          return false;
+        }
+        if (!q) return true;
         const name = String(item.itemName || "").toLowerCase();
         const code = String(item.itemCode || "").toLowerCase();
-        const category = String(item.category || "").toLowerCase();
-        return name.includes(q) || code.includes(q) || category.includes(q);
+        const itemCategory = String(item.category || "").toLowerCase();
+        return name.includes(q) || code.includes(q) || itemCategory.includes(q);
       });
     },
     outOfStockCount() {
-      return this.alerts.filter((item) => item.status === "out").length;
+      return this.filteredAlerts.filter((item) => item.status === "out").length;
     },
     lowStockCount() {
-      return this.alerts.filter((item) => item.status === "low").length;
+      return this.filteredAlerts.filter((item) => item.status === "low").length;
     },
   },
   mounted() {
+    this.loadTags();
     this.loadAlerts();
   },
   methods: {
+    loadTags() {
+      HTTP.get("Admin/GetTags?pageNumber=0&pageSize=10000")
+        .then((response) => {
+          this.tags = response.data?.data?.items || [];
+        })
+        .catch(() => {
+          this.tags = [];
+        });
+    },
     loadAlerts() {
       this.loading = true;
       HTTP.get("Admin/GetStockAlerts")
@@ -189,6 +284,11 @@ export default {
           this.loading = false;
         });
     },
+    clearFilters() {
+      this.selectedCategory = "";
+      this.selectedStatus = "";
+      this.search = "";
+    },
     statusLabel(status) {
       if (status === "out") return this.$t("stockAlertStatusOut") || "نفد";
       return this.$t("stockAlertStatusLow") || "قليل";
@@ -203,51 +303,126 @@ export default {
   margin-inline-end: 0.5rem;
 }
 
+.stock-alerts-filters {
+  padding: 0 1.25rem 1rem;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.stock-alerts-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: stretch;
+  margin-top: 1rem;
+}
+
+.stock-alerts-clear-wrap .users-filter-clear-btn {
+  width: 100%;
+}
+
 .stock-alerts-loading,
 .stock-alerts-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem 1rem;
+  padding: 3.5rem 1.25rem;
+  text-align: center;
   color: var(--text-muted, #6b7280);
 }
 
 .stock-alerts-empty-icon {
-  font-size: 2.5rem;
-  margin-bottom: 0.75rem;
+  font-size: 2.75rem;
+  margin-bottom: 0.85rem;
   color: #16a34a;
+}
+
+.stock-alerts-empty-icon--muted {
+  color: var(--text-muted, #9ca3af);
+}
+
+.stock-alerts-empty-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+.stock-alerts-empty-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.stock-alerts-empty-clear {
+  margin-top: 1rem;
+  text-decoration: none;
+}
+
+.stock-alerts-table-wrap {
+  padding: 0;
+}
+
+.stock-alerts-table {
+  margin: 0;
 }
 
 .stock-alerts-table th,
 .stock-alerts-table td {
   vertical-align: middle;
+  padding: 0.85rem 1rem;
+}
+
+.stock-alerts-name {
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+.stock-alerts-code {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary, #4b5563);
+}
+
+.stock-alerts-category {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--primary-color, #6366f1) 10%, transparent);
+  color: var(--text-primary, #111827);
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .stock-alerts-qty {
-  font-weight: 600;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
+.stock-alerts-threshold {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary, #4b5563);
+}
+
 .stock-alerts-row--out {
-  background: rgba(220, 38, 38, 0.06);
+  background: rgba(220, 38, 38, 0.05);
 }
 
 .stock-alerts-badge {
   display: inline-block;
-  padding: 0.2rem 0.65rem;
+  padding: 0.25rem 0.7rem;
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .stock-alerts-badge--low {
-  background: rgba(217, 119, 6, 0.15);
+  background: rgba(217, 119, 6, 0.14);
   color: #b45309;
 }
 
 .stock-alerts-badge--out {
-  background: rgba(220, 38, 38, 0.15);
+  background: rgba(220, 38, 38, 0.14);
   color: #dc2626;
 }
 
@@ -258,5 +433,17 @@ export default {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@media (max-width: 992px) {
+  .stock-alerts-filters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 576px) {
+  .stock-alerts-filters-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

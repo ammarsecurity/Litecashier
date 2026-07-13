@@ -35,9 +35,11 @@ namespace POS.Models
         public string? Tags { get; set; }
         [Required]
         public string? Code { get; set; }
+
         [JsonIgnore]
+        public List<CustomerOrderItem> CustomerOrderItems { get; set; } = new();
 
-
-        public  List<CustomerOrderItem> CustomerOrderItems { get; set; }
+        [JsonIgnore]
+        public List<ItemCode> ItemCodes { get; set; } = new();
     }
 }

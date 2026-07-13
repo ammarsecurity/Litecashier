@@ -57,7 +57,7 @@
               </div>
               <div class="app-overview-stat">
                 <span class="app-overview-stat-icon app-overview-stat-icon--info">
-                  <b-icon icon="box-fill"></b-icon>
+                  <b-icon icon="box"></b-icon>
                 </span>
                 <div>
                   <div class="app-overview-stat-value">{{ stats.products?.total || 0 }}</div>
@@ -127,7 +127,7 @@
             <section class="dashboard-section">
               <div class="section-header">
                 <h2 class="section-title">
-                  <b-icon icon="box-fill" class="section-title-icon"></b-icon>
+                  <b-icon icon="box" class="section-title-icon"></b-icon>
                   {{ $t("itemsStatisticsLabel") }}
                 </h2>
               </div>
@@ -138,7 +138,7 @@
                   :label="$t('totalLabel')"
                 >
                   <template #icon>
-                    <b-icon icon="box-fill" class="stat-icon-large"></b-icon>
+                    <b-icon icon="box" class="stat-icon-large"></b-icon>
                   </template>
                 </StatCard>
                 <StatCard
@@ -234,7 +234,7 @@
                   :label="$t('Items') + ' (' + $t('totalLabel') + ')'"
                 >
                   <template #icon>
-                    <b-icon icon="box-fill" class="stat-icon-large"></b-icon>
+                    <b-icon icon="box" class="stat-icon-large"></b-icon>
                   </template>
                 </StatCard>
                 <StatCard

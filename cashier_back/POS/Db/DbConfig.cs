@@ -48,6 +48,7 @@ namespace POS.Db
         public DbSet<CustomerOrder> CustomerOrders { get; set; }
         public DbSet<CustomerOrderItem> CustomerOrderItems { get; set; }
         public DbSet<Item> Items { get; set; }
+        public DbSet<ItemCode> ItemCodes { get; set; }
         public DbSet<Printer> Printers { get; set; }
         public DbSet<TagPrinter> TagPrinters { get; set; }
         public DbSet<Expense> Expenses { get; set; }
@@ -75,6 +76,21 @@ namespace POS.Db
                    .WithMany(r => r.CustomerOrderItems)
                    .HasForeignKey(x => x.ItemId)
                    .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<ItemCode>()
+                .HasOne(c => c.Item)
+                .WithMany(i => i.ItemCodes)
+                .HasForeignKey(c => c.ItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ItemCode>()
+                .HasOne(c => c.User)
+                .WithMany()
+                .HasForeignKey(c => c.InsertByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<ItemCode>()
+                .HasIndex(c => c.Code);
 
             modelBuilder.Entity<Printer>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<TagPrinter>().HasOne(r => r.Tag).WithMany().HasForeignKey(x => x.TagId).OnDelete(DeleteBehavior.NoAction);

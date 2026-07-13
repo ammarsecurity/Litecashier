@@ -217,7 +217,7 @@
                                 </div>
                             </div>
                             <div class="app-overview-stat">
-                                <span class="app-overview-stat-icon app-overview-stat-icon--primary"><b-icon icon="graph-up-arrow"></b-icon></span>
+                                <span class="app-overview-stat-icon app-overview-stat-icon--primary"><b-icon icon="graph-up"></b-icon></span>
                                 <div>
                                     <div class="app-overview-stat-value app-overview-stat-value--text">
                                         <b-spinner small v-if="show"></b-spinner>
@@ -288,6 +288,15 @@
                                             :title="$t('view_items')"
                                         >
                                             <b-icon icon="eye-fill" class="action-icon"></b-icon>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="action-btn action-btn--icon action-btn--print"
+                                            :disabled="printingInvoice"
+                                            @click="printOrderFromRow(row.item)"
+                                            :title="$t('print') || 'طباعة'"
+                                        >
+                                            <b-icon icon="printer-fill" class="action-icon"></b-icon>
                                         </button>
                                         <button
                                             type="button"
@@ -600,9 +609,22 @@
                         <div class="bill-container">
                             <!-- Header -->
                             <div class="bill-header">
-                                <img src="../assets/logoarabic.png" class="bill-logo-img" />
-                                <h2 class="bill-store-name">نظام لايت كاشير</h2>
-                                <p class="bill-store-subtitle">نظام نقطة البيع</p>
+                                <div class="bill-logo-section">
+                                    <img
+                                        v-if="commercialUserInfo.logo"
+                                        :src="commercialUserInfo.logo"
+                                        alt="logo"
+                                        class="bill-logo-img"
+                                    />
+                                    <img
+                                        v-else
+                                        src="../assets/logoarabic.png"
+                                        alt="logo"
+                                        class="bill-logo-img"
+                                    />
+                                </div>
+                                <h2 class="bill-store-name">{{ commercialUserInfo.storeName || 'LiteCashier' }}</h2>
+                                <p class="bill-store-subtitle">{{ $t('app-name') || 'نظام نقطة البيع' }}</p>
                             </div>
 
                             <!-- Order Info -->
@@ -610,6 +632,20 @@
                                 <div class="bill-info-row">
                                     <span class="bill-info-label">{{ $t('invoice_number') }}:</span>
                                     <span class="bill-info-value" v-if="order">{{ order.orderCode }}</span>
+                                </div>
+                                <div class="bill-barcode-section" v-if="order && order.orderCode">
+                                    <vue-barcode
+                                        tag="img"
+                                        class="bill-barcode-img"
+                                        :value="order.orderCode.toString()"
+                                        :options="{
+                                            displayValue: true,
+                                            fontSize: 12,
+                                            height: 40,
+                                            width: 1.5,
+                                            margin: 0
+                                        }"
+                                    />
                                 </div>
                                 <div class="bill-info-row">
                                     <span class="bill-info-label">{{ $t('from_date') }}:</span>
@@ -629,7 +665,7 @@
                                 </div>
                                 <div class="bill-info-row">
                                     <span class="bill-info-label">{{ $t('employeeLabel') }}:</span>
-                                    <span class="bill-info-value" v-if="order">{{ userInfo.name }}</span>
+                                    <span class="bill-info-value">{{ orderEmployeeName }}</span>
                                 </div>
                             </div>
 
@@ -650,7 +686,7 @@
                                     <tbody>
                                         <tr v-for="(item, index) in customerOrderItemsWithTotalPrice" :key="index">
                                             <td class="bill-item-name">
-                                                {{ item.item.name }}
+                                                {{ item.item?.name || '—' }}
                                                 <span v-if="hasDiscount(item)" class="bill-discount-badge">خصم</span>
                                             </td>
                                             <td class="bill-item-qty">{{ item.quantity }}</td>
@@ -674,7 +710,11 @@
                             <div class="bill-summary-section">
                                 <div class="bill-summary-row">
                                     <span class="bill-summary-label">{{ $t('count') }}:</span>
-                                    <span class="bill-summary-value">{{ order.itemsCount }} {{ $t('items') }}</span>
+                                    <span class="bill-summary-value">{{ reportInvoiceItemCount }} {{ $t('items') }}</span>
+                                </div>
+                                <div class="bill-summary-row" v-if="Number(order?.discountAmount || 0) > 0">
+                                    <span class="bill-summary-label">{{ $t('discountLabel') }}:</span>
+                                    <span class="bill-summary-value">− {{ formatPrice(order.discountAmount) }} {{ $t('currency') }}</span>
                                 </div>
                                 <div class="bill-summary-row bill-summary-total">
                                     <span class="bill-summary-label">{{ $t('total') }}:</span>
@@ -684,16 +724,36 @@
 
                             <!-- Footer -->
                             <div class="bill-footer">
-                                <p class="bill-footer-text">شكراً لزيارتكم</p>
-                                <p class="bill-footer-text">Thank you for your visit</p>
+                                <p class="bill-footer-text">{{ $t('thankYouMessage') || 'شكراً لزيارتك' }}</p>
+                                <p class="bill-footer-credit">نظام لايت كاشير - برمجة وتصميم عمار الاصفر</p>
+                                <p class="bill-footer-credit-phone">07830200030</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Modal Actions -->
-                    <div class="users-form-actions" style="margin-top: 1.5rem;">
-                        <button class="users-form-submit-button" @click="print()">
-                            <b-icon icon="printer-fill" class="me-2"></b-icon>
+                    <div class="users-form-actions report-invoice-actions" style="margin-top: 1.5rem;">
+                        <select
+                            v-if="activeCheckoutPrinters.length > 0"
+                            v-model="selectedManagedPrinterId"
+                            class="users-search-input reports-filter-select report-invoice-printer-select"
+                            @change="onManagedPrinterChange"
+                        >
+                            <option
+                                v-for="printer in activeCheckoutPrinters"
+                                :key="printer.id"
+                                :value="printer.id"
+                            >
+                                {{ printer.name }}{{ printer.isMain ? ` (${$t('mainPrinter') || 'رئيسية'})` : '' }}
+                            </option>
+                        </select>
+                        <button
+                            class="users-form-submit-button"
+                            :disabled="printingInvoice"
+                            @click="printReportInvoice()"
+                        >
+                            <b-spinner small v-if="printingInvoice" class="me-2"></b-spinner>
+                            <b-icon v-else icon="printer-fill" class="me-2"></b-icon>
                             {{ $t('print') }}
                         </button>
                         <button type="button" class="users-form-cancel-button" @click="closeModel('modal-itemList')">
@@ -873,8 +933,10 @@ import VueBarcode from "@chenfengyuan/vue-barcode";
 import { HTTP } from '../http/api.js';
 import { formatBusinessDateTime } from '@/utils/formatBusinessDateTime.js';
 import { mergeCartLinesForOrderPayload } from '@/utils/mergeCartLines.js';
+import posPrintMixin from '@/mixins/posPrintMixin.js';
 export default {
     name: "OrdersView",
+    mixins: [posPrintMixin],
     components: {
         AppHeader,
         ClockVue,
@@ -884,6 +946,15 @@ export default {
     data() {
         return {
             show: false,
+            printingInvoice: false,
+            commercialUserInfo: {
+                storeName: 'LiteCashier',
+                logo: null,
+            },
+            orderForSend: {
+                orderCode: "",
+                paymentMethod: "Cash",
+            },
             activeTab: 'orders',
             Orders: [],
             ordersSummary: {
@@ -976,6 +1047,20 @@ export default {
         },
         formattedNumber() {
             return this.totaPrice.toLocaleString()
+        },
+        reportInvoiceItemCount() {
+            return (this.customerOrderItem || []).reduce(
+                (sum, item) => sum + (Number(item.quantity) || 0),
+                0
+            );
+        },
+        orderEmployeeName() {
+            return (
+                this.order?.createdByUsername ||
+                this.userInfo?.name ||
+                this.userInfo?.fullName ||
+                '—'
+            );
         },
 
         customerOrderItemField() {
@@ -1074,6 +1159,8 @@ export default {
     mounted() {
         this.GetAllOrders();
         this.userInfo = JSON.parse(localStorage.getItem('info'));
+        this.loadCommercialUserInfo();
+        this.loadManagedPrinters();
     },
     
     beforeDestroy() {
@@ -1201,268 +1288,126 @@ export default {
             }
             return "0";
         },
-        print() {
-            const prtHtml = document.getElementById('print').innerHTML;
-            
-            // Professional POS printer styles (80mm thermal printer)
-            const stylesHtml = `
-                <style>
-                    @page {
-                        size: 80mm auto;
-                        margin: 0;
+        loadCommercialUserInfo() {
+            HTTP.get("Admin/CommercialUserInfo")
+                .then((response) => {
+                    if (response.data && response.data.data) {
+                        this.commercialUserInfo = {
+                            storeName: response.data.data.storeName || response.data.data.StoreName || 'LiteCashier',
+                            logo: response.data.data.logo || response.data.data.Logo || null,
+                        };
                     }
-                    
-                    * {
-                        margin: 0;
-                        padding: 0;
-                        box-sizing: border-box;
-                    }
-                    
-                    body {
-                        font-family: 'Cairo', 'Arial', sans-serif;
-                        direction: rtl;
-                        font-size: 11px;
-                        line-height: 1.3;
-                        color: #000;
-                        background: #fff;
-                        padding: 5mm;
-                        width: 80mm;
-                    }
-                    
-                    .bill-container {
-                        width: 100%;
-                        max-width: 80mm;
-                        margin: 0 auto;
-                    }
-                    
-                    .bill-header {
-                        text-align: center;
-                        margin-bottom: 8px;
-                        padding-bottom: 8px;
-                        border-bottom: 1px dashed #000;
-                    }
-                    
-                    .bill-logo-img {
-                        max-width: 50px;
-                        height: auto;
-                        margin-bottom: 4px;
-                    }
-                    
-                    .bill-store-name {
-                        font-size: 16px;
-                        font-weight: 800;
-                        margin: 4px 0 2px 0;
-                        color: #000;
-                    }
-                    
-                    .bill-store-subtitle {
-                        font-size: 9px;
-                        color: #666;
-                        margin: 0;
-                    }
-                    
-                    .bill-info-section {
-                        margin: 8px 0;
-                        font-size: 10px;
-                    }
-                    
-                    .bill-info-row {
-                        display: flex;
-                        justify-content: space-between;
-                        margin-bottom: 3px;
-                    }
-                    
-                    .bill-info-label {
-                        font-weight: 600;
-                    }
-                    
-                    .bill-info-value {
-                        font-weight: 400;
-                    }
-                    
-                    .bill-divider {
-                        border-top: 1px dashed #000;
-                        margin: 8px 0;
-                    }
-                    
-                    .bill-items-section {
-                        margin: 8px 0;
-                    }
-                    
-                    .bill-items-table {
-                        width: 100%;
-                        border-collapse: collapse;
-                        font-size: 10px;
-                    }
-                    
-                    .bill-items-table thead {
-                        border-bottom: 1px solid #000;
-                    }
-                    
-                    .bill-items-table th {
-                        padding: 4px 2px;
-                        text-align: right;
-                        font-weight: 700;
-                        font-size: 9px;
-                    }
-                    
-                    .bill-item-name-col {
-                        width: 40%;
-                    }
-                    
-                    .bill-item-qty-col {
-                        width: 15%;
-                        text-align: center;
-                    }
-                    
-                    .bill-item-price-col {
-                        width: 20%;
-                        text-align: left;
-                    }
-                    
-                    .bill-item-total-col {
-                        width: 25%;
-                        text-align: left;
-                    }
-                    
-                    .bill-items-table td {
-                        padding: 3px 2px;
-                        vertical-align: top;
-                    }
-                    
-                    .bill-item-name {
-                        font-weight: 500;
-                        word-break: break-word;
-                    }
-                    
-                    .bill-discount-badge {
-                        display: block;
-                        font-size: 7px;
-                        color: #dc2626;
-                        font-weight: 600;
-                        margin-top: 2px;
-                    }
-                    
-                    .bill-item-qty {
-                        text-align: center;
-                        font-weight: 600;
-                    }
-                    
-                    .bill-item-price {
-                        text-align: left;
-                        font-size: 9px;
-                    }
-                    
-                    .bill-price-discounted {
-                        display: block;
-                    }
-                    
-                    .bill-original-price {
-                        display: block;
-                        text-decoration: line-through;
-                        color: #999;
-                        font-size: 8px;
-                    }
-                    
-                    .bill-discount-price {
-                        display: block;
-                        color: #dc2626;
-                        font-weight: 600;
-                    }
-                    
-                    .bill-item-total {
-                        text-align: left;
-                        font-weight: 700;
-                    }
-                    
-                    .bill-summary-section {
-                        margin: 8px 0;
-                        font-size: 11px;
-                    }
-                    
-                    .bill-summary-row {
-                        display: flex;
-                        justify-content: space-between;
-                        margin-bottom: 4px;
-                    }
-                    
-                    .bill-summary-label {
-                        font-weight: 600;
-                    }
-                    
-                    .bill-summary-value {
-                        font-weight: 400;
-                    }
-                    
-                    .bill-summary-total {
-                        border-top: 1px solid #000;
-                        padding-top: 4px;
-                        margin-top: 4px;
-                        font-size: 12px;
-                    }
-                    
-                    .bill-summary-total .bill-summary-label {
-                        font-weight: 700;
-                        font-size: 13px;
-                    }
-                    
-                    .bill-summary-total .bill-summary-value {
-                        font-weight: 800;
-                        font-size: 13px;
-                    }
-                    
-                    .bill-footer {
-                        text-align: center;
-                        margin-top: 12px;
-                        padding-top: 8px;
-                        border-top: 1px dashed #000;
-                    }
-                    
-                    .bill-footer-text {
-                        font-size: 9px;
-                        margin: 2px 0;
-                        color: #666;
-                    }
-                    
-                    @media print {
-                        body {
-                            padding: 0;
-                        }
-                        
-                        .bill-container {
-                            width: 80mm;
-                        }
-                    }
-                </style>
-            `;
-            
-            const WinPrint = window.open('', '', 'left=0,top=0,width=400,height=600,toolbar=0,scrollbars=0,status=0');
-            WinPrint.document.write(`<!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    ${stylesHtml}
-                </head>
-                <body>
-                    ${prtHtml}
-                </body>
-                </html>`);
+                })
+                .catch((error) => {
+                    console.error('Error loading commercial user info:', error);
+                    this.commercialUserInfo = {
+                        storeName: 'LiteCashier',
+                        logo: null,
+                    };
+                });
+        },
+        ensureOrderCodeForPrint() {
+            const fromOrder = String(this.order?.orderCode || "").trim();
+            if (fromOrder && fromOrder !== "---") {
+                this.orderForSend.orderCode = fromOrder;
+                return fromOrder;
+            }
+            const existing = String(this.orderForSend?.orderCode || "").trim();
+            if (existing && existing !== "---") {
+                return existing;
+            }
+            this.orderForSend.orderCode = Math.floor(Math.random() * 1000000000)
+                .toString()
+                .padStart(9, "0");
+            return this.orderForSend.orderCode;
+        },
+        prepareOrderForPrint(order) {
+            const items = (order?.customerOrderItem || []).filter((item) => !item.isDeleted);
+            this.customerOrderItem = items;
+            this.order = order || '';
+            this.orderForSend = {
+                ...this.orderForSend,
+                orderCode: order?.orderCode || "",
+                paymentMethod: order?.paymentMethod || "Cash",
+            };
+            return items;
+        },
+        async printReportInvoice() {
+            if (this.printingInvoice) return;
+            if (!this.customerOrderItem || this.customerOrderItem.length === 0) {
+                this.$notify.error(this.$t("emptyCartMessage") || this.$t("emptyCart") || "لا توجد عناصر للطباعة", {
+                    position: "top-right",
+                    timeout: 2500,
+                    maxToasts: 1,
+                });
+                return;
+            }
 
-            WinPrint.document.close();
-            WinPrint.focus();
-            
-            // Wait a bit before printing to ensure content is loaded
-            setTimeout(() => {
-                WinPrint.print();
-                setTimeout(() => {
-                    WinPrint.close();
-                }, 100);
-            }, 250);
+            this.printingInvoice = true;
+            try {
+                this.ensureOrderCodeForPrint();
+                await this.ensurePrintPrintersReady();
+                await this.$nextTick();
+
+                const htmlContent = await this.getReceiptHtmlContent();
+                if (!htmlContent) {
+                    this.notifyPrintError(this.$t("printError") || "تعذرت الطباعة");
+                    return;
+                }
+
+                const printerId = this.resolvePrintPrinterId();
+                const printer = this.findManagedPrinter(printerId);
+
+                if (printerId && printer) {
+                    try {
+                        const apiOk = await this.printViaApi(printerId, htmlContent);
+                        if (apiOk) {
+                            this.notifyPrintSuccess();
+                            return;
+                        }
+                    } catch (apiError) {
+                        console.warn("[reports print] API failed, trying print server:", apiError);
+                    }
+
+                    const directOk = await this.printViaPrintServer(htmlContent, printer);
+                    if (directOk) {
+                        this.notifyPrintSuccess();
+                        return;
+                    }
+                }
+
+                await this.browserPrintReceipt(htmlContent);
+                this.notifyPrintSuccess();
+            } catch (error) {
+                console.error("printReportInvoice error:", error);
+                this.notifyPrintError(error.message);
+            } finally {
+                this.printingInvoice = false;
+            }
+        },
+        async printOrderFromRow(order) {
+            const items = this.prepareOrderForPrint(order);
+            if (!items.length) {
+                this.$notify.error(this.$t("emptyCartMessage") || this.$t("emptyCart") || "لا توجد عناصر للطباعة", {
+                    position: "top-right",
+                    timeout: 2500,
+                    maxToasts: 1,
+                });
+                return;
+            }
+            this.$bvModal.show("modal-itemList");
+            await this.$nextTick();
+            await this.printReportInvoice();
         },
 
         showItemsModel(items, order) {
             this.customerOrderItem = (items || []).filter((item) => !item.isDeleted);
             this.order = order;
+            this.orderForSend = {
+                ...this.orderForSend,
+                orderCode: order?.orderCode || "",
+                paymentMethod: order?.paymentMethod || "Cash",
+            };
             this.$bvModal.show("modal-itemList");
         },
 

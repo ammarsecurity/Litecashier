@@ -640,6 +640,12 @@ table.b-table {
   border-color: color-mix(in srgb, #0284c7 40%, var(--border-color));
 }
 
+.action-btn--codes {
+  background: color-mix(in srgb, #7c3aed 14%, var(--bg-primary));
+  color: #7c3aed;
+  border-color: color-mix(in srgb, #7c3aed 40%, var(--border-color));
+}
+
 .action-btn--success {
   background: color-mix(in srgb, #16a34a 14%, var(--bg-primary));
   color: #16a34a;
@@ -944,6 +950,19 @@ table a:hover,
   margin-bottom: 1.5rem;
   border: 2px solid var(--border-color);
   box-shadow: var(--shadow-md);
+}
+
+.report-invoice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.report-invoice-printer-select {
+  min-width: 12rem;
+  max-width: 100%;
+  margin: 0;
 }
 
 .bill-container {

@@ -58,7 +58,7 @@
                     </div>
                     <div class="app-overview-stat">
                         <span class="app-overview-stat-icon app-overview-stat-icon--warning">
-                            <b-icon icon="cash-register"></b-icon>
+                            <b-icon icon="cash-stack"></b-icon>
                         </span>
                         <div>
                             <div class="app-overview-stat-value">{{ posCountOnPage }}</div>

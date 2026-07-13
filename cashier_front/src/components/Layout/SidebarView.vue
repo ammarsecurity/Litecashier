@@ -83,6 +83,8 @@ export default {
         { name: "items", label: this.$t("Items"), link: "/items", icon: "inbox-fill" },
         { name: "users", label: this.$t("Accounts"), link: "/users", icon: "people-fill" },
         { name: "reports", label: this.$t("Reports"), link: "/reports", icon: "file-earmark-bar-graph-fill" },
+        { name: "inventory", label: this.$t("inventory") || "مخزن المواد", link: "/inventory", icon: "box-seam" },
+        { name: "stockAlerts", label: this.$t("stockAlertsTitle") || "تنبيهات المخزون", link: "/stock-alerts", icon: "bell-fill" },
         { name: "priceReader", label: this.$t("PriceReader"), link: "/priceReader", icon: "upc-scan" },
         { name: "printServer", label: this.$t("printServerManagement") || "إدارة خادم الطباعة", link: "/print-server", icon: "server" },
         { name: "paymentDevices", label: this.$t("paymentDevicesManagement") || "إدارة أجهزة الدفع", link: "/payment-devices", icon: "credit-card-2-front-fill" },
@@ -101,10 +103,17 @@ export default {
           item.name === 'users' || item.name === 'logout'
         );
       }
-      // If role is POS, show only Items, POS, Print Server and Logout
+      // If role is POS, show allowed modules only
       if (this.role === 'POS') {
-        return this.navItems.filter(item => 
-          item.name === 'items' || item.name === 'pos' || item.name === 'printServer' || item.name === 'logout'
+        return this.navItems.filter(item =>
+          item.name === 'dashboard' ||
+          item.name === 'items' ||
+          item.name === 'pos' ||
+          item.name === 'reports' ||
+          item.name === 'inventory' ||
+          item.name === 'stockAlerts' ||
+          item.name === 'printServer' ||
+          item.name === 'logout'
         );
       }
       // If role is Reader, show only Price Reader and Logout

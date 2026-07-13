@@ -89,7 +89,7 @@
         <!-- Server Status Card -->
         <div class="print-server-status-card" v-if="serverStatus || loading">
           <div class="print-server-status-header">
-            <b-icon icon="activity" class="me-2"></b-icon>
+            <b-icon icon="lightning-fill" class="me-2"></b-icon>
             <h3 class="print-server-status-title">
               {{ $t("serverStatus") || "حالة الخادم" }}
             </h3>

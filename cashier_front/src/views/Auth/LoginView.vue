@@ -136,11 +136,11 @@
             <span>{{ $t("loginFeaturePos") }}</span>
           </div>
           <div class="login-feature-chip">
-            <b-icon icon="graph-up-arrow"></b-icon>
+            <b-icon icon="graph-up"></b-icon>
             <span>{{ $t("loginFeatureReports") }}</span>
           </div>
           <div class="login-feature-chip">
-            <b-icon icon="box-seam-fill"></b-icon>
+            <b-icon icon="box-seam"></b-icon>
             <span>{{ $t("loginFeatureInventory") }}</span>
           </div>
         </div>

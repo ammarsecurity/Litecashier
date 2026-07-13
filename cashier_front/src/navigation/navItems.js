@@ -151,8 +151,10 @@ export function filterNavByRole(role, items, allowedSections = []) {
   if (role === "POS") {
     return items.filter(
       (item) =>
+        item.name === "dashboard" ||
         item.name === "items" ||
         item.name === "pos" ||
+        item.name === "reports" ||
         item.name === "inventory" ||
         item.name === "stockAlerts" ||
         item.name === "printServer" ||

@@ -538,7 +538,7 @@
         <form @submit.prevent="sendPrint" class="users-form">
           <div class="users-form-group">
             <label class="users-form-label">
-              <b-icon icon="123" class="form-label-icon"></b-icon>
+              <b-icon icon="hash" class="form-label-icon"></b-icon>
               {{ $t("copies") || "عدد النسخ" }} <span class="required">*</span>
             </label>
             <input 

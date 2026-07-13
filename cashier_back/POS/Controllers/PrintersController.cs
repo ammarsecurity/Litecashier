@@ -43,7 +43,7 @@ namespace POS.Controllers
         }
 
         // GET: api/Printers
-        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS,POS")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<List<Printer>>>> GetPrinters()
         {
@@ -76,7 +76,7 @@ namespace POS.Controllers
         }
 
         // GET: api/Printers/{id}
-        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS")]
         [HttpGet("{id}")]
         public async Task<ActionResult<GlobalResponse<Printer>>> GetPrinter(int id)
         {
@@ -117,7 +117,7 @@ namespace POS.Controllers
         }
 
         // GET: api/Printers/category/{category}
-        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS")]
         [HttpGet("category/{category}")]
         public async Task<ActionResult<GlobalResponse<List<Printer>>>> GetPrintersByCategory(string category)
         {
@@ -153,7 +153,7 @@ namespace POS.Controllers
         }
 
         // POST: api/Printers
-        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS")]
         [HttpPost]
         public async Task<ActionResult<GlobalResponse<Printer>>> AddPrinter([FromBody] PrinterRequest request)
         {
@@ -245,7 +245,7 @@ namespace POS.Controllers
         }
 
         // PUT: api/Printers/{id}
-        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS")]
         [HttpPut("{id}")]
         public async Task<ActionResult<GlobalResponse<Printer>>> UpdatePrinter(int id, [FromBody] PrinterRequest request)
         {
@@ -357,7 +357,7 @@ namespace POS.Controllers
         }
 
         // DELETE: api/Printers/{id}
-        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<GlobalResponse<object>>> DeletePrinter(int id)
         {
@@ -417,7 +417,7 @@ namespace POS.Controllers
         }
 
         // POST: api/Printers/{id}/print
-        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS,POS")]
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS")]
         [HttpPost("{id}/print")]
         public async Task<ActionResult<GlobalResponse<object>>> Print(int id, [FromBody] PrintRequest request)
         {
@@ -508,6 +508,7 @@ namespace POS.Controllers
         }
 
         // GET: /Printers/{id}/status
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS")]
         [HttpGet("{id}/status")]
         public async Task<ActionResult<GlobalResponse<PrinterStatusResponse>>> GetPrinterStatus(int id)
         {

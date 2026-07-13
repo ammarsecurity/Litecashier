@@ -103,7 +103,7 @@ const routes = [
     component: ReporstView,
     meta: {
       requiresAuth: true,
-      roles: ['Commercial']
+      roles: ['Commercial', 'POS']
     }
   },
   {
@@ -139,7 +139,7 @@ const routes = [
     component: DashboardView,
     meta: {
       requiresAuth: true,
-      roles: ['Commercial', 'Admin']
+      roles: ['Commercial', 'Admin', 'POS']
     }
   },
   {
@@ -321,8 +321,10 @@ router.beforeEach((to, from, next) => {
         }
         if (
           role === 'POS' &&
+          to.path !== '/dashboard' &&
           to.path !== '/items' &&
           to.path !== '/pos' &&
+          to.path !== '/reports' &&
           to.path !== '/inventory' &&
           to.path !== '/stock-alerts' &&
           to.path !== '/print-server' &&

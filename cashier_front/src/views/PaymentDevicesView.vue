@@ -163,7 +163,7 @@
                       <span class="info-value">{{ connectionTypeLabel(device.connectionType) }}</span>
                     </div>
                     <div v-if="device.comPort" class="payment-device-info-row">
-                      <b-icon icon="usb-plug-fill" class="info-icon"></b-icon>
+                      <b-icon icon="plug-fill" class="info-icon"></b-icon>
                       <span class="info-label">COM Port</span>
                       <span class="info-value info-value--mono">{{ device.comPort }}</span>
                     </div>
@@ -178,7 +178,7 @@
                       v-if="getDeviceConnection(device.id).label"
                       class="payment-device-info-row payment-device-info-row--status"
                     >
-                      <b-icon icon="activity" class="info-icon"></b-icon>
+                      <b-icon icon="lightning-fill" class="info-icon"></b-icon>
                       <span class="info-label">{{ $t("connectionStatus") || "حالة الاتصال" }}</span>
                       <span
                         class="info-value"
@@ -285,7 +285,7 @@
           </div>
           <div v-if="form.connectionType === 'Usb'" class="users-form-group">
             <label class="users-form-label">
-              <b-icon icon="usb-plug-fill" class="form-label-icon"></b-icon>
+              <b-icon icon="plug-fill" class="form-label-icon"></b-icon>
               COM Port
             </label>
             <input v-model="form.comPort" type="text" class="users-form-input" placeholder="COM6" />

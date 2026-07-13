@@ -14,7 +14,7 @@
             <div class="users-header-content app-header-row">
               <div class="header-title-wrapper">
                 <div class="header-icon-wrapper">
-                  <b-icon icon="box-seam-fill" class="header-icon"></b-icon>
+                  <b-icon icon="box-seam" class="header-icon"></b-icon>
                 </div>
                 <div>
                   <h1 class="users-page-title">{{ $t("allItemsLabel") }}</h1>
@@ -41,7 +41,7 @@
           <div class="app-overview-grid">
             <div class="app-overview-stat">
               <span class="app-overview-stat-icon app-overview-stat-icon--primary">
-                <b-icon icon="box-seam-fill"></b-icon>
+                <b-icon icon="box-seam"></b-icon>
               </span>
               <div>
                 <div class="app-overview-stat-value">{{ totalItems }}</div>
@@ -192,10 +192,18 @@
                   <button
                     type="button"
                     class="action-btn action-btn--icon action-btn--print"
-                    @click="printListOfCode(row.item, 30)"
+                    @click="openPrintLabelsModal(row.item)"
                     :title="$t('printCodeButtonLabel')"
                   >
                     <b-icon icon="printer-fill" class="action-icon"></b-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--codes"
+                    @click="openItemCodesModal(row.item)"
+                    :title="$t('manageItemCodes') || 'إدارة الأكواد'"
+                  >
+                    <b-icon icon="upc-scan" class="action-icon"></b-icon>
                   </button>
                   <button
                     type="button"
@@ -722,28 +730,160 @@
         </div>
       </b-modal>
 
-      <!-- Print Barcode (Hidden) -->
-      <div id="printMe" class="text-align-center" style="display: none;">
-        <b-row>
-          <b-col
-            class="text-align-center"
-            sm="3"
-            md="3"
-            lg="3"
-            v-for="item in barCodeList"
-            :key="item.code"
-          >
-            <vue-barcode
-              ref="BarImg"
-              v-if="item.code.toString()"
-              tag="img"
-              :value="item.code.toString()"
-              :options="{ displayValue: true, lineColor: '#2B2B2C' }"
+      <!-- Manage item QR / barcode codes -->
+      <b-modal
+        id="modal-itemCodes"
+        hide-header
+        hide-footer
+        class="users-modal"
+        size="lg"
+        @hidden="resetItemCodesModal"
+      >
+        <div class="modal-content-wrapper">
+          <h2 class="modal-title">{{ $t("manageItemCodes") || "إدارة أكواد المنتج" }}</h2>
+          <p class="item-codes-subtitle" v-if="codesModalItem">
+            {{ codesModalItem.name }}
+          </p>
+
+          <div class="item-codes-primary" v-if="codesModalItem">
+            <label class="users-form-label">{{ $t("primaryItemCode") || "الكود الأساسي" }}</label>
+            <div class="item-codes-primary-row">
+              <code class="item-codes-primary-value">{{ codesModalPrimary || "—" }}</code>
+              <small class="item-codes-hint">{{ $t("primaryItemCodeHint") || "يُعدَّل من شاشة تعديل المنتج" }}</small>
+            </div>
+            <div class="item-codes-barcode" v-if="codesModalPrimary">
+              <vue-barcode
+                tag="svg"
+                :value="String(codesModalPrimary)"
+                :options="{ displayValue: true, width: 1.4, height: 48, margin: 4 }"
+              />
+            </div>
+          </div>
+
+          <div class="item-codes-add-row">
+            <input
+              v-model="newItemCode"
+              type="text"
+              class="users-form-input"
+              :placeholder="$t('addItemCodePlaceholder') || 'أدخل كود / QR إضافي'"
+              @keyup.enter="addItemCode"
             />
-            <p class="item-name-center">{{ item.name }}</p>
-          </b-col>
-        </b-row>
-      </div>
+            <button
+              type="button"
+              class="users-form-submit-button item-codes-add-btn"
+              :disabled="codesModalSaving || !String(newItemCode || '').trim()"
+              @click="addItemCode"
+            >
+              <b-spinner small v-if="codesModalSaving"></b-spinner>
+              <template v-else>
+                <b-icon icon="plus-circle-fill" class="me-1"></b-icon>
+                {{ $t("addItemCode") || "إضافة" }}
+              </template>
+            </button>
+          </div>
+
+          <div v-if="codesModalLoading" class="item-codes-loading">
+            <b-spinner variant="primary"></b-spinner>
+          </div>
+          <div v-else-if="!codesModalList.length" class="item-codes-empty">
+            {{ $t("itemCodesEmpty") || "لا توجد أكواد إضافية بعد" }}
+          </div>
+          <ul v-else class="item-codes-list">
+            <li v-for="row in codesModalList" :key="row.id" class="item-codes-list-item">
+              <div class="item-codes-list-main">
+                <code>{{ row.code }}</code>
+                <vue-barcode
+                  tag="svg"
+                  class="item-codes-list-barcode"
+                  :value="String(row.code)"
+                  :options="{ displayValue: false, width: 1.1, height: 32, margin: 0 }"
+                />
+              </div>
+              <button
+                type="button"
+                class="action-btn action-btn--icon action-btn--delete"
+                :disabled="codesModalDeletingId === row.id"
+                :title="$t('deleteButtonLabel')"
+                @click="deleteItemCode(row.id)"
+              >
+                <b-spinner small v-if="codesModalDeletingId === row.id"></b-spinner>
+                <b-icon v-else icon="trash-fill" class="action-icon"></b-icon>
+              </button>
+            </li>
+          </ul>
+
+          <div class="users-form-actions">
+            <button type="button" class="users-form-cancel-button" @click="closeModel('modal-itemCodes')">
+              {{ $t("closeButton") || "إغلاق" }}
+            </button>
+          </div>
+        </div>
+      </b-modal>
+
+      <!-- Print QR / barcode labels (label printer, not A4) -->
+      <b-modal
+        id="modal-printLabels"
+        hide-header
+        hide-footer
+        class="users-modal"
+        size="md"
+        @hidden="resetPrintLabelsModal"
+      >
+        <div class="modal-content-wrapper" v-if="printLabelItem">
+          <h2 class="modal-title">{{ $t("printCodeButtonLabel") || "طباعة الكود" }}</h2>
+          <p class="users-form-hint">
+            {{ $t("printQrLabelHint") || "مخصص لطابعات ملصقات QR / الباركود — ليس ورق A4" }}
+          </p>
+
+          <div class="users-form-group">
+            <label class="users-form-label">{{ $t("itemNamePlaceholder") || "اسم المنتج" }}</label>
+            <input class="users-form-input" type="text" :value="printLabelItem.name" readonly />
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">{{ $t("itemCodePlaceholder") || "الكود" }}</label>
+            <input class="users-form-input" type="text" :value="printLabelItem.code" readonly />
+          </div>
+
+          <div class="users-form-group">
+            <label class="users-form-label">{{ $t("printQrLabelSize") || "حجم الملصق" }}</label>
+            <select v-model="printLabelSizeId" class="users-form-select">
+              <option
+                v-for="size in qrLabelSizes"
+                :key="size.id"
+                :value="size.id"
+              >
+                {{ size.widthMm }}×{{ size.heightMm }} {{ $t("mmUnit") || "مم" }}
+              </option>
+            </select>
+          </div>
+
+          <div class="users-form-group">
+            <label class="users-form-label">{{ $t("printQrLabelCopies") || "عدد الملصقات" }}</label>
+            <input
+              v-model.number="printLabelCopies"
+              type="number"
+              min="1"
+              max="200"
+              class="users-form-input"
+            />
+          </div>
+
+          <div class="users-form-actions">
+            <button type="button" class="users-form-submit-button" @click="confirmPrintLabels">
+              <b-icon icon="printer-fill" class="me-2"></b-icon>
+              {{ $t("print") || "طباعة" }}
+            </button>
+            <button
+              type="button"
+              class="users-form-cancel-button"
+              @click="closeModel('modal-printLabels')"
+            >
+              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+              {{ $t("closeButtonLabel") || $t("close") || "إغلاق" }}
+            </button>
+          </div>
+        </div>
+      </b-modal>
     </div>
   </b-overlay>
 </template>
@@ -757,6 +897,10 @@ import {
   productImageSrc,
   onProductImageError,
 } from "@/utils/productImage.js";
+import {
+  QR_LABEL_SIZES,
+  printQrLabels,
+} from "@/utils/qrLabelPrint.js";
 export default {
   name: "ItemsView",
   components: {
@@ -811,12 +955,23 @@ export default {
         lowStockAlertQuantity: "",
       },
       barCodeList: [],
+      printLabelItem: null,
+      printLabelCopies: 1,
+      printLabelSizeId: "40x30",
+      qrLabelSizes: QR_LABEL_SIZES,
       itemId: "",
       tags: [],
       importFile: null,
       importFileName: "",
       importUploading: false,
       importResult: null,
+      codesModalItem: null,
+      codesModalPrimary: "",
+      codesModalList: [],
+      codesModalLoading: false,
+      codesModalSaving: false,
+      codesModalDeletingId: null,
+      newItemCode: "",
     };
   },
 
@@ -965,46 +1120,157 @@ export default {
       }
     },
 
-    printListOfCode(code, count) {
-      this.barCodeList = [];
-      for (let index = 0; index < count; index++) {
-        this.barCodeList.push({ code: code.code, name: code.name });
+    openPrintLabelsModal(item) {
+      if (!item?.code) {
+        this.$notify.error(this.$t("itemCodeRequired") || "لا يوجد كود للمنتج", {
+          position: "top-right",
+          timeout: 2500,
+        });
+        return;
       }
-      this.$nextTick(() => {
-        this.print();
-      });
+      this.printLabelItem = item;
+      this.printLabelCopies = 1;
+      this.printLabelSizeId = "40x30";
+      this.$bvModal.show("modal-printLabels");
     },
-    print() {
-      const printContents = document.getElementById("printMe").innerHTML;
-      const printWindow = window.open("", "_blank");
-      const originalHead = document.head.innerHTML;
+    resetPrintLabelsModal() {
+      this.printLabelItem = null;
+      this.printLabelCopies = 1;
+      this.printLabelSizeId = "40x30";
+    },
+    confirmPrintLabels() {
+      if (!this.printLabelItem?.code) return;
+      const copies = Math.min(Math.max(Number(this.printLabelCopies) || 1, 1), 200);
+      const price = Number(
+        this.printLabelItem.disCountPrice > 0
+          ? this.printLabelItem.disCountPrice
+          : this.printLabelItem.sellingPrice
+      );
+      const currency = this.$t("currency") || "";
+      const priceText =
+        Number.isFinite(price) && price > 0
+          ? `${price.toLocaleString("en-EG")} ${currency}`.trim()
+          : "";
 
-      // Create the content for the new window
-      const newContent = `
-    <html>
-      <head>
-        ${originalHead}
-      </head>
-      <body dir="rtl">
-        ${printContents}
-      </body>
-    </html>
-  `;
+      const ok = printQrLabels(
+        {
+          code: this.printLabelItem.code,
+          name: this.printLabelItem.name,
+          priceText,
+        },
+        {
+          copies,
+          sizeId: this.printLabelSizeId,
+        }
+      );
 
-      printWindow.document.open();
-      printWindow.document.write(newContent);
-      printWindow.document.close();
-
-      // Wait for the window to load its content before printing
-      printWindow.onload = () => {
-        printWindow.print();
-        printWindow.close();
-      };
+      if (!ok) {
+        this.$notify.error(
+          this.$t("printError") || "تعذرت الطباعة — اسمح بالنوافذ المنبثقة",
+          { position: "top-right", timeout: 3500 }
+        );
+        return;
+      }
+      this.closeModel("modal-printLabels");
     },
 
     deleteItemModel(id) {
       this.itemId = id;
       this.$bvModal.show("modal-delete");
+    },
+    openItemCodesModal(item) {
+      this.codesModalItem = item;
+      this.codesModalPrimary = item?.code || "";
+      this.codesModalList = [];
+      this.newItemCode = "";
+      this.$bvModal.show("modal-itemCodes");
+      this.loadItemCodes();
+    },
+    resetItemCodesModal() {
+      this.codesModalItem = null;
+      this.codesModalPrimary = "";
+      this.codesModalList = [];
+      this.newItemCode = "";
+      this.codesModalLoading = false;
+      this.codesModalSaving = false;
+      this.codesModalDeletingId = null;
+    },
+    mapItemCodeError(key) {
+      if (key && this.$te(key)) return this.$t(key);
+      return key || this.$t("error");
+    },
+    async loadItemCodes() {
+      if (!this.codesModalItem?.id) return;
+      this.codesModalLoading = true;
+      try {
+        const response = await HTTP.get(
+          `Admin/GetItemCodes?itemId=${this.codesModalItem.id}`
+        );
+        const data = response?.data?.data;
+        this.codesModalPrimary = data?.primaryCode || this.codesModalItem.code || "";
+        this.codesModalList = Array.isArray(data?.codes) ? data.codes : [];
+      } catch (error) {
+        this.$notify.error(this.mapItemCodeError(error?.response?.data?.message), {
+          position: "top-right",
+          timeout: 3000,
+          maxToasts: 1,
+        });
+      } finally {
+        this.codesModalLoading = false;
+      }
+    },
+    async addItemCode() {
+      const code = String(this.newItemCode || "").trim();
+      if (!code || !this.codesModalItem?.id || this.codesModalSaving) return;
+      this.codesModalSaving = true;
+      try {
+        const response = await HTTP.post("Admin/AddItemCode", {
+          itemId: this.codesModalItem.id,
+          code,
+        });
+        if (response?.data?.errorStatus) {
+          throw { response: { data: { message: response.data.message } } };
+        }
+        this.newItemCode = "";
+        this.$notify.success(this.$t("itemCodeAdded") || "تمت إضافة الكود", {
+          position: "top-right",
+          timeout: 2500,
+          maxToasts: 1,
+        });
+        await this.loadItemCodes();
+      } catch (error) {
+        this.$notify.error(this.mapItemCodeError(error?.response?.data?.message), {
+          position: "top-right",
+          timeout: 3500,
+          maxToasts: 1,
+        });
+      } finally {
+        this.codesModalSaving = false;
+      }
+    },
+    async deleteItemCode(id) {
+      if (!id || this.codesModalDeletingId) return;
+      this.codesModalDeletingId = id;
+      try {
+        const response = await HTTP.delete(`Admin/DeleteItemCode?id=${id}`);
+        if (response?.data?.errorStatus) {
+          throw { response: { data: { message: response.data.message } } };
+        }
+        this.$notify.success(this.$t("itemCodeDeleted") || "تم حذف الكود", {
+          position: "top-right",
+          timeout: 2500,
+          maxToasts: 1,
+        });
+        await this.loadItemCodes();
+      } catch (error) {
+        this.$notify.error(this.mapItemCodeError(error?.response?.data?.message), {
+          position: "top-right",
+          timeout: 3500,
+          maxToasts: 1,
+        });
+      } finally {
+        this.codesModalDeletingId = null;
+      }
     },
     getItemInfo(item) {
       this.itemPhoto = null;
@@ -1336,6 +1602,99 @@ export default {
 <style scoped>
 .items-table-container {
   margin-top: 1.5rem;
+}
+
+.item-codes-subtitle {
+  margin: -0.35rem 0 1rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.item-codes-primary {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-radius: 0.75rem;
+  background: var(--bg-secondary, #f8fafc);
+}
+
+.item-codes-primary-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+}
+
+.item-codes-primary-value {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.item-codes-hint {
+  color: var(--text-secondary);
+}
+
+.item-codes-barcode {
+  margin-top: 0.65rem;
+}
+
+.item-codes-add-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  align-items: center;
+}
+
+.item-codes-add-btn {
+  white-space: nowrap;
+  min-height: 42px;
+}
+
+.item-codes-loading,
+.item-codes-empty {
+  text-align: center;
+  padding: 1.25rem;
+  color: var(--text-secondary);
+}
+
+.item-codes-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.item-codes-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-radius: 0.65rem;
+  background: var(--bg-primary, #fff);
+}
+
+.item-codes-list-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.item-codes-list-main code {
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.item-codes-list-barcode {
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .items-table {
