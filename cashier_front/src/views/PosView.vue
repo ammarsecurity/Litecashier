@@ -31,6 +31,45 @@
       >
         <b-container fluid class="pos-container-fluid">
           <div class="pos-page-container pos-page-container--v2">
+            <div class="pos-invoice-tabs" role="tablist" :aria-label="$t('posInvoiceTabs') || 'فواتير مفتوحة'">
+              <button
+                v-for="tab in invoiceTabs"
+                :key="tab.id"
+                type="button"
+                role="tab"
+                class="pos-invoice-tab"
+                :class="{ 'pos-invoice-tab--active': tab.id === activeInvoiceTabId }"
+                :aria-selected="tab.id === activeInvoiceTabId"
+                @click="switchInvoiceTab(tab.id)"
+              >
+                <span class="pos-invoice-tab-label">{{ invoiceTabLabel(tab) }}</span>
+                <span
+                  v-if="invoiceTabCount(tab) > 0"
+                  class="pos-invoice-tab-count"
+                >{{ invoiceTabCount(tab) }}</span>
+                <span
+                  class="pos-invoice-tab-close"
+                  role="button"
+                  tabindex="0"
+                  :title="$t('posInvoiceTabClose') || 'إغلاق'"
+                  @click="requestCloseInvoiceTab(tab.id, $event)"
+                  @keydown.enter.prevent="requestCloseInvoiceTab(tab.id, $event)"
+                >
+                  <b-icon icon="x"></b-icon>
+                </span>
+              </button>
+              <button
+                type="button"
+                class="pos-invoice-tab-add"
+                :disabled="!canAddInvoiceTab"
+                :title="$t('posInvoiceTabNew') || 'فاتورة جديدة'"
+                @click="addInvoiceTab"
+              >
+                <b-icon icon="plus-lg"></b-icon>
+                <span class="pos-invoice-tab-add-text">{{ $t("posInvoiceTabNew") || "جديدة" }}</span>
+              </button>
+            </div>
+
             <div class="pos-workspace pos-workspace--v2">
               <main class="pos-workspace-main">
                 <div class="pos-main-section pos-main-section--v2">
@@ -259,7 +298,7 @@
                       <div class="pos-cart-header" ref="posCartHeader">
                         <h3 class="pos-cart-title">
                           <b-icon icon="cart-fill" class="me-2"></b-icon>
-                          {{ $t("cart") || "السلة" }}
+                          {{ invoiceTabLabel(activeInvoiceTab) || ($t("cart") || "السلة") }}
                           <span v-if="carditems.length > 0" class="pos-cart-count-badge pos-cart-count-badge--inline">
                             {{ totalCardItems }}
                           </span>
@@ -412,6 +451,38 @@
                     <button class="delete-cancel-button" @click="closeModel('modal-empty')">
                       <b-icon icon="x-circle-fill" class="me-2"></b-icon>
                       {{ $t("cancelButton") }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </b-modal>
+
+            <b-modal
+              id="modal-close-invoice-tab"
+              hide-header
+              hide-footer
+              class="users-modal"
+              @hidden="invoiceTabPendingCloseId = null"
+            >
+              <div class="modal-content-wrapper">
+                <div class="delete-confirmation-content">
+                  <div class="delete-icon-wrapper">
+                    <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
+                  </div>
+                  <h3 class="delete-confirmation-title">
+                    {{ $t("posInvoiceTabCloseTitle") || "إغلاق الفاتورة؟" }}
+                  </h3>
+                  <p class="delete-confirmation-text">
+                    {{ $t("posInvoiceTabCloseMessage") || "هذه الفاتورة تحتوي أصنافاً. هل تريد إغلاقها وفقدان محتوياتها؟" }}
+                  </p>
+                  <div class="delete-confirmation-actions">
+                    <button class="delete-confirm-button" @click="confirmCloseInvoiceTab">
+                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                      {{ $t("confirmButton") || "تأكيد" }}
+                    </button>
+                    <button class="delete-cancel-button" @click="closeModel('modal-close-invoice-tab')">
+                      <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                      {{ $t("cancelButton") || "إلغاء" }}
                     </button>
                   </div>
                 </div>
@@ -1032,6 +1103,17 @@ import {
   productImageSrc,
   onProductImageError,
 } from "@/utils/productImage.js";
+import {
+  POS_INVOICE_TABS_MAX,
+  createEmptyInvoiceTab,
+  snapshotFromPos,
+  applySnapshotToPos,
+  loadPosInvoiceTabs,
+  savePosInvoiceTabs,
+  nextInvoiceTabIndex,
+  tabItemCount,
+  tabHasItems,
+} from "@/utils/posInvoiceTabs.js";
 
 export default {
   name: "PosView",
@@ -1102,10 +1184,30 @@ export default {
         { id: "a5000", type: "amount", value: 5000, label: "5,000" },
         { id: "a10000", type: "amount", value: 10000, label: "10,000" },
       ],
+      invoiceTabs: [createEmptyInvoiceTab(1)],
+      activeInvoiceTabId: null,
+      invoiceTabPendingCloseId: null,
+      _invoiceTabsHydrating: false,
+      _invoiceTabsSaveTimer: null,
     };
   },
 
+  created() {
+    if (!this.activeInvoiceTabId && this.invoiceTabs[0]) {
+      this.activeInvoiceTabId = this.invoiceTabs[0].id;
+    }
+  },
+
   computed: {
+    activeInvoiceTab() {
+      return (this.invoiceTabs || []).find((t) => t.id === this.activeInvoiceTabId) || null;
+    },
+    activeInvoiceTabIndex() {
+      return this.activeInvoiceTab?.index || 1;
+    },
+    canAddInvoiceTab() {
+      return (this.invoiceTabs || []).length < POS_INVOICE_TABS_MAX;
+    },
     orderDiscountAmount() {
       const rawValue = Number(this.orderDiscountValue) || 0;
       if (rawValue <= 0) return 0;
@@ -1220,8 +1322,33 @@ export default {
           (sum, item) => sum + (Number(item.quantity) || 0),
           0
         );
+        this.scheduleActiveInvoiceTabSync();
       },
       deep: true,
+    },
+    isWholesale() {
+      this.scheduleActiveInvoiceTabSync();
+    },
+    orderDiscountType() {
+      this.scheduleActiveInvoiceTabSync();
+    },
+    orderDiscountValue() {
+      this.scheduleActiveInvoiceTabSync();
+    },
+    "orderForSend.notes"() {
+      this.scheduleActiveInvoiceTabSync();
+    },
+    "orderForSend.paymentMethod"() {
+      this.scheduleActiveInvoiceTabSync();
+    },
+    "orderForSend.creditCustomerId"() {
+      this.scheduleActiveInvoiceTabSync();
+    },
+    "orderForSend.orderCode"() {
+      this.scheduleActiveInvoiceTabSync();
+    },
+    "orderForSend.orderType"() {
+      this.scheduleActiveInvoiceTabSync();
     },
     search: {
       handler() {
@@ -1286,6 +1413,8 @@ export default {
         this.orderForSend.paymentMethod = savedPayment;
       }
 
+      this.initInvoiceTabs(savedPayment);
+
       this.handleKeyup = (e) => {
         if (e.ctrlKey && e.keyCode === 38) {
           this.$root.$emit("bv::toggle::collapse", "sidebar-right");
@@ -1314,6 +1443,8 @@ export default {
   beforeDestroy() {
     clearTimeout(this.quickSearchTimer);
     clearTimeout(this._posResizeTimer);
+    clearTimeout(this._invoiceTabsSaveTimer);
+    this.syncActiveInvoiceTabSnapshot(true);
     if (this._posResizeHandler) {
       window.removeEventListener("resize", this._posResizeHandler);
     }
@@ -1734,7 +1865,172 @@ export default {
       this.clearOrderDiscount();
       this.resetChangeCalculator(false);
       this.orderForSend.notes = "";
+      this.orderForSend.creditCustomerId = null;
+      this.orderForSend.orderCode = "";
+      this.syncActiveInvoiceTabSnapshot(true);
       this.focusPosBarcode();
+    },
+    invoiceTabLabel(tab) {
+      if (!tab) return "";
+      const code = String(tab.orderForSend?.orderCode || "").trim();
+      if (code && code !== "---") {
+        return code;
+      }
+      return `${this.$t("posInvoiceTabLabel") || "فاتورة"} ${tab.index || ""}`.trim();
+    },
+    invoiceTabCount(tab) {
+      return tabItemCount(tab);
+    },
+    scheduleActiveInvoiceTabSync() {
+      if (this._invoiceTabsHydrating || this._isDestroyed) return;
+      clearTimeout(this._invoiceTabsSaveTimer);
+      this._invoiceTabsSaveTimer = setTimeout(() => {
+        this.syncActiveInvoiceTabSnapshot(true);
+      }, 180);
+    },
+    syncActiveInvoiceTabSnapshot(persist = false) {
+      if (this._invoiceTabsHydrating || !this.activeInvoiceTabId) return;
+      const idx = this.invoiceTabs.findIndex((t) => t.id === this.activeInvoiceTabId);
+      if (idx < 0) return;
+      const snap = snapshotFromPos(this);
+      snap.id = this.activeInvoiceTabId;
+      snap.index = this.invoiceTabs[idx].index || snap.index;
+      this.$set(this.invoiceTabs, idx, snap);
+      if (persist) {
+        savePosInvoiceTabs(this.userInfo, this.invoiceTabs, this.activeInvoiceTabId);
+      }
+    },
+    persistInvoiceTabs() {
+      savePosInvoiceTabs(this.userInfo, this.invoiceTabs, this.activeInvoiceTabId);
+    },
+    initInvoiceTabs(savedPayment) {
+      const defaults = {
+        paymentMethod:
+          savedPayment && ["Cash", "Card", "Credit"].includes(savedPayment)
+            ? savedPayment
+            : this.orderForSend.paymentMethod || "Cash",
+      };
+      const loaded = loadPosInvoiceTabs(this.userInfo, defaults);
+      this._invoiceTabsHydrating = true;
+      this.invoiceTabs = loaded.tabs;
+      this.activeInvoiceTabId = loaded.activeId;
+      const active =
+        this.invoiceTabs.find((t) => t.id === this.activeInvoiceTabId) ||
+        this.invoiceTabs[0];
+      applySnapshotToPos(this, active, { keepPaymentPreference: true });
+      this.$nextTick(() => {
+        this._invoiceTabsHydrating = false;
+        this.persistInvoiceTabs();
+      });
+    },
+    switchInvoiceTab(tabId) {
+      if (!tabId || tabId === this.activeInvoiceTabId) return;
+      if (this.orderPersisting || this.cardPaymentWait?.show) {
+        this.$notify.warning(
+          this.$t("posInvoiceTabBusy") || "أكمل العملية الحالية قبل تبديل الفاتورة",
+          { position: "top-right", timeout: 2500, maxToasts: 1 }
+        );
+        return;
+      }
+      const target = this.invoiceTabs.find((t) => t.id === tabId);
+      if (!target) return;
+
+      this.syncActiveInvoiceTabSnapshot(false);
+      this._invoiceTabsHydrating = true;
+      this.activeInvoiceTabId = tabId;
+      applySnapshotToPos(this, target);
+      this.$nextTick(() => {
+        this._invoiceTabsHydrating = false;
+        this.persistInvoiceTabs();
+        this.focusPosBarcode();
+      });
+    },
+    addInvoiceTab() {
+      if (!this.canAddInvoiceTab) {
+        this.$notify.warning(
+          this.$t("posInvoiceTabLimit") || `الحد الأقصى ${POS_INVOICE_TABS_MAX} فواتير`,
+          { position: "top-right", timeout: 2500, maxToasts: 1 }
+        );
+        return;
+      }
+      if (this.orderPersisting || this.cardPaymentWait?.show) {
+        this.$notify.warning(
+          this.$t("posInvoiceTabBusy") || "أكمل العملية الحالية قبل فتح فاتورة جديدة",
+          { position: "top-right", timeout: 2500, maxToasts: 1 }
+        );
+        return;
+      }
+
+      this.syncActiveInvoiceTabSnapshot(false);
+      const tab = createEmptyInvoiceTab(nextInvoiceTabIndex(this.invoiceTabs), {
+        paymentMethod: this.orderForSend.paymentMethod || "Cash",
+      });
+      this.invoiceTabs.push(tab);
+      this._invoiceTabsHydrating = true;
+      this.activeInvoiceTabId = tab.id;
+      applySnapshotToPos(this, tab);
+      this.$nextTick(() => {
+        this._invoiceTabsHydrating = false;
+        this.persistInvoiceTabs();
+        this.focusPosBarcode();
+      });
+    },
+    requestCloseInvoiceTab(tabId, event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      const tab = this.invoiceTabs.find((t) => t.id === tabId);
+      if (!tab) return;
+      if (this.invoiceTabs.length <= 1) {
+        this.$notify.warning(
+          this.$t("posInvoiceTabKeepOne") || "يجب الإبقاء على فاتورة واحدة على الأقل",
+          { position: "top-right", timeout: 2200, maxToasts: 1 }
+        );
+        return;
+      }
+      if (tabHasItems(tab) || (tab.id === this.activeInvoiceTabId && this.carditems.length > 0)) {
+        this.invoiceTabPendingCloseId = tabId;
+        this.$bvModal.show("modal-close-invoice-tab");
+        return;
+      }
+      this.closeInvoiceTab(tabId);
+    },
+    confirmCloseInvoiceTab() {
+      const id = this.invoiceTabPendingCloseId;
+      this.invoiceTabPendingCloseId = null;
+      this.$bvModal.hide("modal-close-invoice-tab");
+      if (id) this.closeInvoiceTab(id);
+    },
+    closeInvoiceTab(tabId) {
+      const idx = this.invoiceTabs.findIndex((t) => t.id === tabId);
+      if (idx < 0 || this.invoiceTabs.length <= 1) return;
+
+      if (tabId === this.activeInvoiceTabId) {
+        this.syncActiveInvoiceTabSnapshot(false);
+      }
+
+      const wasActive = tabId === this.activeInvoiceTabId;
+      this.invoiceTabs.splice(idx, 1);
+
+      if (wasActive) {
+        const next = this.invoiceTabs[Math.max(0, idx - 1)] || this.invoiceTabs[0];
+        this._invoiceTabsHydrating = true;
+        this.activeInvoiceTabId = next.id;
+        applySnapshotToPos(this, next);
+        this.$nextTick(() => {
+          this._invoiceTabsHydrating = false;
+          this.persistInvoiceTabs();
+          this.focusPosBarcode();
+        });
+      } else {
+        this.persistInvoiceTabs();
+      }
+    },
+    onActiveInvoiceTabClearedAfterSale() {
+      this.orderForSend.orderCode = "";
+      this.resetChangeCalculator(false);
+      this.syncActiveInvoiceTabSnapshot(true);
     },
     closeModel(id) {
       this.$bvModal.hide(id);

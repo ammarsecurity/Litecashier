@@ -118,6 +118,9 @@ export default {
         if (typeof this.clearOrderDiscount === "function") {
           this.clearOrderDiscount();
         }
+        if (typeof this.onActiveInvoiceTabClearedAfterSale === "function") {
+          this.onActiveInvoiceTabClearedAfterSale();
+        }
 
         const successMessage = isCheckout
           ? shouldPrint
