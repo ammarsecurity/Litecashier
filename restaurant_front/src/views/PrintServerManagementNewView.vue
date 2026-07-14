@@ -152,14 +152,14 @@
                         @click="editPrinter(printer)"
                         :title="$t('edit') || 'تعديل'"
                       >
-                        <b-icon icon="pencil-fill"></b-icon>
+                        <b-icon icon="pencil-square"></b-icon>
                       </button>
                       <button 
                         class="card-action-btn delete-btn"
                         @click="confirmDeletePrinter(printer)"
                         :title="$t('delete') || 'حذف'"
                       >
-                        <b-icon icon="trash-fill"></b-icon>
+                        <b-icon icon="trash"></b-icon>
                       </button>
                     </div>
                     <div class="user-avatar">
@@ -273,14 +273,14 @@
                         @click="editTagPrinter(tagPrinter)"
                         :title="$t('edit') || 'تعديل'"
                       >
-                        <b-icon icon="pencil-fill"></b-icon>
+                        <b-icon icon="pencil-square"></b-icon>
                       </button>
                       <button 
                         class="card-action-btn delete-btn"
                         @click="confirmDeleteTagPrinter(tagPrinter)"
                         :title="$t('delete') || 'حذف'"
                       >
-                        <b-icon icon="trash-fill"></b-icon>
+                        <b-icon icon="trash"></b-icon>
                       </button>
                     </div>
                     <div class="user-avatar">

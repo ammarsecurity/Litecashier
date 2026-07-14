@@ -72,7 +72,7 @@
                     </div>
 
                     <div class="app-section-card">
-                        <div class="app-section-header app-section-header--toolbar">
+                            <div class="app-section-header">
                             <div class="app-section-title-wrap">
                                 <div class="app-section-icon-wrap">
                                     <b-icon icon="tags-fill"></b-icon>
@@ -82,15 +82,28 @@
                                     <p class="app-section-subtitle">{{ $t('categoriesListHint') || 'قائمة الأقسام مع التعديل والحذف' }}</p>
                                 </div>
                             </div>
-                            <div class="app-search-wrap app-search-wrap--wide">
-                                <b-icon icon="search" class="app-search-icon"></b-icon>
-                                <input
-                                    v-model="search.info"
-                                    type="search"
-                                    class="app-search-input"
-                                    :placeholder="$t('search')"
-                                    autocomplete="off"
-                                />
+                        </div>
+                        <div class="app-filters-panel app-filters-panel--inset">
+                            <div class="app-filters-panel-head">
+                                <div class="app-filters-panel-title">
+                                    <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                                    <div>
+                                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                                    <p>{{ $t('categoriesFiltersHint') || 'بحث في الأقسام بالاسم' }}</p>
+                                </div>
+                                </div>
+                                <div class="app-filters-panel-actions" v-if="search.info">
+                                    <button type="button" class="users-form-cancel-button" @click="search.info = ''">
+                                        <b-icon icon="x-circle"></b-icon>
+                                        {{ $t('clearFilters') || 'مسح الفلاتر' }}
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="app-filters-fields app-filters-fields--1">
+                                <div class="app-search-wrap app-search-wrap--wide">
+                                    <b-icon icon="search" class="app-search-icon"></b-icon>
+                                    <input v-model="search.info" type="search" class="app-search-input" :placeholder="$t('search')" autocomplete="off" />
+                                </div>
                             </div>
                         </div>
                         <div class="app-section-body app-section-body--no-padding">
@@ -98,10 +111,9 @@
                         <b-table
                             :items="Tagss"
                             :fields="categoryFields"
-                            striped
                             hover
                             responsive
-                            class="categories-table"
+                            class="categories-table reports-table"
                         >
                             <template #cell(name)="row">
                                 <div class="category-name-cell">
@@ -118,7 +130,7 @@
                                         @click="getTagsInfo(row.item)"
                                         :title="$t('edit')"
                                     >
-                                        <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                                        <b-icon icon="pencil-square" class="action-icon"></b-icon>
                                     </button>
                                     <button 
                                         type="button"
@@ -126,7 +138,7 @@
                                         @click="deleteTagsModel(row.item.id)"
                                         :title="$t('delete')"
                                     >
-                                        <b-icon icon="trash-fill" class="action-icon"></b-icon>
+                                        <b-icon icon="trash" class="action-icon"></b-icon>
                                     </button>
                                 </div>
                             </template>

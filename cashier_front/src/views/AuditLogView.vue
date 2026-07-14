@@ -75,85 +75,75 @@
                         </div>
                     </div>
 
-                    <div class="app-section-card app-section-card--flush">
-                        <div class="app-section-header">
-                            <div class="app-section-title-wrap">
-                                <div class="app-section-icon-wrap">
-                                    <b-icon icon="funnel-fill"></b-icon>
-                                </div>
+                    <div class="app-filters-panel">
+                        <div class="app-filters-panel-head">
+                            <div class="app-filters-panel-title">
+                                <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
                                 <div>
-                                    <h3 class="app-section-title">{{ $t('search') || 'بحث' }}</h3>
-                                    <p class="app-section-subtitle">{{ $t('auditLogFiltersHint') || 'تصفية السجلات حسب العملية والنوع والتاريخ' }}</p>
+                                    <h3>{{ $t('filters') || 'الفلاتر' }}</h3>
+                                    <p>{{ $t('auditLogFiltersHint') || 'تصفية السجلات حسب العملية والنوع والتاريخ' }}</p>
                                 </div>
                             </div>
+                            <div class="app-filters-panel-actions" v-if="hasActiveFilters">
+                                <button
+                                    type="button"
+                                    class="users-filter-clear-btn app-filters-clear-btn"
+                                    @click="clearFilters"
+                                >
+                                    <b-icon icon="x-circle" class="me-1"></b-icon>
+                                    {{ $t('clearFilters') || 'مسح الفلاتر' }}
+                                </button>
+                            </div>
                         </div>
-                        <div class="app-section-body">
-                            <div class="audit-log-filters-grid">
-                                <div class="audit-log-filter-group">
-                                    <label class="audit-log-filter-label">
-                                        <b-icon icon="filter" class="me-1"></b-icon>
-                                        {{ $t('action') || 'العملية' }}
-                                    </label>
-                                    <select v-model="filters.action" class="audit-log-filter-select">
+                        <div class="app-filters-fields">
+                            <label class="app-filter-field">
+                                <span class="app-filter-label">{{ $t('action') || 'العملية' }}</span>
+                                <div class="users-search-container">
+                                    <b-icon icon="filter" class="search-icon"></b-icon>
+                                    <select v-model="filters.action" class="users-search-input reports-filter-select">
                                         <option value="">{{ $t('allActions') || 'جميع العمليات' }}</option>
                                         <option value="Update">{{ $t('update') || 'تعديل' }}</option>
                                         <option value="Delete">{{ $t('delete') || 'حذف' }}</option>
                                     </select>
                                 </div>
-                                <div class="audit-log-filter-group">
-                                    <label class="audit-log-filter-label">
-                                        <b-icon icon="tags" class="me-1"></b-icon>
-                                        {{ $t('entityType') || 'نوع الكيان' }}
-                                    </label>
-                                    <select v-model="filters.entityType" class="audit-log-filter-select">
+                            </label>
+                            <label class="app-filter-field">
+                                <span class="app-filter-label">{{ $t('entityType') || 'نوع الكيان' }}</span>
+                                <div class="users-search-container">
+                                    <b-icon icon="tags" class="search-icon"></b-icon>
+                                    <select v-model="filters.entityType" class="users-search-input reports-filter-select">
                                         <option value="">{{ $t('allEntityTypes') || 'جميع الأنواع' }}</option>
                                         <option v-for="type in entityTypes" :key="type" :value="type">{{ type }}</option>
                                     </select>
                                 </div>
-                                <div class="audit-log-filter-group">
-                                    <label class="audit-log-filter-label">
-                                        <b-icon icon="calendar" class="me-1"></b-icon>
-                                        {{ $t('startDate') || 'من تاريخ' }}
-                                    </label>
-                                    <input
-                                        v-model="filters.startDate"
-                                        type="date"
-                                        class="audit-log-filter-input"
-                                    />
+                            </label>
+                            <label class="app-filter-field">
+                                <span class="app-filter-label">{{ $t('startDate') || 'من تاريخ' }}</span>
+                                <div class="users-search-container">
+                                    <b-icon icon="calendar" class="search-icon"></b-icon>
+                                    <input v-model="filters.startDate" type="date" class="users-search-input" />
                                 </div>
-                                <div class="audit-log-filter-group">
-                                    <label class="audit-log-filter-label">
-                                        <b-icon icon="calendar-check" class="me-1"></b-icon>
-                                        {{ $t('endDate') || 'إلى تاريخ' }}
-                                    </label>
-                                    <input
-                                        v-model="filters.endDate"
-                                        type="date"
-                                        class="audit-log-filter-input"
-                                    />
+                            </label>
+                            <label class="app-filter-field">
+                                <span class="app-filter-label">{{ $t('endDate') || 'إلى تاريخ' }}</span>
+                                <div class="users-search-container">
+                                    <b-icon icon="calendar-check" class="search-icon"></b-icon>
+                                    <input v-model="filters.endDate" type="date" class="users-search-input" />
                                 </div>
-                                <div class="audit-log-filter-group">
-                                    <label class="audit-log-filter-label">
-                                        <b-icon icon="search" class="me-1"></b-icon>
-                                        {{ $t('search') || 'بحث' }}
-                                    </label>
+                            </label>
+                            <label class="app-filter-field app-filter-field--grow">
+                                <span class="app-filter-label">{{ $t('search') || 'بحث' }}</span>
+                                <div class="users-search-container">
+                                    <b-icon icon="search" class="search-icon"></b-icon>
                                     <input
                                         v-model="filters.search"
-                                        type="text"
+                                        type="search"
                                         :placeholder="$t('searchByEntityName') || 'ابحث باسم الكيان...'"
-                                        class="audit-log-filter-input"
+                                        class="users-search-input"
+                                        autocomplete="off"
                                     />
                                 </div>
-                                <button
-                                    v-if="hasActiveFilters"
-                                    type="button"
-                                    class="audit-log-filter-clear"
-                                    @click="clearFilters"
-                                >
-                                    <b-icon icon="x-circle-fill" class="me-1"></b-icon>
-                                    {{ $t('clearFilters') || 'مسح الفلاتر' }}
-                                </button>
-                            </div>
+                            </label>
                         </div>
                     </div>
 
@@ -224,14 +214,15 @@
                             </template>
 
                             <template #cell(details)="row">
-                                <div v-if="row.item.oldValues || row.item.newValues" class="actions-cell">
+                                <div v-if="row.item.oldValues || row.item.newValues" class="actions-cell" role="group">
                                     <button
                                         type="button"
-                                        class="action-btn action-btn--view"
+                                        class="action-btn action-btn--icon action-btn--view"
                                         @click="showDetails(row.item)"
+                                        :title="$t('viewDetails') || 'عرض التفاصيل'"
+                                        :aria-label="$t('viewDetails') || 'عرض التفاصيل'"
                                     >
-                                        <b-icon icon="eye-fill" class="action-icon"></b-icon>
-                                        <span>{{ $t('viewDetails') || 'عرض التفاصيل' }}</span>
+                                        <b-icon icon="eye" class="action-icon"></b-icon>
                                     </button>
                                 </div>
                                 <span v-else>---</span>

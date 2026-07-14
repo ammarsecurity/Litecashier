@@ -67,10 +67,9 @@ namespace POS.Services
 
             var existingItems = await _dbConfig.Items
                 .Where(x => !x.IsDeleted &&
-                    (x.InsertByUserId == userId ||
-                     x.InsertByUserId == commercialUserId ||
-                     x.User!.Id == userInsertByUserId ||
-                     x.User.InsertByUserId == userId))
+                    (x.InsertByUserId == commercialUserId ||
+                     x.User!.Id == commercialUserId ||
+                     x.User.InsertByUserId == commercialUserId))
                 .Select(x => new { x.Code, x.Name })
                 .ToListAsync();
 
@@ -173,7 +172,7 @@ namespace POS.Services
                     WholesalePrice = wholesalePrice,
                     PurchasingPrice = 0,
                     Quantity = 0,
-                    InsertByUserId = userId,
+                    InsertByUserId = commercialUserId,
                 };
 
                 _dbConfig.Items.Add(item);
@@ -213,9 +212,8 @@ namespace POS.Services
             var existing = await _dbConfig.Tags
                 .Where(x => !x.IsDeleted &&
                     (x.InsertByUserId == commercialUserId ||
-                     x.InsertByUserId == userId ||
-                     x.User!.Id == userInsertByUserId ||
-                     x.User.InsertByUserId == userId))
+                     x.User!.Id == commercialUserId ||
+                     x.User.InsertByUserId == commercialUserId))
                 .ToListAsync();
 
             var match = existing.FirstOrDefault(t =>

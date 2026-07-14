@@ -136,7 +136,17 @@
               </div>
             </div>
 
-            <div class="card-payments-filters">
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                                    <p>{{ $t('cardPaymentsFiltersHint') || 'تصفية معاملات البطاقة بالتاريخ والحالة والربط' }}</p>
+                                </div>
+                </div>
+              </div>
+              <div class="app-filters-fields app-filters-fields--4 card-payments-filters">
               <div class="card-payments-filter-group">
                 <label class="card-payments-filter-label">
                   <b-icon icon="calendar" class="filter-icon"></b-icon>
@@ -192,6 +202,7 @@
                   {{ $t("clearFilters") || "مسح" }}
                 </button>
               </div>
+              </div>
             </div>
 
             <div class="app-section-body card-payments-table-body">
@@ -203,7 +214,6 @@
                 <b-table
                   :items="items"
                   :fields="tableFields"
-                  striped
                   hover
                   responsive
                   class="reports-table card-payments-table"
@@ -265,7 +275,7 @@
                         @click="openDetail(row.item.id)"
                         :title="$t('viewDetails') || 'عرض التفاصيل'"
                       >
-                        <b-icon icon="eye-fill" class="action-icon"></b-icon>
+                        <b-icon icon="eye" class="action-icon"></b-icon>
                       </button>
                     </div>
                   </template>

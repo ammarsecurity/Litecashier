@@ -83,14 +83,14 @@
                   {{ $t("invoiceStatisticsLabel") }}
                 </h2>
               </div>
-              <div class="stats-grid">
+              <div class="app-overview-grid stats-grid">
                 <StatCard
                   color="primary"
                   :value="stats.orders?.total || 0"
                   :label="$t('totalLabel')"
                 >
                   <template #icon>
-                    <b-icon icon="receipt-cutoff" class="stat-icon-large"></b-icon>
+                    <b-icon icon="receipt-cutoff"></b-icon>
                   </template>
                 </StatCard>
                 <StatCard
@@ -99,7 +99,7 @@
                   :label="$t('todayLabel')"
                 >
                   <template #icon>
-                    <b-icon icon="calendar-day" class="stat-icon-large"></b-icon>
+                    <b-icon icon="calendar-day"></b-icon>
                   </template>
                 </StatCard>
                 <StatCard
@@ -108,7 +108,7 @@
                   :label="$t('thisWeekLabel')"
                 >
                   <template #icon>
-                    <b-icon icon="calendar-week" class="stat-icon-large"></b-icon>
+                    <b-icon icon="calendar-week"></b-icon>
                   </template>
                 </StatCard>
                 <StatCard
@@ -117,7 +117,7 @@
                   :label="$t('thisMonthLabel')"
                 >
                   <template #icon>
-                    <b-icon icon="calendar-month" class="stat-icon-large"></b-icon>
+                    <b-icon icon="calendar-month"></b-icon>
                   </template>
                 </StatCard>
               </div>
@@ -131,14 +131,14 @@
                   {{ $t("itemsStatisticsLabel") }}
                 </h2>
               </div>
-              <div class="stats-grid">
+              <div class="app-overview-grid stats-grid">
                 <StatCard
                   color="primary"
                   :value="stats.items?.total || 0"
                   :label="$t('totalLabel')"
                 >
                   <template #icon>
-                    <b-icon icon="box" class="stat-icon-large"></b-icon>
+                    <b-icon icon="box"></b-icon>
                   </template>
                 </StatCard>
                 <StatCard
@@ -147,7 +147,7 @@
                   :label="$t('todayLabel')"
                 >
                   <template #icon>
-                    <b-icon icon="calendar-day" class="stat-icon-large"></b-icon>
+                    <b-icon icon="calendar-day"></b-icon>
                   </template>
                 </StatCard>
                 <StatCard
@@ -156,7 +156,7 @@
                   :label="$t('thisWeekLabel')"
                 >
                   <template #icon>
-                    <b-icon icon="calendar-week" class="stat-icon-large"></b-icon>
+                    <b-icon icon="calendar-week"></b-icon>
                   </template>
                 </StatCard>
                 <StatCard
@@ -165,7 +165,7 @@
                   :label="$t('thisMonthLabel')"
                 >
                   <template #icon>
-                    <b-icon icon="calendar-month" class="stat-icon-large"></b-icon>
+                    <b-icon icon="calendar-month"></b-icon>
                   </template>
                 </StatCard>
               </div>
@@ -179,14 +179,14 @@
                   {{ $t("salesAmountStatisticsLabel") }}
                 </h2>
               </div>
-              <div class="stats-grid">
+              <div class="app-overview-grid stats-grid">
                 <StatCard
                   color="primary"
                   :value="formattedNumber(stats.salesAmount?.total || 0) + ' ' + $t('currency')"
                   :label="$t('totalLabel')"
                 >
                   <template #icon>
-                    <b-icon icon="currency-dollar" class="stat-icon-large"></b-icon>
+                    <b-icon icon="currency-dollar"></b-icon>
                   </template>
                 </StatCard>
                 <StatCard
@@ -195,7 +195,7 @@
                   :label="$t('todayLabel')"
                 >
                   <template #icon>
-                    <b-icon icon="calendar-day" class="stat-icon-large"></b-icon>
+                    <b-icon icon="calendar-day"></b-icon>
                   </template>
                 </StatCard>
                 <StatCard
@@ -204,7 +204,7 @@
                   :label="$t('thisWeekLabel')"
                 >
                   <template #icon>
-                    <b-icon icon="calendar-week" class="stat-icon-large"></b-icon>
+                    <b-icon icon="calendar-week"></b-icon>
                   </template>
                 </StatCard>
                 <StatCard
@@ -213,7 +213,7 @@
                   :label="$t('thisMonthLabel')"
                 >
                   <template #icon>
-                    <b-icon icon="calendar-month" class="stat-icon-large"></b-icon>
+                    <b-icon icon="calendar-month"></b-icon>
                   </template>
                 </StatCard>
               </div>
@@ -227,14 +227,14 @@
                   {{ $t("additionalStats") || "إحصائيات إضافية" }}
                 </h2>
               </div>
-              <div class="stats-grid">
+              <div class="app-overview-grid stats-grid">
                 <StatCard
                   color="info"
                   :value="stats.products?.total || 0"
                   :label="$t('Items') + ' (' + $t('totalLabel') + ')'"
                 >
                   <template #icon>
-                    <b-icon icon="box" class="stat-icon-large"></b-icon>
+                    <b-icon icon="box"></b-icon>
                   </template>
                 </StatCard>
                 <StatCard
@@ -243,7 +243,7 @@
                   :label="$t('all_accounts')"
                 >
                   <template #icon>
-                    <b-icon icon="people-fill" class="stat-icon-large"></b-icon>
+                    <b-icon icon="people-fill"></b-icon>
                   </template>
                 </StatCard>
                 <StatCard
@@ -252,7 +252,7 @@
                   :label="$t('all_categories')"
                 >
                   <template #icon>
-                    <b-icon icon="tags-fill" class="stat-icon-large"></b-icon>
+                    <b-icon icon="tags-fill"></b-icon>
                   </template>
                 </StatCard>
               </div>
@@ -281,49 +281,67 @@
               </div>
               <div v-if="showInvoiceDetails" class="app-section-body dashboard-invoices-body">
                 <div class="invoice-details-section">
-                  <div class="invoice-filters-section">
-                    <div class="invoice-filter-group">
-                      <label class="invoice-filter-label">
-                        <b-icon icon="calendar" class="me-2"></b-icon>
-                        {{ $t("from_date") || "من تاريخ" }}
-                      </label>
-                      <input
-                        v-model="invoiceFilters.startDate"
-                        type="date"
-                        class="invoice-filter-input"
-                        @change="loadInvoices"
-                      />
+                  <div class="app-filters-panel app-filters-panel--inset">
+                    <div class="app-filters-panel-head">
+                      <div class="app-filters-panel-title">
+                        <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                        <div>
+                          <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                          <p>{{ $t("dashboardInvoiceFiltersHint") || "تصفية فواتير لوحة التحكم بالتاريخ أو رقم الطلب" }}</p>
+                        </div>
+                      </div>
+                      <div
+                        class="app-filters-panel-actions"
+                        v-if="invoiceFilters.startDate || invoiceFilters.endDate || invoiceFilters.search"
+                      >
+                        <button
+                          type="button"
+                          class="users-filter-clear-btn app-filters-clear-btn"
+                          @click="clearInvoiceFilters"
+                        >
+                          <b-icon icon="x-circle" class="me-1"></b-icon>
+                          {{ $t("clearFilters") || "مسح الفلاتر" }}
+                        </button>
+                      </div>
                     </div>
-                    <div class="invoice-filter-group">
-                      <label class="invoice-filter-label">
-                        <b-icon icon="calendar-check" class="me-2"></b-icon>
-                        {{ $t("to_date") || "إلى تاريخ" }}
+                    <div class="app-filters-fields app-filters-fields--3">
+                      <label class="app-filter-field">
+                        <span class="app-filter-label">{{ $t("from_date") || "من تاريخ" }}</span>
+                        <div class="users-search-container">
+                          <b-icon icon="calendar" class="search-icon"></b-icon>
+                          <input
+                            v-model="invoiceFilters.startDate"
+                            type="date"
+                            class="users-search-input"
+                            @change="loadInvoices"
+                          />
+                        </div>
                       </label>
-                      <input
-                        v-model="invoiceFilters.endDate"
-                        type="date"
-                        class="invoice-filter-input"
-                        @change="loadInvoices"
-                      />
-                    </div>
-                    <div class="invoice-filter-group">
-                      <label class="invoice-filter-label">
-                        <b-icon icon="search" class="me-2"></b-icon>
-                        {{ $t("search") || "بحث" }}
+                      <label class="app-filter-field">
+                        <span class="app-filter-label">{{ $t("to_date") || "إلى تاريخ" }}</span>
+                        <div class="users-search-container">
+                          <b-icon icon="calendar-check" class="search-icon"></b-icon>
+                          <input
+                            v-model="invoiceFilters.endDate"
+                            type="date"
+                            class="users-search-input"
+                            @change="loadInvoices"
+                          />
+                        </div>
                       </label>
-                      <input
-                        v-model="invoiceFilters.search"
-                        type="text"
-                        class="invoice-filter-input"
-                        :placeholder="$t('searchByOrderCode') || 'ابحث برقم الطلب'"
-                        @input="debounceInvoiceSearch"
-                      />
-                    </div>
-                    <div class="invoice-filter-group">
-                      <button class="invoice-filter-clear-btn" @click="clearInvoiceFilters">
-                        <b-icon icon="x-circle" class="me-2"></b-icon>
-                        {{ $t("clear") || "مسح" }}
-                      </button>
+                      <label class="app-filter-field app-filter-field--grow">
+                        <span class="app-filter-label">{{ $t("search") || "بحث" }}</span>
+                        <div class="users-search-container">
+                          <b-icon icon="search" class="search-icon"></b-icon>
+                          <input
+                            v-model="invoiceFilters.search"
+                            type="search"
+                            class="users-search-input"
+                            :placeholder="$t('searchByOrderCode') || 'ابحث برقم الطلب'"
+                            @input="debounceInvoiceSearch"
+                          />
+                        </div>
+                      </label>
                     </div>
                   </div>
 

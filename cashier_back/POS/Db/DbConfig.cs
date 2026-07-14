@@ -56,6 +56,7 @@ namespace POS.Db
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Employee> Employees { get; set; }
         public DbSet<StockMovement> StockMovements { get; set; }
+        public DbSet<CatalogStockReturn> CatalogStockReturns { get; set; }
         public DbSet<Supplier> Suppliers { get; set; }
         public DbSet<Customer> Customers { get; set; }
         public DbSet<PaymentDevice> PaymentDevices { get; set; }
@@ -105,6 +106,12 @@ namespace POS.Db
             modelBuilder.Entity<AuditLog>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<AuditLog>().HasOne(r => r.CommercialUser).WithMany().HasForeignKey(x => x.CommercialUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<StockMovement>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CatalogStockReturn>().HasOne(r => r.Item).WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CatalogStockReturn>().HasOne(r => r.CustomerOrder).WithMany().HasForeignKey(x => x.CustomerOrderId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<CatalogStockReturn>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CatalogStockReturn>().HasIndex(r => r.CustomerOrderId);
+            modelBuilder.Entity<CatalogStockReturn>().HasIndex(r => r.ItemId);
+            modelBuilder.Entity<CatalogStockReturn>().HasIndex(r => r.ReturnType);
             modelBuilder.Entity<Supplier>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<Customer>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<CustomerOrder>().HasOne(r => r.CreditCustomer).WithMany().HasForeignKey(x => x.CreditCustomerId).OnDelete(DeleteBehavior.SetNull);

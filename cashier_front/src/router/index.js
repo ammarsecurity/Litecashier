@@ -20,6 +20,7 @@ import PaymentDevicesView from '../views/PaymentDevicesView.vue'
 import CardPaymentsView from '../views/CardPaymentsView.vue'
 import DeferredPaymentsView from '../views/DeferredPaymentsView.vue'
 import StockAlertsView from '../views/StockAlertsView.vue'
+import StockReturnsView from '../views/StockReturnsView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import { i18n } from '../main'
 import { managerCanAccessPath } from '../navigation/sectionRegistry.js'
@@ -139,7 +140,7 @@ const routes = [
     component: DashboardView,
     meta: {
       requiresAuth: true,
-      roles: ['Commercial', 'Admin', 'POS']
+      roles: ['Commercial', 'POS']
     }
   },
   {
@@ -193,7 +194,7 @@ const routes = [
     component: CustomersView,
     meta: {
       requiresAuth: true,
-      roles: ['Commercial', 'Admin']
+      roles: ['Commercial']
     }
   },
   {
@@ -202,7 +203,7 @@ const routes = [
     component: DeferredPaymentsView,
     meta: {
       requiresAuth: true,
-      roles: ['Commercial', 'Admin']
+      roles: ['Commercial']
     }
   },
   {
@@ -211,7 +212,16 @@ const routes = [
     component: StockAlertsView,
     meta: {
       requiresAuth: true,
-      roles: ['Commercial', 'POS', 'Admin']
+      roles: ['Commercial', 'POS']
+    }
+  },
+  {
+    path: '/stock-returns',
+    name: 'stockReturns',
+    component: StockReturnsView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'POS']
     }
   },
   {
@@ -311,11 +321,7 @@ router.beforeEach((to, from, next) => {
           role === 'Admin' &&
           to.path !== '/users' &&
           to.path !== '/logout' &&
-          to.path !== '/sections' &&
-          to.path !== '/customers' &&
-          to.path !== '/category' &&
-          to.path !== '/payment-devices' &&
-          to.path !== '/stock-alerts'
+          to.path !== '/sections'
         ) {
           return next('/users');
         }
@@ -327,6 +333,7 @@ router.beforeEach((to, from, next) => {
           to.path !== '/reports' &&
           to.path !== '/inventory' &&
           to.path !== '/stock-alerts' &&
+          to.path !== '/stock-returns' &&
           to.path !== '/print-server' &&
           to.path !== '/logout' &&
           to.path !== '/sections'

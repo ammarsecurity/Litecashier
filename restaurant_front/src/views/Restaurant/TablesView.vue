@@ -104,7 +104,7 @@
           </div>
 
           <div class="app-section-card">
-            <div class="app-section-header app-section-header--toolbar">
+            <div class="app-section-header">
               <div class="app-section-title-wrap">
                 <div class="app-section-icon-wrap">
                   <b-icon icon="list-ul"></b-icon>
@@ -114,15 +114,31 @@
                   <p class="app-section-subtitle">{{ $t("tablesListHint") || "قائمة الطاولات مع الفلترة والإجراءات" }}</p>
                 </div>
               </div>
-              <div class="app-search-wrap">
-                <b-icon icon="filter" class="app-search-icon"></b-icon>
-                <select v-model="statusFilter" @change="onFilterChange" class="app-search-input tables-status-filter">
-                  <option value="">{{ $t("all") || "الكل" }}</option>
-                  <option value="Available">{{ $t("available") || "متاحة" }}</option>
-                  <option value="Occupied">{{ $t("occupied") || "مشغولة" }}</option>
-                  <option value="Reserved">{{ $t("reserved") || "محجوزة" }}</option>
-                  <option value="OutOfService">{{ $t("outOfService") || "خارج الخدمة" }}</option>
-                </select>
+            </div>
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                                    <p>{{ $t('tablesListHint') || 'قائمة الطاولات مع الفلترة والإجراءات' }}</p>
+                                </div>
+                </div>
+                <div class="app-filters-panel-actions" v-if="statusFilter">
+                  <button type="button" class="users-form-cancel-button" @click="statusFilter = ''; onFilterChange()"><b-icon icon="x-circle"></b-icon>{{ $t('clearFilters') || 'مسح الفلاتر' }}</button>
+                </div>
+              </div>
+              <div class="app-filters-fields app-filters-fields--1">
+                <div class="app-search-wrap">
+                  <b-icon icon="filter" class="app-search-icon"></b-icon>
+                  <select v-model="statusFilter" @change="onFilterChange" class="app-search-input tables-status-filter">
+                    <option value="">{{ $t("all") || "الكل" }}</option>
+                    <option value="Available">{{ $t("available") || "متاحة" }}</option>
+                    <option value="Occupied">{{ $t("occupied") || "مشغولة" }}</option>
+                    <option value="Reserved">{{ $t("reserved") || "محجوزة" }}</option>
+                    <option value="OutOfService">{{ $t("outOfService") || "خارج الخدمة" }}</option>
+                  </select>
+                </div>
               </div>
             </div>
             <div class="app-section-body app-section-body--no-padding">
@@ -130,10 +146,9 @@
             <b-table
               :items="tables"
               :fields="tableFields"
-              striped
               hover
               responsive
-              class="items-table"
+              class="items-table reports-table"
             >
               <template #head(selected)>
                 <b-form-checkbox
@@ -192,7 +207,7 @@
                     @click="editTable(row.item)"
                     :title="$t('edit')"
                   >
-                    <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                    <b-icon icon="pencil-square" class="action-icon"></b-icon>
                   </button>
                   <button
                     type="button"
@@ -201,7 +216,7 @@
                     :title="$t('deleteTableRow')"
                     :disabled="deletingTables"
                   >
-                    <b-icon icon="trash-fill" class="action-icon"></b-icon>
+                    <b-icon icon="trash" class="action-icon"></b-icon>
                   </button>
                 </div>
               </template>

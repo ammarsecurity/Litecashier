@@ -101,29 +101,51 @@
               </div>
             </div>
 
-            <div class="app-section-body customers-filters-body">
-              <div class="customers-filters-grid">
-                <div class="app-search-wrap app-search-wrap--wide">
-                  <b-icon icon="search" class="app-search-icon"></b-icon>
-                  <input
-                    v-model="searchQuery"
-                    type="search"
-                    class="app-search-input"
-                    :placeholder="$t('searchCustomersPlaceholder')"
-                    autocomplete="off"
-                  />
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                    <p>{{ $t("customersFiltersHint") || "بحث بالاسم أو الهاتف وتصفية حسب الحالة" }}</p>
+                  </div>
                 </div>
-                <div class="customers-filter-group">
-                  <label class="customers-filter-label">
-                    <b-icon icon="filter" class="me-1"></b-icon>
-                    {{ $t("status") }}
-                  </label>
-                  <select v-model="statusFilter" class="customers-filter-select">
-                    <option value="all">{{ $t("allStatuses") }}</option>
-                    <option value="active">{{ $t("active") }}</option>
-                    <option value="inactive">{{ $t("inactive") }}</option>
-                  </select>
+                <div class="app-filters-panel-actions" v-if="searchQuery || statusFilter !== 'all'">
+                  <button
+                    type="button"
+                    class="users-filter-clear-btn app-filters-clear-btn"
+                    @click="searchQuery = ''; statusFilter = 'all'"
+                  >
+                    <b-icon icon="x-circle" class="me-1"></b-icon>
+                    {{ $t("clearFilters") || "مسح الفلاتر" }}
+                  </button>
                 </div>
+              </div>
+              <div class="app-filters-fields app-filters-fields--2">
+                <label class="app-filter-field app-filter-field--grow">
+                  <span class="app-filter-label">{{ $t("search") || "بحث" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="search" class="search-icon"></b-icon>
+                    <input
+                      v-model="searchQuery"
+                      type="search"
+                      class="users-search-input"
+                      :placeholder="$t('searchCustomersPlaceholder')"
+                      autocomplete="off"
+                    />
+                  </div>
+                </label>
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("status") }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="filter" class="search-icon"></b-icon>
+                    <select v-model="statusFilter" class="users-search-input reports-filter-select">
+                      <option value="all">{{ $t("allStatuses") }}</option>
+                      <option value="active">{{ $t("active") }}</option>
+                      <option value="inactive">{{ $t("inactive") }}</option>
+                    </select>
+                  </div>
+                </label>
               </div>
             </div>
 
@@ -178,12 +200,13 @@
                     </span>
                   </template>
                   <template #cell(actions)="row">
-                    <div class="actions-cell">
+                    <div class="actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
                       <button
                         type="button"
                         class="action-btn action-btn--icon action-btn--view"
                         @click="viewDeferredPayments(row.item)"
                         :title="$t('viewDeferredPayments') || 'عرض الدفع اللاحق'"
+                        :aria-label="$t('viewDeferredPayments') || 'عرض الدفع اللاحق'"
                       >
                         <b-icon icon="wallet2" class="action-icon"></b-icon>
                       </button>
@@ -192,16 +215,18 @@
                         class="action-btn action-btn--icon action-btn--edit"
                         @click="editCustomer(row.item)"
                         :title="$t('edit')"
+                        :aria-label="$t('edit')"
                       >
-                        <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                        <b-icon icon="pencil-square" class="action-icon"></b-icon>
                       </button>
                       <button
                         type="button"
                         class="action-btn action-btn--icon action-btn--delete"
                         @click="confirmDeleteCustomer(row.item)"
                         :title="$t('delete')"
+                        :aria-label="$t('delete')"
                       >
-                        <b-icon icon="trash-fill" class="action-icon"></b-icon>
+                        <b-icon icon="trash" class="action-icon"></b-icon>
                       </button>
                     </div>
                   </template>

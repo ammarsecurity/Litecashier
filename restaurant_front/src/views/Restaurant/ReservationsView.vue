@@ -52,7 +52,7 @@
               </div>
             </div>
             <div class="app-overview-stat res-stat-card">
-              <span class="app-overview-stat-icon app-overview-stat-icon--purple">
+              <span class="app-overview-stat-icon app-overview-stat-icon--success">
                 <b-icon icon="check-circle-fill"></b-icon>
               </span>
               <div>
@@ -61,7 +61,7 @@
               </div>
             </div>
             <div class="app-overview-stat res-stat-card">
-              <span class="app-overview-stat-icon app-overview-stat-icon--purple">
+              <span class="app-overview-stat-icon app-overview-stat-icon--info">
                 <b-icon icon="table"></b-icon>
               </span>
               <div>
@@ -72,10 +72,10 @@
           </div>
 
           <!-- Filters toolbar -->
-          <div class="app-section-card">
-            <div class="app-section-header app-section-header--toolbar res-filters-toolbar">
+          <div class="app-section-card app-filters-panel app-filters-panel--inset">
+            <div class="app-filters-panel-head app-section-header app-section-header--toolbar res-filters-toolbar">
               <div class="res-toolbar-main">
-                <div class="res-toolbar-fields">
+              <div class="app-filters-fields app-filters-fields--3 res-toolbar-fields">
                   <div class="app-search-wrap res-search-wrap">
                     <b-icon icon="search" class="app-search-icon"></b-icon>
                     <input
@@ -135,7 +135,7 @@
               </div>
             </div>
             <div v-show="showAdvancedFilters" class="app-section-body res-advanced-filters">
-              <div class="res-filter-grid">
+              <div class="app-filters-fields app-filters-fields--3 res-filter-grid">
                 <div class="res-filter-field">
                   <label class="res-filter-label">{{ $t("filterMode") || "نمط التاريخ" }}</label>
                   <select v-model="filterMode" class="res-filter-input" @change="onFilterModeChange">
@@ -241,7 +241,6 @@
                 <b-table
                   :items="reservations"
                   :fields="reservationFields"
-                  striped
                   hover
                   responsive
                   class="reports-table reservations-table"
@@ -302,7 +301,7 @@
                     @click="editReservation(row.item)"
                     :title="$t('edit')"
                   >
-                    <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                    <b-icon icon="pencil-square" class="action-icon"></b-icon>
                   </button>
                   <button
                     type="button"

@@ -15,16 +15,27 @@
                     </div>
                 </div>
 
-                <!-- Search Section -->
-                <div class="users-search-section">
-                    <div class="users-search-container">
-                        <b-icon icon="search" class="search-icon"></b-icon>
-                        <input 
-                            v-model="search.info" 
-                            type="search" 
-                            :placeholder="$t('search')"
-                            class="users-search-input"
-                        />
+                <div class="app-filters-panel app-filters-panel--inset">
+                    <div class="app-filters-panel-head">
+                        <div class="app-filters-panel-title">
+                            <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                            <div>
+                                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                                    <p>{{ $t('usersFiltersHint') || 'بحث في الحسابات بالاسم أو اسم المستخدم' }}</p>
+                                </div>
+                        </div>
+                        <div class="app-filters-panel-actions" v-if="search.info">
+                            <button type="button" class="users-form-cancel-button" @click="search.info = ''">
+                                <b-icon icon="x-circle"></b-icon>
+                                {{ $t('clearFilters') || 'مسح الفلاتر' }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="app-filters-fields app-filters-fields--1">
+                        <div class="app-search-wrap app-search-wrap--wide">
+                            <b-icon icon="search" class="app-search-icon"></b-icon>
+                            <input v-model="search.info" type="search" :placeholder="$t('search')" class="app-search-input" />
+                        </div>
                     </div>
                 </div>
 
@@ -57,11 +68,11 @@
                                     :disabled="role === 'Commercial' && User.role === 'Commercial'"
                                     :title="role === 'Commercial' && User.role === 'Commercial' ? ($t('noPermissionToEditCommercial') || 'ليس لديك صلاحية لتعديل المستخدمين التجاريين') : ''"
                                 >
-                                    <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                                    <b-icon icon="pencil-square" class="action-icon"></b-icon>
                                     <span>{{ $t('edit') }}</span>
                                 </button>
                                 <button class="user-action-button user-delete-button" @click="deleteUserModel(User)">
-                                    <b-icon icon="trash-fill" class="action-icon"></b-icon>
+                                    <b-icon icon="trash" class="action-icon"></b-icon>
                                     <span>{{ $t('delete') }}</span>
                                 </button>
                             </div>

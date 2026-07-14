@@ -328,6 +328,82 @@ namespace POS.Controllers
                 .Sum();
         }
 
+        private Dictionary<int, (int Qty, decimal Amount)> GetOrderReturnTotals(IEnumerable<int> orderIds)
+        {
+            var ids = orderIds?.Distinct().ToList() ?? new List<int>();
+            if (ids.Count == 0)
+                return new Dictionary<int, (int Qty, decimal Amount)>();
+
+            return _dbConfig.CatalogStockReturns
+                .AsNoTracking()
+                .Where(r => !r.IsDeleted
+                    && r.ReturnType == "Order"
+                    && r.CustomerOrderId != null
+                    && ids.Contains(r.CustomerOrderId.Value))
+                .GroupBy(r => r.CustomerOrderId!.Value)
+                .Select(g => new
+                {
+                    OrderId = g.Key,
+                    Qty = g.Sum(x => x.Quantity),
+                    Amount = g.Sum(x => x.Quantity * (x.UnitPrice ?? 0m))
+                })
+                .ToList()
+                .ToDictionary(x => x.OrderId, x => (x.Qty, x.Amount));
+        }
+
+        private Dictionary<int, (int Qty, decimal Amount)> GetItemReturnTotalsForOrderItems(
+            IQueryable<CustomerOrderItem> orderItemsQuery)
+        {
+            var orderIds = orderItemsQuery.Select(x => x.CustomerOrderId).Distinct();
+            return _dbConfig.CatalogStockReturns
+                .AsNoTracking()
+                .Where(r => !r.IsDeleted
+                    && r.ReturnType == "Order"
+                    && r.CustomerOrderId != null
+                    && orderIds.Contains(r.CustomerOrderId.Value))
+                .GroupBy(r => r.ItemId)
+                .Select(g => new
+                {
+                    ItemId = g.Key,
+                    Qty = g.Sum(x => x.Quantity),
+                    Amount = g.Sum(x => x.Quantity * (x.UnitPrice ?? 0m))
+                })
+                .ToList()
+                .ToDictionary(x => x.ItemId, x => (x.Qty, x.Amount));
+        }
+
+        private static (decimal NetSubTotal, decimal NetFinal, decimal NetDiscount) ApplyReturnsToOrderTotals(
+            decimal grossLineTotal,
+            decimal returnedAmount,
+            decimal? orderSubTotal,
+            decimal? orderTotalAfterDiscount,
+            decimal? discountAmount)
+        {
+            var gross = grossLineTotal > 0 ? grossLineTotal : (orderSubTotal ?? 0m);
+            var netSub = Math.Max(0m, gross - Math.Max(0m, returnedAmount));
+            var discount = discountAmount ?? 0m;
+            if (gross > 0 && discount > 0)
+            {
+                discount = Math.Round(discount * (netSub / gross), 2);
+            }
+            else
+            {
+                discount = 0m;
+            }
+
+            decimal netFinal;
+            if (orderTotalAfterDiscount.HasValue && gross > 0)
+            {
+                netFinal = Math.Max(0m, Math.Round(orderTotalAfterDiscount.Value * (netSub / gross), 2));
+            }
+            else
+            {
+                netFinal = Math.Max(0m, netSub - discount);
+            }
+
+            return (netSub, netFinal, discount);
+        }
+
         private static string EscapeCsv(string? value)
         {
             if (string.IsNullOrEmpty(value)) return "";
@@ -797,10 +873,10 @@ namespace POS.Controllers
         [HttpPost("AddTag")]
         public async Task<ActionResult<GlobalResponse<Tag>>> AddTag(TagRequset request)
         {
+            var commercialUserId = GetCommercialUserId();
 
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
-
-            var tag = await _dbConfig.Tags.FirstOrDefaultAsync(x => x.Name == request.Name && x.IsDeleted == false && x.InsertByUserId == userId);
+            var tag = await AccessibleTagsQuery(commercialUserId)
+                .FirstOrDefaultAsync(x => x.Name == request.Name);
             if (tag != null)
             {
                 return BadRequest(new GlobalResponse<Tag>
@@ -811,7 +887,7 @@ namespace POS.Controllers
                 });
             }
             var newTag = _mapper.Map<Tag>(request);
-            newTag.InsertByUserId = userId;
+            newTag.InsertByUserId = commercialUserId;
             _dbConfig.Tags.Add(newTag);
             await _dbConfig.SaveChangesAsync();
 
@@ -844,8 +920,9 @@ namespace POS.Controllers
                 });
             }
 
-            var userInsertByUserId = user.InsertByUserId;
-            var tag = await _dbConfig.Tags.FirstOrDefaultAsync(x => x.Id == id && x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId));
+            var commercialUserId = GetCommercialUserId();
+            var tag = await AccessibleTagsQuery(commercialUserId)
+                .FirstOrDefaultAsync(x => x.Id == id);
             if (tag == null)
             {
                 return BadRequest(new GlobalResponse<Tag>
@@ -885,8 +962,9 @@ namespace POS.Controllers
                 });
             }
 
-            var userInsertByUserId = user.InsertByUserId;
-            var tag = await _dbConfig.Tags.FirstOrDefaultAsync(x => x.Id == id && x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId));
+            var commercialUserId = GetCommercialUserId();
+            var tag = await AccessibleTagsQuery(commercialUserId)
+                .FirstOrDefaultAsync(x => x.Id == id);
             if (tag == null)
             {
                 return BadRequest(new GlobalResponse<Tag>
@@ -927,8 +1005,8 @@ namespace POS.Controllers
                 });
             }
 
-            var userInsertByUserId = user.InsertByUserId;
-            var tag = _dbConfig.Tags.Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId)).AsQueryable();
+            var commercialUserId = GetCommercialUserId();
+            var tag = AccessibleTagsQuery(commercialUserId);
 
             if (info != null)
             {
@@ -974,9 +1052,10 @@ namespace POS.Controllers
                 });
             }
 
-            var userInsertByUserId = user.InsertByUserId;
+            var commercialUserId = GetCommercialUserId();
             var itemCode = request.Code ?? RandomCode();
-            var item = await _dbConfig.Items.FirstOrDefaultAsync(x => x.Name == request.Name && x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId));
+            var item = await AccessibleItemsQuery(commercialUserId)
+                .FirstOrDefaultAsync(x => x.Name == request.Name);
             if (item != null)
             {
                 return BadRequest(new GlobalResponse<Item>
@@ -992,7 +1071,7 @@ namespace POS.Controllers
                 newItem.Image = await UploadIamgesAsync(request.Image);
             }
             newItem.Code = itemCode;
-            newItem.InsertByUserId = userId;
+            newItem.InsertByUserId = commercialUserId;
             _dbConfig.Items.Add(newItem);
             await _dbConfig.SaveChangesAsync();
 
@@ -1204,10 +1283,9 @@ namespace POS.Controllers
         [HttpPut("UpdateItem")]
         public async Task<ActionResult<GlobalResponse<Item>>> UpdateItem([FromForm]  ItemRequest request, int id)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-            var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+            var commercialUserId = GetCommercialUserId();
 
-            var item = await _dbConfig.Items.FirstOrDefaultAsync(x => x.Id == id && x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+            var item = await FindAccessibleItemAsync(id, commercialUserId);
             if (item == null)
             {
                 return BadRequest(new GlobalResponse<Item>
@@ -1257,12 +1335,9 @@ namespace POS.Controllers
         [HttpDelete("DeleteItem")]
         public async Task<ActionResult<GlobalResponse<int>>> DeleteItem(int id)
         {
+            var commercialUserId = GetCommercialUserId();
 
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
-            var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
-
-
-            var item = await _dbConfig.Items.FirstOrDefaultAsync(x => x.Id == id && x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+            var item = await FindAccessibleItemAsync(id, commercialUserId);
             if (item == null)
             {
                 return BadRequest(new GlobalResponse<Item>
@@ -1317,8 +1392,8 @@ namespace POS.Controllers
                 });
             }
 
-            var userInsertByUserId = user.InsertByUserId;
-            var item = _dbConfig.Items.Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId)).AsQueryable();
+            var commercialUserId = GetCommercialUserId();
+            var item = AccessibleItemsQuery(commercialUserId);
 
             if (!string.IsNullOrWhiteSpace(info))
             {
@@ -1404,8 +1479,8 @@ namespace POS.Controllers
                 });
             }
 
-            var userInsertByUserId = user.InsertByUserId;
-            var item = await FindItemByAnyCodeAsync(code, userId, userInsertByUserId);
+            var commercialUserId = GetCommercialUserId();
+            var item = await FindItemByAnyCodeAsync(code, commercialUserId);
 
             if (item == null)
             {
@@ -1450,7 +1525,8 @@ namespace POS.Controllers
                 });
             }
 
-            var item = await FindAccessibleItemAsync(itemId, userId, user.InsertByUserId);
+            var commercialUserId = GetCommercialUserId();
+            var item = await FindAccessibleItemAsync(itemId, commercialUserId);
             if (item == null)
             {
                 return NotFound(new GlobalResponse<object>
@@ -1503,7 +1579,8 @@ namespace POS.Controllers
                 });
             }
 
-            var item = await FindAccessibleItemAsync(request.ItemId, userId, user.InsertByUserId);
+            var commercialUserId = GetCommercialUserId();
+            var item = await FindAccessibleItemAsync(request.ItemId, commercialUserId);
             if (item == null)
             {
                 return NotFound(new GlobalResponse<ItemCode>
@@ -1524,7 +1601,7 @@ namespace POS.Controllers
                 });
             }
 
-            if (await IsCodeTakenAsync(code, userId, user.InsertByUserId, excludeItemCodeId: null))
+            if (await IsCodeTakenAsync(code, commercialUserId, excludeItemCodeId: null))
             {
                 return BadRequest(new GlobalResponse<ItemCode>
                 {
@@ -1538,7 +1615,7 @@ namespace POS.Controllers
             {
                 ItemId = item.Id,
                 Code = code,
-                InsertByUserId = userId,
+                InsertByUserId = commercialUserId,
             };
             _dbConfig.ItemCodes.Add(row);
             await _dbConfig.SaveChangesAsync();
@@ -1583,10 +1660,12 @@ namespace POS.Controllers
             }
 
             var item = row.Item;
-            var allowed =
-                item.InsertByUserId == userId ||
-                (item.User != null && item.User.Id == user.InsertByUserId) ||
-                (item.User != null && item.User.InsertByUserId == userId);
+            var commercialUserId = GetCommercialUserId();
+            var allowed = BelongsToCommercialCatalog(
+                item.InsertByUserId,
+                item.User?.Id,
+                item.User?.InsertByUserId,
+                commercialUserId);
 
             if (!allowed)
             {
@@ -1635,9 +1714,8 @@ namespace POS.Controllers
 
                 }
                 
-                var items = _dbConfig.Items
-                    .Where(x => !x.IsDeleted && (x.InsertByUserId == userId ||  x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId))
-                    .ToList();
+                var commercialUserId = GetCommercialUserId();
+                var items = AccessibleItemsQuery(commercialUserId).ToList();
 
                 var orderCode = request.OrderCode ?? RandomCode();
                 var paymentMethod = request.PaymentMethod ?? "Cash";
@@ -1645,8 +1723,6 @@ namespace POS.Controllers
 
                 if (string.Equals(paymentMethod, "Credit", StringComparison.OrdinalIgnoreCase))
                 {
-                    var commercialUserIdForCredit = GetCommercialUserId();
-
                     if (!request.CreditCustomerId.HasValue)
                     {
                         return BadRequest(new GlobalResponse<CustomerOrder>
@@ -1662,7 +1738,7 @@ namespace POS.Controllers
                         .FirstOrDefaultAsync(c =>
                             c.Id == request.CreditCustomerId.Value
                             && !c.IsDeleted
-                            && c.InsertByUserId == commercialUserIdForCredit);
+                            && c.InsertByUserId == commercialUserId);
 
                     if (cust == null)
                     {
@@ -1915,13 +1991,18 @@ namespace POS.Controllers
             }
 
             var totalItems = items.Count();
-            var totalSales = SumOrdersSalesAmount(items);
-            var totalSubTotal = items.Sum(o => o.OrderSubTotal ?? 0m);
+            var orderIdList = items.Select(o => o.Id).ToList();
+            var returnTotalsByOrder = GetOrderReturnTotals(orderIdList);
+            var returnedSalesTotal = returnTotalsByOrder.Values.Sum(v => v.Amount);
+            var returnedQtyTotal = returnTotalsByOrder.Values.Sum(v => v.Qty);
+
+            var totalSales = Math.Max(0m, SumOrdersSalesAmount(items) - returnedSalesTotal);
+            var totalSubTotal = Math.Max(0m, items.Sum(o => o.OrderSubTotal ?? 0m) - returnedSalesTotal);
             var totalDiscount = items.Sum(o => o.DiscountAmount ?? 0m);
-            var orderIds = items.Select(o => o.Id);
-            var totalItemsSold = _dbConfig.CustomerOrderItems
-                .Where(i => !i.IsDeleted && orderIds.Contains(i.CustomerOrderId))
-                .Sum(i => (int?)i.Quantity) ?? 0;
+            var totalItemsSold = Math.Max(0,
+                (_dbConfig.CustomerOrderItems
+                    .Where(i => !i.IsDeleted && orderIdList.Contains(i.CustomerOrderId))
+                    .Sum(i => (int?)i.Quantity) ?? 0) - returnedQtyTotal);
 
             var summary = new OrdersSummaryDto
             {
@@ -1933,22 +2014,78 @@ namespace POS.Controllers
                 AverageOrderValue = totalItems > 0 ? Math.Round(totalSales / totalItems, 2) : 0m
             };
 
-            var ordersList = items
+            var pageOrders = items
+                .AsNoTracking()
                 .OrderByDescending(x => x.InsertDate)
                 .Skip(pageNumber * pageSize)
                 .Take(pageSize)
+                .ToList();
+
+            var pageOrderIds = pageOrders.Select(o => o.Id).ToList();
+            var returnedQtyByOrderItem = _dbConfig.CatalogStockReturns
+                .AsNoTracking()
+                .Where(r => !r.IsDeleted
+                    && r.ReturnType == "Order"
+                    && r.CustomerOrderId != null
+                    && pageOrderIds.Contains(r.CustomerOrderId.Value))
+                .GroupBy(r => new { OrderId = r.CustomerOrderId!.Value, r.ItemId })
+                .Select(g => new { g.Key.OrderId, g.Key.ItemId, Qty = g.Sum(x => x.Quantity) })
                 .ToList()
+                .GroupBy(x => x.OrderId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.ToDictionary(x => x.ItemId, x => x.Qty));
+
+            var ordersList = pageOrders
                 .Select(x =>
                 {
                     var activeOrderItems = GetActiveOrderItems(x.CustomerOrderItem);
                     var lineTotal = activeOrderItems.Sum(item => item.SellingPrice * item.Quantity);
+                    returnTotalsByOrder.TryGetValue(x.Id, out var orderReturn);
+                    var (netSubTotal, netFinal, netDiscount) = ApplyReturnsToOrderTotals(
+                        lineTotal,
+                        orderReturn.Amount,
+                        x.OrderSubTotal,
+                        x.OrderTotalAfterDiscount,
+                        x.DiscountAmount);
+
+                    returnedQtyByOrderItem.TryGetValue(x.Id, out var itemReturns);
+                    itemReturns ??= new Dictionary<int, int>();
+
+                    var displayLines = activeOrderItems
+                        .GroupBy(i => i.ItemId)
+                        .Select(g =>
+                        {
+                            var first = g.First();
+                            var soldQty = g.Sum(i => i.Quantity);
+                            itemReturns.TryGetValue(g.Key, out var returnedQty);
+                            var netQty = Math.Max(0, soldQty - returnedQty);
+                            return new CustomerOrderItem
+                            {
+                                Id = first.Id,
+                                ItemId = first.ItemId,
+                                Item = first.Item,
+                                CustomerOrderId = first.CustomerOrderId,
+                                Quantity = netQty,
+                                SellingPrice = first.SellingPrice,
+                                PurchasingPrice = first.PurchasingPrice,
+                                Notes = first.Notes,
+                                InsertByUserId = first.InsertByUserId,
+                                InsertDate = first.InsertDate,
+                                UpdateDate = first.UpdateDate,
+                                IsDeleted = first.IsDeleted
+                            };
+                        })
+                        .Where(i => i.Quantity > 0)
+                        .ToList();
+
                     return new OrderDto
                     {
-                        CustomerOrderItem = activeOrderItems,
-                        OrderPrice = lineTotal,
+                        CustomerOrderItem = displayLines,
+                        OrderPrice = netFinal,
                         OrderCode = x.OrderCode,
                         Id = x.Id,
-                        ItemsCount = activeOrderItems.Count,
+                        ItemsCount = displayLines.Count,
                         InsertDate = x.InsertDate,
                         PaymentMethod = x.PaymentMethod,
                         IsWholesale = x.IsWholesale,
@@ -1956,10 +2093,10 @@ namespace POS.Controllers
                         CreatedByUsername = x.User != null ? x.User.Username : null,
                         DiscountType = x.DiscountType,
                         DiscountValue = x.DiscountValue,
-                        DiscountAmount = x.DiscountAmount,
+                        DiscountAmount = netDiscount,
                         DiscountPercent = x.DiscountPercent,
-                        OrderSubTotal = x.OrderSubTotal,
-                        OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
+                        OrderSubTotal = netSubTotal,
+                        OrderTotalAfterDiscount = netFinal,
                     };
                 })
                 .ToList();
@@ -2101,9 +2238,7 @@ namespace POS.Controllers
                 {
                     foreach (var itemRequest in request.CustomerOrderItem)
                     {
-                        var currentItem = await _dbConfig.Items
-                            .FirstOrDefaultAsync(x => x.Id == itemRequest.ItemId && x.IsDeleted == false &&
-                                (x.InsertByUserId == userId || x.User!.Id == userInsertByUserId || x.User!.InsertByUserId == userId));
+                        var currentItem = await FindAccessibleItemAsync(itemRequest.ItemId, GetCommercialUserId());
 
                         if (currentItem == null)
                         {
@@ -2233,27 +2368,53 @@ namespace POS.Controllers
                 : item.SellingPrice;
         }
 
-        private IQueryable<Item> AccessibleItemsQuery(int userId, int userInsertByUserId)
+        /// <summary>
+        /// Items owned by the commercial account or by any sub-user under that commercial (shared POS catalog).
+        /// </summary>
+        private IQueryable<Item> AccessibleItemsQuery(int commercialUserId)
         {
             return _dbConfig.Items.Where(x =>
                 !x.IsDeleted &&
-                (x.InsertByUserId == userId ||
-                 x.User!.Id == userInsertByUserId ||
-                 x.User.InsertByUserId == userId));
+                (x.InsertByUserId == commercialUserId ||
+                 x.User!.Id == commercialUserId ||
+                 x.User.InsertByUserId == commercialUserId));
         }
 
-        private Task<Item?> FindAccessibleItemAsync(int itemId, int userId, int userInsertByUserId)
+        /// <summary>
+        /// Tags owned by the commercial account or by any sub-user under that commercial.
+        /// </summary>
+        private IQueryable<Tag> AccessibleTagsQuery(int commercialUserId)
         {
-            return AccessibleItemsQuery(userId, userInsertByUserId)
+            return _dbConfig.Tags.Where(x =>
+                !x.IsDeleted &&
+                (x.InsertByUserId == commercialUserId ||
+                 x.User!.Id == commercialUserId ||
+                 x.User.InsertByUserId == commercialUserId));
+        }
+
+        private static bool BelongsToCommercialCatalog(
+            int insertByUserId,
+            int? ownerUserId,
+            int? ownerInsertByUserId,
+            int commercialUserId)
+        {
+            return insertByUserId == commercialUserId
+                || ownerUserId == commercialUserId
+                || ownerInsertByUserId == commercialUserId;
+        }
+
+        private Task<Item?> FindAccessibleItemAsync(int itemId, int commercialUserId)
+        {
+            return AccessibleItemsQuery(commercialUserId)
                 .FirstOrDefaultAsync(x => x.Id == itemId);
         }
 
-        private async Task<Item?> FindItemByAnyCodeAsync(string? code, int userId, int userInsertByUserId)
+        private async Task<Item?> FindItemByAnyCodeAsync(string? code, int commercialUserId)
         {
             if (string.IsNullOrWhiteSpace(code)) return null;
             var trimmed = code.Trim();
 
-            var byPrimary = await AccessibleItemsQuery(userId, userInsertByUserId)
+            var byPrimary = await AccessibleItemsQuery(commercialUserId)
                 .FirstOrDefaultAsync(x => x.Code == trimmed);
             if (byPrimary != null) return byPrimary;
 
@@ -2266,17 +2427,17 @@ namespace POS.Controllers
                     c.Code == trimmed &&
                     c.Item != null &&
                     !c.Item.IsDeleted &&
-                    (c.Item.InsertByUserId == userId ||
-                     c.Item.User!.Id == userInsertByUserId ||
-                     c.Item.User.InsertByUserId == userId));
+                    (c.Item.InsertByUserId == commercialUserId ||
+                     c.Item.User!.Id == commercialUserId ||
+                     c.Item.User.InsertByUserId == commercialUserId));
 
             return extra?.Item;
         }
 
-        private async Task<bool> IsCodeTakenAsync(string code, int userId, int userInsertByUserId, int? excludeItemCodeId)
+        private async Task<bool> IsCodeTakenAsync(string code, int commercialUserId, int? excludeItemCodeId)
         {
             var trimmed = code.Trim();
-            var primaryTaken = await AccessibleItemsQuery(userId, userInsertByUserId)
+            var primaryTaken = await AccessibleItemsQuery(commercialUserId)
                 .AnyAsync(x => x.Code == trimmed);
             if (primaryTaken) return true;
 
@@ -2288,9 +2449,9 @@ namespace POS.Controllers
                     c.Code == trimmed &&
                     c.Item != null &&
                     !c.Item.IsDeleted &&
-                    (c.Item.InsertByUserId == userId ||
-                     c.Item.User!.Id == userInsertByUserId ||
-                     c.Item.User.InsertByUserId == userId));
+                    (c.Item.InsertByUserId == commercialUserId ||
+                     c.Item.User!.Id == commercialUserId ||
+                     c.Item.User.InsertByUserId == commercialUserId));
 
             if (excludeItemCodeId.HasValue)
             {
@@ -2550,14 +2711,28 @@ namespace POS.Controllers
                 var profitData = orderItemsQuery
                     .Select(x => new
                     {
+                        ItemId = x.ItemId,
                         SellingPrice = x.SellingPrice,
                         PurchasingPrice = x.Item.PurchasingPrice,
                         Quantity = x.Quantity
                     })
                     .ToList();
 
-                var totalSales = profitData.Sum(x => x.SellingPrice * x.Quantity);
-                var totalCost = profitData.Sum(x => x.PurchasingPrice * x.Quantity);
+                var returnRows = GetItemReturnTotalsForOrderItems(orderItemsQuery);
+                var returnedSales = returnRows.Values.Sum(v => v.Amount);
+                var returnedQty = returnRows.Values.Sum(v => v.Qty);
+                var returnedCost = profitData
+                    .GroupBy(x => x.ItemId)
+                    .Sum(g =>
+                    {
+                        returnRows.TryGetValue(g.Key, out var ret);
+                        if (ret.Qty <= 0) return 0m;
+                        var avgCost = g.Average(x => x.PurchasingPrice);
+                        return avgCost * ret.Qty;
+                    });
+
+                var totalSales = Math.Max(0m, profitData.Sum(x => x.SellingPrice * x.Quantity) - returnedSales);
+                var totalCost = Math.Max(0m, profitData.Sum(x => x.PurchasingPrice * x.Quantity) - returnedCost);
                 var totalProfit = totalSales - totalCost;
                 var profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
 
@@ -2567,7 +2742,7 @@ namespace POS.Controllers
                     totalCost = totalCost,
                     totalProfit = totalProfit,
                     profitMargin = Math.Round(profitMargin, 2),
-                    totalItemsSold = profitData.Sum(x => x.Quantity),
+                    totalItemsSold = Math.Max(0, profitData.Sum(x => x.Quantity) - returnedQty),
                     period = new
                     {
                         startDate = startDate?.ToString("yyyy-MM-dd"),
@@ -2618,10 +2793,14 @@ namespace POS.Controllers
                 if (topCount < 1) topCount = 10;
                 if (topCount > 500) topCount = 500;
 
+                var returnRows = GetItemReturnTotalsForOrderItems(orderItemsQuery);
+                var returnedQty = returnRows.Values.Sum(v => v.Qty);
+                var returnedSales = returnRows.Values.Sum(v => v.Amount);
+
                 var summary = new TopSellingItemsSummaryDto
                 {
-                    TotalQuantitySold = orderItemsQuery.Sum(x => (int?)x.Quantity) ?? 0,
-                    TotalSales = orderItemsQuery.Sum(x => (decimal?)(x.SellingPrice * x.Quantity)) ?? 0m,
+                    TotalQuantitySold = Math.Max(0, (orderItemsQuery.Sum(x => (int?)x.Quantity) ?? 0) - returnedQty),
+                    TotalSales = Math.Max(0m, (orderItemsQuery.Sum(x => (decimal?)(x.SellingPrice * x.Quantity)) ?? 0m) - returnedSales),
                     TotalDistinctItems = orderItemsQuery.Select(x => x.ItemId).Distinct().Count(),
                     TotalOrders = orderItemsQuery.Select(x => x.CustomerOrderId).Distinct().Count()
                 };
@@ -2637,6 +2816,21 @@ namespace POS.Controllers
                         totalSales = g.Sum(x => x.SellingPrice * x.Quantity),
                         orderCount = g.Select(x => x.CustomerOrderId).Distinct().Count()
                     })
+                    .ToList()
+                    .Select(x =>
+                    {
+                        returnRows.TryGetValue(x.itemId, out var ret);
+                        return new
+                        {
+                            x.itemId,
+                            x.itemName,
+                            x.itemCode,
+                            totalQuantitySold = Math.Max(0, x.totalQuantitySold - ret.Qty),
+                            totalSales = Math.Max(0m, x.totalSales - ret.Amount),
+                            x.orderCount
+                        };
+                    })
+                    .Where(x => x.totalQuantitySold > 0)
                     .OrderByDescending(x => x.totalQuantitySold)
                     .Take(topCount)
                     .ToList();
@@ -2651,6 +2845,168 @@ namespace POS.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting top selling items");
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ: {ex.Message}"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial,Admin,POS")]
+        [HttpGet("GetProductSalesReport")]
+        public ActionResult<GlobalResponse<object>> GetProductSalesReport(
+            DateTime? startDate = null,
+            DateTime? endDate = null,
+            string? tag = null,
+            string? info = null,
+            int? itemId = null,
+            bool onlyWithSales = false,
+            int pageNumber = 0,
+            int pageSize = 200)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+                if (user == null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "User not found"
+                    });
+                }
+
+                if (pageSize < 1) pageSize = 200;
+                if (pageSize > 1000) pageSize = 1000;
+                if (pageNumber < 0) pageNumber = 0;
+
+                var commercialUserId = GetCommercialUserId();
+                var itemsQuery = AccessibleItemsQuery(commercialUserId);
+
+                if (itemId.HasValue && itemId.Value > 0)
+                {
+                    itemsQuery = itemsQuery.Where(x => x.Id == itemId.Value);
+                }
+
+                if (!string.IsNullOrWhiteSpace(tag))
+                {
+                    var tagFilter = tag.Trim();
+                    itemsQuery = itemsQuery.Where(x => x.Tags != null && x.Tags == tagFilter);
+                }
+
+                if (!string.IsNullOrWhiteSpace(info))
+                {
+                    var search = info.Trim();
+                    itemsQuery = itemsQuery.Where(x =>
+                        x.Code == search ||
+                        x.Name.Contains(search) ||
+                        (x.Description != null && x.Description.Contains(search)) ||
+                        _dbConfig.ItemCodes.Any(c =>
+                            !c.IsDeleted &&
+                            c.ItemId == x.Id &&
+                            c.Code == search));
+                }
+
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user.InsertByUserId)
+                    .Include(x => x.Item)
+                    .Include(x => x.CustomerOrder);
+
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
+                {
+                    orderItemsQuery = orderItemsQuery.Where(x =>
+                        x.CustomerOrder != null &&
+                        x.CustomerOrder.InsertDate >= fromUtc &&
+                        x.CustomerOrder.InsertDate < toUtcEx);
+                }
+
+                var salesRows = orderItemsQuery
+                    .GroupBy(x => x.ItemId)
+                    .Select(g => new
+                    {
+                        ItemId = g.Key,
+                        QuantitySold = g.Sum(x => x.Quantity),
+                        TotalSales = g.Sum(x => x.SellingPrice * x.Quantity),
+                        OrderCount = g.Select(x => x.CustomerOrderId).Distinct().Count()
+                    })
+                    .ToList()
+                    .ToDictionary(x => x.ItemId);
+
+                var returnRows = GetItemReturnTotalsForOrderItems(orderItemsQuery);
+
+                var catalogItems = itemsQuery
+                    .Select(x => new
+                    {
+                        x.Id,
+                        x.Name,
+                        x.Code,
+                        x.Tags,
+                        x.Quantity,
+                        x.SellingPrice
+                    })
+                    .ToList();
+
+                var rows = catalogItems
+                    .Select(item =>
+                    {
+                        salesRows.TryGetValue(item.Id, out var sale);
+                        returnRows.TryGetValue(item.Id, out var ret);
+                        var qtySold = Math.Max(0, (sale?.QuantitySold ?? 0) - ret.Qty);
+                        var totalSales = Math.Max(0m, (sale?.TotalSales ?? 0m) - ret.Amount);
+                        var orderCount = sale?.OrderCount ?? 0;
+                        return new
+                        {
+                            itemId = item.Id,
+                            itemName = item.Name,
+                            itemCode = item.Code,
+                            category = item.Tags,
+                            quantitySold = qtySold,
+                            remainingQuantity = item.Quantity,
+                            totalSales,
+                            orderCount,
+                            unitPrice = item.SellingPrice
+                        };
+                    })
+                    .Where(r => !onlyWithSales || r.quantitySold > 0)
+                    .OrderByDescending(r => r.quantitySold)
+                    .ThenBy(r => r.itemName)
+                    .ToList();
+
+                var totalItems = rows.Count;
+                var paged = rows
+                    .Skip(pageNumber * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                var summary = new
+                {
+                    totalQuantitySold = rows.Sum(r => r.quantitySold),
+                    totalSales = rows.Sum(r => r.totalSales),
+                    totalDistinctItems = rows.Count,
+                    totalRemainingQuantity = rows.Sum(r => r.remainingQuantity),
+                    itemsWithSales = rows.Count(r => r.quantitySold > 0)
+                };
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new
+                    {
+                        items = paged,
+                        summary,
+                        totalItems,
+                        pageNumber,
+                        pageSize
+                    },
+                    ErrorStatus = false,
+                    Message = "Success"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting product sales report");
                 return BadRequest(new GlobalResponse<object>
                 {
                     Data = null,
@@ -2692,12 +3048,47 @@ namespace POS.Controllers
                         itemCount = g.Select(x => x.ItemId).Distinct().Count(),
                         orderCount = g.Select(x => x.CustomerOrderId).Distinct().Count()
                     })
+                    .ToList();
+
+                var orderIds = orderItemsQuery.Select(x => x.CustomerOrderId).Distinct();
+                var returnsByCategory = _dbConfig.CatalogStockReturns
+                    .AsNoTracking()
+                    .Where(r => !r.IsDeleted
+                        && r.ReturnType == "Order"
+                        && r.CustomerOrderId != null
+                        && orderIds.Contains(r.CustomerOrderId.Value)
+                        && r.Item != null
+                        && !string.IsNullOrEmpty(r.Item.Tags))
+                    .GroupBy(r => r.Item!.Tags)
+                    .Select(g => new
+                    {
+                        category = g.Key,
+                        totalSales = g.Sum(x => x.Quantity * (x.UnitPrice ?? 0m)),
+                        totalQuantity = g.Sum(x => x.Quantity)
+                    })
+                    .ToList()
+                    .ToDictionary(x => x.category ?? "", x => x);
+
+                var netSalesByCategory = salesByCategory
+                    .Select(row =>
+                    {
+                        returnsByCategory.TryGetValue(row.category ?? "", out var ret);
+                        return new
+                        {
+                            row.category,
+                            totalSales = Math.Max(0m, row.totalSales - (ret?.totalSales ?? 0m)),
+                            totalQuantity = Math.Max(0, row.totalQuantity - (ret?.totalQuantity ?? 0)),
+                            row.itemCount,
+                            row.orderCount
+                        };
+                    })
+                    .Where(x => x.totalQuantity > 0 || x.totalSales > 0)
                     .OrderByDescending(x => x.totalSales)
                     .ToList();
 
                 return Ok(new GlobalResponse<object>
                 {
-                    Data = salesByCategory,
+                    Data = netSalesByCategory,
                     ErrorStatus = false,
                     Message = "Success"
                 });
@@ -2776,9 +3167,8 @@ namespace POS.Controllers
                 var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
                 var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
-                var itemsQuery = _dbConfig.Items
-                    .Where(x => x.IsDeleted == false &&
-                                (x.InsertByUserId == userId || x.User!.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+                var commercialUserId = GetCommercialUserId();
+                var itemsQuery = AccessibleItemsQuery(commercialUserId);
 
                 var lowStockItems = itemsQuery
                     .Where(x => x.Quantity <= threshold)
@@ -2831,11 +3221,11 @@ namespace POS.Controllers
                     });
                 }
 
-                var alerts = _dbConfig.Items
-                    .Where(x => x.IsDeleted == false &&
+                var commercialUserId = GetCommercialUserId();
+                var alerts = AccessibleItemsQuery(commercialUserId)
+                    .Where(x =>
                                 x.LowStockAlertQuantity != null &&
-                                x.Quantity <= x.LowStockAlertQuantity &&
-                                (x.InsertByUserId == userId || x.User!.Id == user.InsertByUserId || x.User.InsertByUserId == userId))
+                                x.Quantity <= x.LowStockAlertQuantity)
                     .Select(x => new
                     {
                         itemId = x.Id,
@@ -2869,6 +3259,476 @@ namespace POS.Controllers
             }
         }
 
+        [Authorize]
+        [AuthorizeSection("stockReturns", Roles = "Commercial,POS")]
+        [HttpGet("GetOrderForReturn")]
+        public async Task<ActionResult<GlobalResponse<OrderForReturnDto>>> GetOrderForReturn(string orderCode)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(orderCode))
+                {
+                    return BadRequest(new GlobalResponse<OrderForReturnDto>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "رقم الفاتورة مطلوب"
+                    });
+                }
+
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == userId && !x.IsDeleted);
+                if (user == null)
+                {
+                    return BadRequest(new GlobalResponse<OrderForReturnDto>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "User not found"
+                    });
+                }
+
+                var code = orderCode.Trim();
+                var userInsertByUserId = user.InsertByUserId;
+                var order = await _dbConfig.CustomerOrders
+                    .Include(x => x.CustomerOrderItem!)
+                    .ThenInclude(i => i.Item)
+                    .Include(x => x.User)
+                    .FirstOrDefaultAsync(x =>
+                        !x.IsDeleted &&
+                        x.OrderCode == code &&
+                        (x.InsertByUserId == userId ||
+                         x.User.Id == userInsertByUserId ||
+                         x.User.InsertByUserId == userId));
+
+                if (order == null)
+                {
+                    return NotFound(new GlobalResponse<OrderForReturnDto>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "الفاتورة غير موجودة"
+                    });
+                }
+
+                var activeLines = GetActiveOrderItems(order.CustomerOrderItem);
+                var soldByItem = activeLines
+                    .GroupBy(i => i.ItemId)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => new
+                        {
+                            SoldQty = g.Sum(x => x.Quantity),
+                            UnitPrice = g.First().SellingPrice,
+                            ItemName = g.First().Item?.Name ?? "",
+                            ItemCode = g.First().Item?.Code
+                        });
+
+                var alreadyReturned = await _dbConfig.CatalogStockReturns
+                    .Where(r => !r.IsDeleted && r.CustomerOrderId == order.Id && r.ReturnType == "Order")
+                    .GroupBy(r => r.ItemId)
+                    .Select(g => new { ItemId = g.Key, Qty = g.Sum(x => x.Quantity) })
+                    .ToDictionaryAsync(x => x.ItemId, x => x.Qty);
+
+                var lines = soldByItem.Select(kv =>
+                {
+                    alreadyReturned.TryGetValue(kv.Key, out var returnedQty);
+                    var returnable = Math.Max(0, kv.Value.SoldQty - returnedQty);
+                    return new OrderForReturnLineDto
+                    {
+                        ItemId = kv.Key,
+                        ItemName = kv.Value.ItemName,
+                        ItemCode = kv.Value.ItemCode,
+                        UnitPrice = kv.Value.UnitPrice,
+                        SoldQty = kv.Value.SoldQty,
+                        AlreadyReturnedQty = returnedQty,
+                        ReturnableQty = returnable
+                    };
+                }).OrderBy(l => l.ItemName).ToList();
+
+                return Ok(new GlobalResponse<OrderForReturnDto>
+                {
+                    Data = new OrderForReturnDto
+                    {
+                        OrderId = order.Id,
+                        OrderCode = order.OrderCode,
+                        InsertDate = order.InsertDate,
+                        PaymentMethod = order.PaymentMethod ?? "Cash",
+                        Lines = lines
+                    },
+                    ErrorStatus = false,
+                    Message = "Success"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting order for return");
+                return BadRequest(new GlobalResponse<OrderForReturnDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ: {ex.Message}"
+                });
+            }
+        }
+
+        [Authorize]
+        [AuthorizeSection("stockReturns", Roles = "Commercial,POS")]
+        [HttpPost("ReturnFromOrder")]
+        public async Task<ActionResult<GlobalResponse<object>>> ReturnFromOrder([FromBody] ReturnFromOrderRequest request)
+        {
+            try
+            {
+                if (request == null || request.Lines == null || request.Lines.Count == 0)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "بيانات المرتجع غير مكتملة"
+                    });
+                }
+
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == userId && !x.IsDeleted);
+                if (user == null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "User not found"
+                    });
+                }
+
+                var commercialUserId = GetCommercialUserId();
+                var userInsertByUserId = user.InsertByUserId;
+                var order = await _dbConfig.CustomerOrders
+                    .Include(x => x.CustomerOrderItem!)
+                    .ThenInclude(i => i.Item)
+                    .Include(x => x.User)
+                    .FirstOrDefaultAsync(x =>
+                        !x.IsDeleted &&
+                        x.Id == request.OrderId &&
+                        (x.InsertByUserId == userId ||
+                         x.User.Id == userInsertByUserId ||
+                         x.User.InsertByUserId == userId));
+
+                if (order == null)
+                {
+                    return NotFound(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "الفاتورة غير موجودة"
+                    });
+                }
+
+                var activeLines = GetActiveOrderItems(order.CustomerOrderItem);
+                var soldByItem = activeLines
+                    .GroupBy(i => i.ItemId)
+                    .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+                var unitPriceByItem = activeLines
+                    .GroupBy(i => i.ItemId)
+                    .ToDictionary(g => g.Key, g => g.First().SellingPrice);
+
+                var alreadyReturned = await _dbConfig.CatalogStockReturns
+                    .Where(r => !r.IsDeleted && r.CustomerOrderId == order.Id && r.ReturnType == "Order")
+                    .GroupBy(r => r.ItemId)
+                    .Select(g => new { ItemId = g.Key, Qty = g.Sum(x => x.Quantity) })
+                    .ToDictionaryAsync(x => x.ItemId, x => x.Qty);
+
+                var requestedByItem = request.Lines
+                    .Where(l => l.Quantity > 0)
+                    .GroupBy(l => l.ItemId)
+                    .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+                if (requestedByItem.Count == 0)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "أدخل كمية مرتجع واحدة على الأقل"
+                    });
+                }
+
+                foreach (var kv in requestedByItem)
+                {
+                    if (!soldByItem.TryGetValue(kv.Key, out var soldQty))
+                    {
+                        return BadRequest(new GlobalResponse<object>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = $"المنتج {kv.Key} غير موجود في الفاتورة"
+                        });
+                    }
+
+                    alreadyReturned.TryGetValue(kv.Key, out var returnedQty);
+                    var returnable = soldQty - returnedQty;
+                    if (kv.Value > returnable)
+                    {
+                        return BadRequest(new GlobalResponse<object>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = $"الكمية المرتجعة تتجاوز المتاح للإرجاع (المتبقي: {Math.Max(0, returnable)})"
+                        });
+                    }
+                }
+
+                var notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+                var created = new List<object>();
+
+                foreach (var kv in requestedByItem)
+                {
+                    var stockItem = await FindAccessibleItemAsync(kv.Key, commercialUserId);
+                    if (stockItem == null)
+                    {
+                        return BadRequest(new GlobalResponse<object>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = $"المنتج برقم {kv.Key} غير موجود"
+                        });
+                    }
+
+                    stockItem.Quantity += kv.Value;
+                    _dbConfig.Items.Update(stockItem);
+
+                    unitPriceByItem.TryGetValue(kv.Key, out var unitPrice);
+                    var entry = new CatalogStockReturn
+                    {
+                        ItemId = kv.Key,
+                        Quantity = kv.Value,
+                        ReturnType = "Order",
+                        CustomerOrderId = order.Id,
+                        OrderCode = order.OrderCode,
+                        UnitPrice = unitPrice,
+                        Notes = notes,
+                        InsertByUserId = userId
+                    };
+                    _dbConfig.CatalogStockReturns.Add(entry);
+                    created.Add(new { itemId = kv.Key, quantity = kv.Value, newQuantity = stockItem.Quantity });
+                }
+
+                await _dbConfig.SaveChangesAsync();
+
+                await _dbConfig.LogAuditAsync(
+                    "Return",
+                    "CatalogStockReturn",
+                    order.Id,
+                    order.OrderCode,
+                    userId,
+                    commercialUserId,
+                    null,
+                    new { orderId = order.Id, lines = created, notes },
+                    "مرتجع مبيعات من فاتورة");
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new { orderId = order.Id, orderCode = order.OrderCode, lines = created },
+                    ErrorStatus = false,
+                    Message = "تم تسجيل المرتجع بنجاح"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error returning from order");
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ: {ex.Message}"
+                });
+            }
+        }
+
+        [Authorize]
+        [AuthorizeSection("stockReturns", Roles = "Commercial,POS")]
+        [HttpPost("RestockItem")]
+        public async Task<ActionResult<GlobalResponse<object>>> RestockItem([FromBody] RestockItemRequest request)
+        {
+            try
+            {
+                if (request == null || request.Quantity <= 0)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "الكمية يجب أن تكون أكبر من صفر"
+                    });
+                }
+
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var commercialUserId = GetCommercialUserId();
+                var item = await FindAccessibleItemAsync(request.ItemId, commercialUserId);
+                if (item == null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "المنتج غير موجود"
+                    });
+                }
+
+                var notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+                var previousQty = item.Quantity;
+                item.Quantity += request.Quantity;
+                _dbConfig.Items.Update(item);
+
+                var entry = new CatalogStockReturn
+                {
+                    ItemId = item.Id,
+                    Quantity = request.Quantity,
+                    ReturnType = "Manual",
+                    CustomerOrderId = null,
+                    OrderCode = null,
+                    UnitPrice = item.SellingPrice,
+                    Notes = notes,
+                    InsertByUserId = userId
+                };
+                _dbConfig.CatalogStockReturns.Add(entry);
+                await _dbConfig.SaveChangesAsync();
+
+                await _dbConfig.LogAuditAsync(
+                    "Restock",
+                    "CatalogStockReturn",
+                    entry.Id,
+                    item.Name,
+                    userId,
+                    commercialUserId,
+                    new { quantity = previousQty },
+                    new { quantity = item.Quantity, returned = request.Quantity, notes },
+                    "إرجاع يدوي للمخزون");
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new
+                    {
+                        id = entry.Id,
+                        itemId = item.Id,
+                        itemName = item.Name,
+                        quantity = request.Quantity,
+                        previousQuantity = previousQty,
+                        newQuantity = item.Quantity
+                    },
+                    ErrorStatus = false,
+                    Message = "تم الإرجاع بنجاح"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error restocking item");
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ: {ex.Message}"
+                });
+            }
+        }
+
+        [Authorize]
+        [AuthorizeSection("stockReturns", Roles = "Commercial,POS")]
+        [HttpGet("GetStockReturns")]
+        public async Task<ActionResult<GlobalResponse<PagedList<CatalogStockReturnDto>>>> GetStockReturns(
+            int pageNumber = 0,
+            int pageSize = 50,
+            string? info = null,
+            string? returnType = null,
+            DateTime? startDate = null,
+            DateTime? endDate = null)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == userId && !x.IsDeleted);
+                if (user == null)
+                {
+                    return BadRequest(new GlobalResponse<PagedList<CatalogStockReturnDto>>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "User not found"
+                    });
+                }
+
+                var commercialUserId = GetCommercialUserId();
+                var query = _dbConfig.CatalogStockReturns
+                    .AsNoTracking()
+                    .Include(r => r.Item)
+                    .Include(r => r.User)
+                    .Where(r => !r.IsDeleted &&
+                        (r.InsertByUserId == commercialUserId ||
+                         r.User!.Id == commercialUserId ||
+                         r.User.InsertByUserId == commercialUserId));
+
+                if (!string.IsNullOrWhiteSpace(returnType))
+                {
+                    var type = returnType.Trim();
+                    query = query.Where(r => r.ReturnType == type);
+                }
+
+                if (!string.IsNullOrWhiteSpace(info))
+                {
+                    var term = info.Trim();
+                    query = query.Where(r =>
+                        (r.OrderCode != null && r.OrderCode.Contains(term)) ||
+                        (r.Item != null && r.Item.Name.Contains(term)) ||
+                        (r.Item != null && r.Item.Code != null && r.Item.Code.Contains(term)) ||
+                        (r.Notes != null && r.Notes.Contains(term)));
+                }
+
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
+                {
+                    query = query.Where(r => r.InsertDate >= fromUtc && r.InsertDate < toUtcEx);
+                }
+
+                var total = await query.CountAsync();
+                var items = await query
+                    .OrderByDescending(r => r.InsertDate)
+                    .Skip(pageNumber * pageSize)
+                    .Take(pageSize)
+                    .Select(r => new CatalogStockReturnDto
+                    {
+                        Id = r.Id,
+                        ItemId = r.ItemId,
+                        ItemName = r.Item != null ? r.Item.Name : "",
+                        ItemCode = r.Item != null ? r.Item.Code : null,
+                        Quantity = r.Quantity,
+                        ReturnType = r.ReturnType,
+                        CustomerOrderId = r.CustomerOrderId,
+                        OrderCode = r.OrderCode,
+                        UnitPrice = r.UnitPrice,
+                        Notes = r.Notes,
+                        InsertDate = r.InsertDate,
+                        CreatedByUsername = r.User != null ? r.User.Username : null
+                    })
+                    .ToListAsync();
+
+                return Ok(new GlobalResponse<PagedList<CatalogStockReturnDto>>
+                {
+                    Data = new PagedList<CatalogStockReturnDto>(items, total, pageNumber, pageSize),
+                    ErrorStatus = false,
+                    Message = "Success"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting stock returns");
+                return BadRequest(new GlobalResponse<PagedList<CatalogStockReturnDto>>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ: {ex.Message}"
+                });
+            }
+        }
+
         [Authorize(Roles = "Commercial,POS,Reader")]
         [HttpGet("ItemPrice")]
         public async Task<ActionResult<GlobalResponse<Item>>> ItemPrice(string code)
@@ -2886,7 +3746,8 @@ namespace POS.Controllers
                 });
             }
 
-            var item = await FindItemByAnyCodeAsync(code, userId, user.InsertByUserId);
+            var commercialUserId = GetCommercialUserId();
+            var item = await FindItemByAnyCodeAsync(code, commercialUserId);
             if (item == null)
             {
                 return BadRequest(new GlobalResponse<Item>

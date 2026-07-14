@@ -117,7 +117,7 @@
             </div>
 
           <div v-if="activeInventoryTab === 'stock'" class="inventory-tab-panel">
-            <div class="app-section-header app-section-header--toolbar">
+            <div class="app-section-header">
               <div class="app-section-title-wrap">
                 <div class="app-section-icon-wrap">
                   <b-icon icon="box-seam"></b-icon>
@@ -127,16 +127,25 @@
                   <p class="app-section-subtitle">{{ $t("inventoryListHint") || "الكميات الحالية وإجراءات السحب" }}</p>
                 </div>
               </div>
-              <div class="app-search-wrap app-search-wrap--wide">
-                <b-icon icon="search" class="app-search-icon"></b-icon>
-                <input
-                  v-model="searchQuery"
-                  type="search"
-                  class="app-search-input"
-                  :placeholder="$t('search') || 'بحث...'"
-                  autocomplete="off"
-                  @input="debounceSearch"
-                />
+            </div>
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                                    <p>{{ $t('inventoryFiltersHint') || 'بحث في مواد المخزن' }}</p>
+                                </div>
+                </div>
+                <div class="app-filters-panel-actions" v-if="searchQuery">
+                  <button type="button" class="users-form-cancel-button" @click="searchQuery = ''; debounceSearch()"><b-icon icon="x-circle"></b-icon>{{ $t('clearFilters') || 'مسح الفلاتر' }}</button>
+                </div>
+              </div>
+              <div class="app-filters-fields app-filters-fields--1">
+                <div class="app-search-wrap app-search-wrap--wide">
+                  <b-icon icon="search" class="app-search-icon"></b-icon>
+                  <input v-model="searchQuery" type="search" class="app-search-input" :placeholder="$t('search') || 'بحث...'" autocomplete="off" @input="debounceSearch" />
+                </div>
               </div>
             </div>
             <div class="app-section-body app-section-body--no-padding inventory-table-section">
@@ -145,7 +154,7 @@
                 <span>{{ $t("loading") || "جاري التحميل..." }}</span>
               </div>
               <div v-else-if="items.length > 0" class="table-responsive">
-                <table class="table users-table">
+                <table class="table users-table reports-table">
                   <thead>
                     <tr>
                       <th>{{ $t("inventoryMaterialName") || "اسم المادة" }}</th>
@@ -229,8 +238,17 @@
                 </div>
               </div>
             </div>
-            <div class="app-section-body inventory-filters-body">
-              <div class="movements-filters">
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                                    <p>{{ $t('movementsFiltersHint') || 'تصفية حركات المخزون بالمادة والتاريخ والنوع' }}</p>
+                                </div>
+                </div>
+              </div>
+              <div class="app-filters-fields app-filters-fields--3 movements-filters">
                 <input
                   v-model="movementFilterMaterial"
                   type="text"
@@ -293,7 +311,7 @@
                 <span>{{ $t("loading") || "جاري التحميل..." }}</span>
               </div>
               <div v-else-if="movementsList.length > 0" class="table-responsive">
-                <table class="table users-table movements-table">
+                <table class="table users-table movements-table reports-table">
                   <thead>
                     <tr>
                       <th>{{ $t("date") || "التاريخ" }}</th>
@@ -399,7 +417,7 @@
               <span>{{ $t("loading") || "جاري التحميل..." }}</span>
             </div>
             <div v-else-if="suppliersList.length > 0" class="table-responsive">
-              <table class="table users-table movements-table">
+              <table class="table users-table movements-table reports-table">
                 <thead>
                   <tr>
                     <th>{{ $t("supplierName") || "اسم المورد" }}</th>

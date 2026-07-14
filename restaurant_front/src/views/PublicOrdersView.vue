@@ -19,9 +19,17 @@
             </div>
           </div>
 
-          <!-- Search and Filter Section -->
-          <div class="users-search-section">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+          <div class="app-filters-panel app-filters-panel--inset">
+            <div class="app-filters-panel-head">
+              <div class="app-filters-panel-title">
+                <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                <div>
+                                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                                    <p>{{ $t('ordersFiltersHint') || 'تصفية الطلبات بالتاريخ أو رقم الطلب' }}</p>
+                                </div>
+              </div>
+            </div>
+            <div class="app-filters-fields app-filters-fields--3">
               <div class="users-search-container">
                 <b-icon icon="hash" class="search-icon"></b-icon>
                 <input 
@@ -97,7 +105,6 @@
               id="orders-table"
               :items="Orders"
               :fields="ordersTableFields"
-              striped
               hover
               responsive
               class="reports-table"
@@ -162,10 +169,10 @@
                     :title="$t('printOrder') || 'طباعة الطلب'"
                   >
                     <b-spinner v-if="printingOrderId === row.item.id" small></b-spinner>
-                    <b-icon v-else icon="printer-fill" class="action-icon"></b-icon>
+                    <b-icon v-else icon="printer" class="action-icon"></b-icon>
                   </button>
                   <button type="button" class="action-btn action-btn--icon action-btn--view" @click="showItemsModal(row.item)">
-                    <b-icon icon="eye-fill" class="action-icon"></b-icon>
+                    <b-icon icon="eye" class="action-icon"></b-icon>
                   </button>
                   <button
                     v-if="canCancelPendingPublicOrder(row.item)"

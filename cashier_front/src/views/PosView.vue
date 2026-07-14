@@ -10,14 +10,17 @@
       <AppHeader>
         <template #pos-center>
           <div class="pos-quick-search pos-quick-search--header">
-            <b-icon icon="search" class="pos-quick-search-icon"></b-icon>
+            <b-icon icon="search" class="pos-quick-search-icon" aria-hidden="true"></b-icon>
             <input
               v-model="quickSearch"
               ref="posQuickSearchInput"
               type="search"
               :placeholder="$t('searchPlaceholder')"
               class="pos-quick-search-input"
+              :title="`${$t('searchPlaceholder') || 'بحث'} (F3)`"
+              :aria-label="`${$t('searchPlaceholder') || 'بحث'} (F3)`"
             />
+            <kbd class="pos-kbd pos-kbd--quick-search" title="F3">F3</kbd>
           </div>
         </template>
       </AppHeader>
@@ -62,11 +65,12 @@
                 type="button"
                 class="pos-invoice-tab-add"
                 :disabled="!canAddInvoiceTab"
-                :title="$t('posInvoiceTabNew') || 'فاتورة جديدة'"
+                :title="`${$t('posInvoiceTabNew') || 'فاتورة جديدة'} (F9)`"
                 @click="addInvoiceTab"
               >
                 <b-icon icon="plus-lg"></b-icon>
                 <span class="pos-invoice-tab-add-text">{{ $t("posInvoiceTabNew") || "جديدة" }}</span>
+                <kbd class="pos-kbd">F9</kbd>
               </button>
             </div>
 
@@ -121,14 +125,30 @@
                             <kbd class="pos-kbd">F5</kbd>
                             <span class="pos-shortcut-chip-label">{{ $t("payAndPrint") || "دفع وطباعة" }}</span>
                           </span>
+                          <span class="pos-shortcut-chip">
+                            <kbd class="pos-kbd">F6</kbd>
+                            <span class="pos-shortcut-chip-label">{{ $t("printOnly") || "طباعة فقط" }}</span>
+                          </span>
+                          <span class="pos-shortcut-chip">
+                            <kbd class="pos-kbd">F7</kbd>
+                            <span class="pos-shortcut-chip-label">{{ $t("changeCalculator") || "حاسبة الباقي" }}</span>
+                          </span>
                         </div>
                       </div>
                       <div class="pos-shortcuts-group">
                         <span class="pos-shortcuts-group-label">{{ $t("posShortcutGroupOrder") || "الطلب" }}</span>
                         <div class="pos-shortcuts-group-chips">
                           <span class="pos-shortcut-chip">
+                            <kbd class="pos-kbd">F3</kbd>
+                            <span class="pos-shortcut-chip-label">{{ $t("searchPlaceholder") || "بحث" }}</span>
+                          </span>
+                          <span class="pos-shortcut-chip">
                             <kbd class="pos-kbd">F8</kbd>
                             <span class="pos-shortcut-chip-label">{{ $t("discountAndNotes") || "خصم وملاحظات" }}</span>
+                          </span>
+                          <span class="pos-shortcut-chip">
+                            <kbd class="pos-kbd">F9</kbd>
+                            <span class="pos-shortcut-chip-label">{{ $t("posInvoiceTabNew") || "فاتورة جديدة" }}</span>
                           </span>
                         </div>
                       </div>
@@ -823,10 +843,11 @@
                           class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
                           @click="openPrintOnlyConfirm"
                           :disabled="totalCardItems <= 0"
-                          :title="$t('printOnly')"
+                          :title="`${$t('printOnly') || 'طباعة فقط'} (F6)`"
                         >
                           <b-icon icon="printer-fill" class="me-1"></b-icon>
                           {{ $t("printOnly") || "طباعة فقط" }}
+                          <kbd class="pos-kbd">F6</kbd>
                         </button>
                         <button
                           type="button"
@@ -834,10 +855,11 @@
                           :class="{ 'pos-cart-checkout-action-btn--active': changeCalcOpen }"
                           @click="toggleChangeCalculator"
                           :disabled="totalCardItems <= 0"
-                          :title="$t('changeCalculator')"
+                          :title="`${$t('changeCalculator') || 'حاسبة الباقي'} (F7)`"
                         >
                           <b-icon icon="calculator-fill" class="me-1"></b-icon>
                           {{ $t("changeCalculator") }}
+                          <kbd class="pos-kbd">F7</kbd>
                         </button>
                         <button
                           type="button"
@@ -1595,6 +1617,12 @@ export default {
         this.$refs.codeNumber.select?.();
       }
     },
+    focusPosQuickSearch() {
+      const input = this.$refs.posQuickSearchInput;
+      if (!input) return;
+      input.focus();
+      input.select?.();
+    },
     flashCart() {
       const el = this.$refs.posCartHeader;
       if (!el) return;
@@ -1621,11 +1649,25 @@ export default {
         this.focusPosBarcode();
         return;
       }
+      if (key === "F3") {
+        e.preventDefault();
+        this.focusPosQuickSearch();
+        return;
+      }
+      if (key === "F9") {
+        e.preventDefault();
+        this.addInvoiceTab();
+        return;
+      }
 
       if (modalOpen && key !== "Escape") return;
 
       if (this.isPosShortcutBlocked()) {
         if (key === "Escape") {
+          if (document.activeElement === this.$refs.posQuickSearchInput) {
+            this.focusPosBarcode();
+            return;
+          }
           this.closeModel("modal-order-notes");
           this.$bvModal.hide("modal-empty");
           this.$bvModal.hide("modal-print-only-confirm");
@@ -1641,6 +1683,18 @@ export default {
       if (key === "F5") {
         e.preventDefault();
         this.quickPay(true);
+        return;
+      }
+      if (key === "F6") {
+        e.preventDefault();
+        this.openPrintOnlyConfirm();
+        return;
+      }
+      if (key === "F7") {
+        e.preventDefault();
+        if (this.totalCardItems > 0) {
+          this.toggleChangeCalculator();
+        }
         return;
       }
       if (key === "F8") {

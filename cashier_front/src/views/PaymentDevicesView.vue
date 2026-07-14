@@ -131,20 +131,22 @@
                         {{ $t("notChecked") || "لم يُفحص" }}
                       </span>
                     </div>
-                    <div class="payment-device-card-actions">
+                    <div class="payment-device-card-actions" role="group" :aria-label="$t('actions') || 'العمليات'">
                       <button
                         type="button"
                         class="action-btn action-btn--icon action-btn--edit"
                         @click="openEditModal(device)"
                         :title="$t('edit') || 'تعديل'"
+                        :aria-label="$t('edit') || 'تعديل'"
                       >
-                        <b-icon icon="pencil" class="action-icon"></b-icon>
+                        <b-icon icon="pencil-square" class="action-icon"></b-icon>
                       </button>
                       <button
                         type="button"
                         class="action-btn action-btn--icon action-btn--delete"
                         @click="confirmDelete(device)"
                         :title="$t('delete') || 'حذف'"
+                        :aria-label="$t('delete') || 'حذف'"
                       >
                         <b-icon icon="trash" class="action-icon"></b-icon>
                       </button>
@@ -674,7 +676,7 @@ export default {
 }
 
 .payment-device-card:hover {
-  border-color: rgba(99, 102, 241, 0.45);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
@@ -741,8 +743,8 @@ export default {
 }
 
 .item-badge--main {
-  background: rgba(99, 102, 241, 0.15);
-  color: #4f46e5;
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  color: var(--primary-dark);
 }
 
 .item-badge--inactive {

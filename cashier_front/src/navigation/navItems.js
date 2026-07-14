@@ -110,6 +110,12 @@ export function buildNavItems(t) {
       icon: "bell-fill",
     },
     {
+      name: "stockReturns",
+      label: t("stockReturnsTitle") || "إرجاع مخزني",
+      link: "/stock-returns",
+      icon: "arrow-return-left",
+    },
+    {
       name: "auditLog",
       label: t("auditLog") || "سجل العمليات",
       link: "/audit-log",
@@ -141,11 +147,7 @@ export function filterNavByRole(role, items, allowedSections = []) {
   }
   if (role === "Admin") {
     return items.filter(
-      (item) =>
-        item.name === "users" ||
-        item.name === "logout" ||
-        item.name === "customers" ||
-        item.name === "stockAlerts"
+      (item) => item.name === "users" || item.name === "logout"
     );
   }
   if (role === "POS") {
@@ -157,6 +159,7 @@ export function filterNavByRole(role, items, allowedSections = []) {
         item.name === "reports" ||
         item.name === "inventory" ||
         item.name === "stockAlerts" ||
+        item.name === "stockReturns" ||
         item.name === "printServer" ||
         item.name === "logout"
     );

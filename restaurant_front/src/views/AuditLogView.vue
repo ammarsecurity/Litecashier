@@ -12,8 +12,20 @@
                     </div>
 
                     <!-- Filters Section -->
-                    <div class="audit-log-filters-section">
-                        <div class="audit-log-filters-container">
+                    <div class="app-filters-panel app-filters-panel--inset audit-log-filters-section">
+                        <div class="app-filters-panel-head">
+                            <div class="app-filters-panel-title">
+                                <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                                <div>
+                                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                                    <p>{{ $t('auditLogFiltersHint') || 'تصفية السجلات حسب العملية والنوع والتاريخ' }}</p>
+                                </div>
+                            </div>
+                            <div class="app-filters-panel-actions" v-if="hasActiveFilters">
+                                <button type="button" class="users-form-cancel-button" @click="clearFilters"><b-icon icon="x-circle"></b-icon>{{ $t('clearFilters') || 'مسح الفلاتر' }}</button>
+                            </div>
+                        </div>
+                        <div class="app-filters-fields app-filters-fields--3 audit-log-filters-container">
                             <div class="audit-log-filter-group">
                                 <label class="audit-log-filter-label">
                                     <b-icon icon="filter" class="me-1"></b-icon>
@@ -69,14 +81,6 @@
                                     class="audit-log-filter-input"
                                 />
                             </div>
-                            <button 
-                                v-if="hasActiveFilters"
-                                class="audit-log-filter-clear"
-                                @click="clearFilters"
-                            >
-                                <b-icon icon="x-circle-fill" class="me-1"></b-icon>
-                                {{ $t('clearFilters') || 'مسح الفلاتر' }}
-                            </button>
                         </div>
                     </div>
 
@@ -85,10 +89,9 @@
                         <b-table
                             :items="filteredAuditLogs"
                             :fields="auditLogFields"
-                            striped
                             hover
                             responsive
-                            class="audit-log-table"
+                            class="audit-log-table reports-table"
                             :empty-text="$t('noAuditLogs') || 'لا توجد سجلات عمليات'"
                             :empty-filtered-text="$t('noAuditLogs') || 'لا توجد سجلات عمليات'"
                         >
@@ -141,7 +144,7 @@
                                     class="details-button"
                                     @click="showDetails(row.item)"
                                 >
-                                    <b-icon icon="eye-fill" class="me-1"></b-icon>
+                                    <b-icon icon="eye" class="me-1"></b-icon>
                                     {{ $t('viewDetails') || 'عرض التفاصيل' }}
                                 </button>
                                 <span v-else>---</span>

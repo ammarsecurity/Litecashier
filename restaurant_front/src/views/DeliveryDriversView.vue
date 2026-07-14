@@ -44,59 +44,53 @@
               <b-spinner small></b-spinner>
               <span>{{ $t("loading") || "جاري التحميل..." }}</span>
             </div>
-            <div v-else-if="statistics" class="statistics-grid">
-              <div class="stat-card">
-                <div class="stat-icon total">
+            <div v-else-if="statistics" class="app-overview-grid">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--primary">
                   <b-icon icon="truck"></b-icon>
-                </div>
-                <div class="stat-content">
-                  <div class="stat-value">{{ statistics.totalDrivers || 0 }}</div>
-                  <div class="stat-label">{{ $t("totalDrivers") || "إجمالي السائقين" }}</div>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value">{{ statistics.totalDrivers || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("totalDrivers") || "إجمالي السائقين" }}</div>
                 </div>
               </div>
-              <div class="stat-card">
-                <div class="stat-icon active">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--success">
                   <b-icon icon="check-circle"></b-icon>
-                </div>
-                <div class="stat-content">
-                  <div class="stat-value">{{ statistics.activeDrivers || 0 }}</div>
-                  <div class="stat-label">{{ $t("activeDrivers") || "السائقين النشطين" }}</div>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value">{{ statistics.activeDrivers || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("activeDrivers") || "السائقين النشطين" }}</div>
                 </div>
               </div>
-              <div class="stat-card">
-                <div class="stat-icon orders">
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--info">
                   <b-icon icon="clipboard-check"></b-icon>
-                </div>
-                <div class="stat-content">
-                  <div class="stat-value">{{ statistics.totalOrders || 0 }}</div>
-                  <div class="stat-label">{{ $t("totalDeliveries") || "إجمالي التوصيلات" }}</div>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon delivered">
-                  <b-icon icon="check2-circle"></b-icon>
-                </div>
-                <div class="stat-content">
-                  <div class="stat-value">{{ statistics.deliveredOrders || 0 }}</div>
-                  <div class="stat-label">{{ $t("deliveredOrders") || "الطلبات الواصلة" }}</div>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value">{{ statistics.totalOrders || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("totalDeliveries") || "إجمالي التوصيلات" }}</div>
                 </div>
               </div>
-              <div class="stat-card">
-                <div class="stat-icon pending">
-                  <b-icon icon="clock-history"></b-icon>
-                </div>
-                <div class="stat-content">
-                  <div class="stat-value">{{ statistics.pendingOrders || 0 }}</div>
-                  <div class="stat-label">{{ $t("pendingDeliveries") || "التوصيلات المعلقة" }}</div>
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--success"><b-icon icon="check2-circle"></b-icon></span>
+                <div>
+                  <div class="app-overview-stat-value">{{ statistics.deliveredOrders || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("deliveredOrders") || "الطلبات الواصلة" }}</div>
                 </div>
               </div>
-              <div class="stat-card">
-                <div class="stat-icon failed">
-                  <b-icon icon="x-circle"></b-icon>
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--warning"><b-icon icon="clock-history"></b-icon></span>
+                <div>
+                  <div class="app-overview-stat-value">{{ statistics.pendingOrders || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("pendingDeliveries") || "التوصيلات المعلقة" }}</div>
                 </div>
-                <div class="stat-content">
-                  <div class="stat-value">{{ statistics.failedOrders || 0 }}</div>
-                  <div class="stat-label">{{ $t("failedDeliveries") || "التوصيلات الفاشلة" }}</div>
+              </div>
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--danger"><b-icon icon="x-circle"></b-icon></span>
+                <div>
+                  <div class="app-overview-stat-value">{{ statistics.failedOrders || 0 }}</div>
+                  <div class="app-overview-stat-label">{{ $t("failedDeliveries") || "التوصيلات الفاشلة" }}</div>
                 </div>
               </div>
             </div>
@@ -154,7 +148,7 @@
                       @click="editDriver(driver)"
                       :title="$t('edit') || 'تعديل'"
                     >
-                      <b-icon icon="pencil" class="action-icon"></b-icon>
+                      <b-icon icon="pencil-square" class="action-icon"></b-icon>
                     </button>
                     <button
                       type="button"

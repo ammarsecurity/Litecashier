@@ -52,6 +52,14 @@
                                 <b-icon icon="trophy-fill" class="me-2"></b-icon>
                                 {{ $t('topSellingItems') || 'الأكثر مبيعاً' }}
                             </button>
+                            <button
+                                class="report-tab"
+                                :class="{ 'report-tab-active': activeTab === 'productSales' }"
+                                @click="activeTab = 'productSales'; ensureReportTags(); loadProductSalesReport()"
+                            >
+                                <b-icon icon="basket-fill" class="me-2"></b-icon>
+                                {{ $t('productSalesReport') || 'مبيعات المنتجات' }}
+                            </button>
                             <button 
                                 class="report-tab" 
                                 :class="{ 'report-tab-active': activeTab === 'byCategory' }"
@@ -79,92 +87,180 @@
                         </div>
                     </div>
 
-                    <div class="users-search-section" v-if="activeTab !== 'orders' && activeTab !== 'lowStock'">
-                        <div class="reports-filters-grid">
-                            <div class="users-search-container">
-                                <b-icon icon="calendar" class="search-icon"></b-icon>
-                                <input
-                                    v-model="reportFilters.startDate"
-                                    type="date"
-                                    :placeholder="$t('from_date')"
-                                    class="users-search-input"
-                                    @change="loadAdvancedReport()"
-                                />
+                    <div class="app-filters-panel reports-filters-panel">
+                        <div class="app-filters-panel-head reports-filters-panel-head">
+                            <div class="app-filters-panel-title reports-filters-panel-title">
+                                <span class="app-filters-panel-icon reports-filters-panel-icon">
+                                    <b-icon icon="funnel-fill"></b-icon>
+                                </span>
+                                <div>
+                                    <h3>{{ $t('filters') || 'فلاتر التقرير' }}</h3>
+                                    <p>{{ reportsFiltersHint }}</p>
+                                </div>
                             </div>
-                            <div class="users-search-container">
-                                <b-icon icon="calendar-check" class="search-icon"></b-icon>
-                                <input
-                                    v-model="reportFilters.endDate"
-                                    type="date"
-                                    :placeholder="$t('to_date')"
-                                    class="users-search-input"
-                                    @change="loadAdvancedReport()"
-                                />
-                            </div>
-                            <div class="users-search-container" v-if="hasAdvancedFilters">
-                                <button type="button" class="users-filter-clear-btn" @click="clearAdvancedFilters">
-                                    <b-icon icon="x-circle-fill" class="me-1"></b-icon>
+                            <div class="reports-filters-panel-actions">
+                                <button
+                                    v-if="activeTab === 'productSales'"
+                                    type="button"
+                                    class="btn-refresh"
+                                    @click="loadProductSalesReport()"
+                                >
+                                    <b-icon icon="search" class="button-icon"></b-icon>
+                                    <span class="button-text">{{ $t('search') || 'بحث' }}</span>
+                                </button>
+                                <button
+                                    v-if="activeTab === 'orders'"
+                                    type="button"
+                                    class="export-excel-btn"
+                                    @click="exportCurrentReportExcel()"
+                                    :disabled="exportingExcel"
+                                >
+                                    <b-spinner small v-if="exportingExcel" class="me-2"></b-spinner>
+                                    <b-icon v-else icon="file-earmark-excel" class="me-2"></b-icon>
+                                    {{ $t('downloadExcel') || 'تحميل Excel' }}
+                                </button>
+                                <button
+                                    v-if="hasReportFilters"
+                                    type="button"
+                                    class="users-filter-clear-btn reports-filters-clear-btn"
+                                    @click="clearCurrentTabFilters"
+                                >
+                                    <b-icon icon="x-circle" class="me-1"></b-icon>
                                     {{ $t('clearFilters') || 'مسح الفلاتر' }}
                                 </button>
                             </div>
                         </div>
+
+                        <div
+                            class="reports-filters-fields"
+                            :class="'reports-filters-fields--' + activeTab"
+                        >
+                            <!-- Orders -->
+                            <template v-if="activeTab === 'orders'">
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('invoice_number') || 'رقم الفاتورة' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="search" class="search-icon"></b-icon>
+                                        <input
+                                            v-model="search.info"
+                                            type="search"
+                                            :placeholder="$t('invoice_number')"
+                                            class="users-search-input"
+                                            autocomplete="off"
+                                        />
+                                    </div>
+                                </label>
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('from_date') || 'من تاريخ' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="calendar" class="search-icon"></b-icon>
+                                        <input v-model="search.startDate" type="date" class="users-search-input" />
+                                    </div>
+                                </label>
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('to_date') || 'إلى تاريخ' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="calendar-check" class="search-icon"></b-icon>
+                                        <input v-model="search.endDate" type="date" class="users-search-input" />
+                                    </div>
+                                </label>
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('paymentMethod') || 'طريقة الدفع' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="credit-card" class="search-icon"></b-icon>
+                                        <select v-model="search.paymentMethod" class="users-search-input reports-filter-select">
+                                            <option value="">{{ $t('allPaymentMethods') || 'جميع طرق الدفع' }}</option>
+                                            <option value="Cash">{{ $t('cash') || 'نقد' }}</option>
+                                            <option value="Card">{{ $t('card') || 'بطاقة' }}</option>
+                                            <option value="Credit">{{ $t('credit') || 'دفع لاحق' }}</option>
+                                        </select>
+                                    </div>
+                                </label>
+                            </template>
+
+                            <!-- Low stock -->
+                            <template v-else-if="activeTab === 'lowStock'">
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('threshold') || 'حد الكمية' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="exclamation-triangle" class="search-icon"></b-icon>
+                                        <input
+                                            v-model.number="lowStockThreshold"
+                                            type="number"
+                                            min="0"
+                                            :placeholder="$t('threshold') || 'حد الكمية'"
+                                            class="users-search-input"
+                                            @change="loadLowStockItems()"
+                                        />
+                                    </div>
+                                </label>
+                            </template>
+
+                            <!-- Advanced reports (dates + optional product sales) -->
+                            <template v-else>
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('from_date') || 'من تاريخ' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="calendar" class="search-icon"></b-icon>
+                                        <input
+                                            v-model="reportFilters.startDate"
+                                            type="date"
+                                            class="users-search-input"
+                                            @change="loadAdvancedReport()"
+                                        />
+                                    </div>
+                                </label>
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('to_date') || 'إلى تاريخ' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="calendar-check" class="search-icon"></b-icon>
+                                        <input
+                                            v-model="reportFilters.endDate"
+                                            type="date"
+                                            class="users-search-input"
+                                            @change="loadAdvancedReport()"
+                                        />
+                                    </div>
+                                </label>
+                                <label v-if="activeTab === 'productSales'" class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('categoryPlaceholder') || $t('category') || 'القسم' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="tags" class="search-icon"></b-icon>
+                                        <select
+                                            v-model="productSalesFilters.tag"
+                                            class="users-search-input reports-filter-select"
+                                            @change="loadProductSalesReport()"
+                                        >
+                                            <option value="">{{ $t('all_categories') || 'جميع الاقسام' }}</option>
+                                            <option
+                                                v-for="tag in reportTags"
+                                                :key="tag.id || tag.name"
+                                                :value="tag.name"
+                                            >
+                                                {{ tag.name }}
+                                            </option>
+                                        </select>
+                                    </div>
+                                </label>
+                                <label v-if="activeTab === 'productSales'" class="reports-filter-field reports-filter-field--grow">
+                                    <span class="reports-filter-label">{{ $t('search') || 'بحث' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="search" class="search-icon"></b-icon>
+                                        <input
+                                            v-model="productSalesFilters.info"
+                                            type="search"
+                                            class="users-search-input"
+                                            :placeholder="$t('productSalesSearchPlaceholder') || 'بحث عن منتج...'"
+                                            autocomplete="off"
+                                            @keyup.enter="loadProductSalesReport()"
+                                        />
+                                    </div>
+                                </label>
+                            </template>
+                        </div>
                     </div>
 
                     <div v-if="activeTab === 'orders'">
-                        <div class="users-search-section">
-                            <div class="reports-filters-grid">
-                                <div class="users-search-container">
-                                    <b-icon icon="search" class="search-icon"></b-icon>
-                                    <input
-                                        v-model="search.info"
-                                        type="text"
-                                        :placeholder="$t('invoice_number')"
-                                        class="users-search-input"
-                                    />
-                                </div>
-                                <div class="users-search-container">
-                                    <b-icon icon="calendar" class="search-icon"></b-icon>
-                                    <input
-                                        v-model="search.startDate"
-                                        type="date"
-                                        :placeholder="$t('from_date')"
-                                        class="users-search-input"
-                                    />
-                                </div>
-                                <div class="users-search-container">
-                                    <b-icon icon="calendar-check" class="search-icon"></b-icon>
-                                    <input
-                                        v-model="search.endDate"
-                                        type="date"
-                                        :placeholder="$t('to_date')"
-                                        class="users-search-input"
-                                    />
-                                </div>
-                                <div class="users-search-container">
-                                    <b-icon icon="credit-card" class="search-icon"></b-icon>
-                                    <select v-model="search.paymentMethod" class="users-search-input reports-filter-select">
-                                        <option value="">{{ $t('allPaymentMethods') || 'جميع طرق الدفع' }}</option>
-                                        <option value="Cash">{{ $t('cash') || 'نقد' }}</option>
-                                        <option value="Card">{{ $t('card') || 'بطاقة' }}</option>
-                                        <option value="Credit">{{ $t('credit') || 'دفع لاحق' }}</option>
-                                    </select>
-                                </div>
-                                <div class="users-search-container" v-if="hasActiveFilters">
-                                    <button type="button" class="users-filter-clear-btn" @click="clearFilters">
-                                        <b-icon icon="x-circle-fill" class="me-1"></b-icon>
-                                        {{ $t('clearFilters') || 'مسح الفلاتر' }}
-                                    </button>
-                                </div>
-                                <div class="users-search-container">
-                                    <button type="button" class="export-excel-btn" @click="exportCurrentReportExcel()" :disabled="exportingExcel">
-                                        <b-spinner small v-if="exportingExcel" class="me-2"></b-spinner>
-                                        <b-icon v-else icon="file-earmark-excel" class="me-2"></b-icon>
-                                        {{ $t('downloadExcel') || 'تحميل Excel' }}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
                         <div class="app-overview-grid reports-orders-summary">
                             <div class="app-overview-stat">
                                 <span class="app-overview-stat-icon app-overview-stat-icon--primary"><b-icon icon="receipt-cutoff"></b-icon></span>
@@ -280,14 +376,15 @@
                                     <span>{{ row.item.createdByUsername || '—' }}</span>
                                 </template>
                                 <template #cell(actions)="row">
-                                    <div class="actions-cell">
+                                    <div class="actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
                                         <button
                                             type="button"
                                             class="action-btn action-btn--icon action-btn--view"
                                             @click="showItemsModel(row.item.customerOrderItem, row.item)"
                                             :title="$t('view_items')"
+                                            :aria-label="$t('view_items')"
                                         >
-                                            <b-icon icon="eye-fill" class="action-icon"></b-icon>
+                                            <b-icon icon="eye" class="action-icon"></b-icon>
                                         </button>
                                         <button
                                             type="button"
@@ -295,16 +392,18 @@
                                             :disabled="printingInvoice"
                                             @click="printOrderFromRow(row.item)"
                                             :title="$t('print') || 'طباعة'"
+                                            :aria-label="$t('print') || 'طباعة'"
                                         >
-                                            <b-icon icon="printer-fill" class="action-icon"></b-icon>
+                                            <b-icon icon="printer" class="action-icon"></b-icon>
                                         </button>
                                         <button
                                             type="button"
                                             class="action-btn action-btn--icon action-btn--edit"
                                             @click="editOrder(row.item)"
                                             :title="$t('editOrder')"
+                                            :aria-label="$t('editOrder')"
                                         >
-                                            <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                                            <b-icon icon="pencil-square" class="action-icon"></b-icon>
                                         </button>
                                     </div>
                                 </template>
@@ -326,51 +425,57 @@
                     <div v-else class="advanced-reports-container">
                         <!-- Profit Report -->
                         <div v-if="activeTab === 'profit'" class="report-section">
-                            <div class="report-stats-grid">
-                                <div class="report-stat-card report-stat-primary">
-                                    <div class="report-stat-icon">
+                            <div class="app-overview-grid report-stats-grid">
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--primary report-stat-icon">
                                         <b-icon icon="currency-dollar"></b-icon>
-                                    </div>
+                                    </span>
                                     <div class="report-stat-content">
-                                        <h3 class="report-stat-value">{{ formatPrice(profitReport.totalSales || 0) }}</h3>
-                                        <p class="report-stat-label">{{ $t('totalSales') || 'إجمالي المبيعات' }}</p>
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(profitReport.totalSales || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">{{ $t('totalSales') || 'إجمالي المبيعات' }}</div>
                                         <p class="report-stat-detail" v-if="profitReport.period">
-                                            {{ $t('period') || 'الفترة' }}: {{ profitReport.period.startDate || '-' }} 
+                                            {{ $t('period') || 'الفترة' }}: {{ profitReport.period.startDate || '-' }}
                                             {{ profitReport.period.endDate ? ' - ' + profitReport.period.endDate : '' }}
                                         </p>
                                     </div>
                                 </div>
-                                <div class="report-stat-card report-stat-danger">
-                                    <div class="report-stat-icon">
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--danger report-stat-icon">
                                         <b-icon icon="cart"></b-icon>
-                                    </div>
+                                    </span>
                                     <div class="report-stat-content">
-                                        <h3 class="report-stat-value">{{ formatPrice(profitReport.totalCost || 0) }}</h3>
-                                        <p class="report-stat-label">{{ $t('totalCost') || 'إجمالي التكلفة' }}</p>
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(profitReport.totalCost || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">{{ $t('totalCost') || 'إجمالي التكلفة' }}</div>
                                         <p class="report-stat-detail" v-if="profitReport.totalItemsSold">
                                             {{ $t('totalItemsSold') || 'إجمالي المواد المباعة' }}: {{ profitReport.totalItemsSold }}
                                         </p>
                                     </div>
                                 </div>
-                                <div class="report-stat-card report-stat-success">
-                                    <div class="report-stat-icon">
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--success report-stat-icon">
                                         <b-icon icon="file-earmark-bar-graph-fill"></b-icon>
-                                    </div>
+                                    </span>
                                     <div class="report-stat-content">
-                                        <h3 class="report-stat-value">{{ formatPrice(profitReport.totalProfit || 0) }}</h3>
-                                        <p class="report-stat-label">{{ $t('totalProfit') || 'إجمالي الربح' }}</p>
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(profitReport.totalProfit || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">{{ $t('totalProfit') || 'إجمالي الربح' }}</div>
                                         <p class="report-stat-detail" v-if="profitReport.totalSales && profitReport.totalCost">
                                             {{ $t('profitRatio') || 'نسبة الربح' }}: {{ ((profitReport.totalProfit / profitReport.totalSales) * 100).toFixed(2) }}%
                                         </p>
                                     </div>
                                 </div>
-                                <div class="report-stat-card report-stat-info">
-                                    <div class="report-stat-icon">
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--info report-stat-icon">
                                         <b-icon icon="percent"></b-icon>
-                                    </div>
+                                    </span>
                                     <div class="report-stat-content">
-                                        <h3 class="report-stat-value">{{ profitReport.profitMargin || 0 }}%</h3>
-                                        <p class="report-stat-label">{{ $t('profitMargin') || 'هامش الربح' }}</p>
+                                        <div class="app-overview-stat-value report-stat-value">{{ profitReport.profitMargin || 0 }}%</div>
+                                        <div class="app-overview-stat-label report-stat-label">{{ $t('profitMargin') || 'هامش الربح' }}</div>
                                         <p class="report-stat-detail">
                                             {{ $t('profitMarginDescription') || 'نسبة الربح من إجمالي المبيعات' }}
                                         </p>
@@ -449,6 +554,80 @@
                                         </tr>
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+
+                        <!-- Product Sales Report -->
+                        <div v-if="activeTab === 'productSales'" class="report-section">
+                            <div class="report-section-intro" v-if="productSalesItems.length > 0">
+                                <div class="report-info-banner">
+                                    <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
+                                    <span>{{ $t('productSalesReportDescription') || 'كمية المبيعات والمتبقي لكل منتج مع فلتر القسم والتاريخ' }}</span>
+                                </div>
+                            </div>
+                            <div class="app-overview-grid reports-orders-summary" v-if="productSalesItems.length > 0">
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--success"><b-icon icon="currency-dollar"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value app-overview-stat-value--text">{{ formatPrice(productSalesSummary.totalSales) }} {{ $t('currency') }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('totalSales') || 'إجمالي المبيعات' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--danger"><b-icon icon="box-seam"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ productSalesSummary.totalQuantitySold || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('totalQuantitySold') || 'الكمية المباعة' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--info"><b-icon icon="archive"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ productSalesSummary.totalRemainingQuantity || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('totalRemainingQuantity') || 'إجمالي المتبقي' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--primary"><b-icon icon="grid-3x3-gap"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ productSalesSummary.totalDistinctItems || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('distinctItemsCount') || 'عدد الأصناف' }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="report-table-container" v-if="productSalesItems.length > 0">
+                                <table class="report-table">
+                                    <thead>
+                                        <tr>
+                                            <th>{{ $t('itemName') || 'اسم المنتج' }}</th>
+                                            <th>{{ $t('itemCode') || 'الكود' }}</th>
+                                            <th>{{ $t('category') || 'القسم' }}</th>
+                                            <th>{{ $t('quantitySold') || 'الكمية المباعة' }}</th>
+                                            <th>{{ $t('remainingQuantity') || 'المتبقي' }}</th>
+                                            <th>{{ $t('totalSales') || 'إجمالي المبيعات' }}</th>
+                                            <th>{{ $t('orderCount') || 'عدد الطلبات' }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="item in productSalesItems" :key="item.itemId">
+                                            <td class="report-item-name">{{ item.itemName }}</td>
+                                            <td class="report-item-code">{{ item.itemCode || '—' }}</td>
+                                            <td>{{ item.category || '—' }}</td>
+                                            <td class="report-item-quantity">
+                                                <span class="quantity-badge">{{ item.quantitySold }}</span>
+                                            </td>
+                                            <td class="report-item-quantity">{{ item.remainingQuantity }}</td>
+                                            <td class="report-item-price">{{ formatPrice(item.totalSales) }} {{ $t('currency') }}</td>
+                                            <td class="report-item-quantity">{{ item.orderCount }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div v-else class="report-section-intro">
+                                <div class="report-info-banner">
+                                    <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
+                                    <span>{{ $t('productSalesEmpty') || 'لا توجد نتائج مطابقة للفلاتر' }}</span>
+                                </div>
                             </div>
                         </div>
 
@@ -532,19 +711,6 @@
 
                         <!-- Low Stock Items -->
                         <div v-if="activeTab === 'lowStock'" class="report-section">
-                            <div class="reports-filters-grid reports-filters-grid--low-stock">
-                                <div class="users-search-container">
-                                    <b-icon icon="exclamation-triangle-fill" class="search-icon"></b-icon>
-                                    <input
-                                        v-model.number="lowStockThreshold"
-                                        type="number"
-                                        min="0"
-                                        :placeholder="$t('threshold') || 'حد الكمية'"
-                                        class="users-search-input"
-                                        @change="loadLowStockItems()"
-                                    />
-                                </div>
-                            </div>
                             <div v-if="lowStockItems.length > 0" class="app-overview-grid reports-orders-summary">
                                 <div class="app-overview-stat">
                                     <span class="app-overview-stat-icon app-overview-stat-icon--warning"><b-icon icon="exclamation-triangle-fill"></b-icon></span>
@@ -978,6 +1144,19 @@ export default {
                 startDate: "",
                 endDate: "",
             },
+            productSalesFilters: {
+                tag: "",
+                info: "",
+            },
+            reportTags: [],
+            productSalesItems: [],
+            productSalesSummary: {
+                totalQuantitySold: 0,
+                totalSales: 0,
+                totalDistinctItems: 0,
+                totalRemainingQuantity: 0,
+                itemsWithSales: 0,
+            },
             totalCardOrders: 0,
             userInfo: {},
             customerOrderItem: [],
@@ -1043,7 +1222,30 @@ export default {
             );
         },
         hasAdvancedFilters() {
-            return !!(this.reportFilters.startDate || this.reportFilters.endDate);
+            return !!(
+                this.reportFilters.startDate ||
+                this.reportFilters.endDate ||
+                (this.activeTab === "productSales" &&
+                    (this.productSalesFilters.tag ||
+                        (this.productSalesFilters.info || "").trim()))
+            );
+        },
+        hasReportFilters() {
+            if (this.activeTab === "orders") return this.hasActiveFilters;
+            if (this.activeTab === "lowStock") return Number(this.lowStockThreshold) !== 10;
+            return this.hasAdvancedFilters;
+        },
+        reportsFiltersHint() {
+            const map = {
+                orders: this.$t("ordersFiltersHint") || "تصفية الفواتير بالتاريخ أو طريقة الدفع أو رقم الفاتورة",
+                profit: this.$t("dateFiltersHint") || "حدد فترة التقرير",
+                topItems: this.$t("dateFiltersHint") || "حدد فترة التقرير",
+                productSales: this.$t("productSalesFiltersHint") || "فلترة حسب التاريخ والقسم واسم المنتج",
+                byCategory: this.$t("dateFiltersHint") || "حدد فترة التقرير",
+                byEmployee: this.$t("dateFiltersHint") || "حدد فترة التقرير",
+                lowStock: this.$t("lowStockFiltersHint") || "حد الكمية لعرض المنتجات القليلة أو المنتهية",
+            };
+            return map[this.activeTab] || (this.$t("filters") || "فلاتر التقرير");
         },
         formattedNumber() {
             return this.totaPrice.toLocaleString()
@@ -1201,7 +1403,33 @@ export default {
                 startDate: "",
                 endDate: "",
             };
+            this.productSalesFilters = {
+                tag: "",
+                info: "",
+            };
             this.loadAdvancedReport();
+        },
+        clearCurrentTabFilters() {
+            if (this.activeTab === "orders") {
+                this.clearFilters();
+                return;
+            }
+            if (this.activeTab === "lowStock") {
+                this.lowStockThreshold = 10;
+                this.loadLowStockItems();
+                return;
+            }
+            this.clearAdvancedFilters();
+        },
+        ensureReportTags() {
+            if (this.reportTags.length) return;
+            HTTP.get("Admin/GetTags?pageNumber=0&pageSize=10000")
+                .then((response) => {
+                    this.reportTags = response.data?.data?.items || [];
+                })
+                .catch(() => {
+                    this.reportTags = [];
+                });
         },
         hasDiscount(item) {
             if (this.order?.isWholesale) return false;
@@ -1583,11 +1811,47 @@ export default {
                 this.loadProfitReport();
             } else if (this.activeTab === 'topItems') {
                 this.loadTopSellingItems();
+            } else if (this.activeTab === 'productSales') {
+                this.loadProductSalesReport();
             } else if (this.activeTab === 'byCategory') {
                 this.loadSalesByCategory();
             } else if (this.activeTab === 'byEmployee') {
                 this.loadSalesByEmployee();
             }
+        },
+
+        loadProductSalesReport() {
+            this.show = true;
+            const params = new URLSearchParams();
+            params.append('pageNumber', '0');
+            params.append('pageSize', '500');
+            params.append('onlyWithSales', 'false');
+            if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
+            if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
+            if (this.productSalesFilters.tag) params.append('tag', this.productSalesFilters.tag);
+            if ((this.productSalesFilters.info || '').trim()) {
+                params.append('info', this.productSalesFilters.info.trim());
+            }
+
+            HTTP.get(`Admin/GetProductSalesReport?${params.toString()}`)
+                .then((response) => {
+                    const payload = response.data.data || {};
+                    this.productSalesItems = payload.items || [];
+                    const summary = payload.summary || {};
+                    this.productSalesSummary = {
+                        totalQuantitySold: summary.totalQuantitySold ?? 0,
+                        totalSales: summary.totalSales ?? 0,
+                        totalDistinctItems: summary.totalDistinctItems ?? 0,
+                        totalRemainingQuantity: summary.totalRemainingQuantity ?? 0,
+                        itemsWithSales: summary.itemsWithSales ?? 0,
+                    };
+                    this.show = false;
+                })
+                .catch((error) => {
+                    this.show = false;
+                    this.productSalesItems = [];
+                    console.error('Error loading product sales report:', error);
+                });
         },
 
         loadProfitReport() {

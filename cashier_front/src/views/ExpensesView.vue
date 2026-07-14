@@ -117,46 +117,67 @@
               </div>
             </div>
 
-            <div class="app-section-body expenses-filters-body">
-              <div class="expenses-filters-grid">
-                <div class="app-search-wrap app-search-wrap--wide">
-                  <b-icon icon="search" class="app-search-icon"></b-icon>
-                  <input
-                    v-model="searchQuery"
-                    type="search"
-                    class="app-search-input"
-                    :placeholder="$t('searchByDescription') || 'ابحث بالوصف...'"
-                    autocomplete="off"
-                    @input="debounceSearch"
-                  />
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                    <p>{{ $t("expensesFiltersHint") || "تصفية الصرفيات بالتاريخ والفئة والوصف" }}</p>
+                  </div>
                 </div>
-                <div class="users-search-container">
-                  <b-icon icon="calendar" class="search-icon"></b-icon>
-                  <input
-                    v-model="startDate"
-                    type="date"
-                    class="users-search-input"
-                    @change="loadExpenses"
-                  />
+                <div class="app-filters-panel-actions" v-if="searchQuery || startDate || endDate || categoryFilter">
+                  <button
+                    type="button"
+                    class="users-filter-clear-btn app-filters-clear-btn"
+                    @click="searchQuery = ''; startDate = ''; endDate = ''; categoryFilter = ''; loadExpenses()"
+                  >
+                    <b-icon icon="x-circle" class="me-1"></b-icon>
+                    {{ $t("clearFilters") || "مسح الفلاتر" }}
+                  </button>
                 </div>
-                <div class="users-search-container">
-                  <b-icon icon="calendar-check" class="search-icon"></b-icon>
-                  <input
-                    v-model="endDate"
-                    type="date"
-                    class="users-search-input"
-                    @change="loadExpenses"
-                  />
-                </div>
-                <div class="users-search-container">
-                  <b-icon icon="tag" class="search-icon"></b-icon>
-                  <select v-model="categoryFilter" class="users-search-input" @change="loadExpenses">
-                    <option value="">{{ $t("allCategories") || "جميع الفئات" }}</option>
-                    <option v-for="cat in expenseCategories" :key="cat.id" :value="cat.name">
-                      {{ cat.name }}
-                    </option>
-                  </select>
-                </div>
+              </div>
+              <div class="app-filters-fields">
+                <label class="app-filter-field app-filter-field--grow">
+                  <span class="app-filter-label">{{ $t("search") || "بحث" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="search" class="search-icon"></b-icon>
+                    <input
+                      v-model="searchQuery"
+                      type="search"
+                      class="users-search-input"
+                      :placeholder="$t('searchByDescription') || 'ابحث بالوصف...'"
+                      autocomplete="off"
+                      @input="debounceSearch"
+                    />
+                  </div>
+                </label>
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("from_date") || "من تاريخ" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="calendar" class="search-icon"></b-icon>
+                    <input v-model="startDate" type="date" class="users-search-input" @change="loadExpenses" />
+                  </div>
+                </label>
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("to_date") || "إلى تاريخ" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="calendar-check" class="search-icon"></b-icon>
+                    <input v-model="endDate" type="date" class="users-search-input" @change="loadExpenses" />
+                  </div>
+                </label>
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("category") || "الفئة" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="tag" class="search-icon"></b-icon>
+                    <select v-model="categoryFilter" class="users-search-input reports-filter-select" @change="loadExpenses">
+                      <option value="">{{ $t("allCategories") || "جميع الفئات" }}</option>
+                      <option v-for="cat in expenseCategories" :key="cat.id" :value="cat.name">
+                        {{ cat.name }}
+                      </option>
+                    </select>
+                  </div>
+                </label>
               </div>
             </div>
 
@@ -205,12 +226,24 @@
                 <span>{{ row.item.tag?.name || '-' }}</span>
               </template>
               <template #cell(actions)="row">
-                <div class="actions-cell">
-                  <button type="button" class="action-btn action-btn--icon action-btn--edit" @click="editExpense(row.item)">
-                    <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                <div class="actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
+                  <button
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--edit"
+                    @click="editExpense(row.item)"
+                    :title="$t('edit') || 'تعديل'"
+                    :aria-label="$t('edit') || 'تعديل'"
+                  >
+                    <b-icon icon="pencil-square" class="action-icon"></b-icon>
                   </button>
-                  <button type="button" class="action-btn action-btn--icon action-btn--delete" @click="confirmDeleteExpense(row.item)">
-                    <b-icon icon="trash-fill" class="action-icon"></b-icon>
+                  <button
+                    type="button"
+                    class="action-btn action-btn--icon action-btn--delete"
+                    @click="confirmDeleteExpense(row.item)"
+                    :title="$t('delete') || 'حذف'"
+                    :aria-label="$t('delete') || 'حذف'"
+                  >
+                    <b-icon icon="trash" class="action-icon"></b-icon>
                   </button>
                 </div>
               </template>
@@ -446,12 +479,12 @@
                   <p v-if="cat.description" class="category-description">{{ cat.description }}</p>
                 </div>
               </div>
-              <div class="actions-cell">
-                <button type="button" class="action-btn action-btn--icon action-btn--edit" @click="editCategory(cat)" :title="$t('editCategory') || 'تعديل'">
-                  <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+              <div class="actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
+                <button type="button" class="action-btn action-btn--icon action-btn--edit" @click="editCategory(cat)" :title="$t('editCategory') || 'تعديل'" :aria-label="$t('editCategory') || 'تعديل'">
+                  <b-icon icon="pencil-square" class="action-icon"></b-icon>
                 </button>
-                <button type="button" class="action-btn action-btn--icon action-btn--delete" @click="confirmDeleteCategory(cat)" :title="$t('delete') || 'حذف'">
-                  <b-icon icon="trash-fill" class="action-icon"></b-icon>
+                <button type="button" class="action-btn action-btn--icon action-btn--delete" @click="confirmDeleteCategory(cat)" :title="$t('delete') || 'حذف'" :aria-label="$t('delete') || 'حذف'">
+                  <b-icon icon="trash" class="action-icon"></b-icon>
                 </button>
               </div>
             </div>

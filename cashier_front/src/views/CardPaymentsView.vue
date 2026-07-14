@@ -136,61 +136,72 @@
               </div>
             </div>
 
-            <div class="card-payments-filters">
-              <div class="card-payments-filter-group">
-                <label class="card-payments-filter-label">
-                  <b-icon icon="calendar" class="filter-icon"></b-icon>
-                  {{ $t("startDate") || "من تاريخ" }}
-                </label>
-                <input v-model="filters.startDate" type="date" class="users-form-input" />
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                    <p>{{ $t("cardPaymentsFiltersHint") || "تصفية معاملات البطاقة بالتاريخ والحالة والربط" }}</p>
+                  </div>
+                </div>
+                <div class="app-filters-panel-actions">
+                  <button type="button" class="btn-refresh" @click="applyFilters">
+                    <b-icon icon="search" class="button-icon"></b-icon>
+                    <span class="button-text">{{ $t("filter") || "تصفية" }}</span>
+                  </button>
+                  <button
+                    v-if="hasActiveFilters"
+                    type="button"
+                    class="users-filter-clear-btn app-filters-clear-btn"
+                    @click="clearFilters"
+                  >
+                    <b-icon icon="x-circle" class="me-1"></b-icon>
+                    {{ $t("clearFilters") || "مسح الفلاتر" }}
+                  </button>
+                </div>
               </div>
-              <div class="card-payments-filter-group">
-                <label class="card-payments-filter-label">
-                  <b-icon icon="calendar-check" class="filter-icon"></b-icon>
-                  {{ $t("endDate") || "إلى تاريخ" }}
+              <div class="app-filters-fields">
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("startDate") || "من تاريخ" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="calendar" class="search-icon"></b-icon>
+                    <input v-model="filters.startDate" type="date" class="users-search-input" />
+                  </div>
                 </label>
-                <input v-model="filters.endDate" type="date" class="users-form-input" />
-              </div>
-              <div class="card-payments-filter-group">
-                <label class="card-payments-filter-label">
-                  <b-icon icon="filter" class="filter-icon"></b-icon>
-                  {{ $t("status") || "الحالة" }}
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("endDate") || "إلى تاريخ" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="calendar-check" class="search-icon"></b-icon>
+                    <input v-model="filters.endDate" type="date" class="users-search-input" />
+                  </div>
                 </label>
-                <select v-model="filters.status" class="users-form-select">
-                  <option value="">{{ $t("all") || "الكل" }}</option>
-                  <option value="Success">{{ $t("success") || "نجاح" }}</option>
-                  <option value="Failed">{{ $t("failed") || "فشل" }}</option>
-                  <option value="Pending">{{ $t("pending") || "معلق" }}</option>
-                </select>
-              </div>
-              <div class="card-payments-filter-group">
-                <label class="card-payments-filter-label">
-                  <b-icon icon="link-45deg" class="filter-icon"></b-icon>
-                  {{ $t("linkStatus") || "حالة الربط" }}
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("status") || "الحالة" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="filter" class="search-icon"></b-icon>
+                    <select v-model="filters.status" class="users-search-input reports-filter-select">
+                      <option value="">{{ $t("all") || "الكل" }}</option>
+                      <option value="Success">{{ $t("success") || "نجاح" }}</option>
+                      <option value="Failed">{{ $t("failed") || "فشل" }}</option>
+                      <option value="Pending">{{ $t("pending") || "معلق" }}</option>
+                    </select>
+                  </div>
                 </label>
-                <select v-model="filters.linkStatus" class="users-form-select">
-                  <option value="">{{ $t("all") || "الكل" }}</option>
-                  <option value="Matched">{{ $t("linkStatusMatched") || "مطابق" }}</option>
-                  <option value="Unmatched">{{ $t("linkStatusUnmatched") || "غير مطابق" }}</option>
-                  <option value="Failed">{{ $t("linkStatusFailed") || "فاشل" }}</option>
-                  <option value="Pending">{{ $t("linkStatusPending") || "معلق" }}</option>
-                  <option value="NotMatched">{{ $t("linkStatusNotMatched") || "ليس مطابقاً" }}</option>
-                </select>
-              </div>
-              <div class="card-payments-filter-actions">
-                <button type="button" class="users-form-submit-button card-payments-filter-btn" @click="applyFilters">
-                  <b-icon icon="search" class="me-1"></b-icon>
-                  {{ $t("filter") || "تصفية" }}
-                </button>
-                <button
-                  v-if="hasActiveFilters"
-                  type="button"
-                  class="users-form-cancel-button card-payments-filter-btn"
-                  @click="clearFilters"
-                >
-                  <b-icon icon="x-circle" class="me-1"></b-icon>
-                  {{ $t("clearFilters") || "مسح" }}
-                </button>
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("linkStatus") || "حالة الربط" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="link-45deg" class="search-icon"></b-icon>
+                    <select v-model="filters.linkStatus" class="users-search-input reports-filter-select">
+                      <option value="">{{ $t("all") || "الكل" }}</option>
+                      <option value="Matched">{{ $t("linkStatusMatched") || "مطابق" }}</option>
+                      <option value="Unmatched">{{ $t("linkStatusUnmatched") || "غير مطابق" }}</option>
+                      <option value="Failed">{{ $t("linkStatusFailed") || "فاشل" }}</option>
+                      <option value="Pending">{{ $t("linkStatusPending") || "معلق" }}</option>
+                      <option value="NotMatched">{{ $t("linkStatusNotMatched") || "ليس مطابقاً" }}</option>
+                    </select>
+                  </div>
+                </label>
               </div>
             </div>
 
@@ -247,7 +258,7 @@
                     </span>
                   </template>
                   <template #cell(actions)="row">
-                    <div class="card-payments-row-actions">
+                    <div class="actions-cell card-payments-row-actions" role="group" :aria-label="$t('actions') || 'العمليات'">
                       <button
                         v-if="row.item.linkStatus !== 'Matched'"
                         type="button"
@@ -255,6 +266,7 @@
                         @click="recheckSingle(row.item.id)"
                         :disabled="recheckingId === row.item.id"
                         :title="$t('recheck') || 'إعادة فحص'"
+                        :aria-label="$t('recheck') || 'إعادة فحص'"
                       >
                         <b-spinner small v-if="recheckingId === row.item.id"></b-spinner>
                         <b-icon v-else icon="arrow-repeat" class="action-icon"></b-icon>
@@ -264,8 +276,9 @@
                         class="action-btn action-btn--icon action-btn--view"
                         @click="openDetail(row.item.id)"
                         :title="$t('viewDetails') || 'عرض التفاصيل'"
+                        :aria-label="$t('viewDetails') || 'عرض التفاصيل'"
                       >
-                        <b-icon icon="eye-fill" class="action-icon"></b-icon>
+                        <b-icon icon="eye" class="action-icon"></b-icon>
                       </button>
                     </div>
                   </template>

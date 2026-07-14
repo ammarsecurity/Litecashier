@@ -117,8 +117,20 @@
               </div>
             </div>
 
-            <div class="app-section-body expenses-filters-body">
-              <div class="expenses-filters-grid">
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                                    <p>{{ $t('expensesFiltersHint') || 'تصفية الصرفيات بالتاريخ والفئة والوصف' }}</p>
+                                </div>
+                </div>
+                <div class="app-filters-panel-actions" v-if="searchQuery || startDate || endDate || categoryFilter">
+                  <button type="button" class="users-form-cancel-button" @click="searchQuery = ''; startDate = ''; endDate = ''; categoryFilter = ''; loadExpenses()"><b-icon icon="x-circle"></b-icon>{{ $t('clearFilters') || 'مسح الفلاتر' }}</button>
+                </div>
+              </div>
+              <div class="app-filters-fields app-filters-fields--4 expenses-filters-grid">
                 <div class="app-search-wrap app-search-wrap--wide">
                   <b-icon icon="search" class="app-search-icon"></b-icon>
                   <input
@@ -170,7 +182,6 @@
                   id="expenses-table"
                   :items="Expenses"
                   :fields="expensesTableFields"
-                  striped
                   hover
                   responsive
                   class="reports-table"
@@ -207,10 +218,10 @@
               <template #cell(actions)="row">
                 <div class="actions-cell">
                   <button type="button" class="action-btn action-btn--icon action-btn--edit" @click="editExpense(row.item)">
-                    <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                    <b-icon icon="pencil-square" class="action-icon"></b-icon>
                   </button>
                   <button type="button" class="action-btn action-btn--icon action-btn--delete" @click="confirmDeleteExpense(row.item)">
-                    <b-icon icon="trash-fill" class="action-icon"></b-icon>
+                    <b-icon icon="trash" class="action-icon"></b-icon>
                   </button>
                 </div>
               </template>
@@ -447,11 +458,11 @@
                 </div>
               </div>
               <div class="category-actions">
-                <button class="category-edit-btn" @click="editCategory(cat)">
-                  <b-icon icon="pencil-fill"></b-icon>
+                <button class="category-edit-btn" @click="editCategory(cat)" :title="$t('editButtonLabel')">
+                  <b-icon icon="pencil-square"></b-icon>
                 </button>
-                <button class="category-delete-btn" @click="confirmDeleteCategory(cat)">
-                  <b-icon icon="trash-fill"></b-icon>
+                <button class="category-delete-btn" @click="confirmDeleteCategory(cat)" :title="$t('deleteButtonLabel')">
+                  <b-icon icon="trash"></b-icon>
                 </button>
               </div>
             </div>

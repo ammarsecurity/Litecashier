@@ -80,51 +80,59 @@
               </div>
             </div>
 
-            <div class="users-search-section stock-alerts-filters">
-              <div class="reports-filters-grid stock-alerts-filters-grid">
-                <div class="users-search-container">
-                  <b-icon icon="tags" class="search-icon"></b-icon>
-                  <select
-                    v-model="selectedCategory"
-                    class="users-search-input reports-filter-select"
-                  >
-                    <option value="">{{ $t("all_categories") || "جميع الاقسام" }}</option>
-                    <option
-                      v-for="tag in tags"
-                      :key="tag.id || tag.name"
-                      :value="tag.name"
-                    >
-                      {{ tag.name }}
-                    </option>
-                  </select>
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                    <p>{{ $t("stockAlertsFiltersHint") || "تصفية تنبيهات المخزون حسب القسم والحالة" }}</p>
+                  </div>
                 </div>
-                <div class="users-search-container">
-                  <b-icon icon="funnel" class="search-icon"></b-icon>
-                  <select
-                    v-model="selectedStatus"
-                    class="users-search-input reports-filter-select"
-                  >
-                    <option value="">{{ $t("allStockStatuses") || "كل الحالات" }}</option>
-                    <option value="out">{{ $t("stockAlertStatusOut") || "نفد" }}</option>
-                    <option value="low">{{ $t("stockAlertStatusLow") || "قليل" }}</option>
-                  </select>
-                </div>
-                <div class="users-search-container stock-alerts-filter-search">
-                  <b-icon icon="search" class="search-icon"></b-icon>
-                  <input
-                    v-model="search"
-                    type="search"
-                    class="users-search-input"
-                    :placeholder="$t('searchPlaceholder') || 'بحث...'"
-                    autocomplete="off"
-                  />
-                </div>
-                <div class="users-search-container stock-alerts-clear-wrap" v-if="hasActiveFilters">
-                  <button type="button" class="users-filter-clear-btn" @click="clearFilters">
-                    <b-icon icon="x-circle-fill" class="me-1"></b-icon>
+                <div class="app-filters-panel-actions" v-if="hasActiveFilters">
+                  <button type="button" class="users-filter-clear-btn app-filters-clear-btn" @click="clearFilters">
+                    <b-icon icon="x-circle" class="me-1"></b-icon>
                     {{ $t("clearFilters") || "مسح الفلاتر" }}
                   </button>
                 </div>
+              </div>
+              <div class="app-filters-fields app-filters-fields--3">
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("categoryPlaceholder") || "القسم" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="tags" class="search-icon"></b-icon>
+                    <select v-model="selectedCategory" class="users-search-input reports-filter-select">
+                      <option value="">{{ $t("all_categories") || "جميع الاقسام" }}</option>
+                      <option v-for="tag in tags" :key="tag.id || tag.name" :value="tag.name">
+                        {{ tag.name }}
+                      </option>
+                    </select>
+                  </div>
+                </label>
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("status") || "الحالة" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="funnel" class="search-icon"></b-icon>
+                    <select v-model="selectedStatus" class="users-search-input reports-filter-select">
+                      <option value="">{{ $t("allStockStatuses") || "كل الحالات" }}</option>
+                      <option value="out">{{ $t("stockAlertStatusOut") || "نفد" }}</option>
+                      <option value="low">{{ $t("stockAlertStatusLow") || "قليل" }}</option>
+                    </select>
+                  </div>
+                </label>
+                <label class="app-filter-field app-filter-field--grow">
+                  <span class="app-filter-label">{{ $t("search") || "بحث" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="search" class="search-icon"></b-icon>
+                    <input
+                      v-model="search"
+                      type="search"
+                      class="users-search-input"
+                      :placeholder="$t('searchPlaceholder') || 'بحث...'"
+                      autocomplete="off"
+                    />
+                  </div>
+                </label>
               </div>
             </div>
 

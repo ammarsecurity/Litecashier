@@ -127,16 +127,42 @@
                   <p class="app-section-subtitle">{{ $t("inventoryListHint") || "الكميات الحالية وإجراءات السحب" }}</p>
                 </div>
               </div>
-              <div class="app-search-wrap app-search-wrap--wide">
-                <b-icon icon="search" class="app-search-icon"></b-icon>
-                <input
-                  v-model="searchQuery"
-                  type="search"
-                  class="app-search-input"
-                  :placeholder="$t('search') || 'بحث...'"
-                  autocomplete="off"
-                  @input="debounceSearch"
-                />
+            </div>
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                    <p>{{ $t("inventoryFiltersHint") || "بحث في مواد المخزن" }}</p>
+                  </div>
+                </div>
+                <div class="app-filters-panel-actions" v-if="searchQuery">
+                  <button
+                    type="button"
+                    class="users-filter-clear-btn app-filters-clear-btn"
+                    @click="searchQuery = ''; debounceSearch()"
+                  >
+                    <b-icon icon="x-circle" class="me-1"></b-icon>
+                    {{ $t("clearFilters") || "مسح الفلاتر" }}
+                  </button>
+                </div>
+              </div>
+              <div class="app-filters-fields app-filters-fields--2">
+                <label class="app-filter-field app-filter-field--grow">
+                  <span class="app-filter-label">{{ $t("search") || "بحث" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="search" class="search-icon"></b-icon>
+                    <input
+                      v-model="searchQuery"
+                      type="search"
+                      class="users-search-input"
+                      :placeholder="$t('search') || 'بحث...'"
+                      autocomplete="off"
+                      @input="debounceSearch"
+                    />
+                  </div>
+                </label>
               </div>
             </div>
             <div class="app-section-body app-section-body--no-padding inventory-table-section">
@@ -144,8 +170,8 @@
                 <b-spinner variant="primary"></b-spinner>
                 <span>{{ $t("loading") || "جاري التحميل..." }}</span>
               </div>
-              <div v-else-if="items.length > 0" class="table-responsive">
-                <table class="table users-table">
+              <div v-else-if="items.length > 0" class="table-responsive report-table-container">
+                <table class="table users-table reports-table">
                   <thead>
                     <tr>
                       <th>{{ $t("inventoryMaterialName") || "اسم المادة" }}</th>
@@ -201,10 +227,17 @@
                       </td>
                       <td>{{ formatMovementDate(row.lastMovementDate) }}</td>
                       <td>
-                        <button type="button" class="action-btn action-btn--warn" @click="openWithdrawModal(row)">
-                          <b-icon icon="dash-circle" class="action-icon me-1"></b-icon>
-                          {{ $t("withdraw") || "سحب" }}
-                        </button>
+                        <div class="actions-cell" role="group">
+                          <button
+                            type="button"
+                            class="action-btn action-btn--icon action-btn--warn"
+                            @click="openWithdrawModal(row)"
+                            :title="$t('withdraw') || 'سحب'"
+                            :aria-label="$t('withdraw') || 'سحب'"
+                          >
+                            <b-icon icon="dash-circle" class="action-icon"></b-icon>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   </tbody>
@@ -229,52 +262,106 @@
                 </div>
               </div>
             </div>
-            <div class="app-section-body inventory-filters-body">
-              <div class="movements-filters">
-                <input
-                  v-model="movementFilterMaterial"
-                  type="text"
-                  :placeholder="$t('inventoryMaterialName') || 'اسم المادة'"
-                  class="users-search-input movements-filter-input"
-                  @input="debounceLoadMovements"
-                />
-                <input
-                  v-model="movementFilterReceiptNumber"
-                  type="text"
-                  :placeholder="$t('receiptNumber') || 'رقم الوصل'"
-                  class="users-search-input movements-filter-input"
-                  @input="debounceLoadMovements"
-                />
-                <input
-                  v-model="movementFilterReceivedBy"
-                  type="text"
-                  :placeholder="$t('movementsFilterReceivedBy') || 'الموظف المستلم'"
-                  class="users-search-input movements-filter-input"
-                  @input="debounceLoadMovements"
-                />
-                <select v-model="movementFilterType" class="users-search-input movements-filter-input" @change="loadStockMovements">
-                  <option value="">{{ $t("all") || "الكل" }}</option>
-                  <option value="Add">{{ $t("add") || "إضافة" }}</option>
-                  <option value="Withdraw">{{ $t("withdraw") || "سحب" }}</option>
-                </select>
-                <input
-                  v-model="movementFilterStartDate"
-                  type="date"
-                  class="users-search-input movements-filter-input movements-filter-date"
-                  :aria-label="$t('fromDate') || 'من تاريخ'"
-                  @change="onMovementDateFilterChange"
-                />
-                <input
-                  v-model="movementFilterEndDate"
-                  type="date"
-                  class="users-search-input movements-filter-input movements-filter-date"
-                  :aria-label="$t('toDate') || 'إلى تاريخ'"
-                  @change="onMovementDateFilterChange"
-                />
-                <button type="button" class="btn-refresh" @click="loadStockMovements" :disabled="loadingMovements">
-                  <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: loadingMovements }"></b-icon>
-                  <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
-                </button>
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                    <p>{{ $t("movementsFiltersHint") || "تصفية حركات المخزون بالمادة والتاريخ والنوع" }}</p>
+                  </div>
+                </div>
+                <div class="app-filters-panel-actions">
+                  <button type="button" class="btn-refresh" @click="loadStockMovements" :disabled="loadingMovements">
+                    <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: loadingMovements }"></b-icon>
+                    <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+                  </button>
+                  <button
+                    v-if="movementFilterMaterial || movementFilterReceiptNumber || movementFilterReceivedBy || movementFilterType || movementFilterStartDate || movementFilterEndDate"
+                    type="button"
+                    class="users-filter-clear-btn app-filters-clear-btn"
+                    @click="clearMovementFilters"
+                  >
+                    <b-icon icon="x-circle" class="me-1"></b-icon>
+                    {{ $t("clearFilters") || "مسح الفلاتر" }}
+                  </button>
+                </div>
+              </div>
+              <div class="app-filters-fields app-filters-fields--3">
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("inventoryMaterialName") || "اسم المادة" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="box-seam" class="search-icon"></b-icon>
+                    <input
+                      v-model="movementFilterMaterial"
+                      type="search"
+                      class="users-search-input"
+                      :placeholder="$t('inventoryMaterialName') || 'اسم المادة'"
+                      @input="debounceLoadMovements"
+                    />
+                  </div>
+                </label>
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("receiptNumber") || "رقم الوصل" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="receipt" class="search-icon"></b-icon>
+                    <input
+                      v-model="movementFilterReceiptNumber"
+                      type="search"
+                      class="users-search-input"
+                      :placeholder="$t('receiptNumber') || 'رقم الوصل'"
+                      @input="debounceLoadMovements"
+                    />
+                  </div>
+                </label>
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("movementsFilterReceivedBy") || "الموظف المستلم" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="person" class="search-icon"></b-icon>
+                    <input
+                      v-model="movementFilterReceivedBy"
+                      type="search"
+                      class="users-search-input"
+                      :placeholder="$t('movementsFilterReceivedBy') || 'الموظف المستلم'"
+                      @input="debounceLoadMovements"
+                    />
+                  </div>
+                </label>
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("movementType") || "النوع" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="funnel" class="search-icon"></b-icon>
+                    <select v-model="movementFilterType" class="users-search-input reports-filter-select" @change="loadStockMovements">
+                      <option value="">{{ $t("all") || "الكل" }}</option>
+                      <option value="Add">{{ $t("add") || "إضافة" }}</option>
+                      <option value="Withdraw">{{ $t("withdraw") || "سحب" }}</option>
+                    </select>
+                  </div>
+                </label>
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("from_date") || "من تاريخ" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="calendar" class="search-icon"></b-icon>
+                    <input
+                      v-model="movementFilterStartDate"
+                      type="date"
+                      class="users-search-input"
+                      @change="onMovementDateFilterChange"
+                    />
+                  </div>
+                </label>
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("to_date") || "إلى تاريخ" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="calendar-check" class="search-icon"></b-icon>
+                    <input
+                      v-model="movementFilterEndDate"
+                      type="date"
+                      class="users-search-input"
+                      @change="onMovementDateFilterChange"
+                    />
+                  </div>
+                </label>
               </div>
             </div>
             <div class="app-section-body app-section-body--no-padding inventory-table-section">
@@ -292,8 +379,8 @@
                 <b-spinner variant="primary"></b-spinner>
                 <span>{{ $t("loading") || "جاري التحميل..." }}</span>
               </div>
-              <div v-else-if="movementsList.length > 0" class="table-responsive">
-                <table class="table users-table movements-table">
+              <div v-else-if="movementsList.length > 0" class="table-responsive report-table-container">
+                <table class="table users-table movements-table reports-table">
                   <thead>
                     <tr>
                       <th>{{ $t("date") || "التاريخ" }}</th>
@@ -398,8 +485,8 @@
               <b-spinner variant="primary"></b-spinner>
               <span>{{ $t("loading") || "جاري التحميل..." }}</span>
             </div>
-            <div v-else-if="suppliersList.length > 0" class="table-responsive">
-              <table class="table users-table movements-table">
+            <div v-else-if="suppliersList.length > 0" class="table-responsive report-table-container">
+              <table class="table users-table movements-table reports-table">
                 <thead>
                   <tr>
                     <th>{{ $t("supplierName") || "اسم المورد" }}</th>
@@ -412,13 +499,25 @@
                     <td>{{ s.name }}</td>
                     <td>{{ s.notes || '—' }}</td>
                     <td>
-                      <div class="actions-cell justify-content-start">
-                      <button type="button" class="action-btn action-btn--icon action-btn--edit" @click="openEditSupplierModal(s)" :title="$t('editSupplier') || 'تعديل'">
-                        <b-icon icon="pencil-fill" class="action-icon"></b-icon>
-                      </button>
-                      <button type="button" class="action-btn action-btn--icon action-btn--delete" @click="confirmDeleteSupplier(s)" :title="$t('deleteSupplier') || 'حذف'">
-                        <b-icon icon="trash-fill" class="action-icon"></b-icon>
-                      </button>
+                      <div class="actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
+                        <button
+                          type="button"
+                          class="action-btn action-btn--icon action-btn--edit"
+                          @click="openEditSupplierModal(s)"
+                          :title="$t('editSupplier') || 'تعديل'"
+                          :aria-label="$t('editSupplier') || 'تعديل'"
+                        >
+                          <b-icon icon="pencil-square" class="action-icon"></b-icon>
+                        </button>
+                        <button
+                          type="button"
+                          class="action-btn action-btn--icon action-btn--delete"
+                          @click="confirmDeleteSupplier(s)"
+                          :title="$t('deleteSupplier') || 'حذف'"
+                          :aria-label="$t('deleteSupplier') || 'حذف'"
+                        >
+                          <b-icon icon="trash" class="action-icon"></b-icon>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1059,6 +1158,16 @@ export default {
       }, 400);
     },
     onMovementDateFilterChange() {
+      this.movementsPage = 1;
+      this.loadStockMovements();
+    },
+    clearMovementFilters() {
+      this.movementFilterMaterial = "";
+      this.movementFilterReceiptNumber = "";
+      this.movementFilterReceivedBy = "";
+      this.movementFilterType = "";
+      this.movementFilterStartDate = "";
+      this.movementFilterEndDate = "";
       this.movementsPage = 1;
       this.loadStockMovements();
     },

@@ -251,7 +251,17 @@
               <div v-if="showInvoiceDetails" class="app-section-body dashboard-invoices-body">
               <div class="invoice-details-section">
                 <!-- Date Filter -->
-                <div class="invoice-filters-section">
+                <div class="app-filters-panel app-filters-panel--inset invoice-filters-section">
+                  <div class="app-filters-panel-head">
+                    <div class="app-filters-panel-title">
+                      <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                      <div>
+                                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                                    <p>{{ $t('dashboardInvoiceFiltersHint') || 'تصفية فواتير لوحة التحكم بالتاريخ أو رقم الطلب' }}</p>
+                                </div>
+                    </div>
+                  </div>
+                  <div class="app-filters-fields app-filters-fields--3">
                   <div class="invoice-filter-group">
                     <label class="invoice-filter-label">
                       <b-icon icon="calendar" class="me-2"></b-icon>
@@ -298,6 +308,7 @@
                       {{ $t("clear") || "مسح" }}
                     </button>
                   </div>
+                  </div>
                 </div>
 
                 <!-- Invoices Table -->
@@ -307,7 +318,7 @@
                     <span>{{ $t("loading") || "جاري التحميل..." }}</span>
                   </div>
                   <div v-else-if="invoices.length > 0" class="invoice-table-wrapper">
-                    <table class="invoice-table">
+                    <table class="invoice-table reports-table">
                       <thead>
                         <tr>
                           <th>{{ $t("orderCode") || "رقم الطلب" }}</th>

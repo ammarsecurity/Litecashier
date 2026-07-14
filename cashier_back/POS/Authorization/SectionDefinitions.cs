@@ -24,6 +24,7 @@ public static class SectionDefinitions
         "customers",
         "deferredPayments",
         "stockAlerts",
+        "stockReturns",
         "auditLog",
         "users",
         "dashboard",

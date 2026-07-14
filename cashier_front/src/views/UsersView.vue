@@ -78,15 +78,41 @@
                                 <p class="app-section-subtitle">{{ $t('usersListHint') || 'قائمة الحسابات مع الأدوار والصلاحيات' }}</p>
                             </div>
                         </div>
-                        <div class="app-search-wrap app-search-wrap--wide">
-                            <b-icon icon="search" class="app-search-icon"></b-icon>
-                            <input
-                                v-model="search.info"
-                                type="search"
-                                :placeholder="$t('search')"
-                                class="app-search-input"
-                                autocomplete="off"
-                            />
+                    </div>
+                    <div class="app-filters-panel app-filters-panel--inset">
+                        <div class="app-filters-panel-head">
+                            <div class="app-filters-panel-title">
+                                <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                                <div>
+                                    <h3>{{ $t('filters') || 'الفلاتر' }}</h3>
+                                    <p>{{ $t('usersFiltersHint') || 'بحث في الحسابات بالاسم أو اسم المستخدم' }}</p>
+                                </div>
+                            </div>
+                            <div class="app-filters-panel-actions" v-if="search.info">
+                                <button
+                                    type="button"
+                                    class="users-filter-clear-btn app-filters-clear-btn"
+                                    @click="search.info = ''"
+                                >
+                                    <b-icon icon="x-circle" class="me-1"></b-icon>
+                                    {{ $t('clearFilters') || 'مسح الفلاتر' }}
+                                </button>
+                            </div>
+                        </div>
+                        <div class="app-filters-fields app-filters-fields--2">
+                            <label class="app-filter-field app-filter-field--grow">
+                                <span class="app-filter-label">{{ $t('search') || 'بحث' }}</span>
+                                <div class="users-search-container">
+                                    <b-icon icon="search" class="search-icon"></b-icon>
+                                    <input
+                                        v-model="search.info"
+                                        type="search"
+                                        :placeholder="$t('search')"
+                                        class="users-search-input"
+                                        autocomplete="off"
+                                    />
+                                </div>
+                            </label>
                         </div>
                     </div>
                     <div class="app-section-body">
@@ -111,19 +137,25 @@
                                     <span class="info-value">{{ User.username }}</span>
                                 </div>
                             </div>
-                            <div class="user-card-footer">
+                            <div class="user-card-footer actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
                                 <button 
-                                    class="user-action-button user-edit-button" 
+                                    type="button"
+                                    class="action-btn action-btn--icon action-btn--edit" 
                                     @click="getUserInfo(User)"
                                     :disabled="role === 'Commercial' && User.role === 'Commercial'"
-                                    :title="role === 'Commercial' && User.role === 'Commercial' ? ($t('noPermissionToEditCommercial') || 'ليس لديك صلاحية لتعديل المستخدمين التجاريين') : ''"
+                                    :title="role === 'Commercial' && User.role === 'Commercial' ? ($t('noPermissionToEditCommercial') || 'ليس لديك صلاحية لتعديل المستخدمين التجاريين') : ($t('edit') || 'تعديل')"
+                                    :aria-label="$t('edit') || 'تعديل'"
                                 >
-                                    <b-icon icon="pencil-fill" class="action-icon"></b-icon>
-                                    <span>{{ $t('edit') }}</span>
+                                    <b-icon icon="pencil-square" class="action-icon"></b-icon>
                                 </button>
-                                <button class="user-action-button user-delete-button" @click="deleteUserModel(User.id)">
-                                    <b-icon icon="trash-fill" class="action-icon"></b-icon>
-                                    <span>{{ $t('delete') }}</span>
+                                <button
+                                    type="button"
+                                    class="action-btn action-btn--icon action-btn--delete"
+                                    @click="deleteUserModel(User.id)"
+                                    :title="$t('delete') || 'حذف'"
+                                    :aria-label="$t('delete') || 'حذف'"
+                                >
+                                    <b-icon icon="trash" class="action-icon"></b-icon>
                                 </button>
                             </div>
                         </div>

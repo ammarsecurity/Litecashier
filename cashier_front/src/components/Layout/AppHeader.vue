@@ -40,6 +40,26 @@
 
         <button
           type="button"
+          class="app-top-header-icon-btn"
+          :disabled="!canZoomIn"
+          @click="zoomIn"
+          :title="$t('zoomInScreen') || 'تكبير الشاشة'"
+        >
+          <b-icon icon="zoom-in" class="app-top-header-icon"></b-icon>
+        </button>
+
+        <button
+          type="button"
+          class="app-top-header-icon-btn"
+          :disabled="!canZoomOut"
+          @click="zoomOut"
+          :title="$t('zoomOutScreen') || 'تصغير الشاشة'"
+        >
+          <b-icon icon="zoom-out" class="app-top-header-icon"></b-icon>
+        </button>
+
+        <button
+          type="button"
           @click="toggleTheme"
           class="app-top-header-icon-btn"
           :title="currentTheme === 'dark' ? ($t('switchToLightMode') || '') : ($t('switchToDarkMode') || '')"
@@ -74,13 +94,27 @@
 <script>
 import { syncNotifyLocale } from '@/plugins/notifyPlugin';
 
+const ZOOM_STORAGE_KEY = "appUiZoom";
+const ZOOM_MIN = 0.8;
+const ZOOM_MAX = 1.5;
+const ZOOM_STEP = 0.1;
+
 export default {
   name: "AppHeader",
   data() {
     return {
       currentTheme: "dark",
       isBrowserFullscreen: false,
+      uiZoom: 1,
     };
+  },
+  computed: {
+    canZoomIn() {
+      return this.uiZoom < ZOOM_MAX - 0.001;
+    },
+    canZoomOut() {
+      return this.uiZoom > ZOOM_MIN + 0.001;
+    },
   },
   methods: {
     changeLanguage(event) {
@@ -109,6 +143,31 @@ export default {
       const savedTheme = localStorage.getItem("theme") || "dark";
       this.currentTheme = savedTheme;
       this.applyTheme(savedTheme);
+    },
+    clampZoom(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return 1;
+      return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(n * 10) / 10));
+    },
+    applyUiZoom(zoom) {
+      const next = this.clampZoom(zoom);
+      this.uiZoom = next;
+      const root = document.documentElement;
+      root.style.zoom = String(next);
+      root.style.setProperty("--app-ui-zoom", String(next));
+      localStorage.setItem(ZOOM_STORAGE_KEY, String(next));
+    },
+    initializeUiZoom() {
+      const saved = localStorage.getItem(ZOOM_STORAGE_KEY);
+      this.applyUiZoom(saved != null ? saved : 1);
+    },
+    zoomIn() {
+      if (!this.canZoomIn) return;
+      this.applyUiZoom(this.uiZoom + ZOOM_STEP);
+    },
+    zoomOut() {
+      if (!this.canZoomOut) return;
+      this.applyUiZoom(this.uiZoom - ZOOM_STEP);
     },
     getFullscreenElement() {
       return (
@@ -174,6 +233,7 @@ export default {
   },
   mounted() {
     this.initializeTheme();
+    this.initializeUiZoom();
     const lang = localStorage.getItem("language") || "ar";
     document.body.dir = lang === "en" ? "ltr" : "rtl";
     this.syncBrowserFullscreenState();

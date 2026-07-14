@@ -211,22 +211,24 @@
                       >{{ $t("online") || "متصل" }}</span>
                       <span v-else class="printer-chip printer-chip--offline">{{ $t("offline") || "غير متصل" }}</span>
                     </div>
-                    <div class="app-item-card-actions">
+                    <div class="app-item-card-actions" role="group" :aria-label="$t('actions') || 'العمليات'">
                       <button
                         type="button"
                         class="action-btn action-btn--icon action-btn--edit"
                         @click="editPrinter(printer)"
                         :title="$t('edit') || 'تعديل'"
+                        :aria-label="$t('edit') || 'تعديل'"
                       >
-                        <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                        <b-icon icon="pencil-square" class="action-icon"></b-icon>
                       </button>
                       <button
                         type="button"
                         class="action-btn action-btn--icon action-btn--delete"
                         @click="confirmDeletePrinter(printer)"
                         :title="$t('delete') || 'حذف'"
+                        :aria-label="$t('delete') || 'حذف'"
                       >
-                        <b-icon icon="trash-fill" class="action-icon"></b-icon>
+                        <b-icon icon="trash" class="action-icon"></b-icon>
                       </button>
                     </div>
                   </div>

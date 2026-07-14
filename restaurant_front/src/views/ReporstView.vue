@@ -90,191 +90,170 @@
                     </div>
 
                     <!-- Advanced Reports Filters -->
-                    <div class="users-search-section" v-if="activeTab !== 'orders' && activeTab !== 'delivery' && activeTab !== 'expensesReport'">
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                            <div class="users-search-container">
-                                <b-icon icon="calendar" class="search-icon"></b-icon>
-                                <input 
-                                    v-model="reportFilters.startDate" 
-                                    type="date" 
-                                    :placeholder="$t('from_date')"
-                                    class="users-search-input"
-                                    @change="loadAdvancedReport()"
-                                />
+                    <div class="app-filters-panel reports-filters-panel" v-if="activeTab !== 'orders' && activeTab !== 'delivery' && activeTab !== 'expensesReport'">
+                        <div class="app-filters-panel-head reports-filters-panel-head">
+                            <div class="app-filters-panel-title reports-filters-panel-title">
+                                <span class="app-filters-panel-icon reports-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                                <div>
+                                    <h3>{{ $t('filters') || 'فلاتر التقرير' }}</h3>
+                                    <p>{{ $t('dateFiltersHint') || 'حدد فترة التقرير' }}</p>
+                                </div>
                             </div>
-                            <div class="users-search-container">
-                                <b-icon icon="calendar-check" class="search-icon"></b-icon>
-                                <input 
-                                    v-model="reportFilters.endDate" 
-                                    type="date" 
-                                    :placeholder="$t('to_date')"
-                                    class="users-search-input"
-                                    @change="loadAdvancedReport()"
-                                />
-                            </div>
-                            <div class="users-search-container">
-                                <b-icon icon="box-seam" class="search-icon"></b-icon>
-                                <select 
-                                    v-model="reportFilters.orderType" 
-                                    class="users-search-input"
-                                    style="padding-right: 2.5rem;"
-                                    @change="loadAdvancedReport()"
-                                >
-                                    <option value="">{{ $t('allOrderTypes') || 'جميع أنواع الطلبات' }}</option>
-                                    <option value="DineIn">{{ $t('dineIn') || 'داخلي' }}</option>
-                                    <option value="Takeaway">{{ $t('takeaway') || 'طلب خارجي' }}</option>
-                                    <option value="Delivery">{{ $t('delivery') || 'توصيل' }}</option>
-                                </select>
-                            </div>
-                            <div class="users-search-container">
-                                <b-icon icon="credit-card" class="search-icon"></b-icon>
-                                <select 
-                                    v-model="reportFilters.paymentMethod" 
-                                    class="users-search-input"
-                                    style="padding-right: 2.5rem;"
-                                    @change="loadAdvancedReport()"
-                                >
-                                    <option value="">{{ $t('allPaymentMethods') || 'جميع طرق الدفع' }}</option>
-                                    <option value="Cash">{{ $t('cash') || 'نقد' }}</option>
-                                    <option value="Card">{{ $t('card') || 'بطاقة' }}</option>
-                                    <option value="Credit">{{ $t('credit') || 'دفع لاحق' }}</option>
-                                </select>
-                            </div>
-                            <div class="users-search-container" v-show="activeTab === 'byEmployee'">
-                                <b-icon icon="person-badge" class="search-icon"></b-icon>
-                                <select
-                                    v-model="reportFilters.staffRoleFilter"
-                                    class="users-search-input"
-                                    style="padding-right: 2.5rem;"
-                                    @change="loadAdvancedReport()"
-                                >
-                                    <option value="">{{ $t('salesByEmployeeAllStaff') || 'كل الحسابات' }}</option>
-                                    <option value="SalesStaff">{{ $t('salesByEmployeePosAndWaiter') || 'كاشير ونادل فقط' }}</option>
-                                    <option value="POS">{{ $t('rolePOS') || 'كاشير (POS)' }}</option>
-                                    <option value="Waiter">{{ $t('roleWaiter') || 'نادل' }}</option>
-                                </select>
-                            </div>
-                            <div class="users-search-container" v-show="activeTab === 'byEmployee'">
-                                <b-icon icon="people" class="search-icon"></b-icon>
-                                <select
-                                    v-model="reportFilters.salesByEmployeeUserId"
-                                    class="users-search-input"
-                                    style="padding-right: 2.5rem;"
-                                    @change="loadAdvancedReport()"
-                                >
-                                    <option value="">{{ $t('salesByEmployeeAllEmployees') || 'كل الموظفين' }}</option>
-                                    <option
-                                        v-for="s in salesReportStaffList"
-                                        :key="s.id"
-                                        :value="String(s.id)"
-                                    >
-                                        {{ s.name }} — {{ salesReportStaffRoleLabel(s.role) }}
-                                    </option>
-                                </select>
-                            </div>
-                            <div class="users-search-container" v-if="hasAdvancedFilters">
-                                <button 
-                                    class="users-filter-clear-btn"
-                                    @click="clearAdvancedFilters"
-                                >
-                                    <b-icon icon="x-circle-fill" class="me-1"></b-icon>
+                            <div class="reports-filters-panel-actions" v-if="hasAdvancedFilters">
+                                <button type="button" class="users-filter-clear-btn reports-filters-clear-btn" @click="clearAdvancedFilters">
+                                    <b-icon icon="x-circle" class="me-1"></b-icon>
                                     {{ $t('clearFilters') || 'مسح الفلاتر' }}
                                 </button>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Orders Grid (Default View) -->
-                    <div v-if="activeTab === 'orders'">
-                        <!-- Search Section -->
-                        <div class="users-search-section">
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                                <div class="users-search-container">
-                                    <b-icon icon="search" class="search-icon"></b-icon>
-                                    <input 
-                                        v-model="search.info" 
-                                        type="text" 
-                                        :placeholder="$t('invoice_number')"
-                                        class="users-search-input"
-                                    />
-                                </div>
+                        <div class="app-filters-fields app-filters-fields--4">
+                            <label class="app-filter-field">
+                                <span class="app-filter-label">{{ $t('from_date') || 'من تاريخ' }}</span>
                                 <div class="users-search-container">
                                     <b-icon icon="calendar" class="search-icon"></b-icon>
-                                    <input 
-                                        v-model="search.startDate" 
-                                        type="date" 
-                                        :placeholder="$t('from_date')"
-                                        class="users-search-input"
-                                    />
+                                    <input v-model="reportFilters.startDate" type="date" class="users-search-input" @change="loadAdvancedReport()" />
                                 </div>
+                            </label>
+                            <label class="app-filter-field">
+                                <span class="app-filter-label">{{ $t('to_date') || 'إلى تاريخ' }}</span>
                                 <div class="users-search-container">
                                     <b-icon icon="calendar-check" class="search-icon"></b-icon>
-                                    <input 
-                                        v-model="search.endDate" 
-                                        type="date" 
-                                        :placeholder="$t('to_date')"
-                                        class="users-search-input"
-                                    />
+                                    <input v-model="reportFilters.endDate" type="date" class="users-search-input" @change="loadAdvancedReport()" />
                                 </div>
+                            </label>
+                            <label class="app-filter-field">
+                                <span class="app-filter-label">{{ $t('orderType') || 'نوع الطلب' }}</span>
                                 <div class="users-search-container">
                                     <b-icon icon="box-seam" class="search-icon"></b-icon>
-                                    <select 
-                                        v-model="search.orderType" 
-                                        class="users-search-input"
-                                        style="padding-right: 2.5rem;"
-                                    >
+                                    <select v-model="reportFilters.orderType" class="users-search-input" @change="loadAdvancedReport()">
                                         <option value="">{{ $t('allOrderTypes') || 'جميع أنواع الطلبات' }}</option>
                                         <option value="DineIn">{{ $t('dineIn') || 'داخلي' }}</option>
                                         <option value="Takeaway">{{ $t('takeaway') || 'طلب خارجي' }}</option>
                                         <option value="Delivery">{{ $t('delivery') || 'توصيل' }}</option>
                                     </select>
                                 </div>
+                            </label>
+                            <label class="app-filter-field">
+                                <span class="app-filter-label">{{ $t('paymentMethod') || 'طريقة الدفع' }}</span>
                                 <div class="users-search-container">
                                     <b-icon icon="credit-card" class="search-icon"></b-icon>
-                                    <select 
-                                        v-model="search.paymentMethod" 
-                                        class="users-search-input"
-                                        style="padding-right: 2.5rem;"
-                                    >
+                                    <select v-model="reportFilters.paymentMethod" class="users-search-input" @change="loadAdvancedReport()">
                                         <option value="">{{ $t('allPaymentMethods') || 'جميع طرق الدفع' }}</option>
                                         <option value="Cash">{{ $t('cash') || 'نقد' }}</option>
                                         <option value="Card">{{ $t('card') || 'بطاقة' }}</option>
                                         <option value="Credit">{{ $t('credit') || 'دفع لاحق' }}</option>
                                     </select>
                                 </div>
+                            </label>
+                            <label class="app-filter-field" v-show="activeTab === 'byEmployee'">
+                                <span class="app-filter-label">{{ $t('role') || 'الدور' }}</span>
                                 <div class="users-search-container">
-                                    <b-icon icon="truck" class="search-icon"></b-icon>
-                                    <select 
-                                        v-model="search.deliveryDriverId" 
-                                        class="users-search-input"
-                                        style="padding-right: 2.5rem;"
-                                    >
-                                        <option value="">{{ $t('allDrivers') || 'جميع السائقين' }}</option>
-                                        <option v-for="driver in deliveryDrivers" :key="driver.id" :value="driver.id">
-                                            {{ driver.name }}
+                                    <b-icon icon="person-badge" class="search-icon"></b-icon>
+                                    <select v-model="reportFilters.staffRoleFilter" class="users-search-input" @change="loadAdvancedReport()">
+                                        <option value="">{{ $t('salesByEmployeeAllStaff') || 'كل الحسابات' }}</option>
+                                        <option value="SalesStaff">{{ $t('salesByEmployeePosAndWaiter') || 'كاشير ونادل فقط' }}</option>
+                                        <option value="POS">{{ $t('rolePOS') || 'كاشير (POS)' }}</option>
+                                        <option value="Waiter">{{ $t('roleWaiter') || 'نادل' }}</option>
+                                    </select>
+                                </div>
+                            </label>
+                            <label class="app-filter-field" v-show="activeTab === 'byEmployee'">
+                                <span class="app-filter-label">{{ $t('employee') || 'الموظف' }}</span>
+                                <div class="users-search-container">
+                                    <b-icon icon="people" class="search-icon"></b-icon>
+                                    <select v-model="reportFilters.salesByEmployeeUserId" class="users-search-input" @change="loadAdvancedReport()">
+                                        <option value="">{{ $t('salesByEmployeeAllEmployees') || 'كل الموظفين' }}</option>
+                                        <option v-for="s in salesReportStaffList" :key="s.id" :value="String(s.id)">
+                                            {{ s.name }} — {{ salesReportStaffRoleLabel(s.role) }}
                                         </option>
                                     </select>
                                 </div>
-                                <div class="users-search-container" v-if="hasActiveFilters">
-                                    <button 
-                                        class="users-filter-clear-btn"
-                                        @click="clearFilters"
-                                    >
-                                        <b-icon icon="x-circle-fill" class="me-1"></b-icon>
-                                        {{ $t('clearFilters') || 'مسح الفلاتر' }}
-                                    </button>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Orders Grid (Default View) -->
+                    <div v-if="activeTab === 'orders'">
+                        <!-- Search Section -->
+                        <div class="app-filters-panel reports-filters-panel">
+                            <div class="app-filters-panel-head reports-filters-panel-head">
+                                <div class="app-filters-panel-title reports-filters-panel-title">
+                                    <span class="app-filters-panel-icon reports-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                                    <div>
+                                        <h3>{{ $t('filters') || 'فلاتر التقرير' }}</h3>
+                                        <p>{{ $t('ordersFiltersHint') || 'تصفية الفواتير بالتاريخ أو طريقة الدفع أو رقم الفاتورة' }}</p>
+                                    </div>
                                 </div>
-                                <div class="users-search-container">
-                                    <button 
-                                        class="export-excel-btn" 
-                                        @click="exportCurrentReportExcel()" 
-                                        :disabled="exportingExcel"
-                                    >
+                                <div class="reports-filters-panel-actions">
+                                    <button type="button" class="export-excel-btn" @click="exportCurrentReportExcel()" :disabled="exportingExcel">
                                         <b-spinner small v-if="exportingExcel" class="me-2"></b-spinner>
                                         <b-icon v-else icon="file-earmark-excel" class="me-2"></b-icon>
                                         {{ $t('downloadExcel') || 'تحميل Excel' }}
                                     </button>
+                                    <button v-if="hasActiveFilters" type="button" class="users-filter-clear-btn reports-filters-clear-btn" @click="clearFilters">
+                                        <b-icon icon="x-circle" class="me-1"></b-icon>
+                                        {{ $t('clearFilters') || 'مسح الفلاتر' }}
+                                    </button>
                                 </div>
+                            </div>
+                            <div class="app-filters-fields app-filters-fields--4">
+                                <label class="app-filter-field">
+                                    <span class="app-filter-label">{{ $t('invoice_number') || 'رقم الفاتورة' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="search" class="search-icon"></b-icon>
+                                        <input v-model="search.info" type="search" :placeholder="$t('invoice_number')" class="users-search-input" autocomplete="off" />
+                                    </div>
+                                </label>
+                                <label class="app-filter-field">
+                                    <span class="app-filter-label">{{ $t('from_date') || 'من تاريخ' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="calendar" class="search-icon"></b-icon>
+                                        <input v-model="search.startDate" type="date" class="users-search-input" />
+                                    </div>
+                                </label>
+                                <label class="app-filter-field">
+                                    <span class="app-filter-label">{{ $t('to_date') || 'إلى تاريخ' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="calendar-check" class="search-icon"></b-icon>
+                                        <input v-model="search.endDate" type="date" class="users-search-input" />
+                                    </div>
+                                </label>
+                                <label class="app-filter-field">
+                                    <span class="app-filter-label">{{ $t('orderType') || 'نوع الطلب' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="box-seam" class="search-icon"></b-icon>
+                                        <select v-model="search.orderType" class="users-search-input">
+                                            <option value="">{{ $t('allOrderTypes') || 'جميع أنواع الطلبات' }}</option>
+                                            <option value="DineIn">{{ $t('dineIn') || 'داخلي' }}</option>
+                                            <option value="Takeaway">{{ $t('takeaway') || 'طلب خارجي' }}</option>
+                                            <option value="Delivery">{{ $t('delivery') || 'توصيل' }}</option>
+                                        </select>
+                                    </div>
+                                </label>
+                                <label class="app-filter-field">
+                                    <span class="app-filter-label">{{ $t('paymentMethod') || 'طريقة الدفع' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="credit-card" class="search-icon"></b-icon>
+                                        <select v-model="search.paymentMethod" class="users-search-input">
+                                            <option value="">{{ $t('allPaymentMethods') || 'جميع طرق الدفع' }}</option>
+                                            <option value="Cash">{{ $t('cash') || 'نقد' }}</option>
+                                            <option value="Card">{{ $t('card') || 'بطاقة' }}</option>
+                                            <option value="Credit">{{ $t('credit') || 'دفع لاحق' }}</option>
+                                        </select>
+                                    </div>
+                                </label>
+                                <label class="app-filter-field">
+                                    <span class="app-filter-label">{{ $t('deliveryDriver') || 'سائق التوصيل' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="truck" class="search-icon"></b-icon>
+                                        <select v-model="search.deliveryDriverId" class="users-search-input">
+                                            <option value="">{{ $t('allDrivers') || 'جميع السائقين' }}</option>
+                                            <option v-for="driver in deliveryDrivers" :key="driver.id" :value="driver.id">
+                                                {{ driver.name }}
+                                            </option>
+                                        </select>
+                                    </div>
+                                </label>
                             </div>
                         </div>
 
@@ -352,7 +331,6 @@
                                 id="orders-table"
                                 :items="ordersForTable"
                                 :fields="ordersTableFields"
-                                striped
                                 hover
                                 responsive
                                 class="reports-table"
@@ -396,10 +374,10 @@
                                 <template #cell(actions)="row">
                                     <div class="actions-cell">
                                         <button type="button" class="action-btn action-btn--icon action-btn--view" @click="showItemsModel(row.item.customerOrderItem, row.item)">
-                                            <b-icon icon="eye-fill" class="action-icon"></b-icon>
+                                            <b-icon icon="eye" class="action-icon"></b-icon>
                                         </button>
                                         <button type="button" class="action-btn action-btn--icon action-btn--edit" @click="editOrder(row.item)">
-                                            <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                                            <b-icon icon="pencil-square" class="action-icon"></b-icon>
                                         </button>
                                     </div>
                                 </template>
@@ -429,11 +407,11 @@
                                     {{ $t('downloadExcel') || 'تحميل Excel' }}
                                 </button>
                             </div>
-                            <div class="report-stats-grid">
-                                <div class="report-stat-card report-stat-primary">
-                                    <div class="report-stat-icon">
+                            <div class="app-overview-grid report-stats-grid">
+                                <div class="app-overview-stat report-stat-card report-stat-primary">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--primary report-stat-icon">
                                         <b-icon icon="currency-dollar"></b-icon>
-                                    </div>
+                                    </span>
                                     <div class="report-stat-content">
                                         <h3 class="report-stat-value">{{ formatPrice(profitReport.totalSales || 0) }}</h3>
                                         <p class="report-stat-label">{{ $t('totalSales') || 'إجمالي المبيعات' }}</p>
@@ -443,10 +421,10 @@
                                         </p>
                                     </div>
                                 </div>
-                                <div class="report-stat-card report-stat-danger">
-                                    <div class="report-stat-icon">
+                                <div class="app-overview-stat report-stat-card report-stat-danger">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--danger report-stat-icon">
                                         <b-icon icon="cart"></b-icon>
-                                    </div>
+                                    </span>
                                     <div class="report-stat-content">
                                         <h3 class="report-stat-value">{{ formatPrice(profitReport.totalCost || 0) }}</h3>
                                         <p class="report-stat-label">{{ $t('totalCost') || 'إجمالي التكلفة' }}</p>
@@ -455,10 +433,10 @@
                                         </p>
                                     </div>
                                 </div>
-                                <div class="report-stat-card report-stat-success">
-                                    <div class="report-stat-icon">
+                                <div class="app-overview-stat report-stat-card report-stat-success">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--success report-stat-icon">
                                         <b-icon icon="file-earmark-bar-graph-fill"></b-icon>
-                                    </div>
+                                    </span>
                                     <div class="report-stat-content">
                                         <h3 class="report-stat-value">{{ formatPrice(profitReport.totalProfit || 0) }}</h3>
                                         <p class="report-stat-label">{{ $t('totalProfit') || 'إجمالي الربح' }}</p>
@@ -467,10 +445,10 @@
                                         </p>
                                     </div>
                                 </div>
-                                <div class="report-stat-card report-stat-info">
-                                    <div class="report-stat-icon">
+                                <div class="app-overview-stat report-stat-card report-stat-info">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--info report-stat-icon">
                                         <b-icon icon="percent"></b-icon>
-                                    </div>
+                                    </span>
                                     <div class="report-stat-content">
                                         <h3 class="report-stat-value">{{ profitReport.profitMargin || 0 }}%</h3>
                                         <p class="report-stat-label">{{ $t('profitMargin') || 'هامش الربح' }}</p>
@@ -726,54 +704,41 @@
                                     {{ $t('downloadExcel') || 'تحميل Excel' }}
                                 </button>
                             </div>
-                            <!-- Overall Statistics -->
-                            <div class="report-stats-grid" v-if="deliveryStatistics">
-                                <div class="report-stat-card report-stat-primary">
-                                    <div class="report-stat-icon">
-                                        <b-icon icon="truck"></b-icon>
-                                    </div>
-                                    <div class="report-stat-content">
-                                        <h3 class="report-stat-value">{{ deliveryStatistics.totalDrivers || 0 }}</h3>
-                                        <p class="report-stat-label">{{ $t('totalDrivers') || 'إجمالي السائقين' }}</p>
-                                        <p class="report-stat-detail">
-                                            {{ $t('activeDrivers') || 'نشط' }}: {{ deliveryStatistics.activeDrivers || 0 }}
-                                        </p>
+                            <div class="app-overview-grid" v-if="deliveryStatistics">
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--primary"><b-icon icon="truck"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ deliveryStatistics.totalDrivers || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('totalDrivers') || 'إجمالي السائقين' }}</div>
+                                        <div class="app-overview-stat-hint">{{ $t('activeDrivers') || 'نشط' }}: {{ deliveryStatistics.activeDrivers || 0 }}</div>
                                     </div>
                                 </div>
-                                <div class="report-stat-card report-stat-info">
-                                    <div class="report-stat-icon">
-                                        <b-icon icon="clipboard-check"></b-icon>
-                                    </div>
-                                    <div class="report-stat-content">
-                                        <h3 class="report-stat-value">{{ deliveryStatistics.totalOrders || 0 }}</h3>
-                                        <p class="report-stat-label">{{ $t('totalDeliveries') || 'إجمالي التوصيلات' }}</p>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--info"><b-icon icon="clipboard-check"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ deliveryStatistics.totalOrders || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('totalDeliveries') || 'إجمالي التوصيلات' }}</div>
                                     </div>
                                 </div>
-                                <div class="report-stat-card report-stat-success">
-                                    <div class="report-stat-icon">
-                                        <b-icon icon="check2-circle"></b-icon>
-                                    </div>
-                                    <div class="report-stat-content">
-                                        <h3 class="report-stat-value">{{ deliveryStatistics.deliveredOrders || 0 }}</h3>
-                                        <p class="report-stat-label">{{ $t('deliveredOrders') || 'الطلبات الواصلة' }}</p>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--success"><b-icon icon="check2-circle"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ deliveryStatistics.deliveredOrders || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('deliveredOrders') || 'الطلبات الواصلة' }}</div>
                                     </div>
                                 </div>
-                                <div class="report-stat-card report-stat-warning">
-                                    <div class="report-stat-icon">
-                                        <b-icon icon="clock-history"></b-icon>
-                                    </div>
-                                    <div class="report-stat-content">
-                                        <h3 class="report-stat-value">{{ deliveryStatistics.pendingOrders || 0 }}</h3>
-                                        <p class="report-stat-label">{{ $t('pendingDeliveries') || 'التوصيلات المعلقة' }}</p>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--warning"><b-icon icon="clock-history"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ deliveryStatistics.pendingOrders || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('pendingDeliveries') || 'التوصيلات المعلقة' }}</div>
                                     </div>
                                 </div>
-                                <div class="report-stat-card report-stat-danger">
-                                    <div class="report-stat-icon">
-                                        <b-icon icon="x-circle"></b-icon>
-                                    </div>
-                                    <div class="report-stat-content">
-                                        <h3 class="report-stat-value">{{ deliveryStatistics.failedOrders || 0 }}</h3>
-                                        <p class="report-stat-label">{{ $t('failedDeliveries') || 'التوصيلات الفاشلة' }}</p>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--danger"><b-icon icon="x-circle"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ deliveryStatistics.failedOrders || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('failedDeliveries') || 'التوصيلات الفاشلة' }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -784,10 +749,9 @@
                                 <b-table
                                     :items="deliveryDriversForTable"
                                     :fields="driversStatisticsFields"
-                                    striped
                                     hover
                                     responsive
-                                    class="drivers-statistics-table"
+                                    class="drivers-statistics-table reports-table"
                                     :empty-text="$t('noDeliveryStatistics') || 'لا توجد إحصائيات توصيل متاحة'"
                                 >
                                     <template #cell(reportPeriod)="row">

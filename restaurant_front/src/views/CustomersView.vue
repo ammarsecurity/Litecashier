@@ -55,7 +55,7 @@
           </div>
 
           <div class="app-section-card">
-            <div class="app-section-header app-section-header--toolbar">
+            <div class="app-section-header">
               <div class="app-section-title-wrap">
                 <div class="app-section-icon-wrap">
                   <b-icon icon="people-fill"></b-icon>
@@ -65,15 +65,25 @@
                   <p class="app-section-subtitle">{{ $t("customersListDescription") }}</p>
                 </div>
               </div>
-              <div class="app-search-wrap app-search-wrap--wide">
-                <b-icon icon="search" class="app-search-icon"></b-icon>
-                <input
-                  v-model="searchQuery"
-                  type="search"
-                  class="app-search-input"
-                  :placeholder="$t('searchCustomersPlaceholder')"
-                  autocomplete="off"
-                />
+            </div>
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                                    <p>{{ $t('customersFiltersHint') || 'بحث بالاسم أو الهاتف وتصفية حسب الحالة' }}</p>
+                                </div>
+                </div>
+                <div class="app-filters-panel-actions" v-if="searchQuery">
+                  <button type="button" class="users-form-cancel-button" @click="searchQuery = ''"><b-icon icon="x-circle"></b-icon>{{ $t('clearFilters') || 'مسح الفلاتر' }}</button>
+                </div>
+              </div>
+              <div class="app-filters-fields app-filters-fields--1">
+                <div class="app-search-wrap app-search-wrap--wide">
+                  <b-icon icon="search" class="app-search-icon"></b-icon>
+                  <input v-model="searchQuery" type="search" class="app-search-input" :placeholder="$t('searchCustomersPlaceholder')" autocomplete="off" />
+                </div>
               </div>
             </div>
             <div class="app-section-body">
@@ -113,7 +123,7 @@
                         @click="editCustomer(c)"
                         :title="$t('edit')"
                       >
-                        <b-icon icon="pencil" class="action-icon"></b-icon>
+                        <b-icon icon="pencil-square" class="action-icon"></b-icon>
                       </button>
                       <button
                         type="button"

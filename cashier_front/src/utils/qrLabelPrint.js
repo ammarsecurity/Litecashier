@@ -1,17 +1,74 @@
 import JsBarcode from "jsbarcode";
 
-/** Common thermal QR / barcode label sizes (not A4). */
+/**
+ * Thermal label sizes for HPRT N41-class printers.
+ * N41 media width: 50–118 mm (40 mm is too narrow).
+ */
+export const QR_LABEL_MIN_WIDTH_MM = 50;
+
 export const QR_LABEL_SIZES = [
-  { id: "40x30", widthMm: 40, heightMm: 30 },
-  { id: "50x30", widthMm: 50, heightMm: 30 },
-  { id: "40x25", widthMm: 40, heightMm: 25 },
-  { id: "60x40", widthMm: 60, heightMm: 40 },
+  {
+    id: "50x30",
+    widthMm: 50,
+    heightMm: 30,
+    recommended: true,
+    labelKey: "printQrLabelSize50x30",
+  },
+  {
+    id: "50x40",
+    widthMm: 50,
+    heightMm: 40,
+    recommended: true,
+    labelKey: "printQrLabelSize50x40",
+  },
+  {
+    id: "60x40",
+    widthMm: 60,
+    heightMm: 40,
+    recommended: true,
+    labelKey: "printQrLabelSize60x40",
+  },
+  {
+    id: "70x40",
+    widthMm: 70,
+    heightMm: 40,
+    recommended: false,
+    labelKey: "printQrLabelSize70x40",
+  },
+  {
+    id: "80x50",
+    widthMm: 80,
+    heightMm: 50,
+    recommended: false,
+    labelKey: "printQrLabelSize80x50",
+  },
+  {
+    id: "100x150",
+    widthMm: 100,
+    heightMm: 150,
+    recommended: false,
+    labelKey: "printQrLabelSize100x150",
+  },
 ];
+
+export const DEFAULT_QR_LABEL_SIZE_ID = "50x30";
 
 export function getQrLabelSize(sizeId) {
   return (
-    QR_LABEL_SIZES.find((s) => s.id === sizeId) || QR_LABEL_SIZES[0]
+    QR_LABEL_SIZES.find((s) => s.id === sizeId) ||
+    QR_LABEL_SIZES.find((s) => s.id === DEFAULT_QR_LABEL_SIZE_ID) ||
+    QR_LABEL_SIZES[0]
   );
+}
+
+export function formatQrLabelSizeOption(size, t) {
+  const mm = (t && t("mmUnit")) || "مم";
+  const base = `${size.widthMm}×${size.heightMm} ${mm}`;
+  if (size.recommended) {
+    const tag = (t && t("printQrLabelRecommended")) || "موصى به";
+    return `${base} — ${tag}`;
+  }
+  return base;
 }
 
 function escapeHtml(text) {
@@ -28,10 +85,10 @@ export function buildBarcodeDataUrl(code, options = {}) {
   JsBarcode(canvas, value, {
     format: "CODE128",
     displayValue: true,
-    fontSize: options.fontSize ?? 11,
-    height: options.height ?? 38,
-    width: options.width ?? 1.35,
-    margin: options.margin ?? 2,
+    fontSize: options.fontSize ?? 12,
+    height: options.height ?? 42,
+    width: options.width ?? 1.4,
+    margin: options.margin ?? 1,
     lineColor: "#000",
     background: "#fff",
   });
@@ -39,23 +96,32 @@ export function buildBarcodeDataUrl(code, options = {}) {
 }
 
 function buildLabelStyles(widthMm, heightMm) {
+  const isTall = heightMm >= 80;
+  const nameSize = isTall ? 14 : widthMm >= 60 ? 11 : 9;
+  const priceSize = isTall ? 16 : widthMm >= 60 ? 12 : 10;
+  const padY = isTall ? 4 : 1.2;
+  const padX = isTall ? 4 : 1.5;
+  const barcodeMaxH = Math.max(heightMm - (isTall ? 28 : 12), 10);
+
   return `
     <style>
       @page {
         size: ${widthMm}mm ${heightMm}mm;
-        margin: 0;
+        margin: 0 !important;
       }
 
       * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
       }
 
       html, body {
         width: ${widthMm}mm;
+        height: auto;
         margin: 0;
         padding: 0;
         background: #fff;
@@ -66,7 +132,9 @@ function buildLabelStyles(widthMm, heightMm) {
       .qr-label {
         width: ${widthMm}mm;
         height: ${heightMm}mm;
-        padding: 1.5mm 2mm;
+        max-width: ${widthMm}mm;
+        max-height: ${heightMm}mm;
+        padding: ${padY}mm ${padX}mm;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -75,6 +143,7 @@ function buildLabelStyles(widthMm, heightMm) {
         overflow: hidden;
         page-break-after: always;
         break-after: page;
+        page-break-inside: avoid;
       }
 
       .qr-label:last-child {
@@ -84,38 +153,40 @@ function buildLabelStyles(widthMm, heightMm) {
 
       .qr-label-name {
         width: 100%;
-        font-size: 9px;
+        font-size: ${nameSize}px;
         font-weight: 700;
         line-height: 1.15;
         max-height: 2.4em;
         overflow: hidden;
-        margin-bottom: 1mm;
+        margin-bottom: 0.8mm;
         word-break: break-word;
       }
 
       .qr-label-barcode {
         display: block;
-        max-width: 100%;
-        max-height: ${Math.max(heightMm - 14, 12)}mm;
+        width: auto;
+        max-width: 96%;
+        max-height: ${barcodeMaxH}mm;
         height: auto;
         object-fit: contain;
       }
 
       .qr-label-price {
         width: 100%;
-        font-size: 10px;
+        font-size: ${priceSize}px;
         font-weight: 800;
-        margin-top: 1mm;
+        margin-top: 0.8mm;
         line-height: 1.1;
       }
 
       @media print {
         html, body {
-          width: ${widthMm}mm;
+          width: ${widthMm}mm !important;
+          margin: 0 !important;
         }
         .qr-label {
-          width: ${widthMm}mm;
-          height: ${heightMm}mm;
+          width: ${widthMm}mm !important;
+          height: ${heightMm}mm !important;
         }
       }
     </style>
@@ -130,10 +201,14 @@ function buildLabelStyles(widthMm, heightMm) {
 export function buildQrLabelPrintDocument(item, options = {}) {
   const copies = Math.min(Math.max(Number(options.copies) || 1, 1), 200);
   const size = getQrLabelSize(options.sizeId);
+  const wide = size.widthMm >= 60;
+  const tall = size.heightMm >= 80;
+
   const barcodeUrl = buildBarcodeDataUrl(item.code, {
-    height: size.heightMm >= 35 ? 48 : 34,
-    width: size.widthMm >= 50 ? 1.5 : 1.25,
-    fontSize: size.widthMm >= 50 ? 12 : 10,
+    height: tall ? 72 : size.heightMm >= 40 ? 48 : 36,
+    width: wide ? 1.55 : 1.35,
+    fontSize: tall ? 14 : wide ? 12 : 10,
+    margin: 1,
   });
 
   const name = escapeHtml(item.name || "");
@@ -173,7 +248,7 @@ export function buildQrLabelPrintDocument(item, options = {}) {
 
 export function printQrLabels(item, options = {}) {
   const html = buildQrLabelPrintDocument(item, options);
-  const printWindow = window.open("", "_blank", "width=420,height=640");
+  const printWindow = window.open("", "_blank", "width=480,height=720");
   if (!printWindow) {
     const iframe = document.createElement("iframe");
     iframe.style.cssText =
@@ -191,7 +266,7 @@ export function printQrLabels(item, options = {}) {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
       setTimeout(() => document.body.removeChild(iframe), 600);
-    }, 300);
+    }, 350);
     return true;
   }
 
@@ -201,7 +276,7 @@ export function printQrLabels(item, options = {}) {
   setTimeout(() => {
     printWindow.focus();
     printWindow.print();
-    setTimeout(() => printWindow.close(), 400);
-  }, 350);
+    setTimeout(() => printWindow.close(), 500);
+  }, 400);
   return true;
 }

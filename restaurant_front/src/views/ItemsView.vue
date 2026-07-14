@@ -92,15 +92,37 @@
                   <p class="app-section-subtitle">{{ $t("itemsListHint") || "قائمة الأصناف مع الأسعار والصور" }}</p>
                 </div>
               </div>
-              <div class="app-search-wrap app-search-wrap--wide">
-                <b-icon icon="search" class="app-search-icon"></b-icon>
-                <input
-                  v-model="search.info"
-                  type="search"
-                  class="app-search-input"
-                  :placeholder="$t('searchPlaceholder')"
-                  autocomplete="off"
-                />
+            </div>
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                    <p>{{ $t("itemsFiltersHint") || "بحث في الأصناف حسب الاسم" }}</p>
+                  </div>
+                </div>
+                <div class="app-filters-panel-actions" v-if="search.info">
+                  <button type="button" class="users-filter-clear-btn app-filters-clear-btn" @click="search.info = ''">
+                    <b-icon icon="x-circle" class="me-1"></b-icon>
+                    {{ $t("clearFilters") || "مسح الفلاتر" }}
+                  </button>
+                </div>
+              </div>
+              <div class="app-filters-fields app-filters-fields--2">
+                <label class="app-filter-field app-filter-field--grow">
+                  <span class="app-filter-label">{{ $t("search") || "بحث" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="search" class="search-icon"></b-icon>
+                    <input
+                      v-model="search.info"
+                      type="search"
+                      class="users-search-input"
+                      :placeholder="$t('searchPlaceholder')"
+                      autocomplete="off"
+                    />
+                  </div>
+                </label>
               </div>
             </div>
             <div class="app-section-body app-section-body--no-padding">
@@ -108,28 +130,29 @@
             <b-table
               :items="Items"
               :fields="itemFields"
-              striped
               hover
               responsive
-              class="items-table"
+              class="items-table reports-table items-table--compact"
             >
-              <template #cell(image)="row">
-                <div class="item-image-cell">
-                  <img 
-                    v-if="row.item.image && !row.item.imageError" 
-                    :src="row.item.image" 
-                    :alt="row.item.name"
-                    class="item-table-image"
-                    @error="row.item.imageError = true"
-                  />
-                  <div v-else class="item-image-placeholder-small">
-                    <b-icon icon="box-fill" class="item-placeholder-icon-small"></b-icon>
+              <template #cell(name)="row">
+                <div class="item-product-cell">
+                  <div class="item-product-thumb">
+                    <img
+                      v-if="row.item.image && !row.item.imageError"
+                      :src="row.item.image"
+                      :alt="row.item.name"
+                      class="item-table-image"
+                      @error="row.item.imageError = true"
+                    />
+                    <div v-else class="item-image-placeholder-small">
+                      <b-icon icon="box" class="item-placeholder-icon-small"></b-icon>
+                    </div>
+                  </div>
+                  <div class="item-product-meta">
+                    <span class="item-name-text">{{ row.item.name }}</span>
+                    <span v-if="row.item.code" class="item-code-text">{{ row.item.code }}</span>
                   </div>
                 </div>
-              </template>
-
-              <template #cell(name)="row">
-                <span class="item-name-text">{{ row.item.name }}</span>
               </template>
 
               <template #cell(sellingPrice)="row">
@@ -137,7 +160,7 @@
               </template>
 
               <template #cell(purchasingPrice)="row">
-                <span class="item-cost-text">{{ formatPrice(row.item.purchasingPrice || 0) }} {{ $t("currency") }}</span>
+                <span class="item-price-text item-price-text--muted">{{ formatPrice(row.item.purchasingPrice || 0) }} {{ $t("currency") }}</span>
               </template>
 
               <template #cell(profit)="row">
@@ -152,42 +175,46 @@
               </template>
 
               <template #cell(tags)="row">
-                <span class="item-tags-text">{{ row.item.tags }}</span>
+                <span class="item-tags-badge">{{ row.item.tags || "—" }}</span>
               </template>
 
               <template #cell(actions)="row">
-                <div class="actions-cell">
-                  <button 
+                <div class="actions-cell items-actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
+                  <button
                     type="button"
-                    class="action-btn action-btn--icon action-btn--edit" 
+                    class="item-op-btn item-op-btn--edit"
                     @click="getItemInfo(row.item)"
                     :title="$t('editButtonLabel')"
+                    :aria-label="$t('editButtonLabel')"
                   >
-                    <b-icon icon="pencil-fill" class="action-icon"></b-icon>
+                    <b-icon icon="pencil-square" class="item-op-icon"></b-icon>
                   </button>
-                  <button 
+                  <button
                     type="button"
-                    class="action-btn action-btn--icon action-btn--ai" 
+                    class="item-op-btn item-op-btn--ai"
                     @click="generateItemImageWithAI(row.item)"
                     :title="$t('generateImageWithAI') || 'إنشاء صورة بالذكاء الاصطناعي'"
+                    :aria-label="$t('generateImageWithAI') || 'إنشاء صورة بالذكاء الاصطناعي'"
                   >
-                    <b-icon icon="image-fill" class="action-icon"></b-icon>
+                    <b-icon icon="image" class="item-op-icon"></b-icon>
                   </button>
-                  <button 
+                  <button
                     type="button"
-                    class="action-btn action-btn--icon action-btn--print" 
+                    class="item-op-btn item-op-btn--print"
                     @click="printListOfCode(row.item, 30)"
                     :title="$t('printCodeButtonLabel')"
+                    :aria-label="$t('printCodeButtonLabel')"
                   >
-                    <b-icon icon="printer-fill" class="action-icon"></b-icon>
+                    <b-icon icon="printer" class="item-op-icon"></b-icon>
                   </button>
-                  <button 
+                  <button
                     type="button"
-                    class="action-btn action-btn--icon action-btn--delete" 
+                    class="item-op-btn item-op-btn--delete"
                     @click="deleteItemModel(row.item.id)"
                     :title="$t('deleteButtonLabel')"
+                    :aria-label="$t('deleteButtonLabel')"
                   >
-                    <b-icon icon="trash-fill" class="action-icon"></b-icon>
+                    <b-icon icon="trash" class="item-op-icon"></b-icon>
                   </button>
                 </div>
               </template>
@@ -1203,53 +1230,53 @@ export default {
     itemFields() {
       return [
         {
-          key: 'image',
-          label: '',
-          sortable: false,
-          thClass: 'item-header-cell',
-          tdClass: 'item-image-column'
-        },
-        {
           key: 'name',
           label: this.$t('itemNamePlaceholder') || 'اسم الطبق/المشروب',
           sortable: true,
-          thClass: 'item-header-cell'
+          thClass: 'item-header-cell item-col-product',
+          tdClass: 'item-col-product',
         },
         {
           key: 'sellingPrice',
           label: this.$t('itemPriceLabel') || 'السعر',
           sortable: true,
-          thClass: 'item-header-cell'
+          thClass: 'item-header-cell item-col-price',
+          tdClass: 'item-col-price',
         },
         {
           key: 'purchasingPrice',
           label: this.$t('costPriceLabel') || 'سعر التكلفة',
           sortable: true,
-          thClass: 'item-header-cell'
+          thClass: 'item-header-cell item-col-price',
+          tdClass: 'item-col-price',
         },
         {
           key: 'profit',
           label: this.$t('profitPerItemLabel') || 'الربح',
           sortable: false,
-          thClass: 'item-header-cell'
+          thClass: 'item-header-cell item-col-price',
+          tdClass: 'item-col-price',
         },
         {
           key: 'isAvailable',
           label: this.$t('status') || 'الحالة',
           sortable: true,
-          thClass: 'item-header-cell'
+          thClass: 'item-header-cell item-col-tag',
+          tdClass: 'item-col-tag',
         },
         {
           key: 'tags',
           label: this.$t('categoryPlaceholder') || 'القسم',
           sortable: true,
-          thClass: 'item-header-cell'
+          thClass: 'item-header-cell item-col-tag',
+          tdClass: 'item-col-tag',
         },
         {
           key: 'actions',
           label: this.$t('actions') || 'الإجراءات',
           sortable: false,
-          thClass: 'item-header-cell'
+          thClass: 'item-header-cell item-col-actions',
+          tdClass: 'item-col-actions',
         }
       ];
     },
@@ -2400,97 +2427,169 @@ export default {
 
 <style scoped>
 .items-table-container {
-  background: #ffffff;
+  background: var(--bg-primary, #ffffff);
   border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  margin-top: 1.5rem;
 }
 
 .items-table {
   margin: 0;
 }
 
-.items-table >>> thead th {
-  background-color: #f9fafb;
-  color: #374151;
-  font-weight: 600;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 1rem;
-  border-bottom: 2px solid #e5e7eb;
+.items-table--compact >>> thead th {
+  padding: 0.7rem 0.85rem !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  white-space: nowrap;
+  vertical-align: middle !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  background: color-mix(in srgb, var(--primary-color) 7%, var(--bg-primary)) !important;
+  color: var(--text-secondary) !important;
 }
 
-.items-table >>> tbody td {
-  padding: 1rem;
-  vertical-align: middle;
-  border-bottom: 1px solid #f3f4f6;
+.items-table--compact >>> tbody td {
+  padding: 0.65rem 0.85rem !important;
+  vertical-align: middle !important;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent) !important;
 }
 
-.items-table >>> tbody tr:hover {
-  background-color: #f9fafb;
+.items-table--compact >>> tbody tr:hover td {
+  background: color-mix(in srgb, var(--primary-color) 5%, var(--bg-primary)) !important;
 }
 
-.item-image-column {
-  width: 80px;
+.item-col-product {
+  min-width: 14rem;
+  width: 32%;
 }
 
-.item-image-cell {
+.item-col-price {
+  width: 12%;
+  text-align: center !important;
+  white-space: nowrap;
+}
+
+.item-col-tag {
+  width: 12%;
+  text-align: center !important;
+}
+
+.item-col-actions {
+  width: 12rem;
+  text-align: center !important;
+  white-space: nowrap;
+}
+
+.item-product-cell {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.75rem;
+  min-width: 0;
+  text-align: start;
+}
+
+.item-product-thumb {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 0.65rem;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary, #f8fafc);
 }
 
 .item-table-image {
-  width: 60px;
-  height: 60px;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border-radius: 0.5rem;
+  display: block;
 }
 
 .item-image-placeholder-small {
-  width: 60px;
-  height: 60px;
-  background-color: #f3f4f6;
-  border-radius: 0.5rem;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-secondary, #f3f4f6);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #9ca3af;
+  color: var(--text-muted, #9ca3af);
 }
 
 .item-placeholder-icon-small {
-  font-size: 1.5rem;
+  font-size: 1.15rem;
+}
+
+.item-product-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
 }
 
 .item-name-text {
-  font-weight: 600;
-  font-size: 0.9375rem;
-  color: #111827;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text-primary, #111827);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 18rem;
+}
+
+.item-code-text {
+  font-size: 0.75rem;
+  color: var(--text-muted, #6b7280);
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  text-align: start;
 }
 
 .item-price-text {
-  font-weight: 600;
-  font-size: 0.9375rem;
+  font-weight: 700;
+  font-size: 0.88rem;
   color: var(--primary-color);
+  font-variant-numeric: tabular-nums;
 }
 
-.item-cost-text {
-  font-size: 0.9375rem;
-  color: var(--text-muted);
+.item-price-text--muted {
+  color: var(--text-secondary, #475569);
+  font-weight: 600;
 }
 
 .item-profit-text {
-  font-weight: 600;
-  font-size: 0.9375rem;
+  font-weight: 700;
+  font-size: 0.88rem;
   color: var(--success-color);
+  font-variant-numeric: tabular-nums;
 }
 
 .item-profit-percent {
   font-size: 0.75rem;
   color: var(--success-color);
-  margin-right: 0.25rem;
+  margin-inline-start: 0.25rem;
+}
+
+.item-tags-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 9rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary, #475569);
+  background: var(--bg-secondary, #f1f5f9);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .item-name-text {
+    max-width: 10rem;
+  }
 }
 
 .profit-preview {
