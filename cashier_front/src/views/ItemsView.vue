@@ -886,6 +886,17 @@
           </div>
 
           <div class="users-form-group">
+            <label class="users-form-label">{{ $t("printQrLabelOrientation") || "اتجاه الطباعة" }}</label>
+            <select v-model="printLabelOrientation" class="users-form-select">
+              <option value="landscape">{{ $t("printQrLabelOrientationLandscape") || "بالعرض (أفقي)" }}</option>
+              <option value="portrait">{{ $t("printQrLabelOrientationPortrait") || "بالطول (عمودي)" }}</option>
+            </select>
+            <small class="users-form-hint" style="display:block;margin-top:0.4rem;">
+              {{ $t("printQrLabelOrientationHint") || "إذا طُبع الملصق بالطول فقط، اختر بالعرض. تأكد أيضاً أن اتجاه الطابعة في ويندوز/تعريف HPRT مطابق." }}
+            </small>
+          </div>
+
+          <div class="users-form-group">
             <label class="users-form-label">{{ $t("printQrLabelCopies") || "عدد الملصقات" }}</label>
             <input
               v-model.number="printLabelCopies"
@@ -928,6 +939,7 @@ import {
 import {
   QR_LABEL_SIZES,
   DEFAULT_QR_LABEL_SIZE_ID,
+  DEFAULT_QR_LABEL_ORIENTATION,
   formatQrLabelSizeOption,
   printQrLabels,
 } from "@/utils/qrLabelPrint.js";
@@ -988,6 +1000,7 @@ export default {
       printLabelItem: null,
       printLabelCopies: 1,
       printLabelSizeId: DEFAULT_QR_LABEL_SIZE_ID,
+      printLabelOrientation: DEFAULT_QR_LABEL_ORIENTATION,
       qrLabelSizes: QR_LABEL_SIZES,
       itemId: "",
       tags: [],
@@ -1160,12 +1173,14 @@ export default {
       this.printLabelItem = item;
       this.printLabelCopies = 1;
       this.printLabelSizeId = DEFAULT_QR_LABEL_SIZE_ID;
+      this.printLabelOrientation = DEFAULT_QR_LABEL_ORIENTATION;
       this.$bvModal.show("modal-printLabels");
     },
     resetPrintLabelsModal() {
       this.printLabelItem = null;
       this.printLabelCopies = 1;
       this.printLabelSizeId = DEFAULT_QR_LABEL_SIZE_ID;
+      this.printLabelOrientation = DEFAULT_QR_LABEL_ORIENTATION;
     },
     formatLabelSizeOption(size) {
       return formatQrLabelSizeOption(size, (k) => this.$t(k));
@@ -1193,6 +1208,7 @@ export default {
         {
           copies,
           sizeId: this.printLabelSizeId,
+          orientation: this.printLabelOrientation,
         }
       );
 

@@ -53,12 +53,36 @@ export const QR_LABEL_SIZES = [
 
 export const DEFAULT_QR_LABEL_SIZE_ID = "50x30";
 
+/** portrait = بالطول (current), landscape = بالعرض (swap page axes for label printers). */
+export const QR_LABEL_ORIENTATIONS = [
+  { id: "portrait", labelKey: "printQrLabelOrientationPortrait" },
+  { id: "landscape", labelKey: "printQrLabelOrientationLandscape" },
+];
+
+export const DEFAULT_QR_LABEL_ORIENTATION = "landscape";
+
 export function getQrLabelSize(sizeId) {
   return (
     QR_LABEL_SIZES.find((s) => s.id === sizeId) ||
     QR_LABEL_SIZES.find((s) => s.id === DEFAULT_QR_LABEL_SIZE_ID) ||
     QR_LABEL_SIZES[0]
   );
+}
+
+export function resolveLabelPageSize(size, orientation = DEFAULT_QR_LABEL_ORIENTATION) {
+  const isLandscape = String(orientation || "").toLowerCase() === "landscape";
+  if (isLandscape) {
+    return {
+      widthMm: size.heightMm,
+      heightMm: size.widthMm,
+      isLandscape: true,
+    };
+  }
+  return {
+    widthMm: size.widthMm,
+    heightMm: size.heightMm,
+    isLandscape: false,
+  };
 }
 
 export function formatQrLabelSizeOption(size, t) {
@@ -95,18 +119,24 @@ export function buildBarcodeDataUrl(code, options = {}) {
   return canvas.toDataURL("image/png");
 }
 
-function buildLabelStyles(widthMm, heightMm) {
-  const isTall = heightMm >= 80;
-  const nameSize = isTall ? 14 : widthMm >= 60 ? 11 : 9;
-  const priceSize = isTall ? 16 : widthMm >= 60 ? 12 : 10;
+function buildLabelStyles(widthMm, heightMm, orientation = DEFAULT_QR_LABEL_ORIENTATION) {
+  const page = resolveLabelPageSize(
+    { widthMm, heightMm },
+    orientation
+  );
+  const pageW = page.widthMm;
+  const pageH = page.heightMm;
+  const isTall = pageH >= 80;
+  const nameSize = isTall ? 14 : pageW >= 60 ? 11 : 9;
+  const priceSize = isTall ? 16 : pageW >= 60 ? 12 : 10;
   const padY = isTall ? 4 : 1.2;
   const padX = isTall ? 4 : 1.5;
-  const barcodeMaxH = Math.max(heightMm - (isTall ? 28 : 12), 10);
+  const barcodeMaxH = Math.max(pageH - (isTall ? 28 : 12), 10);
 
   return `
     <style>
       @page {
-        size: ${widthMm}mm ${heightMm}mm;
+        size: ${pageW}mm ${pageH}mm;
         margin: 0 !important;
       }
 
@@ -120,7 +150,7 @@ function buildLabelStyles(widthMm, heightMm) {
       }
 
       html, body {
-        width: ${widthMm}mm;
+        width: ${pageW}mm;
         height: auto;
         margin: 0;
         padding: 0;
@@ -130,10 +160,10 @@ function buildLabelStyles(widthMm, heightMm) {
       }
 
       .qr-label {
-        width: ${widthMm}mm;
-        height: ${heightMm}mm;
-        max-width: ${widthMm}mm;
-        max-height: ${heightMm}mm;
+        width: ${pageW}mm;
+        height: ${pageH}mm;
+        max-width: ${pageW}mm;
+        max-height: ${pageH}mm;
         padding: ${padY}mm ${padX}mm;
         display: flex;
         flex-direction: column;
@@ -181,12 +211,12 @@ function buildLabelStyles(widthMm, heightMm) {
 
       @media print {
         html, body {
-          width: ${widthMm}mm !important;
+          width: ${pageW}mm !important;
           margin: 0 !important;
         }
         .qr-label {
-          width: ${widthMm}mm !important;
-          height: ${heightMm}mm !important;
+          width: ${pageW}mm !important;
+          height: ${pageH}mm !important;
         }
       }
     </style>
@@ -196,16 +226,18 @@ function buildLabelStyles(widthMm, heightMm) {
 /**
  * Build a print document for QR/barcode label printers (one label per page).
  * @param {{ code: string, name?: string, priceText?: string }} item
- * @param {{ copies?: number, sizeId?: string }} options
+ * @param {{ copies?: number, sizeId?: string, orientation?: 'portrait'|'landscape' }} options
  */
 export function buildQrLabelPrintDocument(item, options = {}) {
   const copies = Math.min(Math.max(Number(options.copies) || 1, 1), 200);
   const size = getQrLabelSize(options.sizeId);
-  const wide = size.widthMm >= 60;
-  const tall = size.heightMm >= 80;
+  const orientation = options.orientation || DEFAULT_QR_LABEL_ORIENTATION;
+  const page = resolveLabelPageSize(size, orientation);
+  const wide = page.widthMm >= 60;
+  const tall = page.heightMm >= 80;
 
   const barcodeUrl = buildBarcodeDataUrl(item.code, {
-    height: tall ? 72 : size.heightMm >= 40 ? 48 : 36,
+    height: tall ? 72 : page.heightMm >= 40 ? 48 : 36,
     width: wide ? 1.55 : 1.35,
     fontSize: tall ? 14 : wide ? 12 : 10,
     margin: 1,
@@ -238,7 +270,7 @@ export function buildQrLabelPrintDocument(item, options = {}) {
 <head>
   <meta charset="UTF-8" />
   <title>${title}</title>
-  ${buildLabelStyles(size.widthMm, size.heightMm)}
+  ${buildLabelStyles(size.widthMm, size.heightMm, orientation)}
 </head>
 <body>
   ${labels}

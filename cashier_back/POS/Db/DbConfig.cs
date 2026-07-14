@@ -120,6 +120,12 @@ namespace POS.Db
                 .HasIndex(u => u.LoginCode)
                 .IsUnique();
 
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.DefaultPrinter)
+                .WithMany()
+                .HasForeignKey(u => u.DefaultPrinterId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             modelBuilder.Entity<User>().HasData(
                                new User
                                {

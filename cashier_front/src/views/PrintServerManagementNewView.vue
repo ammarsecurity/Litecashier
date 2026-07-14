@@ -277,6 +277,73 @@
               </div>
             </div>
           </div>
+
+          <div class="app-section-card">
+            <div class="app-section-header">
+              <div>
+                <h2 class="app-section-title">{{ $t("posPrinterAssignments") || "تخصيص الطابعات للحسابات" }}</h2>
+                <p class="retail-print-hint">
+                  <b-icon icon="person-badge" class="me-2"></b-icon>
+                  {{ $t("posPrinterAssignmentsHint") || "عيّن طابعة افتراضية لكل حساب POS — تُستخدم تلقائياً حتى عند الفتح من حاسبة بعيدة" }}
+                </p>
+              </div>
+              <button type="button" class="btn-refresh" @click="loadUserPrinterAssignments" :disabled="loadingAssignments">
+                <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: loadingAssignments }"></b-icon>
+                <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+              </button>
+            </div>
+            <div class="app-section-body">
+              <div v-if="loadingAssignments" class="loading-state-full">
+                <b-spinner></b-spinner>
+                <span>{{ $t("loading") || "جاري التحميل..." }}</span>
+              </div>
+              <div v-else-if="userPrinterAssignments.length > 0" class="report-table-container">
+                <table class="reports-table pos-printer-assign-table">
+                  <thead>
+                    <tr>
+                      <th>{{ $t("name") || "الاسم" }}</th>
+                      <th>{{ $t("username") || "اسم المستخدم" }}</th>
+                      <th>{{ $t("role") || "الدور" }}</th>
+                      <th>{{ $t("defaultPrinter") || "الطابعة الافتراضية" }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in userPrinterAssignments" :key="row.userId">
+                      <td>{{ row.name }}</td>
+                      <td>{{ row.username }}</td>
+                      <td>
+                        <span class="printer-chip">{{ assignmentRoleLabel(row.role) }}</span>
+                      </td>
+                      <td>
+                        <div class="pos-printer-assign-cell">
+                          <select
+                            class="users-search-input pos-printer-assign-select"
+                            :value="row.defaultPrinterId == null ? '' : String(row.defaultPrinterId)"
+                            :disabled="savingAssignmentUserId === row.userId || activeAssignmentPrinters.length === 0"
+                            @change="onAssignmentPrinterChange(row, $event)"
+                          >
+                            <option value="">{{ $t("noDefaultPrinter") || "بدون تخصيص (الطابعة الرئيسية)" }}</option>
+                            <option
+                              v-for="printer in activeAssignmentPrinters"
+                              :key="printer.id"
+                              :value="String(printer.id)"
+                            >
+                              {{ printer.name }}{{ printer.isMain ? ` (${$t('mainPrinter') || 'رئيسية'})` : '' }}
+                            </option>
+                          </select>
+                          <b-spinner v-if="savingAssignmentUserId === row.userId" small></b-spinner>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-else class="empty-state">
+                <b-icon icon="people" class="empty-icon"></b-icon>
+                <p>{{ $t("noPosAccountsForPrinterAssign") || "لا توجد حسابات POS لتخصيص الطابعات" }}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -595,11 +662,14 @@ export default {
       loading: false,
       loadingPrinters: false,
       loadingSystemPrinters: false,
+      loadingAssignments: false,
+      savingAssignmentUserId: null,
       downloading: false,
       showInstallGuide: false,
       serverStatus: null,
       printers: [],
       managedPrinters: [],
+      userPrinterAssignments: [],
       printerStatuses: {},
       statusCheckInterval: null,
       showAddPrinterModal: false,
@@ -632,6 +702,11 @@ export default {
     printServerDisplayUrl() {
       return resolvePrintServerUrl().replace(/^https?:\/\//, '');
     },
+    activeAssignmentPrinters() {
+      return (this.managedPrinters || []).filter(
+        (p) => (p.isActive ?? p.IsActive) !== false
+      );
+    },
   },
   mounted() {
     this.refreshPage();
@@ -644,8 +719,75 @@ export default {
     async refreshPage() {
       await this.checkServerHealth();
       await this.loadManagedPrinters();
+      await this.loadUserPrinterAssignments();
       if (this.serverStatus) {
         await this.loadPrinters();
+      }
+    },
+    assignmentRoleLabel(role) {
+      const r = (role || '').toLowerCase();
+      if (r === 'pos') return this.$t('rolePOS') || 'POS';
+      if (r === 'waiter') return this.$t('roleWaiter') || 'Waiter';
+      return role || '—';
+    },
+    async loadUserPrinterAssignments() {
+      this.loadingAssignments = true;
+      try {
+        const response = await HTTP.get('Printers/user-assignments');
+        if (response.data && !response.data.errorStatus) {
+          this.userPrinterAssignments = (response.data.data || []).map((row) => ({
+            userId: row.userId ?? row.UserId,
+            name: row.name ?? row.Name,
+            username: row.username ?? row.Username,
+            role: row.role ?? row.Role,
+            defaultPrinterId: row.defaultPrinterId ?? row.DefaultPrinterId ?? null,
+            defaultPrinterName: row.defaultPrinterName ?? row.DefaultPrinterName ?? null,
+          }));
+        } else {
+          this.userPrinterAssignments = [];
+        }
+      } catch (error) {
+        console.error('Error loading user printer assignments:', error);
+        this.userPrinterAssignments = [];
+      } finally {
+        this.loadingAssignments = false;
+      }
+    },
+    async onAssignmentPrinterChange(row, event) {
+      const raw = event?.target?.value;
+      const printerId = raw === '' || raw == null ? null : Number(raw);
+      const previous = row.defaultPrinterId;
+      row.defaultPrinterId = Number.isNaN(printerId) ? null : printerId;
+      this.savingAssignmentUserId = row.userId;
+      try {
+        const response = await HTTP.put(`Printers/user-assignments/${row.userId}`, {
+          printerId: row.defaultPrinterId,
+        });
+        if (response.data && !response.data.errorStatus) {
+          const data = response.data.data || {};
+          row.defaultPrinterId = data.defaultPrinterId ?? data.DefaultPrinterId ?? row.defaultPrinterId;
+          row.defaultPrinterName = data.defaultPrinterName ?? data.DefaultPrinterName ?? null;
+          this.$notify.success(this.$t('printerAssignmentSaved') || 'تم حفظ تخصيص الطابعة', {
+            position: 'top-right',
+            timeout: 2500,
+            rtl: this.$i18n.locale === 'ar',
+          });
+        } else {
+          row.defaultPrinterId = previous;
+          this.$notify.error(
+            response.data?.message || this.$t('errorSavingPrinterAssignment') || 'فشل حفظ التخصيص',
+            { position: 'top-right', timeout: 3000, rtl: this.$i18n.locale === 'ar' }
+          );
+        }
+      } catch (error) {
+        row.defaultPrinterId = previous;
+        console.error('Error saving printer assignment:', error);
+        this.$notify.error(
+          error.response?.data?.message || this.$t('errorSavingPrinterAssignment') || 'فشل حفظ التخصيص',
+          { position: 'top-right', timeout: 3000, rtl: this.$i18n.locale === 'ar' }
+        );
+      } finally {
+        this.savingAssignmentUserId = null;
       }
     },
     openAddPrinterModal() {
@@ -820,6 +962,7 @@ export default {
         const response = await HTTP.delete(`Printers/${printerId}`);
         if (response.data && !response.data.errorStatus) {
           await this.loadManagedPrinters();
+          await this.loadUserPrinterAssignments();
           this.$notify.success(this.$i18n.t("printerDeleted") || 'تم حذف الطابعة بنجاح', {
             position: "top-right",
             timeout: 3000,
@@ -1414,6 +1557,23 @@ export default {
   .server-offline-btn {
     width: 100%;
   }
+}
+
+.pos-printer-assign-table {
+  width: 100%;
+}
+
+.pos-printer-assign-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 14rem;
+}
+
+.pos-printer-assign-select {
+  width: 100%;
+  max-width: 22rem;
+  padding-inline-start: 0.75rem !important;
 }
 </style>
 

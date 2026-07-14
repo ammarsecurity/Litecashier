@@ -104,7 +104,7 @@ const routes = [
     component: ReporstView,
     meta: {
       requiresAuth: true,
-      roles: ['Commercial', 'POS']
+      roles: ['Commercial']
     }
   },
   {
@@ -330,7 +330,6 @@ router.beforeEach((to, from, next) => {
           to.path !== '/dashboard' &&
           to.path !== '/items' &&
           to.path !== '/pos' &&
-          to.path !== '/reports' &&
           to.path !== '/inventory' &&
           to.path !== '/stock-alerts' &&
           to.path !== '/stock-returns' &&

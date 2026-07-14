@@ -26,6 +26,15 @@ namespace POS.Models
 
         public bool CanUseOwnLoginCodeForSensitiveActions { get; set; }
 
+        /// <summary>
+        /// Default receipt printer for this POS (or Waiter) account.
+        /// </summary>
+        public int? DefaultPrinterId { get; set; }
+
+        [JsonIgnore]
+        [ForeignKey(nameof(DefaultPrinterId))]
+        public Printer? DefaultPrinter { get; set; }
+
         [JsonIgnore]
         public List<Item>? Items { get; set; }
         [JsonIgnore]

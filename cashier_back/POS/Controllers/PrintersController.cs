@@ -42,6 +42,241 @@ namespace POS.Controllers
             return user?.InsertByUserId ?? userId;
         }
 
+        // GET: api/Printers/user-assignments
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
+        [HttpGet("user-assignments")]
+        public async Task<ActionResult<GlobalResponse<List<UserPrinterAssignmentDto>>>> GetUserPrinterAssignments()
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var assignableRoles = new[] { "POS", "Waiter" };
+
+                var users = await _dbConfig.Users
+                    .AsNoTracking()
+                    .Where(u => !u.IsDeleted
+                        && u.InsertByUserId == commercialUserId
+                        && assignableRoles.Contains(u.Role))
+                    .OrderBy(u => u.Name)
+                    .Select(u => new
+                    {
+                        u.Id,
+                        u.Name,
+                        u.Username,
+                        u.Role,
+                        u.DefaultPrinterId
+                    })
+                    .ToListAsync();
+
+                var printerIds = users
+                    .Where(u => u.DefaultPrinterId != null)
+                    .Select(u => u.DefaultPrinterId!.Value)
+                    .Distinct()
+                    .ToList();
+
+                var printerNames = printerIds.Count == 0
+                    ? new Dictionary<int, string>()
+                    : await _dbConfig.Printers
+                        .AsNoTracking()
+                        .Where(p => printerIds.Contains(p.Id) && !p.IsDeleted && p.InsertByUserId == commercialUserId)
+                        .ToDictionaryAsync(p => p.Id, p => p.Name);
+
+                var data = users.Select(u => new UserPrinterAssignmentDto
+                {
+                    UserId = u.Id,
+                    Name = u.Name,
+                    Username = u.Username,
+                    Role = u.Role,
+                    DefaultPrinterId = u.DefaultPrinterId,
+                    DefaultPrinterName = u.DefaultPrinterId != null && printerNames.TryGetValue(u.DefaultPrinterId.Value, out var n)
+                        ? n
+                        : null
+                }).ToList();
+
+                return Ok(new GlobalResponse<List<UserPrinterAssignmentDto>>
+                {
+                    Data = data,
+                    ErrorStatus = false,
+                    Message = "تم جلب تخصيصات الطابعات بنجاح"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user printer assignments");
+                return StatusCode(500, new GlobalResponse<List<UserPrinterAssignmentDto>>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ أثناء جلب التخصيصات: {ex.Message}"
+                });
+            }
+        }
+
+        // PUT: api/Printers/user-assignments/{userId}
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin")]
+        [HttpPut("user-assignments/{userId:int}")]
+        public async Task<ActionResult<GlobalResponse<UserPrinterAssignmentDto>>> SetUserPrinterAssignment(
+            int userId,
+            [FromBody] SetUserPrinterAssignmentRequest request)
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var assignableRoles = new[] { "POS", "Waiter" };
+
+                var targetUser = await _dbConfig.Users
+                    .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted && u.InsertByUserId == commercialUserId);
+
+                if (targetUser == null || !assignableRoles.Contains(targetUser.Role))
+                {
+                    return NotFound(new GlobalResponse<UserPrinterAssignmentDto>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "حساب نقطة البيع غير موجود"
+                    });
+                }
+
+                string? printerName = null;
+                if (request.PrinterId == null)
+                {
+                    targetUser.DefaultPrinterId = null;
+                }
+                else
+                {
+                    var printer = await _dbConfig.Printers
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(p =>
+                            p.Id == request.PrinterId.Value
+                            && !p.IsDeleted
+                            && p.InsertByUserId == commercialUserId);
+
+                    if (printer == null)
+                    {
+                        return BadRequest(new GlobalResponse<UserPrinterAssignmentDto>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "الطابعة غير موجودة أو لا تتبع هذا الحساب"
+                        });
+                    }
+
+                    targetUser.DefaultPrinterId = printer.Id;
+                    printerName = printer.Name;
+                }
+
+                _dbConfig.Users.Update(targetUser);
+                await _dbConfig.SaveChangesAsync();
+
+                var actorId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                await _dbConfig.LogAuditAsync(
+                    "Update",
+                    "UserPrinterAssignment",
+                    targetUser.Id,
+                    targetUser.Name,
+                    actorId,
+                    commercialUserId,
+                    null,
+                    null,
+                    request.PrinterId == null
+                        ? $"تم إلغاء تخصيص الطابعة لحساب: {targetUser.Name}"
+                        : $"تم تخصيص الطابعة ({printerName}) لحساب: {targetUser.Name}"
+                );
+
+                return Ok(new GlobalResponse<UserPrinterAssignmentDto>
+                {
+                    Data = new UserPrinterAssignmentDto
+                    {
+                        UserId = targetUser.Id,
+                        Name = targetUser.Name,
+                        Username = targetUser.Username,
+                        Role = targetUser.Role,
+                        DefaultPrinterId = targetUser.DefaultPrinterId,
+                        DefaultPrinterName = printerName
+                    },
+                    ErrorStatus = false,
+                    Message = "تم حفظ تخصيص الطابعة بنجاح"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error setting user printer assignment for user {UserId}", userId);
+                return StatusCode(500, new GlobalResponse<UserPrinterAssignmentDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ أثناء حفظ التخصيص: {ex.Message}"
+                });
+            }
+        }
+
+        // GET: api/Printers/my-default
+        [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS,Waiter")]
+        [HttpGet("my-default")]
+        public async Task<ActionResult<GlobalResponse<MyDefaultPrinterDto>>> GetMyDefaultPrinter()
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var commercialUserId = GetCommercialUserId();
+
+                var user = await _dbConfig.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
+
+                if (user == null)
+                {
+                    return Unauthorized(new GlobalResponse<MyDefaultPrinterDto>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "المستخدم غير موجود"
+                    });
+                }
+
+                if (user.DefaultPrinterId == null)
+                {
+                    return Ok(new GlobalResponse<MyDefaultPrinterDto>
+                    {
+                        Data = new MyDefaultPrinterDto { PrinterId = null },
+                        ErrorStatus = false,
+                        Message = "لا توجد طابعة افتراضية لهذا الحساب"
+                    });
+                }
+
+                var printer = await _dbConfig.Printers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p =>
+                        p.Id == user.DefaultPrinterId.Value
+                        && !p.IsDeleted
+                        && p.IsActive
+                        && p.InsertByUserId == commercialUserId);
+
+                return Ok(new GlobalResponse<MyDefaultPrinterDto>
+                {
+                    Data = new MyDefaultPrinterDto
+                    {
+                        PrinterId = printer?.Id,
+                        PrinterName = printer?.Name
+                    },
+                    ErrorStatus = false,
+                    Message = printer == null
+                        ? "الطابعة المخصصة غير متاحة"
+                        : "تم جلب الطابعة الافتراضية"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting my default printer");
+                return StatusCode(500, new GlobalResponse<MyDefaultPrinterDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ أثناء جلب الطابعة الافتراضية: {ex.Message}"
+                });
+            }
+        }
+
         // GET: api/Printers
         [AuthorizeSection("printServer", Roles = "Commercial,Admin,POS")]
         [HttpGet]
@@ -381,6 +616,15 @@ namespace POS.Controllers
                 var printerName = printer.Name;
                 printer.IsDeleted = true;
                 _dbConfig.Printers.Update(printer);
+
+                var assignedUsers = await _dbConfig.Users
+                    .Where(u => u.DefaultPrinterId == id)
+                    .ToListAsync();
+                foreach (var assignedUser in assignedUsers)
+                {
+                    assignedUser.DefaultPrinterId = null;
+                }
+
                 await _dbConfig.SaveChangesAsync();
 
                 // Log audit
@@ -651,6 +895,27 @@ namespace POS.Controllers
         public string? HtmlContent { get; set; }
         public object? JsonData { get; set; }
         public int? Copies { get; set; } = 1;
+    }
+
+    public class UserPrinterAssignmentDto
+    {
+        public int UserId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public int? DefaultPrinterId { get; set; }
+        public string? DefaultPrinterName { get; set; }
+    }
+
+    public class SetUserPrinterAssignmentRequest
+    {
+        public int? PrinterId { get; set; }
+    }
+
+    public class MyDefaultPrinterDto
+    {
+        public int? PrinterId { get; set; }
+        public string? PrinterName { get; set; }
     }
 }
 

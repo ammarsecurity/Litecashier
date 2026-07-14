@@ -13,6 +13,9 @@ export default {
       managedPrinters: [],
       selectedManagedPrinterId: null,
       loadingManagedPrinters: false,
+      accountDefaultPrinterId: null,
+      /** True after cashier changes the POS dropdown this session (temporary override). */
+      printerManuallyOverridden: false,
     };
   },
   computed: {
@@ -31,12 +34,58 @@ export default {
     },
   },
   methods: {
+    getPosUserInfo() {
+      try {
+        if (this.userInfo && Object.keys(this.userInfo).length) {
+          return this.userInfo;
+        }
+        return JSON.parse(localStorage.getItem("info") || "{}");
+      } catch {
+        return {};
+      }
+    },
+    getPosPrinterUserId() {
+      const info = this.getPosUserInfo();
+      return info?.id ?? info?.Id ?? info?.userId ?? info?.UserId ?? null;
+    },
+    getPosSelectedPrinterStorageKey() {
+      const userId = this.getPosPrinterUserId();
+      return userId != null
+        ? `posSelectedPrinterId_${userId}`
+        : "posSelectedPrinterId";
+    },
+    seedAccountDefaultFromLoginInfo() {
+      const info = this.getPosUserInfo();
+      const fromLogin = info?.defaultPrinterId ?? info?.DefaultPrinterId ?? null;
+      if (fromLogin != null && this.accountDefaultPrinterId == null) {
+        this.accountDefaultPrinterId = fromLogin;
+      }
+    },
+    async loadAccountDefaultPrinter() {
+      this.seedAccountDefaultFromLoginInfo();
+      try {
+        const response = await HTTP.get("Printers/my-default");
+        if (response.data && !response.data.errorStatus) {
+          const data = response.data.data || {};
+          const printerId = data.printerId ?? data.PrinterId ?? null;
+          // API is source of truth (null clears a stale login-info value).
+          this.accountDefaultPrinterId = printerId;
+        }
+      } catch (error) {
+        console.error("Error loading account default printer:", error);
+        // Keep seed from login info if API fails.
+        this.seedAccountDefaultFromLoginInfo();
+      }
+    },
     async loadManagedPrinters() {
       this.loadingManagedPrinters = true;
       try {
-        const response = await HTTP.get("Printers");
-        if (response.data && !response.data.errorStatus) {
-          this.managedPrinters = response.data.data || [];
+        const [printersResponse] = await Promise.all([
+          HTTP.get("Printers"),
+          this.loadAccountDefaultPrinter(),
+        ]);
+        if (printersResponse.data && !printersResponse.data.errorStatus) {
+          this.managedPrinters = printersResponse.data.data || [];
         } else {
           this.managedPrinters = [];
         }
@@ -45,6 +94,7 @@ export default {
         this.managedPrinters = [];
       } finally {
         this.loadingManagedPrinters = false;
+        this.printerManuallyOverridden = false;
         this.syncSelectedManagedPrinter();
       }
     },
@@ -55,24 +105,36 @@ export default {
         return;
       }
 
-      const savedId = localStorage.getItem("posSelectedPrinterId");
+      const storageKey = this.getPosSelectedPrinterStorageKey();
+      const savedId = localStorage.getItem(storageKey);
       const saved = savedId
         ? active.find((p) => String(p.id ?? p.Id) === String(savedId))
         : null;
+
+      const accountDefault =
+        this.accountDefaultPrinterId != null
+          ? active.find(
+              (p) =>
+                String(p.id ?? p.Id) === String(this.accountDefaultPrinterId)
+            )
+          : null;
+
       const main = this.mainPrinter;
-      const pick = saved || main || active[0];
+      // Account assignment wins so remote POS logins use the assigned printer.
+      const pick = accountDefault || saved || main || active[0];
       this.selectedManagedPrinterId = pick?.id ?? pick?.Id ?? null;
       if (this.selectedManagedPrinterId != null) {
         localStorage.setItem(
-          "posSelectedPrinterId",
+          storageKey,
           String(this.selectedManagedPrinterId)
         );
       }
     },
     onManagedPrinterChange() {
+      this.printerManuallyOverridden = true;
       if (this.selectedManagedPrinterId != null) {
         localStorage.setItem(
-          "posSelectedPrinterId",
+          this.getPosSelectedPrinterStorageKey(),
           String(this.selectedManagedPrinterId)
         );
       }
@@ -80,11 +142,25 @@ export default {
     async ensurePrintPrintersReady() {
       if (!this.managedPrinters?.length) {
         await this.loadManagedPrinters();
+        return;
+      }
+      // Re-fetch assignment before pay/print so a newly assigned printer is used.
+      await this.loadAccountDefaultPrinter();
+      if (!this.printerManuallyOverridden) {
+        this.syncSelectedManagedPrinter();
       }
     },
     resolvePrintPrinterId() {
-      if (this.selectedManagedPrinterId != null) {
-        return this.selectedManagedPrinterId;
+      const selected = this.selectedManagedPrinterId;
+      if (selected != null && this.findManagedPrinter(selected)) {
+        return selected;
+      }
+      if (
+        !this.printerManuallyOverridden &&
+        this.accountDefaultPrinterId != null &&
+        this.findManagedPrinter(this.accountDefaultPrinterId)
+      ) {
+        return this.accountDefaultPrinterId;
       }
       const main = this.mainPrinter;
       return main?.id ?? main?.Id ?? null;
@@ -268,13 +344,23 @@ export default {
 
         const printerId = this.resolvePrintPrinterId();
         const printer = this.findManagedPrinter(printerId);
+        if (printerId != null) {
+          this.selectedManagedPrinterId = printerId;
+        }
 
         if (printerId && printer) {
+          console.info(
+            "[print] using printer",
+            printerId,
+            printer.name ?? printer.Name,
+            "accountDefault=",
+            this.accountDefaultPrinterId
+          );
           try {
             const apiOk = await this.printViaApi(printerId, htmlContent);
             if (apiOk) {
               this.notifyPrintSuccess(silent);
-              return { ok: true, method: "api" };
+              return { ok: true, method: "api", printerId };
             }
           } catch (apiError) {
             console.warn("[print] API queue failed, trying print server:", apiError);
@@ -283,13 +369,17 @@ export default {
           const directOk = await this.printViaPrintServer(htmlContent, printer);
           if (directOk) {
             this.notifyPrintSuccess(silent);
-            return { ok: true, method: "printServer" };
+            return { ok: true, method: "printServer", printerId };
           }
+
+          console.warn(
+            "[print] assigned/managed printer failed; falling back to browser dialog"
+          );
         }
 
         await this.browserPrintReceipt(htmlContent);
         this.notifyPrintSuccess(silent);
-        return { ok: true, method: "browser" };
+        return { ok: true, method: "browser", printerId: printerId || null };
       } catch (error) {
         console.error("printCard error:", error);
         if (raiseOnError) throw error;
