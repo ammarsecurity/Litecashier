@@ -1814,7 +1814,7 @@ namespace POS.Controllers
                             {
                                 Data = null,
                                 ErrorStatus = true,
-                                Message = $"Insufficient inventory for item '{currentItem.Name}'. Available: {currentItem.Quantity}, Required: {totalQuantityNeeded}"
+                                Message = $"insufficientInventory|{currentItem.Name}|{currentItem.Quantity}|{totalQuantityNeeded}"
                             });
                         }
                     }
@@ -2300,7 +2300,7 @@ namespace POS.Controllers
                             {
                                 Data = null,
                                 ErrorStatus = true,
-                                Message = $"Insufficient inventory for item '{stockItem.Name}'. Available: {stockItem.Quantity}, Required: {delta}"
+                                Message = $"insufficientInventory|{stockItem.Name}|{stockItem.Quantity}|{delta}"
                             });
                         }
 

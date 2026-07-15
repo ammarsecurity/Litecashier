@@ -41,10 +41,55 @@ export default {
         this.cardPaymentTransactionIdForCheckout || null;
       this.orderForSend.isWholesale = !!this.isWholesale;
     },
+    parseInsufficientInventoryMessage(apiMessage) {
+      if (!apiMessage || typeof apiMessage !== "string") return null;
+
+      // New structured message: insufficientInventory|name|available|required
+      const structured = apiMessage.match(
+        /^insufficientInventory\|(.+)\|(-?\d+(?:\.\d+)?)\|(-?\d+(?:\.\d+)?)$/
+      );
+      if (structured) {
+        return {
+          name: structured[1],
+          available: structured[2],
+          required: structured[3],
+        };
+      }
+
+      // Legacy English message from older API builds
+      const legacy = apiMessage.match(
+        /^Insufficient inventory for item '(.+)'\. Available:\s*(-?\d+(?:\.\d+)?),\s*Required:\s*(-?\d+(?:\.\d+)?)/i
+      );
+      if (legacy) {
+        return {
+          name: legacy[1],
+          available: legacy[2],
+          required: legacy[3],
+        };
+      }
+
+      return null;
+    },
+    formatInsufficientInventoryMessage(parsed) {
+      const key = "insufficientInventoryDetail";
+      if (this.$te && this.$te(key)) {
+        return this.$t(key, parsed);
+      }
+      return (
+        `المخزون غير كافٍ للمنتج «${parsed.name}». ` +
+        `المتوفر حالياً: ${parsed.available}، المطلوب في الطلب: ${parsed.required}. ` +
+        `قلّل الكمية أو زوّد المخزون ثم أعد المحاولة.`
+      );
+    },
     mapOrderPersistErrorMessage(error) {
       let errorMessage = this.$i18n.t("error") || "حدث خطأ ما";
       if (error.response) {
-        const apiMessage = error.response.data?.message;
+        const apiMessage =
+          error.response.data?.message || error.response.data?.Message;
+        const inventory = this.parseInsufficientInventoryMessage(apiMessage);
+        if (inventory) {
+          return this.formatInsufficientInventoryMessage(inventory);
+        }
         if (apiMessage && this.$te(apiMessage)) {
           return this.$t(apiMessage);
         }
@@ -136,9 +181,13 @@ export default {
         });
       } catch (error) {
         console.error("Order save error:", error);
+        const apiMessage =
+          error?.response?.data?.message || error?.response?.data?.Message;
+        const isInventory =
+          !!this.parseInsufficientInventoryMessage(apiMessage);
         this.$notify.error(this.mapOrderPersistErrorMessage(error), {
           position: "top-right",
-          timeout: 3000,
+          timeout: isInventory ? 6500 : 3000,
           maxToasts: 1,
         });
       } finally {

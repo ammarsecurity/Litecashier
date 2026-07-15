@@ -2,7 +2,7 @@
 ; Build staging first: powershell -ExecutionPolicy Bypass -File build-installer.ps1
 
 #define MyAppName "Litecashier"
-#define MyAppVersion "1.0.14"
+#define MyAppVersion "1.0.15"
 #define MyAppPublisher "Litecashier"
 #define MyAppExeName "Litecashier.exe"
 
@@ -23,6 +23,9 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\{#MyAppExeName}
+; Close/replace locked files when updating over a running install
+CloseApplications=force
+RestartApplications=no
 
 [Languages]
 Name: "arabic"; MessagesFile: "compiler:Languages\Arabic.isl"
@@ -59,6 +62,30 @@ Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name="
 Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name=""Litecashier POS"" & netsh advfirewall firewall delete rule name=""Litecashier PrintServer"""; Flags: runhidden
 
 [Code]
+procedure KillLitecashierProcesses;
+var
+  ResultCode: Integer;
+begin
+  { Stop running system before overwriting files — no manual Stop-Litecashier.bat needed }
+  Exec('taskkill.exe', '/F /IM Litecashier.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill.exe', '/F /IM POS.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill.exe', '/F /IM PrintServer.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(800);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  KillLitecashierProcesses;
+  NeedsRestart := False;
+  Result := '';
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  KillLitecashierProcesses;
+  Result := True;
+end;
+
 function NeedsVCRedist: Boolean;
 var
   Version: String;

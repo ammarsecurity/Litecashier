@@ -220,6 +220,7 @@
    "total": "Total",
    "actions": "Actions",
    "emptyCartMessage": "Your cart is empty",
+   "insufficientInventoryDetail": "Insufficient stock for «{name}». Available now: {available}, required in this order: {required}. Reduce quantity or restock, then try again.",
    "addOrderSucsses": "Order added successfully",
    "error": "Error",
    "addItemToOrderSucsses": "Item added successfully",

@@ -221,6 +221,7 @@
    "total": "المجموع",
    "actions": "العمليات",
    "emptyCartMessage": "السلة فارغة",
+   "insufficientInventoryDetail": "المخزون غير كافٍ للمنتج «{name}». المتوفر حالياً: {available}، المطلوب في الطلب: {required}. قلّل الكمية أو زوّد المخزون ثم أعد المحاولة.",
    "addOrderSucsses": "تم اضافة الطلب بنجاح",
    "error": "حدث خطا ما",
    "addItemToOrderSucsses": "تم اضافة المنتج الى الطلب بنجاح",
