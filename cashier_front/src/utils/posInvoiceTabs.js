@@ -22,6 +22,7 @@ export function createEmptyInvoiceTab(index = 1, defaults = {}) {
   return {
     id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     index,
+    title: "",
     carditems: [],
     isWholesale: false,
     orderForSend: {
@@ -49,9 +50,12 @@ export function cloneCartItems(items) {
 
 export function snapshotFromPos(vm) {
   if (!vm) return createEmptyInvoiceTab(1);
+  const activeTab =
+    (vm.invoiceTabs || []).find((t) => t.id === vm.activeInvoiceTabId) || null;
   return {
     id: vm.activeInvoiceTabId || createEmptyInvoiceTab(1).id,
     index: Number(vm.activeInvoiceTabIndex) || 1,
+    title: String(activeTab?.title || "").trim(),
     carditems: cloneCartItems(vm.carditems),
     isWholesale: !!vm.isWholesale,
     orderForSend: {
@@ -127,6 +131,7 @@ export function normalizeLoadedTabs(payload, defaults = {}) {
           ...createEmptyInvoiceTab(i + 1, defaults),
           ...t,
           index: Number(t.index) || i + 1,
+          title: String(t.title || "").trim(),
           carditems: cloneCartItems(t.carditems),
           orderForSend: {
             ...createEmptyInvoiceTab(1, defaults).orderForSend,
@@ -172,6 +177,7 @@ export function savePosInvoiceTabs(userInfo, tabs, activeId) {
       tabs: (tabs || []).map((t, i) => ({
         id: t.id,
         index: Number(t.index) || i + 1,
+        title: String(t.title || "").trim(),
         carditems: cloneCartItems(t.carditems),
         isWholesale: !!t.isWholesale,
         orderForSend: {

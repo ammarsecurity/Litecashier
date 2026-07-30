@@ -1,0 +1,6 @@
+staging/
+output/
+deps/
+temp-mariadb-extract/
+LiteRestaurant-Setup.exe
+*.Setup.exe

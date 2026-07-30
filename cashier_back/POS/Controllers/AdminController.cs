@@ -443,16 +443,16 @@ namespace POS.Controllers
                 }
 
                 var commercialUserId = GetCommercialUserId();
-                var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.PhoneNumber == request.PhoneNumber && x.IsDeleted == false);
+            var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.PhoneNumber == request.PhoneNumber && x.IsDeleted == false);
 
                 if (currentUser?.Role == "Admin")
                 {
-                    if (user != null)
-                    {
-                        return BadRequest(new GlobalResponse<User>
-                        {
-                            Data = user,
-                            ErrorStatus = true,
+            if (user != null)
+            {
+                return BadRequest(new GlobalResponse<User>
+                {
+                    Data = user,
+                    ErrorStatus = true,
                             Message = "رقم الهاتف موجود بالفعل"
                         });
                     }
@@ -477,7 +477,7 @@ namespace POS.Controllers
                     });
                 }
 
-                var newUse = _mapper.Map<User>(request);
+            var newUse = _mapper.Map<User>(request);
                 newUse.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
                 var (sectionsOk, sectionsError, sectionsJson) =
@@ -558,13 +558,13 @@ namespace POS.Controllers
                     });
                 }
 
-                _dbConfig.Users.Add(newUse);
-                await _dbConfig.SaveChangesAsync();
+            _dbConfig.Users.Add(newUse);
+            await _dbConfig.SaveChangesAsync();
 
-                return Ok(new GlobalResponse<User>
-                {
-                    Data = newUse,
-                    ErrorStatus = false,
+            return Ok(new GlobalResponse<User>
+            {
+                Data = newUse,
+                ErrorStatus = false,
                     Message = "تم إضافة المستخدم بنجاح"
                 });
             }
@@ -589,13 +589,13 @@ namespace POS.Controllers
                 var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
                 var currentUser = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == currentUserId);
 
-                var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == id && x.IsDeleted == false);
-                if (user == null)
+            var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == id && x.IsDeleted == false);
+            if (user == null)
+            {
+                return BadRequest(new GlobalResponse<User>
                 {
-                    return BadRequest(new GlobalResponse<User>
-                    {
                         Data = null,
-                        ErrorStatus = true,
+                    ErrorStatus = true,
                         Message = "المستخدم غير موجود"
                     });
                 }
@@ -741,7 +741,7 @@ namespace POS.Controllers
                 };
 
                 _dbConfig.Users.Update(user);
-                await _dbConfig.SaveChangesAsync();
+            await _dbConfig.SaveChangesAsync();
 
                 await _dbConfig.LogAuditAsync(
                     "Update",
@@ -755,10 +755,10 @@ namespace POS.Controllers
                     $"تم تعديل المستخدم: {user.Name}"
                 );
 
-                return Ok(new GlobalResponse<User>
-                {
-                    Data = user,
-                    ErrorStatus = false,
+            return Ok(new GlobalResponse<User>
+            {
+                Data = user,
+                ErrorStatus = false,
                     Message = "تم تحديث المستخدم بنجاح"
                 });
             }
@@ -4038,11 +4038,11 @@ namespace POS.Controllers
         public ActionResult<GlobalResponse<string>> ExecuteSeedData([FromBody] SeedDataRequest request)
         {
             return StatusCode(StatusCodes.Status410Gone, new GlobalResponse<string>
-            {
-                Data = null,
-                ErrorStatus = true,
+                {
+                    Data = null,
+                    ErrorStatus = true,
                 Message = "seedDataDisabled"
-            });
+                });
         }
 
     }

@@ -41,13 +41,35 @@
                 type="button"
                 role="tab"
                 class="pos-invoice-tab"
-                :class="{ 'pos-invoice-tab--active': tab.id === activeInvoiceTabId }"
+                :class="{
+                  'pos-invoice-tab--active': tab.id === activeInvoiceTabId,
+                  'pos-invoice-tab--renaming': invoiceTabRenamingId === tab.id,
+                }"
                 :aria-selected="tab.id === activeInvoiceTabId"
+                :title="$t('posInvoiceTabRenameHint') || 'نقرة مزدوجة لتعديل الاسم'"
                 @click="switchInvoiceTab(tab.id)"
               >
-                <span class="pos-invoice-tab-label">{{ invoiceTabLabel(tab) }}</span>
+                <input
+                  v-if="invoiceTabRenamingId === tab.id"
+                  :ref="'invoiceTabRename_' + tab.id"
+                  v-model="invoiceTabRenameDraft"
+                  type="text"
+                  class="pos-invoice-tab-rename-input"
+                  maxlength="40"
+                  :aria-label="$t('posInvoiceTabRename') || 'اسم الفاتورة'"
+                  @click.stop
+                  @mousedown.stop
+                  @keydown.enter.prevent="commitRenameInvoiceTab"
+                  @keydown.esc.prevent="cancelRenameInvoiceTab"
+                  @blur="commitRenameInvoiceTab"
+                />
                 <span
-                  v-if="invoiceTabCount(tab) > 0"
+                  v-else
+                  class="pos-invoice-tab-label"
+                  @dblclick.stop.prevent="startRenameInvoiceTab(tab, $event)"
+                >{{ invoiceTabLabel(tab) }}</span>
+                <span
+                  v-if="invoiceTabCount(tab) > 0 && invoiceTabRenamingId !== tab.id"
                   class="pos-invoice-tab-count"
                 >{{ invoiceTabCount(tab) }}</span>
                 <span
@@ -1209,6 +1231,8 @@ export default {
       invoiceTabs: [createEmptyInvoiceTab(1)],
       activeInvoiceTabId: null,
       invoiceTabPendingCloseId: null,
+      invoiceTabRenamingId: null,
+      invoiceTabRenameDraft: "",
       _invoiceTabsHydrating: false,
       _invoiceTabsSaveTimer: null,
     };
@@ -1926,11 +1950,62 @@ export default {
     },
     invoiceTabLabel(tab) {
       if (!tab) return "";
+      const custom = String(tab.title || "").trim();
+      if (custom) return custom;
       const code = String(tab.orderForSend?.orderCode || "").trim();
       if (code && code !== "---") {
         return code;
       }
       return `${this.$t("posInvoiceTabLabel") || "فاتورة"} ${tab.index || ""}`.trim();
+    },
+    startRenameInvoiceTab(tab, event) {
+      if (!tab?.id) return;
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (this.orderPersisting || this.cardPaymentWait?.show) {
+        this.$notify.warning(
+          this.$t("posInvoiceTabBusy") || "أكمل العملية الحالية قبل تبديل الفاتورة",
+          { position: "top-right", timeout: 2500, maxToasts: 1 }
+        );
+        return;
+      }
+      this.invoiceTabRenamingId = tab.id;
+      this.invoiceTabRenameDraft = String(tab.title || this.invoiceTabLabel(tab) || "").trim();
+      this.$nextTick(() => {
+        const ref = this.$refs[`invoiceTabRename_${tab.id}`];
+        const input = Array.isArray(ref) ? ref[0] : ref;
+        if (input && typeof input.focus === "function") {
+          input.focus();
+          input.select();
+        }
+      });
+    },
+    commitRenameInvoiceTab() {
+      const tabId = this.invoiceTabRenamingId;
+      if (!tabId) return;
+      const idx = this.invoiceTabs.findIndex((t) => t.id === tabId);
+      const draft = String(this.invoiceTabRenameDraft || "").trim();
+      this.invoiceTabRenamingId = null;
+      this.invoiceTabRenameDraft = "";
+      if (idx < 0) return;
+
+      const defaultLabel = `${this.$t("posInvoiceTabLabel") || "فاتورة"} ${
+        this.invoiceTabs[idx].index || ""
+      }`.trim();
+      const nextTitle =
+        !draft || draft === defaultLabel
+          ? ""
+          : draft.slice(0, 40);
+
+      if (String(this.invoiceTabs[idx].title || "").trim() === nextTitle) return;
+      this.$set(this.invoiceTabs[idx], "title", nextTitle);
+      this.persistInvoiceTabs();
+    },
+    cancelRenameInvoiceTab() {
+      this.invoiceTabRenamingId = null;
+      this.invoiceTabRenameDraft = "";
     },
     invoiceTabCount(tab) {
       return tabItemCount(tab);
@@ -1949,6 +2024,9 @@ export default {
       const snap = snapshotFromPos(this);
       snap.id = this.activeInvoiceTabId;
       snap.index = this.invoiceTabs[idx].index || snap.index;
+      snap.title = String(
+        snap.title || this.invoiceTabs[idx].title || ""
+      ).trim();
       this.$set(this.invoiceTabs, idx, snap);
       if (persist) {
         savePosInvoiceTabs(this.userInfo, this.invoiceTabs, this.activeInvoiceTabId);
@@ -1979,6 +2057,9 @@ export default {
     },
     switchInvoiceTab(tabId) {
       if (!tabId || tabId === this.activeInvoiceTabId) return;
+      if (this.invoiceTabRenamingId) {
+        this.cancelRenameInvoiceTab();
+      }
       if (this.orderPersisting || this.cardPaymentWait?.show) {
         this.$notify.warning(
           this.$t("posInvoiceTabBusy") || "أكمل العملية الحالية قبل تبديل الفاتورة",

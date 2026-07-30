@@ -101,18 +101,48 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+/** Thermal/label printers commonly 203–300 DPI; use 300 for sharp bars when scaled in CSS. */
+const BARCODE_PRINT_DPI = 300;
+
+function mmToPx(mm, dpi = BARCODE_PRINT_DPI) {
+  return Math.max(1, Math.round((Number(mm) / 25.4) * dpi));
+}
+
+/**
+ * High-DPI CODE128 PNG so label printers do not upscale a tiny canvas (pixelation).
+ * Pass targetWidthMm / targetHeightMm for the usable barcode area on the label.
+ */
 export function buildBarcodeDataUrl(code, options = {}) {
   const value = String(code || "").trim();
   if (!value) return "";
+
+  const dpi = options.dpi ?? BARCODE_PRINT_DPI;
+  const targetWidthMm = options.targetWidthMm ?? 46;
+  const targetHeightMm = options.targetHeightMm ?? 14;
+  const targetWidthPx = mmToPx(targetWidthMm, dpi);
+  const barAreaHeightPx = mmToPx(Math.max(targetHeightMm * 0.72, 8), dpi);
+
+  // CODE128 ~11 modules/char + quiet zones; pick module width so bars fill the label width.
+  const estimatedModules = Math.max(value.length * 11 + 35, 60);
+  const moduleWidth = Math.max(
+    2,
+    Math.min(6, Math.floor(targetWidthPx / estimatedModules))
+  );
+  const fontSize = Math.max(
+    18,
+    Math.round(mmToPx(Math.min(targetHeightMm * 0.22, 4.2), dpi))
+  );
+  const margin = Math.max(4, Math.round(moduleWidth * 2));
 
   const canvas = document.createElement("canvas");
   JsBarcode(canvas, value, {
     format: "CODE128",
     displayValue: true,
-    fontSize: options.fontSize ?? 12,
-    height: options.height ?? 42,
-    width: options.width ?? 1.4,
-    margin: options.margin ?? 1,
+    fontSize: options.fontSize ?? fontSize,
+    height: options.height ?? barAreaHeightPx,
+    width: options.width ?? moduleWidth,
+    margin: options.margin ?? margin,
+    textMargin: options.textMargin ?? Math.max(2, Math.round(fontSize * 0.15)),
     lineColor: "#000",
     background: "#fff",
   });
@@ -194,11 +224,14 @@ function buildLabelStyles(widthMm, heightMm, orientation = DEFAULT_QR_LABEL_ORIE
 
       .qr-label-barcode {
         display: block;
-        width: auto;
+        width: 96%;
         max-width: 96%;
         max-height: ${barcodeMaxH}mm;
         height: auto;
         object-fit: contain;
+        image-rendering: crisp-edges;
+        image-rendering: pixelated;
+        -ms-interpolation-mode: nearest-neighbor;
       }
 
       .qr-label-price {
@@ -236,11 +269,16 @@ export function buildQrLabelPrintDocument(item, options = {}) {
   const wide = page.widthMm >= 60;
   const tall = page.heightMm >= 80;
 
+  // Leave room for name/price; generate barcode at ~300 DPI for the printable area.
+  const barcodeWidthMm = Math.max(page.widthMm - (wide ? 6 : 4), 28);
+  const barcodeHeightMm = Math.max(
+    Math.min(page.heightMm - (tall ? 32 : page.heightMm >= 40 ? 16 : 12), tall ? 55 : 22),
+    10
+  );
   const barcodeUrl = buildBarcodeDataUrl(item.code, {
-    height: tall ? 72 : page.heightMm >= 40 ? 48 : 36,
-    width: wide ? 1.55 : 1.35,
-    fontSize: tall ? 14 : wide ? 12 : 10,
-    margin: 1,
+    targetWidthMm: barcodeWidthMm,
+    targetHeightMm: barcodeHeightMm,
+    dpi: BARCODE_PRINT_DPI,
   });
 
   const name = escapeHtml(item.name || "");

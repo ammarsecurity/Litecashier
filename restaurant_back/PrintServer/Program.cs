@@ -1,4 +1,4 @@
-﻿using PrintServer.Services;
+using PrintServer.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,8 +22,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddSingleton<ConfigurationService>();
 builder.Services.AddScoped<PrintService>();
 
-// ✅ حدد الـ URL هنا
-builder.WebHost.UseUrls("http://localhost:5000");
+// Bind all interfaces so LAN clients can reach PrintServer (same as cashier)
+builder.WebHost.UseUrls("http://0.0.0.0:5000");
 
 var app = builder.Build();
 
@@ -48,7 +48,7 @@ Console.WriteLine("Restaurant POS Print Server (C#)");
 Console.WriteLine("=" + new string('=', 49));
 Console.WriteLine("Windows Print API Available: True");
 Console.WriteLine("=" + new string('=', 49));
-Console.WriteLine("Starting server on http://localhost:5000");
+Console.WriteLine("Starting server on http://0.0.0.0:5000");
 Console.WriteLine("Endpoints:");
 Console.WriteLine("  GET  /health - Health check");
 Console.WriteLine("  POST /print - Print receipt (JSON)");
