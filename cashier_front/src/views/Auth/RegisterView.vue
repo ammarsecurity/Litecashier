@@ -7,7 +7,7 @@
                 <div class="register-brand-panel">
                     <div class="brand-content-wrapper">
                         <div class="brand-logo-container">
-                            <img src="../../assets/logoarabic.png" alt="logo" class="brand-logo-image" />
+                            <img src="../../assets/logo.png" alt="logo" class="brand-logo-image" />
                         </div>
                         <h1 class="brand-main-title">{{ $t('registerTitle') }}</h1>
                         <p class="brand-secondary-text">انضم إلينا وابدأ رحلتك مع نظام إدارة نقاط البيع المتطور</p>
@@ -50,7 +50,7 @@
                 <div class="register-form-panel">
                     <div class="form-content-wrapper">
                         <div class="form-logo-mobile-only">
-                            <img src="../../assets/logoarabic.png" alt="logo" class="mobile-logo-image" />
+                            <img src="../../assets/logo.png" alt="logo" class="mobile-logo-image" />
                         </div>
                         
                         <div class="form-header-section">

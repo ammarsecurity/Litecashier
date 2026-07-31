@@ -7,15 +7,12 @@
         <div class="pm-brand">
           <div class="pm-logo-wrap">
             <img
-              v-if="restaurantLogo && !logoError"
-              :src="restaurantLogo"
+              :src="restaurantLogo && !logoError ? restaurantLogo : BRAND_LOGO"
               alt=""
               class="pm-logo"
+              :class="{ 'pm-logo--brand-fallback': !restaurantLogo || logoError }"
               @error="logoError = true"
             />
-            <div v-else class="pm-logo-fallback">
-              <b-icon icon="shop"></b-icon>
-            </div>
           </div>
           <div class="pm-brand-text">
             <p class="pm-eyebrow">{{ $t('publicMenu') || 'قائمة الطعام' }}</p>
@@ -125,16 +122,18 @@
             >
               <div class="pm-item-media">
                 <img
-                  v-if="item.image && !item.imageError"
-                  :src="item.image"
+                  :src="productImageSrc(item.image, item.imageError)"
                   :alt="item.name"
                   class="pm-item-img"
+                  :class="{
+                    'pm-item-img--brand-fallback': isProductImageFallback(
+                      item.image,
+                      item.imageError
+                    ),
+                  }"
                   loading="lazy"
-                  @error="item.imageError = true"
+                  @error="onProductImageError(item)"
                 />
-                <div v-else class="pm-item-img-fallback">
-                  <b-icon icon="cup-hot-fill"></b-icon>
-                </div>
                 <span v-if="discountPercent(item)" class="pm-badge">
                   -{{ discountPercent(item) }}%
                 </span>
@@ -190,14 +189,17 @@
 
           <div class="pm-modal-media">
             <img
-              v-if="selectedItem.image && !selectedItem.imageError"
-              :src="selectedItem.image"
+              :src="productImageSrc(selectedItem.image, selectedItem.imageError)"
               :alt="selectedItem.name"
               class="pm-modal-img"
+              :class="{
+                'pm-modal-img--brand-fallback': isProductImageFallback(
+                  selectedItem.image,
+                  selectedItem.imageError
+                ),
+              }"
+              @error="onProductImageError(selectedItem)"
             />
-            <div v-else class="pm-modal-img-fallback">
-              <b-icon icon="cup-hot-fill"></b-icon>
-            </div>
             <span v-if="discountPercent(selectedItem)" class="pm-badge pm-badge--lg">
               -{{ discountPercent(selectedItem) }}%
             </span>
@@ -239,6 +241,12 @@
 
 <script>
 import { HTTP } from '../http/api.js';
+import {
+  productImageSrc,
+  isProductImageFallback,
+  onProductImageError,
+  BRAND_LOGO,
+} from '@/utils/productImage.js';
 
 const UNCategorized = 'أخرى';
 
@@ -246,6 +254,7 @@ export default {
   name: 'PublicMenuView',
   data() {
     return {
+      BRAND_LOGO,
       loading: true,
       error: null,
       items: [],
@@ -335,6 +344,9 @@ export default {
     document.documentElement.classList.remove('public-menu-page');
   },
   methods: {
+    productImageSrc,
+    isProductImageFallback,
+    onProductImageError,
     async loadMenu() {
       try {
         this.loading = true;
@@ -769,6 +781,14 @@ export default {
   object-fit: cover;
 }
 
+.pm-item-img--brand-fallback {
+  object-fit: contain;
+  padding: 16%;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(20, 184, 166, 0.2), transparent 65%),
+    linear-gradient(160deg, #070b10 0%, #0f1c24 100%);
+}
+
 .pm-item-img-fallback {
   width: 100%;
   height: 100%;
@@ -778,6 +798,12 @@ export default {
   background: var(--pm-accent-soft);
   color: var(--pm-accent);
   font-size: 1.75rem;
+}
+
+.pm-logo--brand-fallback {
+  object-fit: contain;
+  padding: 10%;
+  background: #070b10;
 }
 
 .pm-badge {
@@ -1016,6 +1042,14 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.pm-modal-img--brand-fallback {
+  object-fit: contain;
+  padding: 18%;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(20, 184, 166, 0.2), transparent 65%),
+    linear-gradient(160deg, #070b10 0%, #0f1c24 100%);
 }
 
 .pm-modal-img-fallback {

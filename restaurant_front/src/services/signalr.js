@@ -1,4 +1,5 @@
 import * as signalR from '@microsoft/signalr';
+import { resolveApiBaseUrl } from '@/utils/apiBase.js';
 
 class SignalRService {
   constructor() {
@@ -9,14 +10,7 @@ class SignalRService {
   }
 
   getBaseUrl() {
-    const raw = process.env.VUE_APP_API_URL;
-    if (raw != null && String(raw).trim() !== '') {
-      return String(raw).trim().replace(/\/+$/, '');
-    }
-    if (process.env.NODE_ENV === 'development') {
-      return 'https://localhost:7216';
-    }
-    return '';
+    return resolveApiBaseUrl().replace(/\/+$/, '');
   }
 
   startConnection() {

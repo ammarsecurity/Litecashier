@@ -23,6 +23,7 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\{#MyAppExeName}
+SetupIconFile=Assets\app.ico
 ; Close/replace locked files when updating over a running install
 CloseApplications=force
 RestartApplications=no

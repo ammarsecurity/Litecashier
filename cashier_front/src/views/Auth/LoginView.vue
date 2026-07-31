@@ -18,7 +18,7 @@
       <div class="login-center-stage">
         <div class="login-card">
           <div class="login-card-brand">
-            <img src="../../assets/logoarabic.png" alt="LiteCashier" class="login-card-logo" />
+            <img src="../../assets/logo.png" alt="LiteCashier" class="login-card-logo" />
             <h1 class="login-card-title">{{ $t("loginTitle") }}</h1>
             <p class="login-card-subtitle">{{ $t("loginWelcomeSubtitle") }}</p>
           </div>

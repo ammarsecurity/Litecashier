@@ -138,15 +138,17 @@
                 <div class="item-product-cell">
                   <div class="item-product-thumb">
                     <img
-                      v-if="row.item.image && !row.item.imageError"
-                      :src="row.item.image"
+                      :src="productImageSrc(row.item.image, row.item.imageError)"
                       :alt="row.item.name"
                       class="item-table-image"
-                      @error="row.item.imageError = true"
+                      :class="{
+                        'item-table-image--brand-fallback': isProductImageFallback(
+                          row.item.image,
+                          row.item.imageError
+                        ),
+                      }"
+                      @error="onProductImageError(row.item)"
                     />
-                    <div v-else class="item-image-placeholder-small">
-                      <b-icon icon="box" class="item-placeholder-icon-small"></b-icon>
-                    </div>
                   </div>
                   <div class="item-product-meta">
                     <span class="item-name-text">{{ row.item.name }}</span>
@@ -1110,6 +1112,11 @@ import {
   tagItemStorageValue,
   resolveItemTagsToCategoryIds,
 } from "@/utils/tagHierarchy.js";
+import {
+  productImageSrc,
+  isProductImageFallback,
+  onProductImageError,
+} from "@/utils/productImage.js";
 
 export default {
   name: "ItemsView",
@@ -1397,6 +1404,9 @@ export default {
   },
 
   methods: {
+    productImageSrc,
+    isProductImageFallback,
+    onProductImageError,
     refreshPage() {
       this.getTags();
       this.GetAllItems();
@@ -2502,6 +2512,14 @@ export default {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.item-table-image--brand-fallback {
+  object-fit: contain;
+  padding: 12%;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(20, 184, 166, 0.18), transparent 62%),
+    linear-gradient(160deg, #070b10 0%, #0f1c24 100%);
 }
 
 .item-image-placeholder-small {

@@ -370,15 +370,17 @@
                     />
                     <div v-else class="pos-product-image-container">
                       <img
-                        v-if="item.image && !item.imageError"
-                        :src="item.image"
+                        :src="productImageSrc(item.image, item.imageError)"
                         :alt="item.name"
                         class="pos-product-image"
-                        @error="item.imageError = true"
+                        :class="{
+                          'pos-product-image--brand-fallback': isProductImageFallback(
+                            item.image,
+                            item.imageError
+                          ),
+                        }"
+                        @error="onProductImageError(item)"
                       />
-                      <div v-else class="pos-product-image-placeholder">
-                        <b-icon icon="box-fill" class="pos-product-placeholder-icon"></b-icon>
-                      </div>
                     </div>
                   </div>
 
@@ -1085,7 +1087,7 @@
           />
           <img
             v-else
-            src="@/assets/logoarabic.png"
+            src="@/assets/logo.png"
             alt="logo"
             class="bill-logo-img"
           />
@@ -1553,6 +1555,11 @@ import CardPaymentWaitModal from "@/components/CardPaymentWaitModal.vue";
 import TableGuestsModal from "@/components/TableGuestsModal.vue";
 import TableReservationInfoBanner from "@/components/Restaurant/TableReservationInfoBanner.vue";
 import { findCartLineIndex, mergeCartLines } from "@/utils/mergeCartLines.js";
+import {
+  productImageSrc,
+  isProductImageFallback,
+  onProductImageError,
+} from "@/utils/productImage.js";
 // import store from '../store/store'; // Adjust the path based on your actual folder structure
 
 export default {
@@ -2274,6 +2281,9 @@ export default {
   },
 
   methods: {
+    productImageSrc,
+    isProductImageFallback,
+    onProductImageError,
     applyOrderDiscountPreset(preset) {
       if (!preset) return;
       this.orderDiscountType = preset.type;
@@ -7122,6 +7132,16 @@ export default {
 
 .pos-main-section--v2 .pos-product-image {
   max-height: 52px;
+}
+
+.pos-main-section--v2 .pos-product-image--brand-fallback {
+  object-fit: contain;
+  padding: 10%;
+  max-height: 52px;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(20, 184, 166, 0.18), transparent 62%),
+    linear-gradient(160deg, #070b10 0%, #0f1c24 100%);
+  border-radius: 0.45rem;
 }
 
 .pos-main-section--v2 .pos-product-image-placeholder {

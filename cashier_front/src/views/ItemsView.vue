@@ -163,6 +163,12 @@
                       :src="productImageSrc(row.item.image, row.item.imageError)"
                       :alt="row.item.name"
                       class="item-table-image"
+                      :class="{
+                        'item-table-image--brand-fallback': isProductImageFallback(
+                          row.item.image,
+                          row.item.imageError
+                        ),
+                      }"
                       @error="onProductImageError(row.item)"
                     />
                   </div>
@@ -934,6 +940,7 @@ import VueBarcode from "@chenfengyuan/vue-barcode";
 import { HTTP } from "../http/api.js";
 import {
   productImageSrc,
+  isProductImageFallback,
   onProductImageError,
 } from "@/utils/productImage.js";
 import {
@@ -1119,6 +1126,7 @@ export default {
 
   methods: {
     productImageSrc,
+    isProductImageFallback,
     onProductImageError,
     refreshPage() {
       this.GetAllItems();
@@ -1829,6 +1837,14 @@ export default {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.item-table-image--brand-fallback {
+  object-fit: contain;
+  padding: 12%;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(20, 184, 166, 0.18), transparent 62%),
+    linear-gradient(160deg, #070b10 0%, #0f1c24 100%);
 }
 
 .item-product-meta {

@@ -97,13 +97,27 @@ Download-File -Url $WebView2Url -Destination $WebView2Bootstrapper
 Download-File -Url $VcRedistUrl -Destination $VcRedistInstaller
 
 if (-not $SkipFrontendBuild) {
-    Write-Host "Building frontend..."
+    # Force same-origin API so the installed SPA talks to local POS (:5189),
+    # not whatever VUE_APP_API_URL is in cashier_front/.env (dev LAN IP / remote).
+    Write-Host "Building frontend (VUE_APP_API_URL=/ for installer same-origin)..."
     Push-Location $FrontendDir
-    if (-not (Test-Path "node_modules")) {
-        npm ci
+    $prevApiUrl = $env:VUE_APP_API_URL
+    $env:VUE_APP_API_URL = "/"
+    try {
+        if (-not (Test-Path "node_modules")) {
+            npm ci
+        }
+        npm run build
     }
-    npm run build
-    Pop-Location
+    finally {
+        if ($null -eq $prevApiUrl) {
+            Remove-Item Env:\VUE_APP_API_URL -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:VUE_APP_API_URL = $prevApiUrl
+        }
+        Pop-Location
+    }
 }
 
 Write-Host "Publishing POS..."

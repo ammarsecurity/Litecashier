@@ -256,6 +256,12 @@
                               :src="productImageSrc(item.image, item.imageError)"
                               :alt="item.name"
                               class="pos-product-image"
+                              :class="{
+                                'pos-product-image--brand-fallback': isProductImageFallback(
+                                  item.image,
+                                  item.imageError
+                                ),
+                              }"
                               @error="onProductImageError(item)"
                             />
                           </div>
@@ -993,7 +999,7 @@
             />
             <img
               v-else
-              src="../assets/logoarabic.png"
+              src="../assets/logo.png"
               alt="logo"
               class="bill-logo-img"
             />
@@ -1145,6 +1151,7 @@ import {
 import { applyPosPageSize, POS_ITEMS_PER_PAGE } from "@/utils/posPageSize.js";
 import {
   productImageSrc,
+  isProductImageFallback,
   onProductImageError,
 } from "@/utils/productImage.js";
 import {
@@ -1510,6 +1517,7 @@ export default {
 
   methods: {
     productImageSrc,
+    isProductImageFallback,
     onProductImageError,
     loadCommercialUserInfo() {
       HTTP.get("Admin/CommercialUserInfo")

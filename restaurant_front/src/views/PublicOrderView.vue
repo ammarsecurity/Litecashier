@@ -89,16 +89,18 @@
             >
               <div class="po-card-media">
                 <img
-                  v-if="item.image && !item.imageError"
-                  :src="item.image"
+                  :src="productImageSrc(item.image, item.imageError)"
                   :alt="item.name"
                   class="po-card-img"
+                  :class="{
+                    'po-card-img--brand-fallback': isProductImageFallback(
+                      item.image,
+                      item.imageError
+                    ),
+                  }"
                   loading="lazy"
-                  @error="item.imageError = true"
+                  @error="onProductImageError(item)"
                 />
-                <div v-else class="po-card-img-fallback">
-                  <b-icon icon="cup-hot-fill"></b-icon>
-                </div>
                 <span v-if="discountPercent(item)" class="po-badge">
                   -{{ discountPercent(item) }}%
                 </span>
@@ -269,6 +271,11 @@
 import { HTTP } from '../http/api.js';
 import CardPaymentWaitModal from '@/components/CardPaymentWaitModal.vue';
 import publicCardPaymentMixin from '@/mixins/publicCardPaymentMixin.js';
+import {
+  productImageSrc,
+  isProductImageFallback,
+  onProductImageError,
+} from '@/utils/productImage.js';
 
 const UNCategorized = 'أخرى';
 
@@ -360,6 +367,9 @@ export default {
     document.documentElement.classList.remove('public-order-page');
   },
   methods: {
+    productImageSrc,
+    isProductImageFallback,
+    onProductImageError,
     async loadPaymentCapabilities() {
       if (!this.commercialUserId) {
         this.cardPaymentEnabled = false;
@@ -817,6 +827,14 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.po-card-img--brand-fallback {
+  object-fit: contain;
+  padding: 16%;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(20, 184, 166, 0.2), transparent 65%),
+    linear-gradient(160deg, #070b10 0%, #0f1c24 100%);
 }
 
 .po-card-img-fallback {

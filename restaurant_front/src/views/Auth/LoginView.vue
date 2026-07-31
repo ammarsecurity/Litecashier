@@ -6,7 +6,7 @@
             <header class="login-auth-topbar">
                 <div class="login-auth-topbar-inner">
                     <div class="login-auth-brand">
-                        <img src="../../assets/logoarabicdark.png" alt="Litecashier" class="login-auth-logo" />
+                        <img src="../../assets/logo.png" alt="Litecashier" class="login-auth-logo" />
                     </div>
                     <div class="login-auth-actions">
                         <button

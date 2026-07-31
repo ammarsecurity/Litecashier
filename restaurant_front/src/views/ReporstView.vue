@@ -897,7 +897,7 @@
                         <div class="bill-container">
                             <!-- Header -->
                             <div class="bill-header">
-                                <img src="../assets/logoarabic.png" class="bill-logo-img" />
+                                <img src="../assets/logo.png" class="bill-logo-img" />
                                 <h2 class="bill-store-name">نظام لايت كاشير</h2>
                                 <p class="bill-store-subtitle">نظام إدارة المطاعم</p>
                             </div>
@@ -1113,7 +1113,7 @@
                     <div id="print-edit-order" style="display: none;" v-if="editOrderData">
                         <div class="bill-container">
                             <div class="bill-header">
-                                <img src="../assets/logoarabic.png" class="bill-logo-img" />
+                                <img src="../assets/logo.png" class="bill-logo-img" />
                                 <h2 class="bill-store-name">نظام لايت كاشير</h2>
                             </div>
                             <div class="bill-info-section">

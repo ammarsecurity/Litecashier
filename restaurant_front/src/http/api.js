@@ -1,19 +1,5 @@
 import axios from "axios";
-
-/** Base URL from `.env` (`VUE_APP_API_URL`). Trailing slash normalized. */
-const resolveApiBaseUrl = () => {
-    const raw = process.env.VUE_APP_API_URL;
-    if (raw != null && String(raw).trim() !== "") {
-        const base = String(raw).trim();
-        return base.endsWith("/") ? base : `${base}/`;
-    }
-    if (process.env.NODE_ENV === "development") {
-        return "https://localhost:7216/";
-    }
-    return "";
-};
-
-const getBaseURL = () => resolveApiBaseUrl();
+import { resolveApiBaseUrl } from "@/utils/apiBase.js";
 
 /** PAX Nebula sale can wait for card/PIN on device — longer than default API calls. */
 export const CARD_PAYMENT_REQUEST_TIMEOUT_MS = 180000;
@@ -40,7 +26,7 @@ export const cancelPublicCardPayment = (commercialUserId, transactionId) =>
     HTTP.post(`PublicMenu/${commercialUserId}/card-payment/${transactionId}/cancel`, null, { timeout: 15000 });
 
 export const HTTP = axios.create({
-    baseURL: getBaseURL(),
+    baseURL: resolveApiBaseUrl(),
     timeout: 30000, // 30 seconds timeout
 });
 

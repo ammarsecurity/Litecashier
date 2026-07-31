@@ -784,7 +784,7 @@
                                     />
                                     <img
                                         v-else
-                                        src="../assets/logoarabic.png"
+                                        src="../assets/logo.png"
                                         alt="logo"
                                         class="bill-logo-img"
                                     />

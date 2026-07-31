@@ -12,7 +12,7 @@
       <div class="sidebar-header">
         <div class="sidebar-logo-container">
           <img
-            src="../../assets/logoarabic.png"
+            src="../../assets/logo.png"
             alt="logo"
             class="sidebar-logo"
           />

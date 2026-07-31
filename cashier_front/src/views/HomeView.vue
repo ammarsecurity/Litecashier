@@ -12,7 +12,7 @@
       <!-- Header Section -->
       <header class="home-header">
         <div class="home-logo-section">
-          <img src="../assets/logoarabic.png" alt="logo" class="home-logo-image" />
+          <img src="../assets/logo.png" alt="logo" class="home-logo-image" />
         </div>
         <div class="home-language-selector">
           <label for="home-language-select" class="home-language-label">{{ $t('select_language') }}:</label>

@@ -8,6 +8,12 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>Litecashier</AssemblyName>
     <RootNamespace>Litecashier.Launcher</RootNamespace>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\splash-logo.png" />
+    <None Include="Assets\app.ico" />
+  </ItemGroup>
 
 </Project>
