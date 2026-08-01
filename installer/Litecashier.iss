@@ -2,7 +2,7 @@
 ; Build staging first: powershell -ExecutionPolicy Bypass -File build-installer.ps1
 
 #define MyAppName "Litecashier"
-#define MyAppVersion "1.0.16"
+#define MyAppVersion "1.0.17"
 #define MyAppPublisher "Litecashier"
 #define MyAppExeName "Litecashier.exe"
 

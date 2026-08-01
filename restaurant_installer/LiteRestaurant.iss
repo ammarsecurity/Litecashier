@@ -2,7 +2,7 @@
 ; Build staging first: powershell -ExecutionPolicy Bypass -File build-installer.ps1
 
 #define MyAppName "LiteRestaurant"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "LiteRestaurant"
 #define MyAppExeName "LiteRestaurant.exe"
 

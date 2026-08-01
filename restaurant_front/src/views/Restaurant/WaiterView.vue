@@ -7139,8 +7139,8 @@ export default {
   padding: 10%;
   max-height: 52px;
   background:
-    radial-gradient(circle at 50% 40%, rgba(20, 184, 166, 0.18), transparent 62%),
-    linear-gradient(160deg, #070b10 0%, #0f1c24 100%);
+    radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--primary-bright, #3db4d0) 22%, transparent), transparent 62%),
+    var(--primary-gradient-soft, linear-gradient(160deg, #002536 0%, #0a5a73 100%));
   border-radius: 0.45rem;
 }
 

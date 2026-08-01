@@ -419,9 +419,9 @@ export default {
 .pm {
   --pm-bg: #f7f3ee;
   --pm-surface: #ffffff;
-  --pm-accent: #b8864a;
-  --pm-accent-dark: #966b35;
-  --pm-accent-soft: rgba(184, 134, 74, 0.12);
+  --pm-accent: var(--primary-color, #002536);
+  --pm-accent-dark: var(--primary-dark, #001820);
+  --pm-accent-soft: color-mix(in srgb, var(--primary-color, #002536) 12%, transparent);
   --pm-text: #1c1917;
   --pm-muted: #78716c;
   --pm-border: #e7e0d8;
@@ -785,8 +785,8 @@ export default {
   object-fit: contain;
   padding: 16%;
   background:
-    radial-gradient(circle at 50% 40%, rgba(20, 184, 166, 0.2), transparent 65%),
-    linear-gradient(160deg, #070b10 0%, #0f1c24 100%);
+    radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--primary-bright, #3db4d0) 22%, transparent), transparent 65%),
+    var(--primary-gradient-soft, linear-gradient(160deg, #002536 0%, #0a5a73 100%));
 }
 
 .pm-item-img-fallback {
@@ -803,7 +803,7 @@ export default {
 .pm-logo--brand-fallback {
   object-fit: contain;
   padding: 10%;
-  background: #070b10;
+  background: #002536;
 }
 
 .pm-badge {
@@ -1048,8 +1048,8 @@ export default {
   object-fit: contain;
   padding: 18%;
   background:
-    radial-gradient(circle at 50% 40%, rgba(20, 184, 166, 0.2), transparent 65%),
-    linear-gradient(160deg, #070b10 0%, #0f1c24 100%);
+    radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--primary-bright, #3db4d0) 22%, transparent), transparent 65%),
+    var(--primary-gradient-soft, linear-gradient(160deg, #002536 0%, #0a5a73 100%));
 }
 
 .pm-modal-img-fallback {

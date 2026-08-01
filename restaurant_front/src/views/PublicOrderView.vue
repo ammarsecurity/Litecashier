@@ -551,9 +551,9 @@ export default {
 .po {
   --po-bg: #f8fafc;
   --po-surface: #ffffff;
-  --po-accent: var(--primary-color, #6366f1);
-  --po-accent-dark: #4f46e5;
-  --po-accent-soft: color-mix(in srgb, var(--primary-color, #6366f1) 12%, transparent);
+  --po-accent: var(--primary-color, #002536);
+  --po-accent-dark: var(--primary-dark, #001820);
+  --po-accent-soft: color-mix(in srgb, var(--primary-color, #002536) 12%, transparent);
   --po-text: #0f172a;
   --po-muted: #64748b;
   --po-border: #e2e8f0;
@@ -833,8 +833,8 @@ export default {
   object-fit: contain;
   padding: 16%;
   background:
-    radial-gradient(circle at 50% 40%, rgba(20, 184, 166, 0.2), transparent 65%),
-    linear-gradient(160deg, #070b10 0%, #0f1c24 100%);
+    radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--primary-bright, #3db4d0) 22%, transparent), transparent 65%),
+    var(--primary-gradient-soft, linear-gradient(160deg, #002536 0%, #0a5a73 100%));
 }
 
 .po-card-img-fallback {

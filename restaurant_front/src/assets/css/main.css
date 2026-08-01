@@ -1,12 +1,16 @@
 /* ============================================
-   Restaurant POS Color Palette - Dark Neon Theme (Default)
+   Restaurant POS Color Palette — Brand #002536
    ============================================ */
 :root {
-  /* Primary Colors - Purple/Indigo Neon */
-  --primary-color: #818cf8;
-  --primary-dark: #6366f1;
-  --primary-light: #a78bfa;
-  --primary-hover: #a78bfa;
+  /* Dark default: lighter tint of brand for contrast */
+  --primary-color: #3db4d0;
+  --primary-dark: #002536;
+  --primary-light: #5ec8e0;
+  --primary-hover: #5ec8e0;
+  --primary-soft: #0a5a73;
+  --primary-bright: #7ad4e8;
+  --primary-gradient: linear-gradient(135deg, #002536 0%, #0a5a73 50%, #3db4d0 100%);
+  --primary-gradient-soft: linear-gradient(160deg, #001820 0%, #0a5a73 100%);
   
   /* Secondary Colors */
   --secondary-color: #64748b;
@@ -23,30 +27,30 @@
   --success-light: rgba(34, 197, 94, 0.2);
   --danger-color: #ef4444;
   --danger-light: rgba(239, 68, 68, 0.2);
-  --warning-color: #c084fc;
-  --warning-light: rgba(192, 132, 252, 0.2);
-  --info-color: #3b82f6;
-  --info-light: rgba(59, 130, 246, 0.2);
+  --warning-color: #f59e0b;
+  --warning-light: rgba(245, 158, 11, 0.2);
+  --info-color: #3db4d0;
+  --info-light: rgba(61, 180, 208, 0.2);
   
   /* Neutral Colors - Dark Theme (Default) */
-  --bg-primary: #1e293b;
-  --bg-secondary: #0f172a;
-  --bg-tertiary: #334155;
-  --bg-dark: #0a0e27;
+  --bg-primary: #0f1c24;
+  --bg-secondary: #08141b;
+  --bg-tertiary: #1a303c;
+  --bg-dark: #041015;
   --text-primary: #f1f5f9;
   --text-secondary: rgba(226, 232, 240, 0.85);
   --text-muted: rgba(226, 232, 240, 0.6);
   --text-light: rgba(226, 232, 240, 0.4);
-  --border-color: rgba(99, 102, 241, 0.3);
-  --border-light: rgba(99, 102, 241, 0.2);
-  --border-dark: rgba(99, 102, 241, 0.5);
+  --border-color: rgba(61, 180, 208, 0.28);
+  --border-light: rgba(61, 180, 208, 0.16);
+  --border-dark: rgba(61, 180, 208, 0.45);
   
-  /* Shadows - Dark Theme with Neon Glow */
+  /* Shadows - Dark Theme with brand glow */
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3), 0 0 10px rgba(99, 102, 241, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4), 0 0 20px rgba(99, 102, 241, 0.2);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.4), 0 0 30px rgba(99, 102, 241, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3), 0 0 10px rgba(0, 37, 54, 0.25);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4), 0 0 20px rgba(61, 180, 208, 0.15);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.4), 0 0 30px rgba(61, 180, 208, 0.2);
   
   /* Border Radius */
   --radius-sm: 0.25rem;
@@ -64,16 +68,20 @@
    Light Theme
    ============================================ */
 :root.light-theme {
-  /* Primary Colors - Purple/Indigo (same for consistency) */
-  --primary-color: #6366f1;
-  --primary-dark: #4f46e5;
-  --primary-light: #818cf8;
-  --primary-hover: #4f46e5;
+  /* Primary — brand base #002536 */
+  --primary-color: #002536;
+  --primary-dark: #001820;
+  --primary-light: #0a5a73;
+  --primary-hover: #001c28;
+  --primary-soft: #003a4f;
+  --primary-bright: #3db4d0;
+  --primary-gradient: linear-gradient(135deg, #001820 0%, #002536 48%, #0a5a73 100%);
+  --primary-gradient-soft: linear-gradient(160deg, #002536 0%, #0a5a73 100%);
   
   /* Secondary Colors */
-  --secondary-color: #64748b;
-  --secondary-dark: #475569;
-  --secondary-light: #94a3b8;
+  --secondary-color: #0a5a73;
+  --secondary-dark: #002536;
+  --secondary-light: #1a7a96;
   
   /* Accent Colors */
   --accent-color: #10b981;
@@ -87,39 +95,43 @@
   --danger-light: rgba(239, 68, 68, 0.15);
   --warning-color: #f59e0b;
   --warning-light: rgba(245, 158, 11, 0.15);
-  --info-color: #3b82f6;
-  --info-light: rgba(59, 130, 246, 0.15);
+  --info-color: #0a5a73;
+  --info-light: rgba(0, 37, 54, 0.12);
   
   /* Neutral Colors - Light Theme */
   --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
-  --bg-dark: #e2e8f0;
+  --bg-secondary: #f4f8fa;
+  --bg-tertiary: #e8f0f3;
+  --bg-dark: #d5e3e9;
   --text-primary: #0f172a;
   --text-secondary: rgba(15, 23, 42, 0.85);
   --text-muted: rgba(15, 23, 42, 0.6);
   --text-light: rgba(15, 23, 42, 0.4);
-  --border-color: rgba(99, 102, 241, 0.2);
-  --border-light: rgba(99, 102, 241, 0.1);
-  --border-dark: rgba(99, 102, 241, 0.3);
+  --border-color: rgba(0, 37, 54, 0.18);
+  --border-light: rgba(0, 37, 54, 0.1);
+  --border-dark: rgba(0, 37, 54, 0.3);
   
   /* Shadows - Light Theme */
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 10px rgba(99, 102, 241, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 20px rgba(99, 102, 241, 0.15);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 30px rgba(99, 102, 241, 0.2);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 10px rgba(0, 37, 54, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 20px rgba(0, 37, 54, 0.14);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 30px rgba(0, 37, 54, 0.18);
 }
 
 /* ============================================
    Dark Theme (explicit)
    ============================================ */
 :root.dark-theme {
-  /* Primary Colors - Purple/Indigo Neon */
-  --primary-color: #818cf8;
-  --primary-dark: #6366f1;
-  --primary-light: #a78bfa;
-  --primary-hover: #a78bfa;
+  /* Primary — lighter tint of #002536 for dark UI */
+  --primary-color: #3db4d0;
+  --primary-dark: #002536;
+  --primary-light: #5ec8e0;
+  --primary-hover: #5ec8e0;
+  --primary-soft: #0a5a73;
+  --primary-bright: #7ad4e8;
+  --primary-gradient: linear-gradient(135deg, #002536 0%, #0a5a73 50%, #3db4d0 100%);
+  --primary-gradient-soft: linear-gradient(160deg, #001820 0%, #0a5a73 100%);
   
   /* Secondary Colors */
   --secondary-color: #64748b;
@@ -136,30 +148,30 @@
   --success-light: rgba(34, 197, 94, 0.2);
   --danger-color: #ef4444;
   --danger-light: rgba(239, 68, 68, 0.2);
-  --warning-color: #c084fc;
-  --warning-light: rgba(192, 132, 252, 0.2);
-  --info-color: #3b82f6;
-  --info-light: rgba(59, 130, 246, 0.2);
+  --warning-color: #f59e0b;
+  --warning-light: rgba(245, 158, 11, 0.2);
+  --info-color: #3db4d0;
+  --info-light: rgba(61, 180, 208, 0.2);
   
   /* Neutral Colors - Dark Theme */
-  --bg-primary: #1e293b;
-  --bg-secondary: #0f172a;
-  --bg-tertiary: #334155;
-  --bg-dark: #0a0e27;
+  --bg-primary: #0f1c24;
+  --bg-secondary: #08141b;
+  --bg-tertiary: #1a303c;
+  --bg-dark: #041015;
   --text-primary: #f1f5f9;
   --text-secondary: rgba(226, 232, 240, 0.85);
   --text-muted: rgba(226, 232, 240, 0.6);
   --text-light: rgba(226, 232, 240, 0.4);
-  --border-color: rgba(99, 102, 241, 0.3);
-  --border-light: rgba(99, 102, 241, 0.2);
-  --border-dark: rgba(99, 102, 241, 0.5);
+  --border-color: rgba(61, 180, 208, 0.28);
+  --border-light: rgba(61, 180, 208, 0.16);
+  --border-dark: rgba(61, 180, 208, 0.45);
   
-  /* Shadows - Dark Theme with Neon Glow */
+  /* Shadows - Dark Theme with brand glow */
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3), 0 0 10px rgba(99, 102, 241, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4), 0 0 20px rgba(99, 102, 241, 0.2);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.4), 0 0 30px rgba(99, 102, 241, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3), 0 0 10px rgba(0, 37, 54, 0.25);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4), 0 0 20px rgba(61, 180, 208, 0.15);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.4), 0 0 30px rgba(61, 180, 208, 0.2);
 }
 
 /* ============================================

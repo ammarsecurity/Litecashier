@@ -8,12 +8,12 @@ internal sealed class SplashForm : Form
     private Image? _logoImage;
     private bool _isError;
 
-    private static readonly Color BgTop = Color.FromArgb(5, 8, 14);
-    private static readonly Color BgBottom = Color.FromArgb(10, 32, 40);
-    private static readonly Color Accent = Color.FromArgb(20, 184, 166);
-    private static readonly Color AccentSoft = Color.FromArgb(45, 20, 184, 166);
+    private static readonly Color BgTop = Color.FromArgb(0, 18, 28);
+    private static readonly Color BgBottom = Color.FromArgb(0, 37, 54);
+    private static readonly Color Accent = Color.FromArgb(61, 180, 208);
+    private static readonly Color AccentSoft = Color.FromArgb(55, 61, 180, 208);
     private static readonly Color TextPrimary = Color.FromArgb(248, 250, 252);
-    private static readonly Color TextMuted = Color.FromArgb(148, 180, 176);
+    private static readonly Color TextMuted = Color.FromArgb(148, 190, 200);
 
     public SplashForm()
     {
