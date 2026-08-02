@@ -83,6 +83,42 @@ export function childTagsOf(parentTag, allTags) {
 }
 
 /**
+ * قائمة اختيار ربط الطابعات: الجذور + الفروع بتسمية «أب › فرعي»
+ * @returns {Array<{id:number|string, label:string, isRoot:boolean, parentId:number|string|null}>}
+ */
+export function tagsForPrinterSelect(allTags) {
+  if (!allTags || !allTags.length) return [];
+  const roots = rootTags(allTags);
+  const entries = [];
+  for (const root of roots) {
+    const rid = root.id ?? root.Id;
+    entries.push({
+      id: rid,
+      label: String(root.name ?? root.Name ?? ""),
+      isRoot: true,
+      parentId: null,
+    });
+    for (const sub of childTagsOf(root, allTags)) {
+      const sid = sub.id ?? sub.Id;
+      entries.push({
+        id: sid,
+        label: tagDisplayName(sub, allTags),
+        isRoot: false,
+        parentId: rid,
+      });
+    }
+  }
+  return entries.filter((e) => e.id != null && e.label);
+}
+
+/** تسمية عرض لربط TagPrinter (رئيسي أو رئيسي › فرعي) */
+export function tagPrinterDisplayLabel(tagPrinter, allTags) {
+  const tag = tagPrinter?.tag ?? tagPrinter?.Tag;
+  if (!tag) return "";
+  return tagDisplayName(tag, allTags || []) || String(tag.name ?? tag.Name ?? "");
+}
+
+/**
  * من النص المحفوظ في Item.Tags يستنتج معرف القسم الرئيسي والفرعي (إن وُجد)
  */
 export function resolveItemTagsToCategoryIds(tagsStr, allTags) {
@@ -131,6 +167,10 @@ export function resolvePrinterIdForItemTags(itemTagsStr, tagPrinters, allTags) {
     }
     const name = String(tag?.name ?? tag?.Name ?? "").trim();
     if (name && printerId != null) byTagName[name] = printerId;
+    if (tag && allTags?.length) {
+      const full = tagDisplayName(tag, allTags);
+      if (full && printerId != null) byTagName[full] = printerId;
+    }
   }
 
   if (byTagName[trimmed]) return byTagName[trimmed];
@@ -156,12 +196,10 @@ export function groupItemsForDepartmentPrinting(items, tagPrinters, allTags) {
     if (printerId) {
       const key = `printer_${printerId}`;
       if (!grouped[key]) {
-        const displayTag =
-          tagName.split(TAG_SUB_SEPARATOR)[0].trim() || tagName;
         grouped[key] = {
           items: [],
           printerId,
-          tagName: displayTag,
+          tagName,
         };
       }
       grouped[key].items.push(item);

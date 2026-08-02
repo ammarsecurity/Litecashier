@@ -21,6 +21,7 @@ public static class SectionDefinitions
         "paymentDevices",
         "cardPayments",
         "employees",
+        "payroll",
         "customers",
         "deferredPayments",
         "stockAlerts",

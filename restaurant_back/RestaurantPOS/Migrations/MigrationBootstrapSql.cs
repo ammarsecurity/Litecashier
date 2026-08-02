@@ -133,4 +133,35 @@ internal static class MigrationBootstrapSql
             DEALLOCATE PREPARE stmt;
             """);
     }
+
+    /// <summary>
+    /// Adds a non-null tinyint(1) bool column with default 0 when missing (MySQL).
+    /// </summary>
+    public static void EnsureTinyIntBoolColumnIfNotExists(
+        MigrationBuilder migrationBuilder,
+        string table,
+        string column)
+    {
+        migrationBuilder.Sql(EnsureTinyIntBoolColumnSql(table, column));
+    }
+
+    /// <summary>
+    /// Same SQL as <see cref="EnsureTinyIntBoolColumnIfNotExists"/> for startup / ad-hoc use.
+    /// </summary>
+    public static string EnsureTinyIntBoolColumnSql(string table, string column)
+    {
+        return $"""
+            SET @col_exists := (
+              SELECT COUNT(*) FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE()
+                AND LOWER(TABLE_NAME) = LOWER('{table}')
+                AND LOWER(COLUMN_NAME) = LOWER('{column}'));
+            SET @sql := IF(@col_exists = 0,
+              'ALTER TABLE `{table}` ADD COLUMN `{column}` tinyint(1) NOT NULL DEFAULT 0',
+              'SELECT 1');
+            PREPARE stmt FROM @sql;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+            """;
+    }
 }

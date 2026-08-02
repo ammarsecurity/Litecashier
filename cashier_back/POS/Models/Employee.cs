@@ -27,6 +27,10 @@ namespace POS.Models
 
         public SalaryType SalaryType { get; set; }
 
+        public bool IsActive { get; set; } = true;
+
+        public DateTime? HireDate { get; set; }
+
         [ForeignKey("TagId")]
         public int? TagId { get; set; }
         public Tag? Tag { get; set; }

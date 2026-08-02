@@ -20,5 +20,9 @@ namespace RestaurantPOS.Models.Requests
         public SalaryType SalaryType { get; set; }
 
         public int? TagId { get; set; }
+
+        public bool? IsActive { get; set; }
+
+        public DateTime? HireDate { get; set; }
     }
 }

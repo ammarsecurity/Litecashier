@@ -311,7 +311,20 @@
               <option v-for="tag in tags" :key="tag.id" :value="tag.id">{{ tag.name }}</option>
             </select>
           </div>
+          <div class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="toggle-on" class="form-label-icon"></b-icon>
+              {{ $t("active") || "نشط" }}
+            </label>
+            <select v-model="employeeForm.isActive" class="users-form-input">
+              <option :value="true">{{ $t("active") || "نشط" }}</option>
+              <option :value="false">{{ $t("inactive") || "غير نشط" }}</option>
+            </select>
+          </div>
           <div class="users-form-actions">
+            <button type="button" class="users-form-button users-form-button-secondary" @click="$router.push('/payroll')">
+              {{ $t("payrollAndAdvances") || "الرواتب والسلف" }}
+            </button>
             <button type="button" class="users-form-cancel-button" @click="showEmployeeModal = false" :disabled="savingEmployee">
               {{ $t("cancel") || "إلغاء" }}
             </button>
@@ -353,7 +366,8 @@ export default {
         jobTitle: '',
         salary: 0,
         salaryType: 0,
-        tagId: ''
+        tagId: '',
+        isActive: true
       },
     };
   },
@@ -445,7 +459,8 @@ export default {
         jobTitle: emp.jobTitle || '',
         salary: emp.salary != null ? Number(emp.salary) : 0,
         salaryType: emp.salaryType != null ? Number(emp.salaryType) : 0,
-        tagId: emp.tagId != null && emp.tagId !== '' ? emp.tagId : ''
+        tagId: emp.tagId != null && emp.tagId !== '' ? emp.tagId : '',
+        isActive: emp.isActive !== false
       };
       this.showEmployeeModal = true;
     },
@@ -475,7 +490,8 @@ export default {
           jobTitle: this.employeeForm.jobTitle?.trim() || null,
           salary: Number(this.employeeForm.salary),
           salaryType: Number(this.employeeForm.salaryType),
-          tagId: (this.employeeForm.tagId != null && this.employeeForm.tagId !== '') ? Number(this.employeeForm.tagId) : null
+          tagId: (this.employeeForm.tagId != null && this.employeeForm.tagId !== '') ? Number(this.employeeForm.tagId) : null,
+          isActive: this.employeeForm.isActive !== false
         };
         let response;
         if (this.selectedEmployee) {
@@ -558,7 +574,8 @@ export default {
         jobTitle: '',
         salary: 0,
         salaryType: 0,
-        tagId: ''
+        tagId: '',
+        isActive: true
       };
     },
     formatPrice(price) {

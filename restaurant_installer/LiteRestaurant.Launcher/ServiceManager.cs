@@ -24,7 +24,7 @@ internal static class ServiceManager
     {
         Directory.CreateDirectory(LogsDir);
         WriteStartupLog("Launcher started.");
-        WriteStartupLog("Database is external/manual (localhost / pos / root). Launcher will not start MySQL/MariaDB.");
+        WriteStartupLog("Database is external/manual (localhost / pos / root / password set). Launcher will not start MySQL/MariaDB.");
         WriteStartupLog("Checking if services are already running...");
 
         var apiHealthy = await IsEndpointHealthyAsync(ApiHealthUrl).ConfigureAwait(false);
@@ -70,7 +70,7 @@ internal static class ServiceManager
         builder.AppendLine(ex.Message);
         builder.AppendLine();
         builder.AppendLine($"مجلد السجلات: {LogsDir}");
-        builder.AppendLine("تأكد أن MySQL/XAMPP يعمل وأن قاعدة البيانات pos موجودة (root بدون كلمة مرور).");
+        builder.AppendLine("تأكد أن MySQL/XAMPP يعمل وأن قاعدة البيانات pos موجودة (مستخدم root وكلمة المرور المضبوطة في الإعدادات).");
 
         AppendLogTail(builder, "startup.log", 20);
         AppendLogTail(builder, "restaurantpos.log", 20);

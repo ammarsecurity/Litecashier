@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using RestaurantPOS.Db;
+using RestaurantPOS.Migrations;
 using Microsoft.AspNetCore.SignalR;
 using RestaurantPOS.Hubs;
 using RestaurantPOS.Logging;
@@ -81,6 +82,7 @@ builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
 builder.Services.AddScoped<ICommercialTenantDeleteService, CommercialTenantDeleteService>();
 builder.Services.AddScoped<ISystemBackupService, SystemBackupService>();
 builder.Services.AddScoped<ICreditAccountService, CreditAccountService>();
+builder.Services.AddScoped<PayrollService>();
 builder.Services.AddScoped<IReservationTableSyncService, ReservationTableSyncService>();
 builder.Services.AddScoped<IReservationExpiryService, ReservationExpiryService>();
 builder.Services.AddHostedService<ReservationExpiryBackgroundService>();
@@ -202,12 +204,12 @@ var app = builder.Build();
 
 // تطبيق ترحيلات EF تلقائياً (مثل TableChipSizePx) عند التشغيل؛ عطّل عبر DatabaseSettings:ApplyMigrationsOnStartup = false
 var applyMigrations = app.Configuration.GetValue("DatabaseSettings:ApplyMigrationsOnStartup", true);
-if (applyMigrations)
+using (var scope = app.Services.CreateScope())
 {
-    using (var scope = app.Services.CreateScope())
+    var db = scope.ServiceProvider.GetRequiredService<DbConfig>();
+    var migrateLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    if (applyMigrations)
     {
-        var db = scope.ServiceProvider.GetRequiredService<DbConfig>();
-        var migrateLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
         try
         {
             db.Database.Migrate();
@@ -217,6 +219,31 @@ if (applyMigrations)
             migrateLogger.LogError(ex, "تعذر تطبيق ترحيلات قاعدة البيانات (EF Migrate). تحقق من سلسلة الاتصال والصلاحيات.");
             throw;
         }
+    }
+
+    // أعمدة قد تفوت بعض قواعد البيانات القديمة حتى مع سجل ترحيل مكتمل
+    try
+    {
+        db.Database.ExecuteSqlRaw(
+            MigrationBootstrapSql.EnsureTinyIntBoolColumnSql("Printers", "IsPublicOrderPrinter"));
+        db.Database.ExecuteSqlRaw(
+            MigrationBootstrapSql.EnsureTinyIntBoolColumnSql("PayrollLines", "IsHandedOver"));
+        db.Database.ExecuteSqlRaw(
+            """
+            SET @col_exists := (
+              SELECT COUNT(*) FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE()
+                AND LOWER(TABLE_NAME) = 'payrolllines'
+                AND LOWER(COLUMN_NAME) = 'handedoverat');
+            SET @sql := IF(@col_exists = 0,
+              'ALTER TABLE `PayrollLines` ADD COLUMN `HandedOverAt` datetime(6) NULL',
+              'SELECT 1');
+            PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+            """);
+    }
+    catch (Exception ex)
+    {
+        migrateLogger.LogWarning(ex, "تعذر التأكد من أعمدة Printers/PayrollLines الإضافية.");
     }
 }
 

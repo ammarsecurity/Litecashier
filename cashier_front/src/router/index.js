@@ -12,6 +12,7 @@ import PriceReaderView from '../views/PriceReaderView.vue'
 import RegisterView from '../views/Auth/RegisterView.vue'
 import PrintServerManagementNewView from '../views/PrintServerManagementNewView.vue'
 import EmployeesView from '../views/EmployeesView.vue'
+import PayrollView from '../views/PayrollView.vue'
 import CustomersView from '../views/CustomersView.vue'
 import ExpensesView from '../views/ExpensesView.vue'
 import InventoryView from '../views/InventoryView.vue'
@@ -183,6 +184,15 @@ const routes = [
     path: '/employees',
     name: 'employees',
     component: EmployeesView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
+    }
+  },
+  {
+    path: '/payroll',
+    name: 'payroll',
+    component: PayrollView,
     meta: {
       requiresAuth: true,
       roles: ['Commercial', 'Admin']

@@ -23,6 +23,7 @@ public static class SectionDefinitions
         "printServer",
         "deliveryDrivers",
         "employees",
+        "payroll",
         "customers",
         "auditLog",
         "paymentDevices",

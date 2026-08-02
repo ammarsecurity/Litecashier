@@ -170,6 +170,8 @@ namespace POS.Controllers
                     JobTitle = request.JobTitle?.Trim(),
                     Salary = request.Salary,
                     SalaryType = request.SalaryType,
+                    IsActive = request.IsActive ?? true,
+                    HireDate = request.HireDate,
                     TagId = request.TagId,
                     InsertByUserId = commercialUserId,
                     InsertDate = DateTime.UtcNow,
@@ -268,6 +270,8 @@ namespace POS.Controllers
                     employee.JobTitle,
                     employee.Salary,
                     employee.SalaryType,
+                    employee.IsActive,
+                    employee.HireDate,
                     employee.TagId
                 };
 
@@ -277,6 +281,8 @@ namespace POS.Controllers
                 employee.JobTitle = request.JobTitle?.Trim();
                 employee.Salary = request.Salary;
                 employee.SalaryType = request.SalaryType;
+                if (request.IsActive.HasValue) employee.IsActive = request.IsActive.Value;
+                employee.HireDate = request.HireDate;
                 employee.TagId = request.TagId;
                 employee.UpdateDate = DateTime.UtcNow;
 
@@ -288,6 +294,8 @@ namespace POS.Controllers
                     employee.JobTitle,
                     employee.Salary,
                     employee.SalaryType,
+                    employee.IsActive,
+                    employee.HireDate,
                     employee.TagId
                 };
 

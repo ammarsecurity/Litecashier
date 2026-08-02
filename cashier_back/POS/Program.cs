@@ -33,6 +33,7 @@ builder.Services.AddScoped<IItemImportService, ItemImportService>();
 builder.Services.AddScoped<ICommercialCatalogClearService, CommercialCatalogClearService>();
 builder.Services.AddScoped<IDatabaseBackupService, DatabaseBackupService>();
 builder.Services.AddScoped<ICreditAccountService, CreditAccountService>();
+builder.Services.AddScoped<PayrollService>();
 builder.Services.AddSingleton<ICardPaymentProcessingService, CardPaymentProcessingService>();
 
 builder.Services.AddAutoMapper(typeof(Program));

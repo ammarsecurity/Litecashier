@@ -724,20 +724,34 @@
                         <b-icon icon="people-fill" class="form-label-icon"></b-icon>
                         {{ $t("selectCreditCustomer") }}
                       </label>
-                      <select
-                        v-model="orderForSend.creditCustomerId"
-                        class="users-form-select"
-                        :disabled="loadingDeliveryCustomers"
-                      >
-                        <option value="">{{ $t("selectCreditCustomer") }}</option>
-                        <option
-                          v-for="c in deliveryCustomers.filter((x) => x.isActive !== false)"
-                          :key="'cc-' + c.id"
-                          :value="c.id"
+                      <div class="credit-customer-select-row">
+                        <select
+                          v-model="orderForSend.creditCustomerId"
+                          class="users-form-select"
+                          :disabled="loadingDeliveryCustomers"
                         >
-                          {{ c.name }} — {{ c.phoneNumber }}
-                        </option>
-                      </select>
+                          <option value="">{{ $t("selectCreditCustomer") }}</option>
+                          <option
+                            v-for="c in deliveryCustomers.filter((x) => x.isActive !== false)"
+                            :key="'cc-' + c.id"
+                            :value="c.id"
+                          >
+                            {{ c.name }} — {{ c.phoneNumber }}
+                          </option>
+                        </select>
+                        <button
+                          type="button"
+                          class="delivery-add-btn credit-quick-add-btn"
+                          :disabled="loadingDeliveryCustomers || savingDeliveryCustomer"
+                          @click="openQuickAddCustomerForCredit"
+                        >
+                          <b-icon icon="person-plus-fill" class="me-2"></b-icon>
+                          {{ $t("quickAddCreditCustomer") || "عميل جديد" }}
+                        </button>
+                      </div>
+                      <p class="users-form-hint">
+                        {{ $t("quickAddCreditCustomerHint") || "إذا لم يكن العميل مسجلاً، أضفه مباشرة من هنا" }}
+                      </p>
                     </div>
 
                     <div class="order-notes-actions mt-3">
@@ -1196,7 +1210,7 @@
                     <button
                       type="button"
                       class="delivery-add-btn"
-                      @click="showAddCustomerModal = true"
+                      @click="openQuickAddCustomerForDelivery"
                     >
                       <b-icon icon="person-plus-fill" class="me-2"></b-icon>
                       {{ $t("addNewCustomerDelivery") || "إضافة عميل جديد" }}
@@ -1940,7 +1954,13 @@
       @hidden="resetNewCustomerForm"
     >
       <div class="modal-content-wrapper">
-        <h2 class="modal-title">{{ $t("addNewCustomerDeliveryModal") || "إضافة عميل جديد" }}</h2>
+        <h2 class="modal-title">
+          {{
+            quickCustomerContext === "credit"
+              ? ($t("quickAddCreditCustomerModal") || $t("addNewCustomerDeliveryModal") || "إضافة عميل جديد")
+              : ($t("addNewCustomerDeliveryModal") || "إضافة عميل جديد")
+          }}
+        </h2>
         <form class="users-form" @submit.prevent="saveNewCustomerFromDelivery">
           <div class="modal-form-grid">
             <div class="users-form-group">
@@ -2147,6 +2167,7 @@ export default {
       useExistingCustomer: true,
       selectedDeliveryCustomerId: "",
       showAddCustomerModal: false,
+      quickCustomerContext: "delivery",
       savingDeliveryCustomer: false,
       newCustomerForm: {
         name: "",
@@ -3076,6 +3097,16 @@ export default {
         this.orderForSend.deliveryAddress = c.address || "";
       }
     },
+    openQuickAddCustomerForDelivery() {
+      this.quickCustomerContext = "delivery";
+      this.resetNewCustomerForm();
+      this.showAddCustomerModal = true;
+    },
+    openQuickAddCustomerForCredit() {
+      this.quickCustomerContext = "credit";
+      this.resetNewCustomerForm();
+      this.showAddCustomerModal = true;
+    },
     async saveNewCustomerFromDelivery() {
       if (!this.newCustomerForm.name || !this.newCustomerForm.name.trim()) {
         this.$toast.error(this.$i18n.t("pleaseEnterCustomerName") || "يرجى إدخال اسم العميل", {
@@ -3111,12 +3142,19 @@ export default {
           await this.loadDeliveryCustomers();
           const newId = response.data.data && response.data.data.id;
           if (newId) {
-            this.selectedDeliveryCustomerId = newId;
-            this.applySelectedDeliveryCustomer();
-            this.useExistingCustomer = true;
+            if (this.quickCustomerContext === "credit") {
+              this.creditPaymentKind = "customer";
+              this.orderForSend.creditCustomerId = newId;
+              this.orderForSend.creditEmployeeId = null;
+            } else {
+              this.selectedDeliveryCustomerId = newId;
+              this.applySelectedDeliveryCustomer();
+              this.useExistingCustomer = true;
+            }
           }
           this.showAddCustomerModal = false;
           this.resetNewCustomerForm();
+          this.quickCustomerContext = "delivery";
         } else {
           this.$toast.error(response.data?.message || this.$i18n.t("customerSaveFailed") || "فشل حفظ العميل", {
             position: "top-right",
@@ -6946,6 +6984,34 @@ export default {
   border-color: var(--primary-color);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(129, 140, 248, 0.3);
+}
+
+.delivery-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.credit-customer-select-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.credit-customer-select-row .users-form-select {
+  width: 100%;
+}
+
+.credit-quick-add-btn {
+  width: 100%;
+}
+
+.users-form-hint {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6c757d);
 }
 
 [dir="rtl"] .delivery-info-section {

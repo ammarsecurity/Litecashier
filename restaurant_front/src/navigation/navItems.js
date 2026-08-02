@@ -110,6 +110,12 @@ export function buildNavItems(t) {
       icon: "person-badge-fill",
     },
     {
+      name: "payroll",
+      label: t("payrollAndAdvances") || "الرواتب والسلف",
+      link: "/payroll",
+      icon: "cash-stack",
+    },
+    {
       name: "customers",
       label: t("customersManagement") || "إدارة العملاء",
       link: "/customers",

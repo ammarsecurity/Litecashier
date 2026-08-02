@@ -27,6 +27,11 @@ namespace RestaurantPOS.Models
 
         public SalaryType SalaryType { get; set; }
 
+        /// <summary>الموظفون غير النشطين لا يدخلون توليد دورة الرواتب.</summary>
+        public bool IsActive { get; set; } = true;
+
+        public DateTime? HireDate { get; set; }
+
         [ForeignKey("TagId")]
         public int? TagId { get; set; }
         public Tag? Tag { get; set; }

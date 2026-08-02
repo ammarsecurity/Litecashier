@@ -75,6 +75,10 @@ namespace RestaurantPOS.Db
         public DbSet<ExpenseCategory> ExpenseCategories { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Employee> Employees { get; set; }
+        public DbSet<EmployeeAdvance> EmployeeAdvances { get; set; }
+        public DbSet<SalaryAdjustment> SalaryAdjustments { get; set; }
+        public DbSet<PayrollRun> PayrollRuns { get; set; }
+        public DbSet<PayrollLine> PayrollLines { get; set; }
         public DbSet<StockMovement> StockMovements { get; set; }
         public DbSet<Supplier> Suppliers { get; set; }
         public DbSet<Customer> Customers { get; set; }

@@ -288,7 +288,7 @@
               </div>
               <div>
                 <h3 class="print-server-section-title">{{ $t("tagPrintersManagement") || "إدارة طباعة الأقسام" }}</h3>
-                <p class="print-server-section-subtitle">{{ $t("tagPrintersManagementHint") || "ربط كل قسم رئيسي بطابعة المطبخ المناسبة" }}</p>
+                <p class="print-server-section-subtitle">{{ $t("tagPrintersManagementHint") || "ربط الأقسام الرئيسية أو الفرعية بطابعة المطبخ المناسبة" }}</p>
               </div>
             </div>
             <button type="button" class="users-add-button users-add-button--compact" @click="openAddTagPrinterModal">
@@ -310,7 +310,7 @@
                 <div class="print-server-item-card-header">
                   <div class="print-server-item-card-title">
                     <b-icon icon="tag-fill" class="print-server-item-card-icon"></b-icon>
-                    <h4>{{ tagPrinter.tag?.name || ($t("undefinedTag") || "قسم غير محدد") }}</h4>
+                    <h4>{{ tagPrinterLabel(tagPrinter) || ($t("undefinedTag") || "قسم غير محدد") }}</h4>
                   </div>
                   <div class="print-server-item-card-actions">
                     <button
@@ -333,7 +333,7 @@
                 </div>
                 <div class="print-server-item-card-body">
                   <div class="print-server-link-arrow">
-                    <span class="print-server-link-from">{{ tagPrinter.tag?.name }}</span>
+                    <span class="print-server-link-from">{{ tagPrinterLabel(tagPrinter) }}</span>
                     <b-icon icon="arrow-left" class="print-server-link-arrow-icon"></b-icon>
                     <span class="print-server-link-to">{{ tagPrinter.printer?.name || "—" }}</span>
                   </div>
@@ -382,24 +382,50 @@
             <div class="users-form-group">
               <label class="users-form-label">
                 <b-icon icon="tags-fill" class="form-label-icon"></b-icon>
-                {{ $t("mainCategory") || $t("tag") || "القسم الرئيسي" }}
+                {{
+                  selectedTagPrinter
+                    ? ($t("category") || "القسم")
+                    : ($t("selectCategoriesForPrinter") || "الأقسام (رئيسي أو فرعي)")
+                }}
                 <span class="required">*</span>
               </label>
               <select
+                v-if="selectedTagPrinter"
                 v-model="tagPrinterForm.tagId"
                 class="users-form-select"
                 :disabled="loadingTags"
                 required
               >
-            <option value="">{{ $t("selectMainCategory") || $t("selectTag") || "اختر القسم الرئيسي" }}</option>
-            <option
-              v-for="tag in rootTagsForSelect"
-              :key="tag.id ?? tag.Id"
-              :value="tag.id ?? tag.Id"
-            >
-              {{ tag.name ?? tag.Name }}
-            </option>
+                <option value="">{{ $t("selectCategory") || "اختر القسم" }}</option>
+                <option
+                  v-for="tag in tagsForPrinterSelectList"
+                  :key="tag.id"
+                  :value="tag.id"
+                >
+                  {{ tag.label }}
+                </option>
               </select>
+              <div v-else class="tag-printer-multi-select" :class="{ 'is-disabled': loadingTags }">
+                <label
+                  v-for="tag in tagsForPrinterSelectList"
+                  :key="tag.id"
+                  class="tag-printer-multi-option"
+                  :class="{ 'tag-printer-multi-option--sub': !tag.isRoot }"
+                >
+                  <input
+                    type="checkbox"
+                    :value="String(tag.id)"
+                    v-model="tagPrinterForm.tagIds"
+                  />
+                  <span>{{ tag.label }}</span>
+                </label>
+                <p v-if="!tagsForPrinterSelectList.length" class="tag-printer-multi-empty">
+                  {{ $t("noCategoriesAvailable") || "لا توجد أقسام" }}
+                </p>
+              </div>
+              <p v-if="!selectedTagPrinter" class="users-form-hint">
+                {{ $t("tagPrinterMultiSelectHint") || "يمكن اختيار قسم فرعي واحد أو أكثر مع الطابعة نفسها" }}
+              </p>
             </div>
             <div class="users-form-group">
               <label class="users-form-label">
@@ -436,7 +462,7 @@
             <button
               type="submit"
               class="users-form-submit-button"
-              :disabled="!tagPrinterForm.tagId || !tagPrinterForm.printerId || savingTagPrinter"
+              :disabled="!canSaveTagPrinter || savingTagPrinter"
             >
               <b-spinner small v-if="savingTagPrinter" class="me-2"></b-spinner>
               {{
@@ -857,7 +883,10 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "../http/api.js";
-import { rootTags } from "@/utils/tagHierarchy.js";
+import {
+  tagsForPrinterSelect,
+  tagPrinterDisplayLabel,
+} from "@/utils/tagHierarchy.js";
 
 const PRINT_SERVER_URL = 'http://localhost:5000';
 
@@ -891,6 +920,7 @@ export default {
       savingTagPrinter: false,
       tagPrinterForm: {
         tagId: '',
+        tagIds: [],
         printerId: ''
       },
       printerForm: {
@@ -923,9 +953,15 @@ export default {
     direction() {
       return this.$i18n.locale === "ar" ? "rtl" : "ltr";
     },
-    /** أقسام رئيسية فقط (بدون الأقسام الفرعية) لربط الطابعات */
-    rootTagsForSelect() {
-      return rootTags(this.tags);
+    tagsForPrinterSelectList() {
+      return tagsForPrinterSelect(this.tags);
+    },
+    canSaveTagPrinter() {
+      if (!this.tagPrinterForm.printerId) return false;
+      if (this.selectedTagPrinter) {
+        return !!this.tagPrinterForm.tagId;
+      }
+      return Array.isArray(this.tagPrinterForm.tagIds) && this.tagPrinterForm.tagIds.length > 0;
     },
     printersOnlineCount() {
       if (!this.serverStatus) return 0;
@@ -1526,8 +1562,11 @@ export default {
         this.loadingTags = false;
       }
     },
+    tagPrinterLabel(tagPrinter) {
+      return tagPrinterDisplayLabel(tagPrinter, this.tags);
+    },
     async saveTagPrinter() {
-      if (!this.tagPrinterForm.tagId || !this.tagPrinterForm.printerId) {
+      if (!this.canSaveTagPrinter) {
         this.$toast.warning(this.$i18n.t("pleaseFillAllFields") || 'يرجى ملء جميع الحقول المطلوبة', {
           position: "top-right",
           timeout: 3000,
@@ -1538,25 +1577,62 @@ export default {
 
       try {
         this.savingTagPrinter = true;
-        let response;
+        const printerId = parseInt(this.tagPrinterForm.printerId, 10);
+
         if (this.selectedTagPrinter) {
-          // Update existing
-          response = await HTTP.put(`TagPrinters/${this.selectedTagPrinter.id}`, {
-            tagId: parseInt(this.tagPrinterForm.tagId),
-            printerId: parseInt(this.tagPrinterForm.printerId)
+          const response = await HTTP.put(`TagPrinters/${this.selectedTagPrinter.id}`, {
+            tagId: parseInt(this.tagPrinterForm.tagId, 10),
+            printerId
           });
-        } else {
-          // Add new
-          response = await HTTP.post('TagPrinters', {
-            tagId: parseInt(this.tagPrinterForm.tagId),
-            printerId: parseInt(this.tagPrinterForm.printerId)
-          });
+          if (response.data && !response.data.errorStatus) {
+            this.$toast.success(
+              this.$i18n.t("tagPrinterUpdatedSuccess") || 'تم تحديث ربط القسم بالطابعة بنجاح',
+              {
+                position: "top-right",
+                timeout: 3000,
+                rtl: this.$i18n.locale === 'ar'
+              }
+            );
+            this.showAddTagPrinterModal = false;
+            this.resetTagPrinterForm();
+            await this.loadTagPrinters();
+          } else {
+            this.$toast.error(response.data?.message || this.$i18n.t("tagPrinterSaveFailed") || 'فشل حفظ ربط القسم بالطابعة', {
+              position: "top-right",
+              timeout: 3000,
+              rtl: this.$i18n.locale === 'ar'
+            });
+          }
+          return;
         }
 
-        if (response.data && !response.data.errorStatus) {
+        const tagIds = [...new Set((this.tagPrinterForm.tagIds || []).map((id) => parseInt(id, 10)))].filter(
+          (id) => !Number.isNaN(id)
+        );
+        let ok = 0;
+        let fail = 0;
+        let lastError = "";
+        for (const tagId of tagIds) {
+          try {
+            const response = await HTTP.post('TagPrinters', { tagId, printerId });
+            if (response.data && !response.data.errorStatus) {
+              ok += 1;
+            } else {
+              fail += 1;
+              lastError = response.data?.message || lastError;
+            }
+          } catch (error) {
+            fail += 1;
+            lastError = error.response?.data?.message || lastError;
+            console.error('Error creating tag-printer link:', error);
+          }
+        }
+
+        if (ok > 0) {
           this.$toast.success(
-            this.selectedTagPrinter 
-              ? (this.$i18n.t("tagPrinterUpdatedSuccess") || 'تم تحديث ربط القسم بالطابعة بنجاح')
+            fail > 0
+              ? (this.$i18n.t("tagPrintersPartiallyAdded", { ok, fail }) ||
+                  `تم ربط ${ok} قسم(أقسام)، وفشل ${fail}`)
               : (this.$i18n.t("tagPrinterAddedSuccess") || 'تم إضافة ربط القسم بالطابعة بنجاح'),
             {
               position: "top-right",
@@ -1568,11 +1644,14 @@ export default {
           this.resetTagPrinterForm();
           await this.loadTagPrinters();
         } else {
-          this.$toast.error(response.data?.message || this.$i18n.t("tagPrinterSaveFailed") || 'فشل حفظ ربط القسم بالطابعة', {
-            position: "top-right",
-            timeout: 3000,
-            rtl: this.$i18n.locale === 'ar'
-          });
+          this.$toast.error(
+            lastError || this.$i18n.t("tagPrinterSaveFailed") || 'فشل حفظ ربط القسم بالطابعة',
+            {
+              position: "top-right",
+              timeout: 3000,
+              rtl: this.$i18n.locale === 'ar'
+            }
+          );
         }
       } catch (error) {
         console.error('Error saving tag printer:', error);
@@ -1589,6 +1668,7 @@ export default {
       this.selectedTagPrinter = tagPrinter;
       this.tagPrinterForm = {
         tagId: tagPrinter.tagId,
+        tagIds: [],
         printerId: tagPrinter.printerId
       };
       this.showAddTagPrinterModal = true;
@@ -1607,7 +1687,7 @@ export default {
       }
     },
     deleteTagPrinterMessageFor(tagPrinter) {
-      const tagName = tagPrinter?.tag?.name || tagPrinter?.Tag?.name || "";
+      const tagName = this.tagPrinterLabel(tagPrinter) || tagPrinter?.tag?.name || "";
       const printerName = tagPrinter?.printer?.name || tagPrinter?.Printer?.name || "";
       return (
         this.$t("confirmDeleteTagPrinterDetailed", { tagName, printerName }) ||
@@ -1643,6 +1723,7 @@ export default {
     resetTagPrinterForm() {
       this.tagPrinterForm = {
         tagId: '',
+        tagIds: [],
         printerId: ''
       };
       this.selectedTagPrinter = null;
@@ -3429,6 +3510,52 @@ select.form-control:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.1);
+}
+
+.tag-printer-multi-select {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tag-printer-multi-select.is-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.tag-printer-multi-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-primary);
+  margin: 0;
+  font-weight: 500;
+}
+
+.tag-printer-multi-option:hover {
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+}
+
+.tag-printer-multi-option--sub {
+  padding-inline-start: 1.35rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.tag-printer-multi-empty,
+.users-form-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
 }
 
 </style>

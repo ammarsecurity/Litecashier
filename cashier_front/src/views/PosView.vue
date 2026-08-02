@@ -699,20 +699,34 @@
                         <b-icon icon="people-fill" class="form-label-icon"></b-icon>
                         {{ $t("selectCreditCustomer") }}
                       </label>
-                      <select
-                        v-model="orderForSend.creditCustomerId"
-                        class="users-form-select"
-                        :disabled="loadingCreditCustomers"
-                      >
-                        <option value="">{{ $t("selectCreditCustomer") }}</option>
-                        <option
-                          v-for="c in creditCustomers.filter((x) => x.isActive !== false)"
-                          :key="'cc-' + c.id"
-                          :value="c.id"
+                      <div class="credit-customer-select-row">
+                        <select
+                          v-model="orderForSend.creditCustomerId"
+                          class="users-form-select"
+                          :disabled="loadingCreditCustomers"
                         >
-                          {{ c.name }} — {{ c.phoneNumber }}
-                        </option>
-                      </select>
+                          <option value="">{{ $t("selectCreditCustomer") }}</option>
+                          <option
+                            v-for="c in creditCustomers.filter((x) => x.isActive !== false)"
+                            :key="'cc-' + c.id"
+                            :value="c.id"
+                          >
+                            {{ c.name }} — {{ c.phoneNumber }}
+                          </option>
+                        </select>
+                        <button
+                          type="button"
+                          class="credit-quick-add-btn"
+                          :disabled="loadingCreditCustomers || savingCreditCustomer"
+                          @click="openQuickAddCustomerForCredit"
+                        >
+                          <b-icon icon="person-plus-fill" class="me-2"></b-icon>
+                          {{ $t("quickAddCreditCustomer") || "عميل جديد" }}
+                        </button>
+                      </div>
+                      <p class="users-form-hint">
+                        {{ $t("quickAddCreditCustomerHint") || "إذا لم يكن العميل مسجلاً، أضفه مباشرة من هنا" }}
+                      </p>
                     </div>
                     <div class="order-notes-actions mt-3">
                       <button type="submit" class="order-notes-confirm-button">
@@ -726,6 +740,90 @@
                     </div>
                   </form>
                 </div>
+              </div>
+            </b-modal>
+
+            <b-modal
+              v-model="showAddCreditCustomerModal"
+              hide-header
+              hide-footer
+              class="users-modal"
+              centered
+              size="lg"
+              @hidden="resetNewCreditCustomerForm"
+            >
+              <div class="modal-content-wrapper">
+                <h2 class="modal-title">
+                  {{ $t("quickAddCreditCustomerModal") || "إضافة عميل للدفع الآجل" }}
+                </h2>
+                <form class="users-form" @submit.prevent="saveNewCreditCustomer">
+                  <div class="modal-form-grid">
+                    <div class="users-form-group">
+                      <label class="users-form-label">
+                        <b-icon icon="person-fill" class="form-label-icon"></b-icon>
+                        {{ $t("customerNameField") || "اسم العميل" }} <span class="required">*</span>
+                      </label>
+                      <input
+                        v-model="newCreditCustomerForm.name"
+                        type="text"
+                        class="users-form-input"
+                        :placeholder="$t('enterCustomerNamePlaceholder') || 'أدخل الاسم'"
+                        required
+                      />
+                    </div>
+                    <div class="users-form-group">
+                      <label class="users-form-label">
+                        <b-icon icon="telephone-fill" class="form-label-icon"></b-icon>
+                        {{ $t("phoneNumber") }} <span class="required">*</span>
+                      </label>
+                      <input
+                        v-model="newCreditCustomerForm.phoneNumber"
+                        type="text"
+                        class="users-form-input"
+                        :placeholder="$t('enterPhoneNumber') || 'أدخل رقم الهاتف'"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div class="users-form-group">
+                    <label class="users-form-label">
+                      <b-icon icon="geo-alt-fill" class="form-label-icon"></b-icon>
+                      {{ $t("address") }}
+                    </label>
+                    <input
+                      v-model="newCreditCustomerForm.address"
+                      type="text"
+                      class="users-form-input"
+                      :placeholder="$t('enterAddress') || 'العنوان (اختياري)'"
+                    />
+                  </div>
+                  <div class="users-form-group">
+                    <label class="users-form-label">
+                      <b-icon icon="chat-left-text-fill" class="form-label-icon"></b-icon>
+                      {{ $t("notes") }}
+                    </label>
+                    <textarea
+                      v-model="newCreditCustomerForm.notes"
+                      class="users-form-input"
+                      rows="2"
+                      :placeholder="$t('customerNotesPlaceholder') || ''"
+                    ></textarea>
+                  </div>
+                  <div class="users-form-actions">
+                    <button
+                      type="button"
+                      class="users-form-cancel-button"
+                      :disabled="savingCreditCustomer"
+                      @click="showAddCreditCustomerModal = false"
+                    >
+                      {{ $t("cancel") }}
+                    </button>
+                    <button type="submit" class="users-form-submit-button" :disabled="savingCreditCustomer">
+                      <b-spinner v-if="savingCreditCustomer" small class="me-2"></b-spinner>
+                      {{ savingCreditCustomer ? ($t("adding") || "جاري الإضافة...") : ($t("add") || "إضافة") }}
+                    </button>
+                  </div>
+                </form>
               </div>
             </b-modal>
 
@@ -1228,6 +1326,14 @@ export default {
       changeCalcQuickAmounts: [25000, 50000, 100000],
       creditCustomers: [],
       loadingCreditCustomers: false,
+      showAddCreditCustomerModal: false,
+      savingCreditCustomer: false,
+      newCreditCustomerForm: {
+        name: "",
+        phoneNumber: "",
+        address: "",
+        notes: "",
+      },
       orderDiscountPresets: [
         { id: "p5", type: "percentage", value: 5, label: "5%" },
         { id: "p10", type: "percentage", value: 10, label: "10%" },
@@ -1586,6 +1692,87 @@ export default {
     async openCreditPaymentModal() {
       await this.loadCreditCustomers();
       this.$bvModal.show("modal-credit-payment");
+    },
+    openQuickAddCustomerForCredit() {
+      this.resetNewCreditCustomerForm();
+      this.showAddCreditCustomerModal = true;
+    },
+    resetNewCreditCustomerForm() {
+      this.newCreditCustomerForm = {
+        name: "",
+        phoneNumber: "",
+        address: "",
+        notes: "",
+      };
+    },
+    async saveNewCreditCustomer() {
+      const textDirection = document.documentElement.dir;
+      const toastPosition = textDirection === "rtl" ? "top-right" : "top-left";
+      if (!this.newCreditCustomerForm.name || !this.newCreditCustomerForm.name.trim()) {
+        this.$notify.error(this.$i18n.t("pleaseEnterCustomerName") || "يرجى إدخال اسم العميل", {
+          position: toastPosition,
+          timeout: 2500,
+          maxToasts: 1,
+        });
+        return;
+      }
+      if (!this.newCreditCustomerForm.phoneNumber || !this.newCreditCustomerForm.phoneNumber.trim()) {
+        this.$notify.error(this.$i18n.t("pleaseEnterPhoneNumber") || "يرجى إدخال رقم الهاتف", {
+          position: toastPosition,
+          timeout: 2500,
+          maxToasts: 1,
+        });
+        return;
+      }
+      try {
+        this.savingCreditCustomer = true;
+        const response = await HTTP.post("Customers", {
+          name: this.newCreditCustomerForm.name.trim(),
+          phoneNumber: this.newCreditCustomerForm.phoneNumber.trim(),
+          address: this.newCreditCustomerForm.address
+            ? this.newCreditCustomerForm.address.trim()
+            : null,
+          notes: this.newCreditCustomerForm.notes
+            ? this.newCreditCustomerForm.notes.trim()
+            : null,
+          isActive: true,
+        });
+        if (response.data && !response.data.errorStatus) {
+          this.$notify.success(this.$i18n.t("customerAddedSuccess") || "تم إضافة العميل بنجاح", {
+            position: toastPosition,
+            timeout: 2500,
+            maxToasts: 1,
+          });
+          await this.loadCreditCustomers();
+          const newId = response.data.data && response.data.data.id;
+          if (newId) {
+            this.orderForSend.creditCustomerId = newId;
+          }
+          this.showAddCreditCustomerModal = false;
+          this.resetNewCreditCustomerForm();
+        } else {
+          this.$notify.error(
+            response.data?.message || this.$i18n.t("customerSaveFailed") || "فشل حفظ العميل",
+            {
+              position: toastPosition,
+              timeout: 2500,
+              maxToasts: 1,
+            }
+          );
+        }
+      } catch (error) {
+        console.error("Error saving credit customer from POS:", error);
+        this.$notify.error(
+          error.response?.data?.message || this.$i18n.t("customerSaveFailed") || "حدث خطأ",
+          {
+            position: toastPosition,
+            timeout: 2500,
+            maxToasts: 1,
+          }
+        );
+      } finally {
+        this.savingCreditCustomer = false;
+      }
     },
     confirmCreditPaymentSelection() {
       const textDirection = document.documentElement.dir;
@@ -2460,3 +2647,50 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.credit-customer-select-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.credit-customer-select-row .users-form-select {
+  width: 100%;
+}
+
+.credit-quick-add-btn {
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  border-radius: 0.75rem;
+  border: 2px dashed var(--border-color, #ced4da);
+  background: var(--bg-tertiary, #f8f9fa);
+  color: var(--primary-color, #6366f1);
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.credit-quick-add-btn:hover:not(:disabled) {
+  background: var(--primary-color, #6366f1);
+  color: #ffffff;
+  border-color: var(--primary-color, #6366f1);
+  transform: translateY(-2px);
+}
+
+.credit-quick-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.users-form-hint {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6c757d);
+}
+</style>

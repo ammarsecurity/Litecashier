@@ -10,20 +10,30 @@ namespace RestaurantPOS.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<bool>(
-                name: "IsPublicOrderPrinter",
-                table: "Printers",
-                type: "tinyint(1)",
-                nullable: false,
-                defaultValue: false);
+            // Idempotent: بعض قواعد البيانات قد تكون طبّقت سجل الترحيل دون العمود
+            MigrationBootstrapSql.EnsureTinyIntBoolColumnIfNotExists(
+                migrationBuilder,
+                "Printers",
+                "IsPublicOrderPrinter");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "IsPublicOrderPrinter",
-                table: "Printers");
+            migrationBuilder.Sql(
+                """
+                SET @col_exists := (
+                  SELECT COUNT(*) FROM information_schema.COLUMNS
+                  WHERE TABLE_SCHEMA = DATABASE()
+                    AND LOWER(TABLE_NAME) = 'printers'
+                    AND LOWER(COLUMN_NAME) = 'ispublicorderprinter');
+                SET @sql := IF(@col_exists > 0,
+                  'ALTER TABLE `Printers` DROP COLUMN `IsPublicOrderPrinter`',
+                  'SELECT 1');
+                PREPARE stmt FROM @sql;
+                EXECUTE stmt;
+                DEALLOCATE PREPARE stmt;
+                """);
         }
     }
 }

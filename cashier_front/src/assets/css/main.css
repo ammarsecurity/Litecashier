@@ -15515,3 +15515,50 @@ table .b-icon,
     align-self: stretch !important;
   }
 }
+/* Equal-size action buttons in toolbars (payroll + shared headers) */
+.app-equal-btn-group,
+.payroll-run-btns,
+.payroll-create-run,
+.app-section-header--toolbar .app-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.app-equal-btn-group > .users-add-button,
+.app-equal-btn-group > .users-form-cancel-button,
+.app-equal-btn-group > .btn-refresh,
+.app-equal-btn-group > .export-excel-btn,
+.payroll-run-btns > .users-add-button,
+.payroll-run-btns > .users-form-cancel-button,
+.payroll-create-run > .users-add-button,
+.app-section-header--toolbar .app-header-actions > .users-add-button,
+.app-section-header--toolbar .app-header-actions > .users-form-cancel-button,
+.app-section-header--toolbar .app-header-actions > .btn-refresh,
+.app-header-row .app-header-actions > .users-add-button,
+.app-header-row .app-header-actions > .users-form-cancel-button,
+.app-header-row .app-header-actions > .btn-refresh,
+.app-header-row .app-header-actions > .export-excel-btn {
+  min-width: 9.75rem;
+  width: 9.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  max-height: 2.75rem;
+  padding: 0 0.75rem !important;
+  box-sizing: border-box;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 9.75rem;
+  white-space: nowrap;
+  line-height: 1.15;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-header-row .app-header-actions > .users-form-cancel-button,
+.payroll-run-btns > .users-form-cancel-button {
+  flex: 0 0 9.75rem;
+}
