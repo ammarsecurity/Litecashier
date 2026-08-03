@@ -5653,6 +5653,228 @@ namespace RestaurantPOS.Controllers
             }
         }
 
+        /// <summary>
+        /// مقارنة مبيعات القسم (أو الفرع) مع قيمة المواد المسحوبة له من المخزن في نفس الفترة.
+        /// </summary>
+        [AuthorizeSection("reports", Roles = "Commercial,Admin")]
+        [HttpGet("GetDepartmentPerformanceReport")]
+        public ActionResult<GlobalResponse<object>> GetDepartmentPerformanceReport(
+            DateTime? startDate = null,
+            DateTime? endDate = null)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+                if (user == null)
+                {
+                    return Unauthorized(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "المستخدم غير موجود"
+                    });
+                }
+
+                var commercialUserId = GetCommercialUserId();
+                DateTime? endExclusive = endDate?.Date.AddDays(1);
+
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user.InsertByUserId)
+                    .Include(x => x.Item)
+                    .Include(x => x.CustomerOrder);
+
+                if (startDate.HasValue)
+                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date >= startDate.Value.Date);
+                if (endExclusive.HasValue)
+                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date < endExclusive.Value.Date);
+
+                var salesRows = orderItemsQuery
+                    .Where(x => x.Item != null && !string.IsNullOrEmpty(x.Item.Tags))
+                    .GroupBy(x => x.Item!.Tags)
+                    .Select(g => new
+                    {
+                        department = g.Key!,
+                        totalSales = g.Sum(x => x.SellingPrice * x.Quantity),
+                        salesQuantity = g.Sum(x => x.Quantity),
+                        orderCount = g.Select(x => x.CustomerOrderId).Distinct().Count()
+                    })
+                    .ToList();
+
+                var salesByDept = salesRows
+                    .Where(x => !string.IsNullOrWhiteSpace(x.department))
+                    .GroupBy(x => x.department.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => new
+                        {
+                            department = g.Key,
+                            totalSales = g.Sum(x => x.totalSales),
+                            salesQuantity = g.Sum(x => x.salesQuantity),
+                            orderCount = g.Sum(x => x.orderCount)
+                        },
+                        StringComparer.OrdinalIgnoreCase);
+
+                var stockQuery = _dbConfig.StockMovements
+                    .AsNoTracking()
+                    .Where(m => !m.IsDeleted && m.InsertByUserId == commercialUserId);
+
+                if (startDate.HasValue)
+                    stockQuery = stockQuery.Where(m => m.InsertDate.Date >= startDate.Value.Date);
+                if (endExclusive.HasValue)
+                    stockQuery = stockQuery.Where(m => m.InsertDate.Date < endExclusive.Value.Date);
+
+                var withdraws = stockQuery
+                    .Where(m => m.MovementType == "Withdraw")
+                    .ToList();
+
+                // إضافات لنفس المواد قبل نهاية الفترة (أو بدون حد علوي) لتقدير تكلفة السحب
+                var materialNames = withdraws
+                    .Select(w => w.MaterialName.Trim())
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var addsPool = new List<StockMovement>();
+                if (materialNames.Count > 0)
+                {
+                    var addsQuery = _dbConfig.StockMovements
+                        .AsNoTracking()
+                        .Where(m => !m.IsDeleted
+                            && m.InsertByUserId == commercialUserId
+                            && m.MovementType == "Add");
+                    if (endExclusive.HasValue)
+                        addsQuery = addsQuery.Where(m => m.InsertDate < endExclusive.Value);
+                    addsPool = addsQuery.ToList()
+                        .Where(a => materialNames.Contains(a.MaterialName.Trim(), StringComparer.OrdinalIgnoreCase))
+                        .ToList();
+                }
+
+                var withdrawByDept = new Dictionary<string, (decimal Cost, decimal Qty, int Count)>(StringComparer.OrdinalIgnoreCase);
+                foreach (var w in withdraws)
+                {
+                    var dept = (w.ReceivedByEmployeeName ?? "").Trim();
+                    if (string.IsNullOrEmpty(dept))
+                        dept = "—";
+
+                    var enrich = FindDeptReportEnrichingAdd(w, addsPool);
+                    var cost = ResolveDeptReportWithdrawCost(w, enrich) ?? 0m;
+
+                    if (!withdrawByDept.TryGetValue(dept, out var agg))
+                        agg = (0m, 0m, 0);
+                    withdrawByDept[dept] = (agg.Cost + cost, agg.Qty + w.Quantity, agg.Count + 1);
+                }
+
+                var allKeys = salesByDept.Keys
+                    .Union(withdrawByDept.Keys, StringComparer.OrdinalIgnoreCase)
+                    .Where(k => !string.IsNullOrWhiteSpace(k) && k != "—")
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                // أقسام ظهرت في سحوبات بدون اسم معروف
+                if (withdrawByDept.ContainsKey("—"))
+                    allKeys.Add("—");
+
+                var rows = allKeys
+                    .Select(dept =>
+                    {
+                        salesByDept.TryGetValue(dept, out var sales);
+                        withdrawByDept.TryGetValue(dept, out var wd);
+                        var totalSales = sales?.totalSales ?? 0m;
+                        var withdrawalCost = wd.Cost;
+                        var isSub = dept.Contains('›');
+                        var parentName = isSub
+                            ? dept.Split('›', 2)[0].Trim()
+                            : dept;
+                        var leafName = isSub
+                            ? dept.Split('›', 2)[1].Trim()
+                            : dept;
+
+                        return new
+                        {
+                            department = dept,
+                            parentName,
+                            leafName,
+                            isSubDepartment = isSub,
+                            totalSales,
+                            salesQuantity = sales?.salesQuantity ?? 0m,
+                            orderCount = sales?.orderCount ?? 0,
+                            withdrawalCost,
+                            withdrawalQuantity = wd.Qty,
+                            withdrawalCount = wd.Count,
+                            materialsReceivedCost = withdrawalCost,
+                            contribution = totalSales - withdrawalCost
+                        };
+                    })
+                    .OrderByDescending(r => r.totalSales)
+                    .ThenByDescending(r => r.withdrawalCost)
+                    .ThenBy(r => r.department)
+                    .ToList();
+
+                var summary = new
+                {
+                    totalSales = rows.Sum(r => r.totalSales),
+                    totalWithdrawalCost = rows.Sum(r => r.withdrawalCost),
+                    totalContribution = rows.Sum(r => r.contribution),
+                    departmentCount = rows.Count
+                };
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new { rows, summary },
+                    ErrorStatus = false,
+                    Message = "Success"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting department performance report");
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = ex.Message
+                });
+            }
+        }
+
+        private static string DeptReportReceiptKey(StockMovement x)
+        {
+            if (!string.IsNullOrWhiteSpace(x.ReceiptNumber))
+                return x.ReceiptNumber.Trim();
+            if (x.MovementType == "Add" && !string.IsNullOrWhiteSpace(x.Notes))
+            {
+                const string prefix = "ReceiptNumber:";
+                if (x.Notes.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    var firstLine = x.Notes.Split('\n', StringSplitOptions.None)[0];
+                    var number = firstLine.Substring(prefix.Length).Trim();
+                    return string.IsNullOrWhiteSpace(number) ? "" : number;
+                }
+            }
+            return "";
+        }
+
+        private static StockMovement? FindDeptReportEnrichingAdd(StockMovement withdraw, IReadOnlyList<StockMovement> addsPool)
+        {
+            var name = withdraw.MaterialName.Trim();
+            var rk = DeptReportReceiptKey(withdraw);
+            return addsPool
+                .Where(a => a.MaterialName.Trim().Equals(name, StringComparison.OrdinalIgnoreCase)
+                            && DeptReportReceiptKey(a) == rk
+                            && a.InsertDate <= withdraw.InsertDate)
+                .OrderByDescending(a => a.InsertDate)
+                .FirstOrDefault();
+        }
+
+        private static decimal? ResolveDeptReportWithdrawCost(StockMovement x, StockMovement? enrich)
+        {
+            if (x.Amount.HasValue && x.Amount.Value != 0)
+                return x.Amount;
+            if (enrich != null && enrich.Quantity > 0 && enrich.Amount.HasValue && enrich.Amount.Value != 0)
+                return Math.Round(enrich.Amount.Value * (x.Quantity / enrich.Quantity), 2, MidpointRounding.AwayFromZero);
+            return x.Amount;
+        }
+
         [AuthorizeSection("reports", Roles = "Commercial,Admin")]
         [HttpGet("GetSalesReportStaff")]
         public ActionResult<GlobalResponse<object>> GetSalesReportStaff()

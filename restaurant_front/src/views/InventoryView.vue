@@ -210,10 +210,50 @@
                       </td>
                       <td>{{ formatMovementDate(row.lastMovementDate) }}</td>
                       <td>
-                        <button type="button" class="action-btn action-btn--warn" @click="openWithdrawModal(row)">
-                          <b-icon icon="dash-circle" class="action-icon me-1"></b-icon>
-                          {{ $t("withdraw") || "سحب" }}
-                        </button>
+                        <div class="actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
+                          <button
+                            type="button"
+                            class="action-btn action-btn--icon action-btn--warn"
+                            :title="$t('withdraw') || 'سحب'"
+                            @click="openWithdrawModal(row)"
+                          >
+                            <b-icon icon="dash-circle" class="action-icon"></b-icon>
+                          </button>
+                          <button
+                            type="button"
+                            class="action-btn action-btn--icon action-btn--edit"
+                            :title="$t('editStockMaterial') || $t('edit') || 'تعديل المادة'"
+                            @click="openEditMaterialModal(row)"
+                          >
+                            <b-icon icon="pencil-square" class="action-icon"></b-icon>
+                          </button>
+                          <button
+                            type="button"
+                            class="action-btn action-btn--icon action-btn--delete"
+                            :title="$t('deleteStockMaterial') || $t('delete') || 'حذف المادة'"
+                            @click="confirmDeleteMaterial(row)"
+                          >
+                            <b-icon icon="trash" class="action-icon"></b-icon>
+                          </button>
+                          <button
+                            v-if="row.lastReceiptNumber || row.stockReceiptKey"
+                            type="button"
+                            class="action-btn action-btn--icon action-btn--view"
+                            :title="$t('editStockInvoice') || 'تعديل الفاتورة'"
+                            @click.stop.prevent="openEditInvoiceModal(row.stockReceiptKey || row.lastReceiptNumber)"
+                          >
+                            <b-icon icon="receipt" class="action-icon"></b-icon>
+                          </button>
+                          <button
+                            v-if="row.lastReceiptNumber || row.stockReceiptKey"
+                            type="button"
+                            class="action-btn action-btn--icon action-btn--delete"
+                            :title="$t('deleteStockInvoice') || 'حذف الفاتورة'"
+                            @click.stop.prevent="confirmDeleteInvoice(row.stockReceiptKey || row.lastReceiptNumber)"
+                          >
+                            <b-icon icon="file-earmark-x" class="action-icon"></b-icon>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   </tbody>
@@ -266,7 +306,7 @@
                 <input
                   v-model="movementFilterReceivedBy"
                   type="text"
-                  :placeholder="$t('movementsFilterReceivedBy') || 'الموظف المستلم'"
+                  :placeholder="$t('movementsFilterReceivedBy') || 'القسم المستلم'"
                   class="users-search-input movements-filter-input"
                   @input="debounceLoadMovements"
                 />
@@ -317,7 +357,7 @@
                       <th>{{ $t("date") || "التاريخ" }}</th>
                       <th>{{ $t("inventoryMaterialName") || "اسم المادة" }}</th>
                       <th>{{ $t("movementType") || "النوع" }}</th>
-                      <th>{{ $t("withdrawReceivedByEmployee") || "الموظف المستلم" }}</th>
+                      <th>{{ $t("withdrawReceivedByDepartment") || "القسم المستلم" }}</th>
                       <th>{{ $t("quantity") || "الكمية" }}</th>
                       <th>{{ $t("supplierName") || "المورد" }}</th>
                       <th>{{ $t("amount") || "المبلغ" }}</th>
@@ -336,7 +376,7 @@
                           {{ m.movementType === 'Add' ? ($t('add') || 'إضافة') : ($t('withdraw') || 'سحب') }}
                         </span>
                       </td>
-                      <td>{{ m.movementType === 'Withdraw' ? (m.receivedByEmployeeName || '—') : '—' }}</td>
+                      <td>{{ m.movementType === 'Withdraw' ? (m.receivedByDepartmentName || m.receivedByEmployeeName || '—') : '—' }}</td>
                       <td>{{ formatNumber(m.quantity) }}</td>
                       <td>{{ m.supplierName || '—' }}</td>
                       <td>{{ m.amount != null ? formatNumber(m.amount) : '—' }}</td>
@@ -430,9 +470,23 @@
                     <td>{{ s.name }}</td>
                     <td>{{ s.notes || '—' }}</td>
                     <td>
-                      <div class="actions-cell justify-content-start">
-                      <button type="button" class="action-btn action-btn--edit me-1" @click="openEditSupplierModal(s)">{{ $t("editSupplier") || "تعديل" }}</button>
-                      <button type="button" class="action-btn action-btn--delete" @click="confirmDeleteSupplier(s)">{{ $t("deleteSupplier") || "حذف" }}</button>
+                      <div class="actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
+                        <button
+                          type="button"
+                          class="action-btn action-btn--icon action-btn--edit"
+                          :title="$t('editSupplier') || 'تعديل'"
+                          @click="openEditSupplierModal(s)"
+                        >
+                          <b-icon icon="pencil-square" class="action-icon"></b-icon>
+                        </button>
+                        <button
+                          type="button"
+                          class="action-btn action-btn--icon action-btn--delete"
+                          :title="$t('deleteSupplier') || 'حذف'"
+                          @click="confirmDeleteSupplier(s)"
+                        >
+                          <b-icon icon="trash" class="action-icon"></b-icon>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -466,10 +520,16 @@
       size="xl"
     >
       <div class="modal-content-wrapper">
-        <h2 class="modal-title">{{ $t("addStock") || "إضافة دخول مخزون" }}</h2>
+        <h2 class="modal-title">
+          {{
+            editingInvoiceReceipt
+              ? ($t("editStockInvoice") || "تعديل فاتورة المخزن")
+              : ($t("addStock") || "إضافة دخول مخزون")
+          }}
+        </h2>
         <p class="inventory-modal-subtitle">{{ $t("inventoryStockEntryHint") || "ربط الوصل بالمورد ثم إضافة أسطر المواد والكميات والأسعار." }}</p>
 
-        <form @submit.prevent="submitAddStock" class="users-form">
+        <form @submit.prevent="onStockModalSubmit" class="users-form">
           <div class="modal-form-grid">
             <div class="users-form-group mb-0">
               <label class="users-form-label">
@@ -538,7 +598,11 @@
                         v-model="itemRow.materialName"
                         type="text"
                         class="users-form-input stock-line-input"
+                        list="inventory-material-suggestions"
+                        autocomplete="off"
                         :placeholder="$t('materialNamePlaceholder') || 'اكتب اسم المادة'"
+                        @change="onMaterialNamePicked(itemRow)"
+                        @blur="onMaterialNamePicked(itemRow)"
                       />
                     </td>
                     <td>
@@ -588,6 +652,14 @@
               </table>
             </div>
 
+            <datalist id="inventory-material-suggestions">
+              <option
+                v-for="name in knownMaterialNames"
+                :key="'mat-suggest-' + name"
+                :value="name"
+              ></option>
+            </datalist>
+
             <div class="inventory-stock-total-bar">
               <span class="inventory-stock-total-bar__label">{{ $t("totalAmount") || "إجمالي المبلغ" }}</span>
               <span class="inventory-stock-total-bar__value">{{ formatNumber(totalStockInvoiceAmount) }} {{ $t("currency") || "د.ع" }}</span>
@@ -633,9 +705,89 @@
             <button type="submit" class="users-form-submit-button" :disabled="savingAdd">
               <b-spinner small v-if="savingAdd" class="me-2"></b-spinner>
               <b-icon v-else icon="check-circle-fill" class="me-2"></b-icon>
-              {{ savingAdd ? ($t("saving") || "جاري الحفظ...") : ($t("saveStockEntry") || "حفظ الإدخال") }}
+              {{
+                savingAdd
+                  ? ($t("saving") || "جاري الحفظ...")
+                  : editingInvoiceReceipt
+                    ? ($t("saveStockInvoice") || "حفظ الفاتورة")
+                    : ($t("saveStockEntry") || "حفظ الإدخال")
+              }}
             </button>
             <button type="button" class="users-form-cancel-button" @click="showAddModal = false">
+              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+              {{ $t("cancel") || "إلغاء" }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </b-modal>
+
+    <!-- Modal: تعديل مادة -->
+    <b-modal
+      v-model="showEditMaterialModal"
+      @hidden="resetEditMaterialForm"
+      hide-header
+      hide-footer
+      class="users-modal"
+      centered
+      size="md"
+    >
+      <div class="modal-content-wrapper">
+        <h2 class="modal-title">{{ $t("editStockMaterial") || "تعديل المادة" }}</h2>
+        <form @submit.prevent="submitEditMaterial" class="users-form">
+          <div class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="box-seam" class="form-label-icon"></b-icon>
+              {{ $t("inventoryMaterialName") || "اسم المادة" }} <span class="required">*</span>
+            </label>
+            <input
+              v-model="editMaterialForm.materialName"
+              type="text"
+              class="users-form-input"
+              required
+              :placeholder="$t('materialNamePlaceholder') || 'اسم المادة'"
+            />
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="hash" class="form-label-icon"></b-icon>
+              {{ $t("totalAdded") || "إجمالي الداخل" }} <span class="required">*</span>
+            </label>
+            <input
+              v-model.number="editMaterialForm.totalAddedQuantity"
+              type="number"
+              step="0.01"
+              min="0.01"
+              class="users-form-input"
+              required
+            />
+            <small class="users-form-hint">
+              {{ $t("editStockMaterialWithdrawnHint") || "المسحوب" }}:
+              {{ formatNumber(editMaterialForm.totalWithdrawn) }}
+            </small>
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="rulers" class="form-label-icon"></b-icon>
+              {{ $t("unitType") || "الوحدة" }}
+            </label>
+            <select v-model="editMaterialForm.unitType" class="users-form-input">
+              <option value="">{{ $t("selectUnit") || "الوحدة" }}</option>
+              <option value="قطعة">{{ $t("piece") || "قطعة" }}</option>
+              <option value="كارتون">{{ $t("carton") || "كارتون" }}</option>
+              <option value="كيلو">{{ $t("kilo") || "كيلو" }}</option>
+              <option value="لتر">{{ $t("liter") || "لتر" }}</option>
+              <option value="علبة">{{ $t("box") || "علبة" }}</option>
+              <option value="أخرى">{{ $t("other") || "أخرى" }}</option>
+            </select>
+          </div>
+          <div class="users-form-actions">
+            <button type="submit" class="users-form-submit-button" :disabled="savingEditMaterial">
+              <b-spinner small v-if="savingEditMaterial" class="me-2"></b-spinner>
+              <b-icon v-else icon="check-circle-fill" class="me-2"></b-icon>
+              {{ savingEditMaterial ? ($t("saving") || "جاري الحفظ...") : ($t("save") || "حفظ") }}
+            </button>
+            <button type="button" class="users-form-cancel-button" @click="showEditMaterialModal = false">
               <b-icon icon="x-circle-fill" class="me-2"></b-icon>
               {{ $t("cancel") || "إلغاء" }}
             </button>
@@ -687,12 +839,22 @@
           </div>
           <div class="users-form-group">
             <label class="users-form-label">
-              <b-icon icon="person-badge" class="form-label-icon"></b-icon>
-              {{ $t("withdrawReceivedByEmployee") || "الموظف المستلم" }} <span class="required">*</span>
+              <b-icon icon="diagram-3" class="form-label-icon"></b-icon>
+              {{ $t("withdrawDepartment") || "القسم" }} <span class="required">*</span>
             </label>
-            <select v-model="withdrawForm.receivedByEmployeeId" class="users-form-input" required>
-              <option disabled value="">{{ $t("selectEmployeeWhoReceived") || "اختر الموظف الذي استلم السحب" }}</option>
-              <option v-for="e in withdrawEmployeesList" :key="e.id" :value="e.id">{{ e.name }}</option>
+            <select v-model="withdrawForm.parentTagId" class="users-form-input" required @change="onWithdrawParentChange">
+              <option disabled value="">{{ $t("selectWithdrawDepartment") || "اختر القسم" }}</option>
+              <option v-for="t in withdrawRootTags" :key="'wd-root-' + t.id" :value="String(t.id)">{{ t.name }}</option>
+            </select>
+          </div>
+          <div v-if="withdrawChildTags.length > 0" class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="diagram-2" class="form-label-icon"></b-icon>
+              {{ $t("withdrawSubDepartment") || "القسم الفرعي" }}
+            </label>
+            <select v-model="withdrawForm.childTagId" class="users-form-input">
+              <option value="">{{ $t("selectWithdrawSubDepartment") || "اختر القسم الفرعي (اختياري)" }}</option>
+              <option v-for="t in withdrawChildTags" :key="'wd-child-' + t.id" :value="String(t.id)">{{ t.name }}</option>
             </select>
           </div>
           <div class="users-form-group">
@@ -809,6 +971,8 @@
 <script>
 import { HTTP } from '../http/api.js';
 import AppHeader from '../components/Layout/AppHeader.vue';
+import { rootTags, childTagsOf } from '@/utils/tagHierarchy.js';
+import { resolveApiBaseUrl } from '@/utils/apiBase.js';
 
 export default {
   name: 'InventoryView',
@@ -816,31 +980,44 @@ export default {
   data() {
     return {
       items: [],
+      materialCatalog: [],
       loading: false,
       searchQuery: '',
       searchTimer: null,
       showAddModal: false,
       showWithdrawModal: false,
+      showEditMaterialModal: false,
       savingAdd: false,
       savingWithdraw: false,
+      savingEditMaterial: false,
+      editingInvoiceReceipt: '',
       addForm: {
         supplierSelect: '',
         supplierOtherName: '',
         receiptNumber: '',
         items: [
-          { materialName: '', unitPrice: 0, quantity: 0.01, unitType: '' }
+          { id: null, materialName: '', unitPrice: 0, quantity: 0.01, unitType: '' }
         ],
         notes: '',
         receiptFile: null,
         receiptFileName: ''
       },
-      withdrawEmployeesList: [],
+      editMaterialForm: {
+        originalMaterialName: '',
+        stockReceiptKey: '',
+        materialName: '',
+        totalAddedQuantity: 0.01,
+        totalWithdrawn: 0,
+        unitType: ''
+      },
+      withdrawTags: [],
       withdrawForm: {
         materialName: '',
         stockReceiptKey: '',
         currentStock: 0,
         quantity: 0.01,
-        receivedByEmployeeId: '',
+        parentTagId: '',
+        childTagId: '',
         notes: ''
       },
       movementsList: [],
@@ -887,10 +1064,48 @@ export default {
     },
     suppliersOverviewCount() {
       return this.suppliersList.length;
+    },
+    withdrawRootTags() {
+      return rootTags(this.withdrawTags);
+    },
+    withdrawChildTags() {
+      if (!this.withdrawForm.parentTagId) return [];
+      const parent = this.withdrawTags.find(
+        (t) => String(t.id) === String(this.withdrawForm.parentTagId)
+      );
+      return childTagsOf(parent, this.withdrawTags);
+    },
+    /** أسماء مواد المخزن المعروفة للإكمال التلقائي عند إدخال فاتورة */
+    knownMaterialNames() {
+      const names = new Set();
+      (this.materialCatalog || []).forEach((row) => {
+        const n = (row.materialName || '').trim();
+        if (n) names.add(n);
+      });
+      (this.items || []).forEach((row) => {
+        const n = (row.materialName || '').trim();
+        if (n) names.add(n);
+      });
+      (this.movementsList || []).forEach((m) => {
+        const n = (m.materialName || '').trim();
+        if (n) names.add(n);
+      });
+      return Array.from(names).sort((a, b) => a.localeCompare(b, 'ar'));
+    },
+    materialUnitByName() {
+      const map = {};
+      const sources = [...(this.materialCatalog || []), ...(this.items || []), ...(this.movementsList || [])];
+      sources.forEach((row) => {
+        const n = (row.materialName || '').trim();
+        if (!n || map[n]) return;
+        if (row.unitType) map[n] = row.unitType;
+      });
+      return map;
     }
   },
   mounted() {
     this.loadInventory();
+    this.loadMaterialCatalog();
     this.loadSuppliers();
     this.loadMovementsOverviewCount();
   },
@@ -1096,6 +1311,9 @@ export default {
         const response = await HTTP.get(`Inventory/GetInventory?${params.toString()}`);
         if (response.data && !response.data.errorStatus && response.data.data) {
           this.items = response.data.data.items || [];
+          if (!this.searchQuery) {
+            this.materialCatalog = this.items;
+          }
         } else {
           this.items = [];
         }
@@ -1107,12 +1325,22 @@ export default {
         this.loading = false;
       }
     },
+    async loadMaterialCatalog() {
+      try {
+        const response = await HTTP.get('Inventory/GetInventory?pageNumber=0&pageSize=500');
+        if (response.data && !response.data.errorStatus && response.data.data) {
+          this.materialCatalog = response.data.data.items || [];
+        }
+      } catch (error) {
+        console.error('Error loading material catalog:', error);
+      }
+    },
     debounceSearch() {
       if (this.searchTimer) clearTimeout(this.searchTimer);
       this.searchTimer = setTimeout(() => this.loadInventory(), 400);
     },
     addStockItemRow() {
-      this.addForm.items.push({ materialName: '', unitPrice: 0, quantity: 0.01, unitType: '' });
+      this.addForm.items.push({ id: null, materialName: '', unitPrice: 0, quantity: 0.01, unitType: '' });
     },
     removeStockItemRow(index) {
       if (this.addForm.items.length <= 1) {
@@ -1126,11 +1354,23 @@ export default {
       const quantity = Number(row?.quantity || 0);
       return Math.max(0, unitPrice * quantity);
     },
-    openAddModal(row) {
+    onMaterialNamePicked(itemRow) {
+      if (!itemRow) return;
+      const name = (itemRow.materialName || '').trim();
+      if (!name) return;
+      itemRow.materialName = name;
+      const knownUnit = this.materialUnitByName[name];
+      if (knownUnit && !itemRow.unitType) {
+        itemRow.unitType = knownUnit;
+      }
+    },
+    async openAddModal(row) {
+      this.editingInvoiceReceipt = '';
       this.addForm.supplierSelect = '';
       this.addForm.supplierOtherName = '';
       this.addForm.receiptNumber = '';
       this.addForm.items = [{
+        id: null,
         materialName: row && row.materialName ? row.materialName : '',
         unitPrice: 0,
         quantity: 0.01,
@@ -1141,13 +1381,15 @@ export default {
       this.addForm.receiptFileName = '';
       if (this.$refs.receiptInput) this.$refs.receiptInput.value = '';
       if (this.suppliersList.length === 0) this.loadSuppliers();
+      if (this.materialCatalog.length === 0) await this.loadMaterialCatalog();
       this.showAddModal = true;
     },
     resetAddForm() {
+      this.editingInvoiceReceipt = '';
       this.addForm.supplierSelect = '';
       this.addForm.supplierOtherName = '';
       this.addForm.receiptNumber = '';
-      this.addForm.items = [{ materialName: '', unitPrice: 0, quantity: 0.01, unitType: '' }];
+      this.addForm.items = [{ id: null, materialName: '', unitPrice: 0, quantity: 0.01, unitType: '' }];
       this.addForm.receiptFile = null;
       this.addForm.receiptFileName = '';
     },
@@ -1195,6 +1437,7 @@ export default {
           );
           this.showAddModal = false;
           this.loadInventory();
+          this.loadMaterialCatalog();
           if (this.activeInventoryTab === 'movements') this.loadStockMovements();
         } else {
           this.$notify.error(response.data?.message || (this.$t('error') || 'حدث خطأ'));
@@ -1210,35 +1453,266 @@ export default {
       const rk = row.stockReceiptKey != null ? String(row.stockReceiptKey) : (row.lastReceiptNumber || '');
       return `${name}|||${rk}|||${idx}`;
     },
-    async loadEmployeesForWithdraw() {
+    onStockModalSubmit() {
+      if (this.editingInvoiceReceipt) {
+        return this.submitEditInvoice();
+      }
+      return this.submitAddStock();
+    },
+    async openEditInvoiceModal(receiptNumber) {
+      const rn = String(receiptNumber || '').trim();
+      if (!rn) {
+        this.$notify.warning(this.$t('receiptNumberRequired') || 'رقم الوصل مطلوب لتعديل الفاتورة');
+        return;
+      }
       try {
-        const response = await HTTP.get('Employees');
-        if (response.data && !response.data.errorStatus) {
-          this.withdrawEmployeesList = response.data.data || [];
-        } else {
-          this.withdrawEmployeesList = [];
+        if (this.suppliersList.length === 0) await this.loadSuppliers();
+        const response = await HTTP.get('Inventory/GetStockInvoice', {
+          params: { receiptNumber: rn }
+        });
+        const payload = response && response.data;
+        if (!payload || typeof payload !== 'object' || payload.errorStatus || !payload.data) {
+          const msg =
+            (payload && (payload.message || payload.Message)) ||
+            (this.$t('error') || 'حدث خطأ');
+          this.$notify.error(msg);
+          return;
         }
-      } catch (e) {
-        console.error('Error loading employees for withdraw:', e);
-        this.withdrawEmployeesList = [];
+        const inv = payload.data;
+        const itemsRaw = Array.isArray(inv.items) ? inv.items : [];
+        this.editingInvoiceReceipt = String(inv.receiptNumber || rn);
+        this.addForm.receiptNumber = String(inv.receiptNumber || rn);
+        this.addForm.notes = inv.notes || '';
+        this.addForm.receiptFile = null;
+        this.addForm.receiptFileName = inv.receiptFileName || '';
+        const supplierName = (inv.supplierName || '').trim();
+        const matched = this.suppliersList.find((s) => s.name === supplierName);
+        if (matched) {
+          this.addForm.supplierSelect = 'id_' + matched.id;
+          this.addForm.supplierOtherName = '';
+        } else if (supplierName) {
+          this.addForm.supplierSelect = '__other__';
+          this.addForm.supplierOtherName = supplierName;
+        } else {
+          this.addForm.supplierSelect = '';
+          this.addForm.supplierOtherName = '';
+        }
+        this.addForm.items = itemsRaw.length
+          ? itemsRaw.map((it) => ({
+              id: it.id || null,
+              materialName: it.materialName || '',
+              unitPrice: Number(it.unitPrice) || 0,
+              quantity: Number(it.quantity) || 0.01,
+              unitType: it.unitType || ''
+            }))
+          : [{ id: null, materialName: '', unitPrice: 0, quantity: 0.01, unitType: '' }];
+        this.showAddModal = true;
+        this.$nextTick(() => {
+          if (this.$refs.receiptInput) this.$refs.receiptInput.value = '';
+        });
+      } catch (error) {
+        console.error('openEditInvoiceModal failed:', error);
+        const data = error && error.response && error.response.data;
+        const msg =
+          (data && typeof data === 'object' && (data.message || data.Message)) ||
+          (this.$t('error') || 'حدث خطأ أثناء فتح الفاتورة');
+        this.$notify.error(msg);
       }
     },
-    async openWithdrawModal(row) {
-      if (this.withdrawEmployeesList.length === 0) {
-        await this.loadEmployeesForWithdraw();
+    async submitEditInvoice() {
+      const original = (this.editingInvoiceReceipt || '').trim();
+      if (!original) return;
+      const rows = (this.addForm.items || []).map((row) => ({
+        id: row.id || null,
+        materialName: (row.materialName || '').trim(),
+        quantity: Number(row.quantity || 0),
+        unitPrice: Number(row.unitPrice || 0),
+        amount: this.calculateRowAmount(row),
+        unitType: row.unitType || ''
+      }));
+      const validRows = rows.filter((row) => row.materialName && row.quantity > 0);
+      if (validRows.length === 0) {
+        this.$notify.warning(this.$t('materialNameRequired') || 'يرجى إدخال مادة واحدة على الأقل مع كمية صحيحة');
+        return;
       }
-      if (this.withdrawEmployeesList.length === 0) {
+      try {
+        this.savingAdd = true;
+        const formData = new FormData();
+        formData.append('originalReceiptNumber', original);
+        formData.append('supplierName', this.getAddFormSupplierName());
+        formData.append('receiptNumber', this.addForm.receiptNumber || original);
+        formData.append('notes', this.addForm.notes || '');
+        formData.append('itemsJson', JSON.stringify(validRows));
+        if (this.addForm.receiptFile) formData.append('receiptFile', this.addForm.receiptFile);
+        const response = await HTTP.put('Inventory/UpdateStockBatch', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        if (response.data && !response.data.errorStatus) {
+          this.$notify.success(response.data.message || (this.$t('stockInvoiceUpdated') || 'تم تعديل الفاتورة'));
+          this.showAddModal = false;
+          this.loadInventory();
+          this.loadMaterialCatalog();
+          if (this.activeInventoryTab === 'movements') this.loadStockMovements();
+        } else {
+          this.$notify.error(response.data?.message || (this.$t('error') || 'حدث خطأ'));
+        }
+      } catch (error) {
+        this.$notify.error(error.response?.data?.message || (this.$t('error') || 'حدث خطأ'));
+      } finally {
+        this.savingAdd = false;
+      }
+    },
+    async confirmDeleteInvoice(receiptNumber) {
+      const rn = (receiptNumber || '').trim();
+      if (!rn) return;
+      const ok = await this.$confirm({
+        title: this.$t('deleteStockInvoice') || 'حذف الفاتورة',
+        message:
+          this.$t('confirmDeleteStockInvoice', { number: rn }) ||
+          `هل تريد حذف فاتورة الوصل «${rn}» بالكامل مع كل موادها وسحوباتها؟`
+      });
+      if (!ok) return;
+      try {
+        const response = await HTTP.delete(
+          `Inventory/DeleteStockInvoice?receiptNumber=${encodeURIComponent(rn)}`
+        );
+        if (response.data && !response.data.errorStatus) {
+          this.$notify.success(response.data.message || (this.$t('stockInvoiceDeleted') || 'تم حذف الفاتورة'));
+          this.loadInventory();
+          if (this.activeInventoryTab === 'movements') this.loadStockMovements();
+        } else {
+          this.$notify.error(response.data?.message || (this.$t('error') || 'حدث خطأ'));
+        }
+      } catch (error) {
+        this.$notify.error(error.response?.data?.message || (this.$t('error') || 'حدث خطأ'));
+      }
+    },
+    openEditMaterialModal(row) {
+      this.editMaterialForm = {
+        originalMaterialName: row.materialName || '',
+        stockReceiptKey:
+          row.stockReceiptKey != null && row.stockReceiptKey !== undefined
+            ? String(row.stockReceiptKey)
+            : row.lastReceiptNumber || '',
+        materialName: row.materialName || '',
+        totalAddedQuantity: Number(row.totalAdded) || 0.01,
+        totalWithdrawn: Number(row.totalWithdrawn) || 0,
+        unitType: row.unitType || ''
+      };
+      this.showEditMaterialModal = true;
+    },
+    resetEditMaterialForm() {
+      this.editMaterialForm = {
+        originalMaterialName: '',
+        stockReceiptKey: '',
+        materialName: '',
+        totalAddedQuantity: 0.01,
+        totalWithdrawn: 0,
+        unitType: ''
+      };
+    },
+    async submitEditMaterial() {
+      const name = (this.editMaterialForm.materialName || '').trim();
+      if (!name) {
+        this.$notify.warning(this.$t('materialNameRequired') || 'اسم المادة مطلوب');
+        return;
+      }
+      if (
+        !this.editMaterialForm.totalAddedQuantity ||
+        this.editMaterialForm.totalAddedQuantity < this.editMaterialForm.totalWithdrawn
+      ) {
         this.$notify.warning(
-          this.$t('noEmployeesForWithdraw') || 'لا يوجد موظفون. أضف موظفاً من إدارة الموظفين أولاً.'
+          this.$t('editStockMaterialQtyInvalid') ||
+            'إجمالي الداخل يجب أن يكون أكبر من أو يساوي المسحوب'
+        );
+        return;
+      }
+      try {
+        this.savingEditMaterial = true;
+        const response = await HTTP.put('Inventory/UpdateStockLine', {
+          materialName: this.editMaterialForm.originalMaterialName,
+          receiptNumber: this.editMaterialForm.stockReceiptKey || null,
+          newMaterialName: name,
+          unitType: this.editMaterialForm.unitType || '',
+          totalAddedQuantity: this.editMaterialForm.totalAddedQuantity
+        });
+        if (response.data && !response.data.errorStatus) {
+          this.$notify.success(response.data.message || (this.$t('stockMaterialUpdated') || 'تم تعديل المادة'));
+          this.showEditMaterialModal = false;
+          this.loadInventory();
+          if (this.activeInventoryTab === 'movements') this.loadStockMovements();
+        } else {
+          this.$notify.error(response.data?.message || (this.$t('error') || 'حدث خطأ'));
+        }
+      } catch (error) {
+        this.$notify.error(error.response?.data?.message || (this.$t('error') || 'حدث خطأ'));
+      } finally {
+        this.savingEditMaterial = false;
+      }
+    },
+    async confirmDeleteMaterial(row) {
+      const ok = await this.$confirm({
+        title: this.$t('deleteStockMaterial') || 'حذف المادة',
+        message:
+          this.$t('confirmDeleteStockMaterial', { name: row.materialName || '' }) ||
+          `هل تريد حذف المادة «${row.materialName || ''}» من المخزن؟`
+      });
+      if (!ok) return;
+      try {
+        const response = await HTTP.post('Inventory/DeleteStockLine', {
+          materialName: row.materialName,
+          receiptNumber:
+            row.stockReceiptKey != null && row.stockReceiptKey !== undefined
+              ? String(row.stockReceiptKey)
+              : row.lastReceiptNumber || null
+        });
+        if (response.data && !response.data.errorStatus) {
+          this.$notify.success(response.data.message || (this.$t('stockMaterialDeleted') || 'تم حذف المادة'));
+          this.loadInventory();
+          if (this.activeInventoryTab === 'movements') this.loadStockMovements();
+        } else {
+          this.$notify.error(response.data?.message || (this.$t('error') || 'حدث خطأ'));
+        }
+      } catch (error) {
+        this.$notify.error(error.response?.data?.message || (this.$t('error') || 'حدث خطأ'));
+      }
+    },
+    async loadWithdrawDepartments() {
+      try {
+        const response = await HTTP.get('Inventory/GetWithdrawDepartments');
+        if (response.data && !response.data.errorStatus) {
+          this.withdrawTags = response.data.data || [];
+        } else {
+          this.withdrawTags = [];
+        }
+      } catch (e) {
+        console.error('Error loading withdraw departments:', e);
+        this.withdrawTags = [];
+      }
+    },
+    onWithdrawParentChange() {
+      this.withdrawForm.childTagId = '';
+    },
+    async openWithdrawModal(row) {
+      if (this.withdrawTags.length === 0) {
+        await this.loadWithdrawDepartments();
+      }
+      if (this.withdrawRootTags.length === 0) {
+        this.$notify.warning(
+          this.$t('noDepartmentsForWithdraw') ||
+            'لا توجد أقسام. أضف قسماً من إدارة الأقسام أولاً.'
         );
         return;
       }
       this.withdrawForm.materialName = row.materialName || '';
       this.withdrawForm.stockReceiptKey =
-        row.stockReceiptKey != null && row.stockReceiptKey !== undefined ? String(row.stockReceiptKey) : '';
+        row.stockReceiptKey != null && row.stockReceiptKey !== undefined
+          ? String(row.stockReceiptKey)
+          : row.lastReceiptNumber || '';
       this.withdrawForm.currentStock = row.currentQuantity ?? 0;
       this.withdrawForm.quantity = 0.01;
-      this.withdrawForm.receivedByEmployeeId = '';
+      this.withdrawForm.parentTagId = '';
+      this.withdrawForm.childTagId = '';
       this.withdrawForm.notes = '';
       this.showWithdrawModal = true;
     },
@@ -1246,7 +1720,9 @@ export default {
       this.withdrawForm.materialName = '';
       this.withdrawForm.stockReceiptKey = '';
       this.withdrawForm.currentStock = 0;
-      this.withdrawForm.receivedByEmployeeId = '';
+      this.withdrawForm.parentTagId = '';
+      this.withdrawForm.childTagId = '';
+      this.withdrawForm.notes = '';
     },
     async submitWithdraw() {
       if (!(this.withdrawForm.materialName || '').trim()) {
@@ -1261,10 +1737,15 @@ export default {
         this.$notify.error(this.$t('insufficientQuantity') || 'الكمية المتاحة غير كافية');
         return;
       }
-      const empId = this.withdrawForm.receivedByEmployeeId;
-      const selectedEmp = this.withdrawEmployeesList.find((e) => e.id === empId || String(e.id) === String(empId));
-      if (!selectedEmp || !(selectedEmp.name || '').trim()) {
-        this.$notify.warning(this.$t('selectEmployeeWhoReceived') || 'اختر الموظف الذي استلم السحب');
+      if (!this.withdrawForm.parentTagId) {
+        this.$notify.warning(this.$t('selectWithdrawDepartment') || 'اختر القسم');
+        return;
+      }
+      const tagId = this.withdrawForm.childTagId
+        ? Number(this.withdrawForm.childTagId)
+        : Number(this.withdrawForm.parentTagId);
+      if (!tagId) {
+        this.$notify.warning(this.$t('selectWithdrawDepartment') || 'اختر القسم');
         return;
       }
       try {
@@ -1273,7 +1754,7 @@ export default {
           materialName: this.withdrawForm.materialName.trim(),
           receiptNumber: this.withdrawForm.stockReceiptKey || null,
           quantity: this.withdrawForm.quantity,
-          receivedByEmployeeName: selectedEmp.name.trim(),
+          tagId,
           notes: this.withdrawForm.notes || null
         });
         if (response.data && !response.data.errorStatus) {
@@ -1301,7 +1782,11 @@ export default {
     },
     buildReceiptUrl(fileName) {
       if (!fileName) return '#';
-      return `${window.location.origin}/Receipts/${fileName}`;
+      const name = String(fileName).split(/[/\\]/).pop();
+      if (!name) return '#';
+      const base = String(resolveApiBaseUrl() || '').replace(/\/$/, '');
+      if (base) return `${base}/Receipts/${encodeURIComponent(name)}`;
+      return `${window.location.origin}/Receipts/${encodeURIComponent(name)}`;
     },
     /** رابط كامل من الباك أو اسم ملف قديم → URL للعرض */
     receiptPublicUrl(ref) {
@@ -1327,6 +1812,12 @@ export default {
 </script>
 
 <style scoped>
+.users-form-hint {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #6b7280);
+}
 .users-table {
   width: 100%;
   margin-top: 1rem;

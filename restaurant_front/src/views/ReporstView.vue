@@ -54,6 +54,14 @@
                                 <b-icon icon="tags-fill" class="me-2"></b-icon>
                                 {{ $t('salesByCategory') || 'المبيعات حسب الفئة' }}
                             </button>
+                            <button
+                                class="report-tab"
+                                :class="{ 'report-tab-active': activeTab === 'byDepartment' }"
+                                @click="activeTab = 'byDepartment'; loadDepartmentPerformance()"
+                            >
+                                <b-icon icon="diagram-3-fill" class="me-2"></b-icon>
+                                {{ $t('departmentPerformanceReport') || 'أداء الأقسام والمخزن' }}
+                            </button>
                             <button 
                                 class="report-tab" 
                                 :class="{ 'report-tab-active': activeTab === 'byEmployee' }"
@@ -591,6 +599,109 @@
                                     </template>
                                     <template #cell(averageOrderValue)="row">
                                         <span class="stat-amount">{{ formatPrice(row.item.orderCount > 0 ? row.item.totalSales / row.item.orderCount : 0) }} {{ $t('currency') }}</span>
+                                    </template>
+                                </b-table>
+                            </div>
+                        </div>
+
+                        <!-- Department performance vs warehouse withdrawals -->
+                        <div v-if="activeTab === 'byDepartment'" class="report-section">
+                            <div class="report-section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                                <div class="report-info-banner" style="margin: 0;">
+                                    <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
+                                    <span>{{ $t('departmentPerformanceHint') || 'مقارنة مبيعات كل قسم/فرع مع قيمة المواد المسحوبة له من المخزن' }}</span>
+                                </div>
+                                <button
+                                    class="export-excel-btn"
+                                    @click="exportCurrentReportExcel()"
+                                    :disabled="!(departmentPerformance.rows || []).length || exportingExcel"
+                                >
+                                    <b-spinner small v-if="exportingExcel" class="me-2"></b-spinner>
+                                    <b-icon v-else icon="file-earmark-excel" class="me-2"></b-icon>
+                                    {{ $t('downloadExcel') || 'تحميل Excel' }}
+                                </button>
+                            </div>
+
+                            <div v-if="(departmentPerformance.rows || []).length" class="app-overview-grid" style="margin-bottom: 1rem;">
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                                        <b-icon icon="cash-stack"></b-icon>
+                                    </span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ formatPrice(departmentPerformance.summary?.totalSales || 0) }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('totalSales') || 'إجمالي المبيعات' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                                        <b-icon icon="box-arrow-up"></b-icon>
+                                    </span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ formatPrice(departmentPerformance.summary?.totalWithdrawalCost || 0) }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('warehouseWithdrawalCost') || 'تكلفة سحب المخزن' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                                        <b-icon icon="graph-up-arrow"></b-icon>
+                                    </span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ formatPrice(departmentPerformance.summary?.totalContribution || 0) }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('salesMinusStockCost') || 'المبيعات − تكلفة المخزن' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                                        <b-icon icon="diagram-3"></b-icon>
+                                    </span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ departmentPerformance.summary?.departmentCount || 0 }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('departmentsCount') || 'عدد الأقسام' }}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="report-table-container">
+                                <b-table
+                                    :items="departmentPerformanceForTable"
+                                    :fields="departmentPerformanceFields"
+                                    striped
+                                    hover
+                                    responsive
+                                    class="reports-table"
+                                    :empty-text="$t('noDepartmentPerformance') || 'لا توجد بيانات أقسام لهذه الفترة'"
+                                >
+                                    <template #cell(reportPeriod)="row">
+                                        <span class="stat-value text-muted small">{{ row.item.reportPeriod }}</span>
+                                    </template>
+                                    <template #cell(department)="row">
+                                        <div class="category-cell">
+                                            <b-icon
+                                                :icon="row.item.isSubDepartment ? 'diagram-2' : 'building'"
+                                                class="category-icon"
+                                            ></b-icon>
+                                            <span>{{ row.item.department }}</span>
+                                        </div>
+                                    </template>
+                                    <template #cell(totalSales)="row">
+                                        <span class="stat-amount">{{ formatPrice(row.item.totalSales) }} {{ $t('currency') }}</span>
+                                    </template>
+                                    <template #cell(withdrawalCost)="row">
+                                        <span class="stat-amount stat-expense">{{ formatPrice(row.item.withdrawalCost || 0) }} {{ $t('currency') }}</span>
+                                    </template>
+                                    <template #cell(contribution)="row">
+                                        <span
+                                            class="stat-amount"
+                                            :class="{ 'stat-expense': Number(row.item.contribution) < 0 }"
+                                        >
+                                            {{ formatPrice(row.item.contribution || 0) }} {{ $t('currency') }}
+                                        </span>
+                                    </template>
+                                    <template #cell(withdrawalCount)="row">
+                                        <span class="stat-value">{{ row.item.withdrawalCount || 0 }}</span>
+                                    </template>
+                                    <template #cell(salesQuantity)="row">
+                                        <span class="stat-value">{{ row.item.salesQuantity || 0 }}</span>
                                     </template>
                                 </b-table>
                             </div>
@@ -1306,6 +1417,7 @@ export default {
                 totalOrders: 0,
             },
             salesByCategory: [],
+            departmentPerformance: { rows: [], summary: null },
             salesByEmployee: [],
             returnedItems: [],
             totalReturnedItems: 0,
@@ -1354,6 +1466,10 @@ export default {
         salesByCategoryForTable() {
             const p = this.advancedReportsPeriodColumn;
             return (this.salesByCategory || []).map((row) => ({ ...row, reportPeriod: p }));
+        },
+        departmentPerformanceForTable() {
+            const p = this.advancedReportsPeriodColumn;
+            return (this.departmentPerformance?.rows || []).map((row) => ({ ...row, reportPeriod: p }));
         },
         salesByEmployeeForTable() {
             const p = this.advancedReportsPeriodColumn;
@@ -1708,6 +1824,45 @@ export default {
                     label: this.$t('averageOrderValue') || 'متوسط قيمة الطلب',
                     sortable: true
                 }
+            ];
+        },
+        departmentPerformanceFields() {
+            return [
+                {
+                    key: 'reportPeriod',
+                    label: this.$t('reportDateRange') || 'فترة التقرير',
+                    sortable: false,
+                },
+                {
+                    key: 'department',
+                    label: this.$t('departmentOrBranch') || 'القسم / الفرع',
+                    sortable: true,
+                },
+                {
+                    key: 'totalSales',
+                    label: this.$t('departmentSales') || 'مبيعات القسم',
+                    sortable: true,
+                },
+                {
+                    key: 'withdrawalCost',
+                    label: this.$t('warehouseWithdrawalCost') || 'تكلفة سحب المخزن',
+                    sortable: true,
+                },
+                {
+                    key: 'contribution',
+                    label: this.$t('salesMinusStockCost') || 'المبيعات − تكلفة المخزن',
+                    sortable: true,
+                },
+                {
+                    key: 'withdrawalCount',
+                    label: this.$t('withdrawalOperationsCount') || 'عدد عمليات السحب',
+                    sortable: true,
+                },
+                {
+                    key: 'salesQuantity',
+                    label: this.$t('salesQuantity') || 'كمية البيع',
+                    sortable: true,
+                },
             ];
         },
         expensesReportFields() {
@@ -2567,6 +2722,8 @@ export default {
                 this.loadTopSellingItems();
             } else if (this.activeTab === 'byCategory') {
                 this.loadSalesByCategory();
+            } else if (this.activeTab === 'byDepartment') {
+                this.loadDepartmentPerformance();
             } else if (this.activeTab === 'byEmployee') {
                 this.loadSalesByEmployee();
             } else if (this.activeTab === 'returnedItems') {
@@ -2641,6 +2798,28 @@ export default {
                 .catch((error) => {
                     this.show = false;
                     console.error('Error loading sales by category:', error);
+                });
+        },
+
+        loadDepartmentPerformance() {
+            this.show = true;
+            const params = new URLSearchParams();
+            if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
+            if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
+
+            HTTP.get(`Admin/GetDepartmentPerformanceReport?${params.toString()}`)
+                .then((response) => {
+                    const data = response.data?.data || {};
+                    this.departmentPerformance = {
+                        rows: data.rows || [],
+                        summary: data.summary || null,
+                    };
+                    this.show = false;
+                })
+                .catch((error) => {
+                    this.show = false;
+                    this.departmentPerformance = { rows: [], summary: null };
+                    console.error('Error loading department performance:', error);
                 });
         },
 
@@ -2862,6 +3041,39 @@ export default {
                             csv += [period, item.category, item.totalSales ?? '', item.totalExpenses ?? '', item.totalQuantity ?? '', item.itemCount ?? '', item.orderCount ?? ''].map(this.csvEscape).join(',') + '\r\n';
                         });
                         this.downloadCsv(csv, `sales_by_category_${dateStr}.csv`);
+                    }
+                } else if (this.activeTab === 'byDepartment') {
+                    const params = new URLSearchParams();
+                    if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
+                    if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
+                    const res = await HTTP.get(`Admin/GetDepartmentPerformanceReport?${params.toString()}`);
+                    const list = res.data?.data?.rows || [];
+                    if (!list.length) {
+                        this.$toast.info(this.$t('noDataToExport') || 'لا توجد بيانات للتصدير', { position: 'top-right', timeout: 3000 });
+                    } else {
+                        const period = this.formatReportPeriod(this.reportFilters.startDate, this.reportFilters.endDate);
+                        const headers = [
+                            this.$t('reportDateRange') || 'فترة التقرير',
+                            this.$t('departmentOrBranch') || 'القسم / الفرع',
+                            this.$t('departmentSales') || 'مبيعات القسم',
+                            this.$t('warehouseWithdrawalCost') || 'تكلفة سحب المخزن',
+                            this.$t('salesMinusStockCost') || 'المبيعات − تكلفة المخزن',
+                            this.$t('withdrawalOperationsCount') || 'عدد عمليات السحب',
+                            this.$t('salesQuantity') || 'كمية البيع',
+                        ];
+                        let csv = headers.map(this.csvEscape).join(',') + '\r\n';
+                        list.forEach((item) => {
+                            csv += [
+                                period,
+                                item.department,
+                                item.totalSales ?? '',
+                                item.withdrawalCost ?? '',
+                                item.contribution ?? '',
+                                item.withdrawalCount ?? '',
+                                item.salesQuantity ?? '',
+                            ].map(this.csvEscape).join(',') + '\r\n';
+                        });
+                        this.downloadCsv(csv, `department_performance_${dateStr}.csv`);
                     }
                 } else if (this.activeTab === 'byEmployee') {
                     const params = new URLSearchParams();

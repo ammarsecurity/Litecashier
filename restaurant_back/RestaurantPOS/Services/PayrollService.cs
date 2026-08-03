@@ -187,12 +187,12 @@ namespace RestaurantPOS.Services
             IEnumerable<PayrollLine> lines,
             CancellationToken ct = default)
         {
-            foreach (var line in lines.Where(l => !l.IsDeleted && l.NetAmount > 0))
+            foreach (var line in lines.Where(l => !l.IsDeleted && l.NetAmount > 0 && !l.LinkedExpenseId.HasValue))
             {
                 var expense = new Expense
                 {
                     Amount = line.NetAmount,
-                    Date = run.PaidAt ?? DateTime.UtcNow,
+                    Date = line.PaidAt ?? run.PaidAt ?? DateTime.UtcNow,
                     Category = SalaryExpenseCategory,
                     Description = $"راتب {run.Year}/{run.Month:D2} — موظف #{line.EmployeeId}",
                     EmployeeId = line.EmployeeId,

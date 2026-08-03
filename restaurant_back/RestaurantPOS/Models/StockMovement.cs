@@ -46,7 +46,7 @@ namespace RestaurantPOS.Models
         [StringLength(1000)]
         public string? Notes { get; set; }
 
-        /// <summary>اسم الموظف الذي استلم السحب (لحركات السحب فقط)</summary>
+        /// <summary>جهة السحب: اسم القسم أو القسم الفرعي (لحركات السحب فقط؛ العمود قديم الاسم)</summary>
         [StringLength(200)]
         public string? ReceivedByEmployeeName { get; set; }
 

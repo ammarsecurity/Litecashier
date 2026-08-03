@@ -24,6 +24,8 @@ export const approvePayrollRun = (id) => HTTP.post(`PayrollRuns/${id}/approve`);
 export const unapprovePayrollRun = (id) =>
   HTTP.post(`PayrollRuns/${id}/unapprove`);
 export const payPayrollRun = (id) => HTTP.post(`PayrollRuns/${id}/pay`);
+export const payPayrollLine = (runId, lineId) =>
+  HTTP.post(`PayrollRuns/${runId}/lines/${lineId}/pay`);
 export const cancelPayrollRun = (id) => HTTP.post(`PayrollRuns/${id}/cancel`);
 export const getPayrollRunReport = (id) => HTTP.get(`PayrollRuns/${id}/report`);
 export const getEmployeePayrollLedger = (employeeId) =>

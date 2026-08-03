@@ -229,6 +229,8 @@ using (var scope = app.Services.CreateScope())
         db.Database.ExecuteSqlRaw(
             MigrationBootstrapSql.EnsureTinyIntBoolColumnSql("PayrollLines", "IsHandedOver"));
         db.Database.ExecuteSqlRaw(
+            MigrationBootstrapSql.EnsureTinyIntBoolColumnSql("PayrollLines", "IsPaid"));
+        db.Database.ExecuteSqlRaw(
             """
             SET @col_exists := (
               SELECT COUNT(*) FROM information_schema.COLUMNS
@@ -239,6 +241,24 @@ using (var scope = app.Services.CreateScope())
               'ALTER TABLE `PayrollLines` ADD COLUMN `HandedOverAt` datetime(6) NULL',
               'SELECT 1');
             PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+            SET @col_exists := (
+              SELECT COUNT(*) FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE()
+                AND LOWER(TABLE_NAME) = 'payrolllines'
+                AND LOWER(COLUMN_NAME) = 'paidat');
+            SET @sql := IF(@col_exists = 0,
+              'ALTER TABLE `PayrollLines` ADD COLUMN `PaidAt` datetime(6) NULL',
+              'SELECT 1');
+            PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+            UPDATE `PayrollLines` pl
+            INNER JOIN `PayrollRuns` pr ON pr.`Id` = pl.`PayrollRunId`
+            SET pl.`IsPaid` = 1,
+                pl.`PaidAt` = COALESCE(pl.`PaidAt`, pr.`PaidAt`, UTC_TIMESTAMP(6))
+            WHERE pr.`Status` = 2
+              AND pl.`IsDeleted` = 0
+              AND pl.`IsPaid` = 0;
             """);
     }
     catch (Exception ex)
@@ -312,19 +332,26 @@ app.MapHub<OrderHub>("/orderHub");
 app.Use(async (context, next) =>
 {
     var path = context.Request.Path.Value ?? "";
-    
+
+    // Never rewrite real API controller prefixes to index.html
+    // (controllers are not under /api in this project)
+    string[] apiPrefixes =
+    [
+        "/api", "/swagger", "/orderHub", "/static", "/Images", "/logs", "/Receipts",
+        "/Inventory", "/Admin", "/Auth", "/Tables", "/Reservations", "/Kitchen",
+        "/Loyalty", "/PublicMenu", "/Sync", "/PaymentDevices", "/CardPayments",
+        "/CreditAccounts", "/Expenses", "/ExpenseCategories", "/Customers",
+        "/Employees", "/DeliveryDrivers", "/Printers", "/TagPrinters", "/AuditLog",
+        "/Payroll", "/Items", "/Users", "/Orders", "/Reports"
+    ];
+    var isApiPath = apiPrefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+
     // If it's not an API route and not a file, rewrite to index.html
-    if (!path.StartsWith("/api", StringComparison.OrdinalIgnoreCase) &&
-        !path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) &&
-        !path.StartsWith("/orderHub", StringComparison.OrdinalIgnoreCase) &&
-        !path.StartsWith("/static", StringComparison.OrdinalIgnoreCase) &&
-        !path.StartsWith("/Images", StringComparison.OrdinalIgnoreCase) &&
-        !path.StartsWith("/logs", StringComparison.OrdinalIgnoreCase) &&
-        !System.IO.Path.HasExtension(path))
+    if (!isApiPath && !System.IO.Path.HasExtension(path))
     {
         context.Request.Path = "/index.html";
     }
-    
+
     await next();
 });
 

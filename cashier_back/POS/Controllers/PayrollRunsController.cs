@@ -398,6 +398,18 @@ namespace POS.Controllers
                     });
                 }
 
+                var anyPaid = await _db.PayrollLines
+                    .AnyAsync(l => l.PayrollRunId == id && !l.IsDeleted && l.IsPaid);
+                if (anyPaid)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "لا يمكن التراجع بعد صرف راتب لأي موظف"
+                    });
+                }
+
                 run.Status = PayrollRunStatus.Draft;
                 run.ApprovedAt = null;
                 run.UpdateDate = DateTime.UtcNow;
@@ -440,16 +452,6 @@ namespace POS.Controllers
                         Message = "دورة الرواتب غير موجودة"
                     });
                 }
-                if (run.Status != PayrollRunStatus.Paid)
-                {
-                    return BadRequest(new GlobalResponse<object>
-                    {
-                        Data = null,
-                        ErrorStatus = true,
-                        Message = "التسليم متاح بعد صرف الدورة فقط"
-                    });
-                }
-
                 var line = await _db.PayrollLines
                     .Include(l => l.Employee)
                     .FirstOrDefaultAsync(l => l.Id == lineId && l.PayrollRunId == runId && !l.IsDeleted);
@@ -460,6 +462,15 @@ namespace POS.Controllers
                         Data = null,
                         ErrorStatus = true,
                         Message = "سطر الراتب غير موجود"
+                    });
+                }
+                if (!line.IsPaid)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "التسليم متاح بعد صرف راتب الموظف فقط"
                     });
                 }
 
@@ -547,6 +558,90 @@ namespace POS.Controllers
         }
 
         [AuthorizeSection("payroll", "employees", Roles = "Commercial,Admin")]
+        [HttpPost("{runId}/lines/{lineId}/pay")]
+        public async Task<ActionResult<GlobalResponse<object>>> PayLine(int runId, int lineId)
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var run = await _db.PayrollRuns
+                    .FirstOrDefaultAsync(r => r.Id == runId && !r.IsDeleted && r.InsertByUserId == commercialUserId);
+                if (run == null)
+                {
+                    return NotFound(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "دورة الرواتب غير موجودة"
+                    });
+                }
+                if (run.Status != PayrollRunStatus.Approved)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "يجب اعتماد الدورة قبل الدفع"
+                    });
+                }
+
+                var line = await _db.PayrollLines
+                    .FirstOrDefaultAsync(l => l.Id == lineId && l.PayrollRunId == runId && !l.IsDeleted);
+                if (line == null)
+                {
+                    return NotFound(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "سطر الراتب غير موجود"
+                    });
+                }
+                if (line.IsPaid)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "تم صرف راتب هذا الموظف مسبقاً"
+                    });
+                }
+
+                var strategy = _db.Database.CreateExecutionStrategy();
+                await strategy.ExecuteAsync(async () =>
+                {
+                    await using var tx = await _db.Database.BeginTransactionAsync();
+                    try
+                    {
+                        await PayUnpaidLinesAsync(commercialUserId, run, new List<PayrollLine> { line });
+                        await tx.CommitAsync();
+                    }
+                    catch
+                    {
+                        await tx.RollbackAsync();
+                        throw;
+                    }
+                });
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = await LoadRunAsync(runId, commercialUserId),
+                    ErrorStatus = false,
+                    Message = "تم صرف راتب الموظف"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error paying payroll line {LineId} on run {RunId}", lineId, runId);
+                return StatusCode(500, new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = ex.Message
+                });
+            }
+        }
+
+        [AuthorizeSection("payroll", "employees", Roles = "Commercial,Admin")]
         [HttpPost("{id}/pay")]
         public async Task<ActionResult<GlobalResponse<object>>> Pay(int id)
         {
@@ -574,28 +669,34 @@ namespace POS.Controllers
                     });
                 }
 
-                var lines = await _db.PayrollLines
-                    .Where(l => l.PayrollRunId == id && !l.IsDeleted)
+                var unpaid = await _db.PayrollLines
+                    .Where(l => l.PayrollRunId == id && !l.IsDeleted && !l.IsPaid)
                     .ToListAsync();
-
-                await using var tx = await _db.Database.BeginTransactionAsync();
-                try
+                if (unpaid.Count == 0)
                 {
-                    await _payroll.ApplyAdvanceDeductionsAsync(commercialUserId, lines);
-                    run.Status = PayrollRunStatus.Paid;
-                    run.PaidAt = DateTime.UtcNow;
-                    run.UpdateDate = DateTime.UtcNow;
-                    await _db.SaveChangesAsync();
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "لا توجد رواتب متبقية للصرف"
+                    });
+                }
 
-                    await _payroll.CreateSalaryExpensesAsync(commercialUserId, run, lines);
-                    await _db.SaveChangesAsync();
-                    await tx.CommitAsync();
-                }
-                catch
+                var strategy = _db.Database.CreateExecutionStrategy();
+                await strategy.ExecuteAsync(async () =>
                 {
-                    await tx.RollbackAsync();
-                    throw;
-                }
+                    await using var tx = await _db.Database.BeginTransactionAsync();
+                    try
+                    {
+                        await PayUnpaidLinesAsync(commercialUserId, run, unpaid);
+                        await tx.CommitAsync();
+                    }
+                    catch
+                    {
+                        await tx.RollbackAsync();
+                        throw;
+                    }
+                });
 
                 return Ok(new GlobalResponse<object>
                 {
@@ -614,6 +715,36 @@ namespace POS.Controllers
                     Message = ex.Message
                 });
             }
+        }
+
+        /// <summary>صرف سطور غير مصروفة: خصم سلف + مصروفات + تعليم IsPaid. يحدّث الدورة إلى Paid عند اكتمال الكل.</summary>
+        private async Task PayUnpaidLinesAsync(int commercialUserId, PayrollRun run, List<PayrollLine> unpaidLines)
+        {
+            var now = DateTime.UtcNow;
+            await _payroll.ApplyAdvanceDeductionsAsync(commercialUserId, unpaidLines);
+            foreach (var line in unpaidLines)
+            {
+                line.IsPaid = true;
+                line.PaidAt = now;
+                line.UpdateDate = now;
+            }
+            await _db.SaveChangesAsync();
+
+            await _payroll.CreateSalaryExpensesAsync(commercialUserId, run, unpaidLines);
+
+            var anyUnpaidLeft = await _db.PayrollLines
+                .AnyAsync(l => l.PayrollRunId == run.Id && !l.IsDeleted && !l.IsPaid);
+            if (!anyUnpaidLeft)
+            {
+                run.Status = PayrollRunStatus.Paid;
+                run.PaidAt = now;
+                run.UpdateDate = now;
+            }
+            else
+            {
+                run.UpdateDate = now;
+            }
+            await _db.SaveChangesAsync();
         }
 
         [AuthorizeSection("payroll", "employees", Roles = "Commercial,Admin")]
@@ -641,6 +772,18 @@ namespace POS.Controllers
                         Data = null,
                         ErrorStatus = true,
                         Message = "لا يمكن إلغاء دورة مدفوعة"
+                    });
+                }
+
+                var anyPaid = await _db.PayrollLines
+                    .AnyAsync(l => l.PayrollRunId == id && !l.IsDeleted && l.IsPaid);
+                if (anyPaid)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "لا يمكن إلغاء الدورة بعد صرف راتب لأي موظف"
                     });
                 }
 

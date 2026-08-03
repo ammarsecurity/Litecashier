@@ -119,15 +119,6 @@
               </span>
             </button>
           </form>
-
-          <div class="form-developer-section login-card-developer">
-            <p class="developer-main-text">
-              {{ $t("developedBy") }}
-              <a :href="$t('companyWebsite')" class="developer-link-button" target="_blank" rel="noopener">
-                {{ $t("companyName") }}
-              </a>
-            </p>
-          </div>
         </div>
 
         <div class="login-feature-chips" aria-hidden="true">

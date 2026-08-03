@@ -19,7 +19,14 @@ namespace RestaurantPOS.Models.Requests
         [StringLength(1000)]
         public string? Notes { get; set; }
 
-        /// <summary>اسم الموظف الذي استلم الكمية المسحوبة (إلزامي)</summary>
+        /// <summary>معرف القسم (رئيسي أو فرعي) الذي يُسحب له</summary>
+        public int? TagId { get; set; }
+
+        /// <summary>اسم القسم/القسم الفرعي عند الإرسال المباشر (بديل عن TagId)</summary>
+        [StringLength(200)]
+        public string? ReceivedByDepartmentName { get; set; }
+
+        /// <summary>توافق قديم — يُستخدم كاحتياطي لاسم الجهة المستلمة</summary>
         [StringLength(200)]
         public string? ReceivedByEmployeeName { get; set; }
     }

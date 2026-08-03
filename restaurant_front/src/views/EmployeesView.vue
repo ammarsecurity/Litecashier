@@ -303,17 +303,39 @@
               <option :value="false">{{ $t("inactive") || "غير نشط" }}</option>
             </select>
           </div>
-          <div class="users-form-actions">
-            <button type="button" class="users-form-button users-form-button-secondary" @click="$router.push('/payroll')">
+          <div class="users-form-actions employees-form-actions">
+            <button
+              type="button"
+              class="users-form-cancel-button employees-payroll-btn"
+              @click="$router.push('/payroll')"
+            >
+              <b-icon icon="wallet2" class="me-2"></b-icon>
               {{ $t("payrollAndAdvances") || "الرواتب والسلف" }}
             </button>
-            <button type="button" class="users-form-cancel-button" @click="showEmployeeModal = false" :disabled="savingEmployee">
-              {{ $t("cancel") || "إلغاء" }}
-            </button>
-            <button type="submit" class="users-form-submit-button" :disabled="savingEmployee">
-              <b-spinner small v-if="savingEmployee" class="me-2"></b-spinner>
-              {{ savingEmployee ? (selectedEmployee ? ($t("updating") || "جاري التحديث...") : ($t("adding") || "جاري الإضافة...")) : (selectedEmployee ? ($t("update") || "تحديث") : ($t("add") || "إضافة")) }}
-            </button>
+            <div class="employees-form-actions-main">
+              <button
+                type="button"
+                class="users-form-cancel-button"
+                @click="showEmployeeModal = false"
+                :disabled="savingEmployee"
+              >
+                <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                {{ $t("cancel") || "إلغاء" }}
+              </button>
+              <button type="submit" class="users-form-submit-button" :disabled="savingEmployee">
+                <b-spinner small v-if="savingEmployee" class="me-2"></b-spinner>
+                <b-icon
+                  v-else
+                  :icon="selectedEmployee ? 'check-circle-fill' : 'plus-circle-fill'"
+                  class="me-2"
+                ></b-icon>
+                {{
+                  savingEmployee
+                    ? (selectedEmployee ? ($t("updating") || "جاري التحديث...") : ($t("adding") || "جاري الإضافة..."))
+                    : (selectedEmployee ? ($t("update") || "تحديث") : ($t("add") || "إضافة"))
+                }}
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -579,9 +601,64 @@ export default {
   gap: 1rem;
 }
 
+.employees-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.employees-form-actions-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: min(100%, 18rem);
+}
+
+.employees-form-actions-main .users-form-cancel-button,
+.employees-form-actions-main .users-form-submit-button {
+  flex: 1 1 8rem;
+  min-width: 8rem;
+}
+
+.employees-payroll-btn {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  padding-inline: 1.1rem;
+  white-space: nowrap;
+  border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
+  color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 8%, var(--bg-primary));
+}
+
+.employees-payroll-btn:hover {
+  background: color-mix(in srgb, var(--primary-color) 16%, var(--bg-primary));
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
 @media (max-width: 768px) {
   .modal-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .employees-form-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .employees-form-actions-main {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .employees-payroll-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>

@@ -203,6 +203,7 @@ namespace RestaurantPOS.Controllers
                     receiptNumber = receiptNum,
                     notes = CleanNotesFromReceiptNumber(x.Notes),
                     receivedByEmployeeName = x.MovementType == "Withdraw" ? x.ReceivedByEmployeeName : null,
+                    receivedByDepartmentName = x.MovementType == "Withdraw" ? x.ReceivedByEmployeeName : null,
                     receiptFileName = attachFile,
                     receiptAttachmentUrl = attachUrl,
                     receiptAttachmentPath = attachUrl,
@@ -412,7 +413,7 @@ namespace RestaurantPOS.Controllers
             });
         }
 
-        /// <summary>سحب كمية من المخزن حسب اسم المادة</summary>
+        /// <summary>سحب كمية من المخزن لقسم أو قسم فرعي</summary>
         [HttpPost("WithdrawStock")]
         public async Task<ActionResult<GlobalResponse<object>>> WithdrawStock([FromBody] WithdrawStockRequest request)
         {
@@ -434,9 +435,9 @@ namespace RestaurantPOS.Controllers
             if (currentBalance < request.Quantity)
                 return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "الكمية المتاحة في المخزن غير كافية" });
 
-            var receivedBy = request.ReceivedByEmployeeName?.Trim() ?? "";
+            var receivedBy = await ResolveWithdrawDepartmentNameAsync(commercialUserId, request);
             if (string.IsNullOrEmpty(receivedBy))
-                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "يجب تحديد الموظف الذي استلم السحب" });
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "يجب تحديد القسم أو القسم الفرعي للسحب" });
 
             var movement = new StockMovement
             {
@@ -457,6 +458,487 @@ namespace RestaurantPOS.Controllers
                 ErrorStatus = false,
                 Message = "تم سحب الكمية بنجاح"
             });
+        }
+
+        /// <summary>أقسام السحب (رئيسي وفرعي) ضمن نطاق المستخدم التجاري</summary>
+        [HttpGet("GetWithdrawDepartments")]
+        public async Task<ActionResult<GlobalResponse<object>>> GetWithdrawDepartments()
+        {
+            var commercialUserId = GetCommercialUserId();
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+            var tags = await _dbConfig.Tags
+                .AsNoTracking()
+                .Include(x => x.User)
+                .Where(x => !x.IsDeleted && (
+                    x.InsertByUserId == commercialUserId ||
+                    x.InsertByUserId == userId ||
+                    (x.User != null && (x.User.Id == commercialUserId || x.User.InsertByUserId == userId || x.User.InsertByUserId == commercialUserId))
+                ))
+                .OrderBy(x => x.Name)
+                .Select(x => new { id = x.Id, name = x.Name, parentTagId = x.ParentTagId })
+                .ToListAsync();
+
+            return Ok(new GlobalResponse<object>
+            {
+                Data = tags,
+                ErrorStatus = false,
+                Message = "Success"
+            });
+        }
+
+        /// <summary>تعديل مادة في دفعة مخزن (اسم / وحدة / إجمالي الداخل)</summary>
+        [HttpPut("UpdateStockLine")]
+        public async Task<ActionResult<GlobalResponse<object>>> UpdateStockLine([FromBody] UpdateStockLineRequest request)
+        {
+            var commercialUserId = GetCommercialUserId();
+            var originalName = request.MaterialName?.Trim() ?? "";
+            var newName = request.NewMaterialName?.Trim() ?? "";
+            if (string.IsNullOrEmpty(originalName) || string.IsNullOrEmpty(newName))
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "اسم المادة مطلوب" });
+
+            var receiptKey = NormalizeReceiptNumber(request.ReceiptNumber) ?? "";
+            var slotMovements = await LoadSlotMovementsAsync(commercialUserId, originalName, receiptKey);
+            if (slotMovements.Count == 0)
+                return NotFound(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "المادة غير موجودة في المخزن" });
+
+            var totalWithdrawn = slotMovements.Where(m => m.MovementType == "Withdraw").Sum(m => m.Quantity);
+            var addMovements = slotMovements.Where(m => m.MovementType == "Add").OrderBy(m => m.InsertDate).ToList();
+            if (addMovements.Count == 0)
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "لا توجد إدخالات لهذه المادة" });
+
+            if (request.TotalAddedQuantity.HasValue)
+            {
+                if (request.TotalAddedQuantity.Value < totalWithdrawn)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = $"لا يمكن تقليل الكمية المدخلة عن المسحوب ({totalWithdrawn})"
+                    });
+                }
+
+                var currentAdded = addMovements.Sum(m => m.Quantity);
+                var target = request.TotalAddedQuantity.Value;
+                if (target != currentAdded)
+                {
+                    var lastAdd = addMovements.Last();
+                    var othersSum = currentAdded - lastAdd.Quantity;
+                    var newLastQty = target - othersSum;
+                    if (newLastQty <= 0)
+                    {
+                        return BadRequest(new GlobalResponse<object>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "تعذر تعديل الكمية بهذه الطريقة؛ راجع حركات الإضافة"
+                        });
+                    }
+
+                    if (lastAdd.Amount.HasValue && lastAdd.Quantity > 0)
+                    {
+                        var unit = lastAdd.Amount.Value / lastAdd.Quantity;
+                        lastAdd.Amount = Math.Round(unit * newLastQty, 2, MidpointRounding.AwayFromZero);
+                    }
+                    lastAdd.Quantity = newLastQty;
+                    lastAdd.UpdateDate = DateTime.Now;
+                }
+            }
+
+            var renamed = !string.Equals(originalName, newName, StringComparison.Ordinal);
+            if (renamed)
+            {
+                var conflict = await _dbConfig.StockMovements
+                    .Where(x => !x.IsDeleted && x.InsertByUserId == commercialUserId && x.MaterialName.Trim() == newName)
+                    .ToListAsync();
+                if (conflict.Any(x => InventoryReceiptKey(x) == receiptKey))
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "يوجد مادة بنفس الاسم ورقم الوصل بالفعل"
+                    });
+                }
+            }
+
+            foreach (var m in slotMovements)
+            {
+                if (renamed)
+                    m.MaterialName = newName;
+                if (m.MovementType == "Add" && request.UnitType != null)
+                    m.UnitType = string.IsNullOrWhiteSpace(request.UnitType) ? null : request.UnitType.Trim();
+                m.UpdateDate = DateTime.Now;
+            }
+
+            await _dbConfig.SaveChangesAsync();
+            return Ok(new GlobalResponse<object> { Data = null, ErrorStatus = false, Message = "تم تعديل المادة بنجاح" });
+        }
+
+        /// <summary>حذف مادة من المخزن (كل حركات الدفعة)</summary>
+        [HttpPost("DeleteStockLine")]
+        public async Task<ActionResult<GlobalResponse<object>>> DeleteStockLine([FromBody] DeleteStockLineRequest request)
+        {
+            var commercialUserId = GetCommercialUserId();
+            var name = request.MaterialName?.Trim() ?? "";
+            if (string.IsNullOrEmpty(name))
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "اسم المادة مطلوب" });
+
+            var receiptKey = NormalizeReceiptNumber(request.ReceiptNumber) ?? "";
+            var slotMovements = await LoadSlotMovementsAsync(commercialUserId, name, receiptKey);
+            if (slotMovements.Count == 0)
+                return NotFound(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "المادة غير موجودة في المخزن" });
+
+            foreach (var m in slotMovements)
+            {
+                m.IsDeleted = true;
+                m.UpdateDate = DateTime.Now;
+            }
+
+            await _dbConfig.SaveChangesAsync();
+            return Ok(new GlobalResponse<object> { Data = null, ErrorStatus = false, Message = "تم حذف المادة من المخزن بنجاح" });
+        }
+
+        /// <summary>جلب فاتورة مخزون كاملة برقم الوصل</summary>
+        [HttpGet("GetStockInvoice")]
+        public async Task<ActionResult<GlobalResponse<object>>> GetStockInvoice([FromQuery] string receiptNumber)
+        {
+            var commercialUserId = GetCommercialUserId();
+            var receiptKey = NormalizeReceiptNumber(receiptNumber);
+            if (string.IsNullOrEmpty(receiptKey))
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "رقم الوصل مطلوب" });
+
+            var movements = await _dbConfig.StockMovements
+                .Where(x => !x.IsDeleted && x.InsertByUserId == commercialUserId)
+                .ToListAsync();
+            var invoiceMoves = movements.Where(x => InventoryReceiptKey(x) == receiptKey).ToList();
+            if (invoiceMoves.Count == 0)
+                return Ok(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "الفاتورة غير موجودة" });
+
+            var adds = invoiceMoves.Where(m => m.MovementType == "Add").OrderBy(m => m.InsertDate).ToList();
+            if (adds.Count == 0)
+                return Ok(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "لا توجد مواد إدخال لهذه الفاتورة" });
+
+            var firstAdd = adds.First();
+            var latestAttach = adds
+                .Where(m => !string.IsNullOrWhiteSpace(m.ReceiptAttachmentPath))
+                .OrderByDescending(m => m.InsertDate)
+                .FirstOrDefault();
+
+            var items = adds.Select(a =>
+            {
+                var withdrawn = invoiceMoves
+                    .Where(w => w.MovementType == "Withdraw" && w.MaterialName.Trim() == a.MaterialName.Trim())
+                    .Sum(w => w.Quantity);
+                var unitPrice = a.Quantity > 0 && a.Amount.HasValue
+                    ? Math.Round(a.Amount.Value / a.Quantity, 2, MidpointRounding.AwayFromZero)
+                    : 0m;
+                return new
+                {
+                    id = a.Id,
+                    materialName = a.MaterialName,
+                    quantity = a.Quantity,
+                    amount = a.Amount,
+                    unitPrice,
+                    unitType = a.UnitType,
+                    withdrawnQuantity = withdrawn,
+                    canDelete = withdrawn <= 0
+                };
+            }).ToList();
+
+            return Ok(new GlobalResponse<object>
+            {
+                Data = new
+                {
+                    receiptNumber = receiptKey,
+                    supplierName = firstAdd.SupplierName,
+                    notes = CleanNotesFromReceiptNumber(firstAdd.Notes),
+                    receiptAttachmentPath = BuildReceiptPublicUrl(latestAttach?.ReceiptAttachmentPath),
+                    receiptFileName = latestAttach?.ReceiptAttachmentPath,
+                    items
+                },
+                ErrorStatus = false,
+                Message = "Success"
+            });
+        }
+
+        /// <summary>تعديل فاتورة مخزون كاملة (رأس + أسطر)</summary>
+        [HttpPut("UpdateStockBatch")]
+        public async Task<ActionResult<GlobalResponse<object>>> UpdateStockBatch(
+            [FromForm] string originalReceiptNumber,
+            [FromForm] string? supplierName,
+            [FromForm] string? receiptNumber,
+            [FromForm] string? notes,
+            [FromForm] string itemsJson,
+            [FromForm] IFormFile? receiptFile)
+        {
+            var commercialUserId = GetCommercialUserId();
+            var originalKey = NormalizeReceiptNumber(originalReceiptNumber);
+            if (string.IsNullOrEmpty(originalKey))
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "رقم الوصل الأصلي مطلوب" });
+
+            if (string.IsNullOrWhiteSpace(itemsJson))
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "قائمة المواد مطلوبة" });
+
+            List<UpdateStockBatchItem>? parsedItems;
+            try
+            {
+                parsedItems = JsonSerializer.Deserialize<List<UpdateStockBatchItem>>(itemsJson, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = $"تنسيق قائمة المواد غير صحيح: {ex.Message}" });
+            }
+
+            var validItems = (parsedItems ?? new List<UpdateStockBatchItem>())
+                .Where(x => !string.IsNullOrWhiteSpace(x.MaterialName) && x.Quantity > 0)
+                .ToList();
+            if (!validItems.Any())
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "يجب إدخال مادة واحدة على الأقل مع كمية صحيحة" });
+
+            var allMoves = await _dbConfig.StockMovements
+                .Where(x => !x.IsDeleted && x.InsertByUserId == commercialUserId)
+                .ToListAsync();
+            var invoiceMoves = allMoves.Where(x => InventoryReceiptKey(x) == originalKey).ToList();
+            if (invoiceMoves.Count == 0)
+                return NotFound(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "الفاتورة غير موجودة" });
+
+            var existingAdds = invoiceMoves.Where(m => m.MovementType == "Add").ToList();
+            var newKey = NormalizeReceiptNumber(receiptNumber) ?? originalKey;
+
+            if (!string.Equals(newKey, originalKey, StringComparison.Ordinal))
+            {
+                if (allMoves.Any(x => InventoryReceiptKey(x) == newKey && !invoiceMoves.Contains(x)))
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "رقم الوصل الجديد مستخدم بالفعل في فاتورة أخرى"
+                    });
+                }
+            }
+
+            foreach (var item in validItems)
+            {
+                var mat = item.MaterialName.Trim();
+                var withdrawn = invoiceMoves
+                    .Where(w => w.MovementType == "Withdraw" && w.MaterialName.Trim() == mat)
+                    .Sum(w => w.Quantity);
+                if (item.Id.HasValue)
+                {
+                    var add = existingAdds.FirstOrDefault(a => a.Id == item.Id.Value);
+                    if (add != null)
+                    {
+                        var withdrawnForOld = invoiceMoves
+                            .Where(w => w.MovementType == "Withdraw" && w.MaterialName.Trim() == add.MaterialName.Trim())
+                            .Sum(w => w.Quantity);
+                        if (item.Quantity < withdrawnForOld)
+                        {
+                            return BadRequest(new GlobalResponse<object>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = $"كمية المادة «{add.MaterialName}» لا يمكن أن تقل عن المسحوب ({withdrawnForOld})"
+                            });
+                        }
+                    }
+                }
+                else if (item.Quantity < withdrawn && existingAdds.Any(a => a.MaterialName.Trim() == mat))
+                {
+                    // new row replacing same name — still check
+                    if (item.Quantity < withdrawn)
+                    {
+                        return BadRequest(new GlobalResponse<object>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = $"كمية المادة «{mat}» لا يمكن أن تقل عن المسحوب ({withdrawn})"
+                        });
+                    }
+                }
+            }
+
+            var keepIds = validItems.Where(x => x.Id.HasValue).Select(x => x.Id!.Value).ToHashSet();
+            foreach (var add in existingAdds)
+            {
+                if (keepIds.Contains(add.Id)) continue;
+                var withdrawn = invoiceMoves
+                    .Where(w => w.MovementType == "Withdraw" && w.MaterialName.Trim() == add.MaterialName.Trim())
+                    .Sum(w => w.Quantity);
+                if (withdrawn > 0)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = $"لا يمكن حذف المادة «{add.MaterialName}» لوجود سحوبات عليها"
+                    });
+                }
+                add.IsDeleted = true;
+                add.UpdateDate = DateTime.Now;
+            }
+
+            string? receiptPath = null;
+            if (receiptFile != null && receiptFile.Length > 0)
+            {
+                try
+                {
+                    receiptPath = await UploadReceiptAsync(receiptFile);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Receipt upload failed");
+                    return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "فشل رفع مرفق الوصل: " + ex.Message });
+                }
+            }
+
+            var supplier = supplierName?.Trim();
+            var builtNotes = BuildNotesWithReceiptNumber(newKey, notes);
+            var existingAttachment = existingAdds
+                .Where(a => !a.IsDeleted && !string.IsNullOrWhiteSpace(a.ReceiptAttachmentPath))
+                .OrderByDescending(a => a.InsertDate)
+                .Select(a => a.ReceiptAttachmentPath)
+                .FirstOrDefault();
+            var attachmentToUse = receiptPath ?? existingAttachment;
+
+            foreach (var item in validItems)
+            {
+                var amount = item.Amount ?? (item.UnitPrice * item.Quantity);
+                if (item.Id.HasValue)
+                {
+                    var add = existingAdds.FirstOrDefault(a => a.Id == item.Id.Value && !a.IsDeleted);
+                    if (add == null) continue;
+
+                    var oldName = add.MaterialName.Trim();
+                    var newMatName = item.MaterialName.Trim();
+                    add.MaterialName = newMatName;
+                    add.Quantity = item.Quantity;
+                    add.Amount = amount;
+                    add.UnitType = item.UnitType?.Trim();
+                    add.SupplierName = supplier;
+                    add.ReceiptNumber = newKey;
+                    add.Notes = builtNotes;
+                    if (attachmentToUse != null)
+                        add.ReceiptAttachmentPath = attachmentToUse;
+                    add.UpdateDate = DateTime.Now;
+
+                    if (!string.Equals(oldName, newMatName, StringComparison.Ordinal))
+                    {
+                        foreach (var w in invoiceMoves.Where(x => x.MovementType == "Withdraw" && x.MaterialName.Trim() == oldName))
+                        {
+                            w.MaterialName = newMatName;
+                            w.ReceiptNumber = newKey;
+                            w.UpdateDate = DateTime.Now;
+                        }
+                    }
+                    else
+                    {
+                        foreach (var w in invoiceMoves.Where(x => x.MovementType == "Withdraw" && x.MaterialName.Trim() == newMatName))
+                        {
+                            w.ReceiptNumber = newKey;
+                            w.UpdateDate = DateTime.Now;
+                        }
+                    }
+                }
+                else
+                {
+                    _dbConfig.StockMovements.Add(new StockMovement
+                    {
+                        MaterialName = item.MaterialName.Trim(),
+                        MovementType = "Add",
+                        Quantity = item.Quantity,
+                        SupplierName = supplier,
+                        Amount = amount,
+                        UnitType = item.UnitType?.Trim(),
+                        ReceiptAttachmentPath = attachmentToUse,
+                        ReceiptNumber = newKey,
+                        Notes = builtNotes,
+                        InsertByUserId = commercialUserId
+                    });
+                }
+            }
+
+            // تحديث رقم الوصل على أي سحوبات متبقية لم تُحدَّث أعلاه
+            foreach (var w in invoiceMoves.Where(x => x.MovementType == "Withdraw" && !x.IsDeleted))
+            {
+                w.ReceiptNumber = newKey;
+                w.UpdateDate = DateTime.Now;
+            }
+
+            await _dbConfig.SaveChangesAsync();
+            return Ok(new GlobalResponse<object> { Data = new { receiptNumber = newKey }, ErrorStatus = false, Message = "تم تعديل الفاتورة بنجاح" });
+        }
+
+        /// <summary>حذف فاتورة مخزون كاملة برقم الوصل</summary>
+        [HttpDelete("DeleteStockInvoice")]
+        public async Task<ActionResult<GlobalResponse<object>>> DeleteStockInvoice([FromQuery] string receiptNumber)
+        {
+            var commercialUserId = GetCommercialUserId();
+            var receiptKey = NormalizeReceiptNumber(receiptNumber);
+            if (string.IsNullOrEmpty(receiptKey))
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "رقم الوصل مطلوب" });
+
+            var movements = await _dbConfig.StockMovements
+                .Where(x => !x.IsDeleted && x.InsertByUserId == commercialUserId)
+                .ToListAsync();
+            var invoiceMoves = movements.Where(x => InventoryReceiptKey(x) == receiptKey).ToList();
+            if (invoiceMoves.Count == 0)
+                return Ok(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "الفاتورة غير موجودة" });
+
+            foreach (var m in invoiceMoves)
+            {
+                m.IsDeleted = true;
+                m.UpdateDate = DateTime.Now;
+            }
+
+            await _dbConfig.SaveChangesAsync();
+            return Ok(new GlobalResponse<object>
+            {
+                Data = new { deletedCount = invoiceMoves.Count },
+                ErrorStatus = false,
+                Message = "تم حذف الفاتورة بالكامل بنجاح"
+            });
+        }
+
+        private async Task<List<StockMovement>> LoadSlotMovementsAsync(int commercialUserId, string materialName, string receiptKey)
+        {
+            var movements = await _dbConfig.StockMovements
+                .Where(x => !x.IsDeleted && x.InsertByUserId == commercialUserId && x.MaterialName.Trim() == materialName)
+                .ToListAsync();
+            return movements.Where(x => InventoryReceiptKey(x) == receiptKey).ToList();
+        }
+
+        private async Task<string?> ResolveWithdrawDepartmentNameAsync(int commercialUserId, WithdrawStockRequest request)
+        {
+            if (request.TagId.HasValue && request.TagId.Value > 0)
+            {
+                var tag = await _dbConfig.Tags.AsNoTracking()
+                    .Include(t => t.User)
+                    .FirstOrDefaultAsync(t => t.Id == request.TagId.Value && !t.IsDeleted && (
+                        t.InsertByUserId == commercialUserId ||
+                        (t.User != null && (t.User.Id == commercialUserId || t.User.InsertByUserId == commercialUserId))
+                    ));
+                if (tag == null)
+                    return null;
+
+                if (tag.ParentTagId.HasValue)
+                {
+                    var parent = await _dbConfig.Tags.AsNoTracking()
+                        .FirstOrDefaultAsync(t => t.Id == tag.ParentTagId.Value && !t.IsDeleted);
+                    if (parent != null && !string.IsNullOrWhiteSpace(parent.Name))
+                        return $"{parent.Name.Trim()} › {tag.Name?.Trim()}".Trim();
+                }
+
+                return tag.Name?.Trim();
+            }
+
+            var direct = request.ReceivedByDepartmentName?.Trim()
+                ?? request.ReceivedByEmployeeName?.Trim();
+            return string.IsNullOrWhiteSpace(direct) ? null : direct;
         }
 
         private async Task<string> UploadReceiptAsync(IFormFile file)
@@ -609,6 +1091,16 @@ namespace RestaurantPOS.Controllers
 
         private class AddStockBatchItem
         {
+            public string MaterialName { get; set; } = string.Empty;
+            public decimal Quantity { get; set; }
+            public decimal UnitPrice { get; set; }
+            public decimal? Amount { get; set; }
+            public string? UnitType { get; set; }
+        }
+
+        private class UpdateStockBatchItem
+        {
+            public int? Id { get; set; }
             public string MaterialName { get; set; } = string.Empty;
             public decimal Quantity { get; set; }
             public decimal UnitPrice { get; set; }

@@ -346,7 +346,7 @@
                       {{ $t("approve") }}
                     </button>
                     <button
-                      v-if="selectedRun.status === 1"
+                      v-if="selectedRun.status === 1 && !hasAnyPaidLine"
                       type="button"
                       class="users-form-cancel-button"
                       @click="onUnapprove"
@@ -354,7 +354,7 @@
                       {{ $t("unapprove") }}
                     </button>
                     <button
-                      v-if="selectedRun.status === 1"
+                      v-if="selectedRun.status === 1 && hasUnpaidLines"
                       type="button"
                       class="users-add-button"
                       @click="onPay"
@@ -362,7 +362,7 @@
                       {{ $t("payPayroll") }}
                     </button>
                     <button
-                      v-if="selectedRun.status === 0 || selectedRun.status === 1"
+                      v-if="(selectedRun.status === 0 || selectedRun.status === 1) && !hasAnyPaidLine"
                       type="button"
                       class="users-form-cancel-button"
                       @click="onCancelRun"
@@ -463,23 +463,50 @@
                               <b-icon icon="check-lg" class="action-icon"></b-icon>
                             </button>
                             <button
-                              v-if="selectedRun.status === 2"
+                              v-if="selectedRun.status === 1 && !line.isPaid"
                               type="button"
                               class="action-btn action-btn--icon action-btn--edit"
-                              :title="line.isHandedOver ? $t('payrollReprintReceipt') : $t('payrollHandover')"
+                              :title="$t('payPayrollLine')"
+                              @click="onPayLine(line)"
+                            >
+                              <b-icon icon="wallet2" class="action-icon"></b-icon>
+                            </button>
+                            <button
+                              v-if="line.isPaid && !line.isHandedOver"
+                              type="button"
+                              class="action-btn action-btn--icon action-btn--success"
+                              :title="$t('payrollLinePaid')"
+                              disabled
+                            >
+                              <b-icon icon="wallet2" class="action-icon"></b-icon>
+                            </button>
+                            <button
+                              v-if="line.isPaid && !line.isHandedOver"
+                              type="button"
+                              class="action-btn action-btn--icon action-btn--edit"
+                              :title="$t('payrollHandover')"
                               @click="onHandover(line)"
                             >
-                              <b-icon
-                                :icon="line.isHandedOver ? 'printer' : 'person-check'"
-                                class="action-icon"
-                              ></b-icon>
+                              <b-icon icon="person-check" class="action-icon"></b-icon>
                             </button>
-                            <span
-                              v-if="selectedRun.status === 2 && line.isHandedOver"
-                              class="payroll-badge is-active"
+                            <button
+                              v-if="line.isHandedOver"
+                              type="button"
+                              class="action-btn action-btn--icon action-btn--success"
+                              :title="$t('payrollHandedOver')"
+                              disabled
                             >
-                              {{ $t("payrollHandedOver") }}
-                            </span>
+                              <b-icon icon="person-check" class="action-icon"></b-icon>
+                            </button>
+                            <button
+                              v-if="line.isHandedOver"
+                              type="button"
+                              class="action-btn action-btn--icon action-btn--edit"
+                              :title="$t('payrollReprintReceipt')"
+                              @click="onHandover(line)"
+                            >
+                              <b-icon icon="printer" class="action-icon"></b-icon>
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -576,92 +603,164 @@
                 </div>
               </div>
             </div>
-            <div class="app-section-body">
-              <div class="app-filters-panel app-filters-panel--inset">
-                <div class="app-filters-fields app-filters-fields--2">
-                  <div class="users-form-group">
-                    <label class="users-form-label">{{ $t("payrollRun") }}</label>
-                    <select
-                      v-model.number="reportRunId"
-                      class="users-form-input"
-                      @change="loadRunReport"
-                    >
-                      <option :value="0">{{ $t("payrollSelectOption") }}</option>
-                      <option v-for="run in runs" :key="'r' + run.id" :value="run.id">
-                        {{ run.year }}/{{ String(run.month).padStart(2, "0") }}
-                      </option>
-                    </select>
+            <div class="app-section-body payroll-reports-body">
+              <div class="payroll-reports-filters">
+                <div class="payroll-reports-filter">
+                  <label class="users-form-label">
+                    <b-icon icon="calendar2-week" class="payroll-filter-icon"></b-icon>
+                    {{ $t("payrollRun") }}
+                  </label>
+                  <select
+                    v-model.number="reportRunId"
+                    class="users-form-input"
+                    @change="loadRunReport"
+                  >
+                    <option :value="0">{{ $t("payrollSelectOption") }}</option>
+                    <option v-for="run in runs" :key="'r' + run.id" :value="run.id">
+                      {{ run.year }}/{{ String(run.month).padStart(2, "0") }}
+                    </option>
+                  </select>
+                </div>
+                <div class="payroll-reports-filter">
+                  <label class="users-form-label">
+                    <b-icon icon="person-badge" class="payroll-filter-icon"></b-icon>
+                    {{ $t("payrollEmployee") }}
+                  </label>
+                  <select
+                    v-model.number="reportEmployeeId"
+                    class="users-form-input"
+                    @change="loadEmployeeLedger"
+                  >
+                    <option :value="0">{{ $t("payrollSelectOption") }}</option>
+                    <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.name }}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div
+                v-if="!runReport && !employeeLedger"
+                class="payroll-reports-empty"
+              >
+                <div class="payroll-reports-empty-icon">
+                  <b-icon icon="pie-chart-fill"></b-icon>
+                </div>
+                <p class="payroll-reports-empty-title">{{ $t("payrollReportsHint") }}</p>
+                <p class="payroll-reports-empty-text">{{ $t("payrollSelectOption") }}</p>
+              </div>
+
+              <div v-if="runReport" class="payroll-reports-block">
+                <div class="payroll-reports-block-head">
+                  <div class="payroll-reports-block-icon">
+                    <b-icon icon="calendar2-check"></b-icon>
                   </div>
-                  <div class="users-form-group">
-                    <label class="users-form-label">{{ $t("payrollEmployee") }}</label>
-                    <select
-                      v-model.number="reportEmployeeId"
-                      class="users-form-input"
-                      @change="loadEmployeeLedger"
-                    >
-                      <option :value="0">{{ $t("payrollSelectOption") }}</option>
-                      <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.name }}</option>
-                    </select>
+                  <div>
+                    <h4 class="payroll-reports-block-title">{{ $t("payrollRun") }}</h4>
+                    <p class="payroll-reports-block-sub">
+                      {{ selectedReportRunLabel }}
+                    </p>
+                  </div>
+                  <div class="payroll-reports-net-pill">
+                    <span>{{ $t("netAmount") }}</span>
+                    <strong>{{ money(runReport.totalNet) }}</strong>
+                  </div>
+                </div>
+                <div class="app-overview-grid payroll-report-stats">
+                  <div class="app-overview-stat">
+                    <span class="app-overview-stat-icon app-overview-stat-icon--primary">
+                      <b-icon icon="people-fill"></b-icon>
+                    </span>
+                    <div>
+                      <div class="app-overview-stat-value">{{ runReport.employeeCount }}</div>
+                      <div class="app-overview-stat-label">{{ $t("employees") }}</div>
+                    </div>
+                  </div>
+                  <div class="app-overview-stat">
+                    <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                      <b-icon icon="cash"></b-icon>
+                    </span>
+                    <div>
+                      <div class="app-overview-stat-value">{{ money(runReport.totalBase) }}</div>
+                      <div class="app-overview-stat-label">{{ $t("baseAmount") }}</div>
+                    </div>
+                  </div>
+                  <div class="app-overview-stat">
+                    <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                      <b-icon icon="plus-circle"></b-icon>
+                    </span>
+                    <div>
+                      <div class="app-overview-stat-value">{{ money(runReport.totalOvertime) }}</div>
+                      <div class="app-overview-stat-label">{{ $t("overtime") }}</div>
+                    </div>
+                  </div>
+                  <div class="app-overview-stat">
+                    <span class="app-overview-stat-icon app-overview-stat-icon--danger">
+                      <b-icon icon="dash-circle"></b-icon>
+                    </span>
+                    <div>
+                      <div class="app-overview-stat-value">{{ money(runReport.totalDeductions) }}</div>
+                      <div class="app-overview-stat-label">{{ $t("deduction") }}</div>
+                    </div>
+                  </div>
+                  <div class="app-overview-stat">
+                    <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                      <b-icon icon="calendar-x"></b-icon>
+                    </span>
+                    <div>
+                      <div class="app-overview-stat-value">{{ money(runReport.totalAbsence) }}</div>
+                      <div class="app-overview-stat-label">{{ $t("absence") }}</div>
+                    </div>
+                  </div>
+                  <div class="app-overview-stat">
+                    <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                      <b-icon icon="wallet2"></b-icon>
+                    </span>
+                    <div>
+                      <div class="app-overview-stat-value">{{ money(runReport.totalAdvanceDeducted) }}</div>
+                      <div class="app-overview-stat-label">{{ $t("advanceDeducted") }}</div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div v-if="runReport" class="payroll-report-grid">
-                <div class="app-overview-stat">
-                  <div class="app-overview-stat-value">{{ runReport.employeeCount }}</div>
-                  <div class="app-overview-stat-label">{{ $t("employees") }}</div>
+              <div v-if="employeeLedger" class="payroll-reports-block">
+                <div class="payroll-reports-block-head">
+                  <div class="payroll-reports-block-icon payroll-reports-block-icon--accent">
+                    <b-icon icon="person-vcard"></b-icon>
+                  </div>
+                  <div>
+                    <h4 class="payroll-reports-block-title">{{ $t("employeeLedger") }}</h4>
+                    <p class="payroll-reports-block-sub">{{ employeeLedger.employee?.name }}</p>
+                  </div>
                 </div>
-                <div class="app-overview-stat">
-                  <div class="app-overview-stat-value">{{ money(runReport.totalBase) }}</div>
-                  <div class="app-overview-stat-label">{{ $t("baseAmount") }}</div>
-                </div>
-                <div class="app-overview-stat">
-                  <div class="app-overview-stat-value">{{ money(runReport.totalOvertime) }}</div>
-                  <div class="app-overview-stat-label">{{ $t("overtime") }}</div>
-                </div>
-                <div class="app-overview-stat">
-                  <div class="app-overview-stat-value">{{ money(runReport.totalDeductions) }}</div>
-                  <div class="app-overview-stat-label">{{ $t("deduction") }}</div>
-                </div>
-                <div class="app-overview-stat">
-                  <div class="app-overview-stat-value">{{ money(runReport.totalAbsence) }}</div>
-                  <div class="app-overview-stat-label">{{ $t("absence") }}</div>
-                </div>
-                <div class="app-overview-stat">
-                  <div class="app-overview-stat-value">{{ money(runReport.totalAdvanceDeducted) }}</div>
-                  <div class="app-overview-stat-label">{{ $t("advanceDeducted") }}</div>
-                </div>
-                <div class="app-overview-stat">
-                  <div class="app-overview-stat-value">{{ money(runReport.totalNet) }}</div>
-                  <div class="app-overview-stat-label">{{ $t("netAmount") }}</div>
-                </div>
-              </div>
-
-              <div v-if="employeeLedger" class="payroll-ledger-box">
-                <h4 class="app-section-title">
-                  {{ $t("employeeLedger") }} — {{ employeeLedger.employee?.name }}
-                </h4>
-                <div class="report-table-container">
-                  <table class="report-table reports-table">
-                    <tbody>
-                      <tr>
-                        <td>{{ $t("openAdvanceBalance") }}</td>
-                        <td class="payroll-amount">{{ money(employeeLedger.openAdvanceBalance) }}</td>
-                      </tr>
-                      <tr>
-                        <td>{{ $t("advances") }}</td>
-                        <td>{{ (employeeLedger.advances || []).length }}</td>
-                      </tr>
-                      <tr>
-                        <td>{{ $t("adjustments") }}</td>
-                        <td>{{ (employeeLedger.adjustments || []).length }}</td>
-                      </tr>
-                      <tr>
-                        <td>{{ $t("payrollLines") }}</td>
-                        <td>{{ (employeeLedger.payrollLines || []).length }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div class="payroll-ledger-grid">
+                  <div class="payroll-ledger-card payroll-ledger-card--balance">
+                    <span class="payroll-ledger-card-icon">
+                      <b-icon icon="cash-coin"></b-icon>
+                    </span>
+                    <div class="payroll-ledger-card-label">{{ $t("openAdvanceBalance") }}</div>
+                    <div class="payroll-ledger-card-value">{{ money(employeeLedger.openAdvanceBalance) }}</div>
+                  </div>
+                  <div class="payroll-ledger-card">
+                    <span class="payroll-ledger-card-icon">
+                      <b-icon icon="cash"></b-icon>
+                    </span>
+                    <div class="payroll-ledger-card-label">{{ $t("advances") }}</div>
+                    <div class="payroll-ledger-card-value">{{ (employeeLedger.advances || []).length }}</div>
+                  </div>
+                  <div class="payroll-ledger-card">
+                    <span class="payroll-ledger-card-icon">
+                      <b-icon icon="sliders"></b-icon>
+                    </span>
+                    <div class="payroll-ledger-card-label">{{ $t("adjustments") }}</div>
+                    <div class="payroll-ledger-card-value">{{ (employeeLedger.adjustments || []).length }}</div>
+                  </div>
+                  <div class="payroll-ledger-card">
+                    <span class="payroll-ledger-card-icon">
+                      <b-icon icon="list-check"></b-icon>
+                    </span>
+                    <div class="payroll-ledger-card-label">{{ $t("payrollLines") }}</div>
+                    <div class="payroll-ledger-card-value">{{ (employeeLedger.payrollLines || []).length }}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -818,6 +917,17 @@ export default {
     activeEmployeesCount() {
       return (this.balances.employees || []).filter((e) => e.isActive).length;
     },
+    hasAnyPaidLine() {
+      return (this.selectedRun?.lines || []).some((l) => l.isPaid);
+    },
+    hasUnpaidLines() {
+      return (this.selectedRun?.lines || []).some((l) => !l.isPaid);
+    },
+    selectedReportRunLabel() {
+      const run = (this.runs || []).find((r) => r.id === this.reportRunId);
+      if (!run) return "—";
+      return `${run.year}/${String(run.month).padStart(2, "0")}`;
+    },
   },
   mounted() {
     this.refreshAll();
@@ -872,8 +982,28 @@ export default {
         rtl: this.$i18n.locale === "ar",
       });
     },
-    async confirm(message) {
-      if (this.$confirm) return this.$confirm({ message });
+    async confirm(message, options = {}) {
+      if (this.$confirm) {
+        return this.$confirm({
+          message,
+          title: options.title || this.$t("confirmAction") || "تأكيد العملية",
+          confirmText: options.confirmText || this.$t("confirm") || "تأكيد",
+          cancelText: options.cancelText,
+          variant: options.variant || "warning",
+          icon: options.icon,
+        });
+      }
+      return window.confirm(message);
+    },
+    async confirmDanger(message) {
+      if (this.$confirm) {
+        return this.$confirm({
+          message,
+          title: this.$t("confirm_delete") || this.$t("confirmDelete"),
+          confirmText: this.$t("deleteButtonLabel") || this.$t("delete"),
+          variant: "danger",
+        });
+      }
       return window.confirm(message);
     },
     async refreshAll() {
@@ -925,7 +1055,11 @@ export default {
       const isReprint = !!line.isHandedOver;
       if (
         !isReprint &&
-        !(await this.confirm(this.$t("confirmPayrollHandover")))
+        !(await this.confirm(this.$t("confirmPayrollHandover"), {
+          title: this.$t("confirmPayrollHandoverTitle") || "تأكيد تسليم الراتب",
+          confirmText: this.$t("handOverSalary") || "تسليم",
+          variant: "info",
+        }))
       ) {
         return;
       }
@@ -998,7 +1132,11 @@ export default {
       }
     },
     async onCloseAdvance(a) {
-      if (!(await this.confirm(this.$t("confirmCloseAdvance")))) return;
+      if (!(await this.confirm(this.$t("confirmCloseAdvance"), {
+        title: this.$t("confirmCloseAdvanceTitle") || "إغلاق السلفة",
+        confirmText: this.$t("close") || "إغلاق",
+        variant: "warning",
+      }))) return;
       try {
         await payrollApi.closeAdvance(a.id);
         await Promise.all([this.loadAdvances(), this.loadBalances()]);
@@ -1007,7 +1145,7 @@ export default {
       }
     },
     async onDeleteAdvance(a) {
-      if (!(await this.confirm(this.$t("confirmDelete")))) return;
+      if (!(await this.confirmDanger(this.$t("confirmDelete")))) return;
       try {
         await payrollApi.deleteAdvance(a.id);
         await Promise.all([this.loadAdvances(), this.loadBalances()]);
@@ -1041,7 +1179,7 @@ export default {
       }
     },
     async onDeleteAdj(adj) {
-      if (!(await this.confirm(this.$t("confirmDelete")))) return;
+      if (!(await this.confirmDanger(this.$t("confirmDelete")))) return;
       try {
         await payrollApi.deleteSalaryAdjustment(adj.id);
         await this.loadAdjustments();
@@ -1097,7 +1235,11 @@ export default {
       }
     },
     async onRegenerate() {
-      if (!(await this.confirm(this.$t("confirmRegeneratePayroll")))) return;
+      if (!(await this.confirm(this.$t("confirmRegeneratePayroll"), {
+        title: this.$t("confirmRegeneratePayrollTitle") || "إعادة توليد الدورة",
+        confirmText: this.$t("regenerate") || "إعادة التوليد",
+        variant: "warning",
+      }))) return;
       const res = await payrollApi.regeneratePayrollRun(this.selectedRunId);
       if (res.data?.errorStatus) this.toastErr(res.data.message);
       else {
@@ -1124,7 +1266,12 @@ export default {
       }
     },
     async onPay() {
-      if (!(await this.confirm(this.$t("confirmPayPayroll")))) return;
+      if (!(await this.confirm(this.$t("confirmPayPayroll"), {
+        title: this.$t("confirmPayPayrollTitle") || "تأكيد صرف الرواتب",
+        confirmText: this.$t("payPayroll") || "صرف الرواتب",
+        variant: "warning",
+        icon: "wallet2",
+      }))) return;
       try {
         const res = await payrollApi.payPayrollRun(this.selectedRunId);
         if (res.data?.errorStatus) this.toastErr(res.data.message);
@@ -1137,8 +1284,33 @@ export default {
         this.toastErr(e.response?.data?.message || e.message);
       }
     },
+    async onPayLine(line) {
+      if (!this.selectedRunId || !line?.id) return;
+      const name = line.employee?.name || `#${line.employeeId}`;
+      if (!(await this.confirm(this.$t("confirmPayPayrollLine", { name }), {
+        title: this.$t("confirmPayPayrollLineTitle") || "تأكيد صرف الراتب",
+        confirmText: this.$t("payPayrollLine") || "صرف الراتب",
+        variant: "warning",
+        icon: "wallet2",
+      }))) return;
+      try {
+        const res = await payrollApi.payPayrollLine(this.selectedRunId, line.id);
+        if (res.data?.errorStatus) this.toastErr(res.data.message);
+        else {
+          this.selectedRun = res.data.data;
+          await Promise.all([this.loadRuns(), this.loadBalances(), this.loadAdvances()]);
+          this.toastOk(res.data.message);
+        }
+      } catch (e) {
+        this.toastErr(e.response?.data?.message || e.message);
+      }
+    },
     async onCancelRun() {
-      if (!(await this.confirm(this.$t("confirmCancelPayroll")))) return;
+      if (!(await this.confirm(this.$t("confirmCancelPayroll"), {
+        title: this.$t("confirmCancelPayrollTitle") || "إلغاء دورة الرواتب",
+        confirmText: this.$t("cancelPayroll") || this.$t("cancel") || "إلغاء",
+        variant: "danger",
+      }))) return;
       const res = await payrollApi.cancelPayrollRun(this.selectedRunId);
       if (res.data?.errorStatus) this.toastErr(res.data.message);
       else {
@@ -1315,6 +1487,217 @@ export default {
 
 .payroll-ledger-box {
   margin-top: 1.25rem;
+}
+
+.payroll-reports-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.payroll-reports-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border-color);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary-color) 6%, var(--bg-primary)),
+      var(--bg-primary)
+    );
+}
+
+.payroll-reports-filter .users-form-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.45rem;
+}
+
+.payroll-filter-icon {
+  color: var(--primary-color);
+  font-size: 0.95rem;
+}
+
+.payroll-reports-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 2.5rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px dashed color-mix(in srgb, var(--primary-color) 28%, var(--border-color));
+  background: color-mix(in srgb, var(--primary-color) 4%, var(--bg-secondary));
+  text-align: center;
+}
+
+.payroll-reports-empty-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.85rem;
+  display: grid;
+  place-items: center;
+  margin-bottom: 0.35rem;
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  color: var(--primary-color);
+  font-size: 1.35rem;
+}
+
+.payroll-reports-empty-title {
+  margin: 0;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.payroll-reports-empty-text {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.payroll-reports-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem 1.15rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.payroll-reports-block-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.payroll-reports-block-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.7rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  color: var(--primary-color);
+  font-size: 1.1rem;
+}
+
+.payroll-reports-block-icon--accent {
+  background: color-mix(in srgb, var(--accent-color) 16%, transparent);
+  color: var(--accent-color);
+}
+
+.payroll-reports-block-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.payroll-reports-block-sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.payroll-reports-net-pill {
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--accent-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-color) 28%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.payroll-reports-net-pill strong {
+  color: var(--accent-color);
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.payroll-report-stats {
+  margin: 0;
+}
+
+.payroll-ledger-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.payroll-ledger-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.95rem 0.9rem;
+  border-radius: 0.8rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  min-width: 0;
+}
+
+.payroll-ledger-card--balance {
+  background: color-mix(in srgb, var(--primary-color) 8%, var(--bg-secondary));
+  border-color: color-mix(in srgb, var(--primary-color) 25%, var(--border-color));
+}
+
+.payroll-ledger-card-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  color: var(--primary-color);
+  font-size: 0.95rem;
+  margin-bottom: 0.15rem;
+}
+
+.payroll-ledger-card-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.payroll-ledger-card-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+@media (max-width: 900px) {
+  .payroll-reports-filters,
+  .payroll-ledger-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .payroll-reports-filters,
+  .payroll-ledger-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .payroll-reports-net-pill {
+    margin-inline-start: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 .spinning {

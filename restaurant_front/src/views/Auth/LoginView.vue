@@ -133,15 +133,6 @@
                             </span>
                         </button>
                     </form>
-
-                    <div class="login-card-footer">
-                        <p class="login-developer-text">
-                            {{ $t('developedBy') }}
-                            <a :href="$t('companyWebsite')" class="login-developer-link" target="_blank" rel="noopener">
-                                {{ $t('companyName') }}
-                            </a>
-                        </p>
-                    </div>
                 </div>
             </main>
         </div>
@@ -503,27 +494,36 @@ export default {
     font-size: 1.05rem;
 }
 
-.login-card-footer {
-    margin-top: 1.25rem;
-    padding-top: 1.15rem;
-    border-top: 1px solid var(--border-light);
-    text-align: center;
-}
-
-.login-developer-text {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: var(--text-muted);
-}
-
-.login-developer-link {
-    color: var(--primary-color);
+.login-submit-button {
+    margin-top: 0.5rem;
+    padding: 0.95rem 1.5rem;
+    width: 100%;
+    border: none;
+    border-radius: 0.75rem;
+    font-size: 1.05rem;
     font-weight: 700;
-    text-decoration: none;
+    color: #fff;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(
+        135deg,
+        var(--primary-color) 0%,
+        color-mix(in srgb, var(--primary-color) 72%, var(--accent-color)) 100%
+    );
+    box-shadow: 0 8px 16px color-mix(in srgb, var(--primary-color) 35%, transparent);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
-.login-developer-link:hover {
-    text-decoration: underline;
+.login-submit-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px color-mix(in srgb, var(--primary-color) 45%, transparent);
+    filter: brightness(1.06);
+}
+
+.login-submit-button:active {
+    transform: translateY(0);
+    filter: brightness(0.98);
 }
 
 @media (max-width: 480px) {

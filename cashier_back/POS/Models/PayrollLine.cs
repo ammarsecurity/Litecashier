@@ -48,6 +48,11 @@ namespace POS.Models
 
         public int? LinkedExpenseId { get; set; }
 
+        /// <summary>تم صرف راتب هذا السطر (خصم سلف + مصروف).</summary>
+        public bool IsPaid { get; set; }
+
+        public DateTime? PaidAt { get; set; }
+
         /// <summary>تم تسليم الراتب للموظف وطباعة الإيصال.</summary>
         public bool IsHandedOver { get; set; }
 
