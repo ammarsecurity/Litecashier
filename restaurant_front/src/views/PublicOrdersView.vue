@@ -999,7 +999,7 @@ export default {
 .status-select:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 10%, transparent);
 }
 
 .status-select-table {
@@ -1098,7 +1098,7 @@ export default {
 }
 
 .order-type-dinein {
-  background: rgba(99, 102, 241, 0.1);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
   color: var(--primary-color);
 }
 
@@ -1313,7 +1313,7 @@ export default {
 
 .empty-icon {
   font-size: 4rem;
-  color: rgba(129, 140, 248, 0.4);
+  color: color-mix(in srgb, var(--primary-color) 40%, transparent);
   margin-bottom: 1rem;
 }
 
@@ -1376,7 +1376,7 @@ export default {
 .status-select-modal:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 10%, transparent);
 }
 
 .status-badge-modal {

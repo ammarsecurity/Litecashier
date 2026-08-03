@@ -900,7 +900,7 @@ Server is working correctly
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.1) 0%, rgba(99, 102, 241, 0.05) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 10%, transparent) 0%, color-mix(in srgb, var(--primary-color) 5%, transparent) 100%);
 }
 
 .print-server-status-title,
@@ -1094,12 +1094,12 @@ Server is working correctly
 }
 
 .btn-install {
-  background: #6366f1;
+  background: var(--primary-color);
   color: white;
 }
 
 .btn-install:hover:not(:disabled) {
-  background: #4f46e5;
+  background: var(--primary-color);
 }
 
 .install-guide {
@@ -1472,7 +1472,7 @@ Server is working correctly
 .form-control:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent);
   background: var(--bg-primary);
 }
 
@@ -1600,7 +1600,7 @@ select.form-control {
 select.form-control:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent);
   background: var(--bg-primary);
 }
 

@@ -1047,7 +1047,7 @@ export default {
 }
 
 .dashboard-link-block-icon--menu {
-  background: rgba(129, 140, 248, 0.12);
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
   color: var(--primary-color);
   overflow: hidden;
 }
@@ -1202,7 +1202,7 @@ export default {
 .invoice-filter-input:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 10%, transparent);
 }
 
 .invoice-filter-clear-btn {
@@ -1280,7 +1280,7 @@ export default {
 }
 
 .order-type-dinein {
-  background: rgba(99, 102, 241, 0.1);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
   color: var(--primary-color);
 }
 

@@ -739,7 +739,7 @@ export default {
   width: 48px;
   height: 48px;
   border-radius: 0.75rem;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.15) 0%, rgba(167, 139, 250, 0.15) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 15%, transparent) 0%, color-mix(in srgb, var(--primary-light) 15%, transparent) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -771,7 +771,7 @@ export default {
   width: 48px;
   height: 48px;
   border-radius: 0.75rem;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.15) 0%, rgba(167, 139, 250, 0.15) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 15%, transparent) 0%, color-mix(in srgb, var(--primary-light) 15%, transparent) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -832,7 +832,7 @@ export default {
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(129, 140, 248, 0.2), 0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--primary-color) 20%, transparent), 0 4px 8px rgba(0, 0, 0, 0.3);
   border-color: var(--primary-color);
   background: var(--bg-primary);
 }

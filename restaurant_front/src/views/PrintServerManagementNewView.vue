@@ -1528,7 +1528,7 @@ export default {
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
-  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1603,9 +1603,9 @@ export default {
 }
 
 .badge-public {
-  background: rgba(99, 102, 241, 0.25);
+  background: color-mix(in srgb, var(--primary-color) 25%, transparent);
   color: #ffffff;
-  border: 1px solid rgba(99, 102, 241, 0.45);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 45%, transparent);
 }
 
 .badge-inactive {
@@ -1641,14 +1641,14 @@ export default {
 }
 
 .user-test-button {
-  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
   color: #ffffff;
   border: none;
   width: 100%;
 }
 
 .user-test-button:hover {
-  background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%);
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-color) 100%);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }

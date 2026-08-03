@@ -456,8 +456,8 @@ export default {
         top: `${z.y * 100}%`,
         width: `${z.w * 100}%`,
         height: `${z.h * 100}%`,
-        borderColor: z.color || "#6366f1",
-        backgroundColor: z.color ? `${z.color}33` : "rgba(99,102,241,0.12)",
+        borderColor: z.color || "var(--primary-color)",
+        backgroundColor: z.color ? `${z.color}33` : "color-mix(in srgb, var(--primary-color) 12%, transparent)",
       };
     },
     statusChipClass(status) {
@@ -820,7 +820,7 @@ export default {
   transform: translateY(-1px);
   border-color: var(--primary-color) !important;
   color: var(--primary-color) !important;
-  box-shadow: 0 4px 12px rgba(129, 140, 248, 0.2) !important;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 20%, transparent) !important;
 }
 
 .floor-plan-back-btn:active {
@@ -868,9 +868,9 @@ export default {
 
 .floor-plan-tab--active {
   border-color: var(--primary-color);
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.18) 0%, rgba(167, 139, 250, 0.14) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 18%, transparent) 0%, color-mix(in srgb, var(--primary-light) 14%, transparent) 100%);
   color: var(--primary-color);
-  box-shadow: 0 2px 10px rgba(129, 140, 248, 0.22);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--primary-color) 22%, transparent);
 }
 
 .floor-plan-toolbar-section {
@@ -964,7 +964,7 @@ export default {
   border-color: var(--primary-color);
   color: var(--primary-color);
   background: var(--bg-primary);
-  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.12);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 12%, transparent);
 }
 
 .floor-plan-color-row {
@@ -1105,7 +1105,7 @@ export default {
 }
 .floor-sidebar-chip:hover {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.12);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 12%, transparent);
 }
 .floor-chip-zone {
   margin-right: auto;
@@ -1146,14 +1146,14 @@ export default {
   border-style: solid;
   border-width: 2px;
   z-index: 3;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 35%, transparent);
 }
 .floor-zone-resize-handle {
   position: absolute;
   width: 10px;
   height: 10px;
   background: #fff;
-  border: 2px solid #6366f1;
+  border: 2px solid var(--primary-color);
   border-radius: 2px;
   box-sizing: border-box;
   z-index: 4;
@@ -1198,8 +1198,8 @@ export default {
 }
 .floor-zone-draw-preview {
   position: absolute;
-  border: 2px dashed #6366f1;
-  background: rgba(99, 102, 241, 0.15);
+  border: 2px dashed var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 15%, transparent);
   pointer-events: none;
   border-radius: 4px;
 }
@@ -1212,7 +1212,7 @@ export default {
 .floor-plan-chip-size-range {
   flex: 1 1 auto;
   min-width: 0;
-  accent-color: #6366f1;
+  accent-color: var(--primary-color);
 }
 .floor-plan-chip-size-value {
   flex: 0 0 auto;
@@ -1261,7 +1261,7 @@ export default {
   color: #fff;
 }
 .chip-res {
-  background: linear-gradient(135deg, #a78bfa, #7c3aed);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
   color: #fff;
 }
 .chip-out {

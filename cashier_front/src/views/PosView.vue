@@ -2665,7 +2665,7 @@ export default {
   border-radius: 0.75rem;
   border: 2px dashed var(--border-color, #ced4da);
   background: var(--bg-tertiary, #f8f9fa);
-  color: var(--primary-color, #6366f1);
+  color: var(--primary-color);
   font-weight: 600;
   font-size: 1rem;
   cursor: pointer;
@@ -2677,9 +2677,9 @@ export default {
 }
 
 .credit-quick-add-btn:hover:not(:disabled) {
-  background: var(--primary-color, #6366f1);
+  background: var(--primary-color);
   color: #ffffff;
-  border-color: var(--primary-color, #6366f1);
+  border-color: var(--primary-color);
   transform: translateY(-2px);
 }
 

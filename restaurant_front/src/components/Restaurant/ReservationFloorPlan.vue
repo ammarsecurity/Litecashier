@@ -325,12 +325,12 @@ export default {
 }
 
 .res-floor-tab:hover {
-  color: #a78bfa;
+  color: var(--primary-light);
   background: rgba(124, 58, 237, 0.08);
 }
 
 .res-floor-tab--active {
-  background: linear-gradient(135deg, #a78bfa, #7c3aed);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
   color: #fff;
   box-shadow: 0 2px 10px rgba(124, 58, 237, 0.35);
 }
@@ -387,7 +387,7 @@ export default {
   color: #fff;
 }
 .res-chip-reserved {
-  background: linear-gradient(135deg, #a78bfa, #7c3aed);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
   color: #fff;
 }
 .res-chip-occupied {
@@ -399,9 +399,9 @@ export default {
   color: #fff;
 }
 .res-chip-selected {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-color));
   color: #fff;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.45);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 45%, transparent);
 }
 .res-floor-legend {
   display: flex;
@@ -426,7 +426,7 @@ export default {
   background: #16a34a;
 }
 .res-legend-item--res::before {
-  background: #7c3aed;
+  background: var(--primary-dark);
 }
 .res-legend-item--occ::before {
   background: #dc2626;

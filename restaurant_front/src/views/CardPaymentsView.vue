@@ -845,12 +845,12 @@ export default {
 
 .card-payments-detail-item--highlight {
   grid-column: 1 / -1;
-  background: rgba(99, 102, 241, 0.08);
-  border-color: rgba(99, 102, 241, 0.25);
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+  border-color: color-mix(in srgb, var(--primary-color) 25%, transparent);
 }
 
 .detail-value--order {
-  color: #4f46e5;
+  color: var(--primary-color);
   font-size: 1.05rem;
 }
 
@@ -933,7 +933,7 @@ export default {
 }
 
 .payment-device-btn--outline:hover:not(:disabled) {
-  border-color: rgba(99, 102, 241, 0.45);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
   background: var(--bg-secondary);
 }
 
@@ -989,7 +989,7 @@ export default {
 }
 
 .detail-value--amount {
-  color: #4f46e5;
+  color: var(--primary-color);
   font-size: 1rem;
 }
 

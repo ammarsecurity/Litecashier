@@ -869,19 +869,19 @@ export default {
 }
 
 .payment-device-btn--outline:hover:not(:disabled) {
-  border-color: rgba(99, 102, 241, 0.45);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
   background: var(--bg-secondary);
 }
 
 .payment-device-btn--primary {
-  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color) 100%);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent);
 }
 
 .payment-device-btn--primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary-color) 35%, transparent);
 }
 
 .payment-device-btn--danger-outline {

@@ -60,7 +60,7 @@
                                 @click="activeTab = 'byDepartment'; loadDepartmentPerformance()"
                             >
                                 <b-icon icon="diagram-3-fill" class="me-2"></b-icon>
-                                {{ $t('departmentPerformanceReport') || 'أداء الأقسام والمخزن' }}
+                                {{ $t('departmentSalesReport') || 'مبيعات الأقسام' }}
                             </button>
                             <button 
                                 class="report-tab" 
@@ -604,32 +604,84 @@
                             </div>
                         </div>
 
-                        <!-- Department performance vs warehouse withdrawals -->
+                        <!-- Department / sub-department sales report -->
                         <div v-if="activeTab === 'byDepartment'" class="report-section">
                             <div class="report-section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
                                 <div class="report-info-banner" style="margin: 0;">
                                     <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
-                                    <span>{{ $t('departmentPerformanceHint') || 'مقارنة مبيعات كل قسم/فرع مع قيمة المواد المسحوبة له من المخزن' }}</span>
+                                    <span>{{ $t('departmentSalesHint') || 'مبيعات كل قسم أو قسم فرعي مع المبلغ الكلي، مع إمكانية المقارنة بتكلفة سحب المخزن' }}</span>
                                 </div>
-                                <button
-                                    class="export-excel-btn"
-                                    @click="exportCurrentReportExcel()"
-                                    :disabled="!(departmentPerformance.rows || []).length || exportingExcel"
-                                >
-                                    <b-spinner small v-if="exportingExcel" class="me-2"></b-spinner>
-                                    <b-icon v-else icon="file-earmark-excel" class="me-2"></b-icon>
-                                    {{ $t('downloadExcel') || 'تحميل Excel' }}
-                                </button>
+                                <div class="app-header-actions app-equal-btn-group" style="flex-wrap: wrap;">
+                                    <button
+                                        type="button"
+                                        class="btn-refresh"
+                                        @click="printDepartmentSalesReport"
+                                        :disabled="!departmentPerformanceDisplayRows.length"
+                                    >
+                                        <b-icon icon="printer-fill" class="button-icon"></b-icon>
+                                        <span class="button-text">{{ $t('printReport') || 'طباعة التقرير' }}</span>
+                                    </button>
+                                    <button
+                                        class="export-excel-btn"
+                                        @click="exportCurrentReportExcel()"
+                                        :disabled="!departmentPerformanceDisplayRows.length || exportingExcel"
+                                    >
+                                        <b-spinner small v-if="exportingExcel" class="me-2"></b-spinner>
+                                        <b-icon v-else icon="file-earmark-excel" class="me-2"></b-icon>
+                                        {{ $t('downloadExcel') || 'تحميل Excel' }}
+                                    </button>
+                                </div>
                             </div>
 
-                            <div v-if="(departmentPerformance.rows || []).length" class="app-overview-grid" style="margin-bottom: 1rem;">
+                            <div class="app-filters-panel app-filters-panel--inset" style="margin-bottom: 1rem;">
+                                <div class="users-form-group" style="margin: 0;">
+                                    <label class="users-form-label">{{ $t('departmentViewMode') || 'عرض الأقسام' }}</label>
+                                    <div class="reports-tabs" style="overflow: visible; flex-wrap: wrap;">
+                                        <button
+                                            type="button"
+                                            class="report-tab"
+                                            :class="{ 'report-tab-active': departmentViewMode === 'all' }"
+                                            @click="departmentViewMode = 'all'"
+                                        >
+                                            {{ $t('departmentViewAll') || 'الكل (قسم وفرع)' }}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="report-tab"
+                                            :class="{ 'report-tab-active': departmentViewMode === 'parent' }"
+                                            @click="departmentViewMode = 'parent'"
+                                        >
+                                            {{ $t('departmentViewParent') || 'أقسام رئيسية فقط' }}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="report-tab"
+                                            :class="{ 'report-tab-active': departmentViewMode === 'sub' }"
+                                            @click="departmentViewMode = 'sub'"
+                                        >
+                                            {{ $t('departmentViewSub') || 'أقسام فرعية فقط' }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="departmentPerformanceDisplayRows.length" class="app-overview-grid" style="margin-bottom: 1rem;">
                                 <div class="app-overview-stat">
                                     <span class="app-overview-stat-icon app-overview-stat-icon--primary">
                                         <b-icon icon="cash-stack"></b-icon>
                                     </span>
                                     <div>
-                                        <div class="app-overview-stat-value">{{ formatPrice(departmentPerformance.summary?.totalSales || 0) }}</div>
-                                        <div class="app-overview-stat-label">{{ $t('totalSales') || 'إجمالي المبيعات' }}</div>
+                                        <div class="app-overview-stat-value">{{ formatPrice(departmentDisplaySummary.totalSales) }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('totalSalesAmount') || 'المبلغ الكلي للمبيعات' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                                        <b-icon icon="box-seam"></b-icon>
+                                    </span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ departmentDisplaySummary.salesQuantity }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('salesQuantity') || 'كمية البيع' }}</div>
                                     </div>
                                 </div>
                                 <div class="app-overview-stat">
@@ -637,25 +689,16 @@
                                         <b-icon icon="box-arrow-up"></b-icon>
                                     </span>
                                     <div>
-                                        <div class="app-overview-stat-value">{{ formatPrice(departmentPerformance.summary?.totalWithdrawalCost || 0) }}</div>
+                                        <div class="app-overview-stat-value">{{ formatPrice(departmentDisplaySummary.totalWithdrawalCost) }}</div>
                                         <div class="app-overview-stat-label">{{ $t('warehouseWithdrawalCost') || 'تكلفة سحب المخزن' }}</div>
                                     </div>
                                 </div>
                                 <div class="app-overview-stat">
                                     <span class="app-overview-stat-icon app-overview-stat-icon--success">
-                                        <b-icon icon="graph-up-arrow"></b-icon>
-                                    </span>
-                                    <div>
-                                        <div class="app-overview-stat-value">{{ formatPrice(departmentPerformance.summary?.totalContribution || 0) }}</div>
-                                        <div class="app-overview-stat-label">{{ $t('salesMinusStockCost') || 'المبيعات − تكلفة المخزن' }}</div>
-                                    </div>
-                                </div>
-                                <div class="app-overview-stat">
-                                    <span class="app-overview-stat-icon app-overview-stat-icon--info">
                                         <b-icon icon="diagram-3"></b-icon>
                                     </span>
                                     <div>
-                                        <div class="app-overview-stat-value">{{ departmentPerformance.summary?.departmentCount || 0 }}</div>
+                                        <div class="app-overview-stat-value">{{ departmentDisplaySummary.departmentCount }}</div>
                                         <div class="app-overview-stat-label">{{ $t('departmentsCount') || 'عدد الأقسام' }}</div>
                                     </div>
                                 </div>
@@ -670,6 +713,7 @@
                                     responsive
                                     class="reports-table"
                                     :empty-text="$t('noDepartmentPerformance') || 'لا توجد بيانات أقسام لهذه الفترة'"
+                                    show-empty
                                 >
                                     <template #cell(reportPeriod)="row">
                                         <span class="stat-value text-muted small">{{ row.item.reportPeriod }}</span>
@@ -680,11 +724,25 @@
                                                 :icon="row.item.isSubDepartment ? 'diagram-2' : 'building'"
                                                 class="category-icon"
                                             ></b-icon>
-                                            <span>{{ row.item.department }}</span>
+                                            <div>
+                                                <div>{{ row.item.department }}</div>
+                                                <small
+                                                    v-if="row.item.isSubDepartment && row.item.parentName"
+                                                    class="text-muted"
+                                                >
+                                                    {{ $t('parentDepartment') || 'القسم الرئيسي' }}: {{ row.item.parentName }}
+                                                </small>
+                                            </div>
                                         </div>
+                                    </template>
+                                    <template #cell(salesQuantity)="row">
+                                        <span class="stat-value">{{ row.item.salesQuantity || 0 }}</span>
                                     </template>
                                     <template #cell(totalSales)="row">
                                         <span class="stat-amount">{{ formatPrice(row.item.totalSales) }} {{ $t('currency') }}</span>
+                                    </template>
+                                    <template #cell(orderCount)="row">
+                                        <span class="stat-value">{{ row.item.orderCount || 0 }}</span>
                                     </template>
                                     <template #cell(withdrawalCost)="row">
                                         <span class="stat-amount stat-expense">{{ formatPrice(row.item.withdrawalCost || 0) }} {{ $t('currency') }}</span>
@@ -696,12 +754,6 @@
                                         >
                                             {{ formatPrice(row.item.contribution || 0) }} {{ $t('currency') }}
                                         </span>
-                                    </template>
-                                    <template #cell(withdrawalCount)="row">
-                                        <span class="stat-value">{{ row.item.withdrawalCount || 0 }}</span>
-                                    </template>
-                                    <template #cell(salesQuantity)="row">
-                                        <span class="stat-value">{{ row.item.salesQuantity || 0 }}</span>
                                     </template>
                                 </b-table>
                             </div>
@@ -1418,6 +1470,7 @@ export default {
             },
             salesByCategory: [],
             departmentPerformance: { rows: [], summary: null },
+            departmentViewMode: "all",
             salesByEmployee: [],
             returnedItems: [],
             totalReturnedItems: 0,
@@ -1469,7 +1522,61 @@ export default {
         },
         departmentPerformanceForTable() {
             const p = this.advancedReportsPeriodColumn;
-            return (this.departmentPerformance?.rows || []).map((row) => ({ ...row, reportPeriod: p }));
+            return (this.departmentPerformanceDisplayRows || []).map((row) => ({ ...row, reportPeriod: p }));
+        },
+        departmentPerformanceDisplayRows() {
+            const rows = this.departmentPerformance?.rows || [];
+            const mode = this.departmentViewMode || "all";
+            if (mode === "sub") {
+                return rows.filter((r) => r.isSubDepartment);
+            }
+            if (mode === "parent") {
+                const map = {};
+                rows.forEach((r) => {
+                    const key = (r.parentName || r.department || "—").trim() || "—";
+                    if (!map[key]) {
+                        map[key] = {
+                            department: key,
+                            parentName: key,
+                            leafName: key,
+                            isSubDepartment: false,
+                            totalSales: 0,
+                            salesQuantity: 0,
+                            orderCount: 0,
+                            withdrawalCost: 0,
+                            withdrawalQuantity: 0,
+                            withdrawalCount: 0,
+                            contribution: 0,
+                        };
+                    }
+                    map[key].totalSales += Number(r.totalSales) || 0;
+                    map[key].salesQuantity += Number(r.salesQuantity) || 0;
+                    map[key].orderCount += Number(r.orderCount) || 0;
+                    map[key].withdrawalCost += Number(r.withdrawalCost) || 0;
+                    map[key].withdrawalQuantity += Number(r.withdrawalQuantity) || 0;
+                    map[key].withdrawalCount += Number(r.withdrawalCount) || 0;
+                });
+                return Object.values(map)
+                    .map((r) => ({
+                        ...r,
+                        contribution: r.totalSales - r.withdrawalCost,
+                    }))
+                    .sort((a, b) => b.totalSales - a.totalSales);
+            }
+            return rows;
+        },
+        departmentDisplaySummary() {
+            const rows = this.departmentPerformanceDisplayRows || [];
+            const totalSales = rows.reduce((s, r) => s + (Number(r.totalSales) || 0), 0);
+            const salesQuantity = rows.reduce((s, r) => s + (Number(r.salesQuantity) || 0), 0);
+            const totalWithdrawalCost = rows.reduce((s, r) => s + (Number(r.withdrawalCost) || 0), 0);
+            return {
+                totalSales,
+                salesQuantity,
+                totalWithdrawalCost,
+                totalContribution: totalSales - totalWithdrawalCost,
+                departmentCount: rows.length,
+            };
         },
         salesByEmployeeForTable() {
             const p = this.advancedReportsPeriodColumn;
@@ -1839,8 +1946,18 @@ export default {
                     sortable: true,
                 },
                 {
+                    key: 'salesQuantity',
+                    label: this.$t('salesQuantity') || 'كمية البيع',
+                    sortable: true,
+                },
+                {
                     key: 'totalSales',
-                    label: this.$t('departmentSales') || 'مبيعات القسم',
+                    label: this.$t('totalSalesAmount') || 'المبلغ الكلي',
+                    sortable: true,
+                },
+                {
+                    key: 'orderCount',
+                    label: this.$t('orderCount') || 'عدد الطلبات',
                     sortable: true,
                 },
                 {
@@ -1851,16 +1968,6 @@ export default {
                 {
                     key: 'contribution',
                     label: this.$t('salesMinusStockCost') || 'المبيعات − تكلفة المخزن',
-                    sortable: true,
-                },
-                {
-                    key: 'withdrawalCount',
-                    label: this.$t('withdrawalOperationsCount') || 'عدد عمليات السحب',
-                    sortable: true,
-                },
-                {
-                    key: 'salesQuantity',
-                    label: this.$t('salesQuantity') || 'كمية البيع',
                     sortable: true,
                 },
             ];
@@ -2469,6 +2576,136 @@ export default {
             this.print('print-edit-order');
         },
 
+        printDepartmentSalesReport() {
+            const rows = this.departmentPerformanceDisplayRows || [];
+            if (!rows.length) {
+                this.$toast?.info?.(this.$t('noDataToExport') || 'لا توجد بيانات للطباعة', {
+                    position: 'top-right',
+                    timeout: 3000,
+                });
+                return;
+            }
+
+            const period = this.formatReportPeriod(this.reportFilters.startDate, this.reportFilters.endDate);
+            const summary = this.departmentDisplaySummary;
+            const currency = this.$t('currency') || '';
+            const modeLabel =
+                this.departmentViewMode === 'parent'
+                    ? (this.$t('departmentViewParent') || 'أقسام رئيسية فقط')
+                    : this.departmentViewMode === 'sub'
+                        ? (this.$t('departmentViewSub') || 'أقسام فرعية فقط')
+                        : (this.$t('departmentViewAll') || 'الكل (قسم وفرع)');
+
+            const escapeHtml = (v) =>
+                String(v ?? '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+
+            const bodyRows = rows
+                .map(
+                    (r, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${escapeHtml(r.department)}</td>
+                    <td>${escapeHtml(r.salesQuantity ?? 0)}</td>
+                    <td>${escapeHtml(this.formatPrice(r.totalSales))} ${escapeHtml(currency)}</td>
+                    <td>${escapeHtml(r.orderCount ?? 0)}</td>
+                    <td>${escapeHtml(this.formatPrice(r.withdrawalCost || 0))} ${escapeHtml(currency)}</td>
+                    <td>${escapeHtml(this.formatPrice(r.contribution || 0))} ${escapeHtml(currency)}</td>
+                </tr>`
+                )
+                .join('');
+
+            const html = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>${escapeHtml(this.$t('departmentSalesReport') || 'مبيعات الأقسام')}</title>
+<style>
+  @page { size: A4; margin: 14mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
+    color: #111;
+    direction: rtl;
+    margin: 0;
+    padding: 0;
+  }
+  .sheet { width: 100%; }
+  .head { text-align: center; margin-bottom: 16px; border-bottom: 2px solid #222; padding-bottom: 10px; }
+  .head h1 { margin: 0 0 6px; font-size: 20px; }
+  .meta { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; font-size: 13px; }
+  .meta div { background: #f5f7f8; border: 1px solid #dde2e6; border-radius: 8px; padding: 8px 12px; min-width: 160px; }
+  .meta strong { display: block; color: #555; font-size: 11px; margin-bottom: 2px; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { border: 1px solid #cfd6dc; padding: 8px 6px; text-align: center; }
+  th { background: #102a36; color: #fff; }
+  tbody tr:nth-child(even) { background: #f8fafb; }
+  td:nth-child(2) { text-align: right; font-weight: 600; }
+  .totals { margin-top: 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .total-card { border: 1px solid #cfd6dc; border-radius: 8px; padding: 10px; text-align: center; background: #f8fafb; }
+  .total-card span { display: block; font-size: 11px; color: #666; margin-bottom: 4px; }
+  .total-card strong { font-size: 15px; }
+  .foot { margin-top: 18px; text-align: center; font-size: 11px; color: #777; }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="head">
+      <h1>${escapeHtml(this.$t('departmentSalesReport') || 'مبيعات الأقسام')}</h1>
+      <div>${escapeHtml(this.$t('departmentSalesHint') || '')}</div>
+    </div>
+    <div class="meta">
+      <div><strong>${escapeHtml(this.$t('reportDateRange') || 'فترة التقرير')}</strong>${escapeHtml(period)}</div>
+      <div><strong>${escapeHtml(this.$t('departmentViewMode') || 'عرض الأقسام')}</strong>${escapeHtml(modeLabel)}</div>
+      <div><strong>${escapeHtml(this.$t('departmentsCount') || 'عدد الأقسام')}</strong>${escapeHtml(summary.departmentCount)}</div>
+      <div><strong>${escapeHtml(this.$t('printDate') || 'تاريخ الطباعة')}</strong>${escapeHtml(new Date().toLocaleString('ar-IQ'))}</div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>${escapeHtml(this.$t('departmentOrBranch') || 'القسم / الفرع')}</th>
+          <th>${escapeHtml(this.$t('salesQuantity') || 'كمية البيع')}</th>
+          <th>${escapeHtml(this.$t('totalSalesAmount') || 'المبلغ الكلي')}</th>
+          <th>${escapeHtml(this.$t('orderCount') || 'عدد الطلبات')}</th>
+          <th>${escapeHtml(this.$t('warehouseWithdrawalCost') || 'تكلفة سحب المخزن')}</th>
+          <th>${escapeHtml(this.$t('salesMinusStockCost') || 'المبيعات − تكلفة المخزن')}</th>
+        </tr>
+      </thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+    <div class="totals">
+      <div class="total-card"><span>${escapeHtml(this.$t('totalSalesAmount') || 'المبلغ الكلي للمبيعات')}</span><strong>${escapeHtml(this.formatPrice(summary.totalSales))} ${escapeHtml(currency)}</strong></div>
+      <div class="total-card"><span>${escapeHtml(this.$t('salesQuantity') || 'كمية البيع')}</span><strong>${escapeHtml(summary.salesQuantity)}</strong></div>
+      <div class="total-card"><span>${escapeHtml(this.$t('warehouseWithdrawalCost') || 'تكلفة سحب المخزن')}</span><strong>${escapeHtml(this.formatPrice(summary.totalWithdrawalCost))} ${escapeHtml(currency)}</strong></div>
+      <div class="total-card"><span>${escapeHtml(this.$t('salesMinusStockCost') || 'المبيعات − تكلفة المخزن')}</span><strong>${escapeHtml(this.formatPrice(summary.totalContribution))} ${escapeHtml(currency)}</strong></div>
+    </div>
+    <div class="foot">${escapeHtml(this.$t('departmentSalesReport') || 'مبيعات الأقسام')} — Litecashier</div>
+  </div>
+  <script>
+    window.onload = function () {
+      setTimeout(function () { window.print(); }, 250);
+    };
+  <\/script>
+</body>
+</html>`;
+
+            const WinPrint = window.open('', '_blank', 'width=980,height=720');
+            if (!WinPrint) {
+                this.$toast?.error?.(this.$t('popupBlocked') || 'تم حظر نافذة الطباعة — اسمح بالنوافذ المنبثقة', {
+                    position: 'top-right',
+                    timeout: 4000,
+                });
+                return;
+            }
+            WinPrint.document.open();
+            WinPrint.document.write(html);
+            WinPrint.document.close();
+        },
+
         showItemsModel(items, order) {
             this.customerOrderItem = (items || []).filter((item) => !item.isDeleted);
             this.order = order;
@@ -3043,11 +3280,7 @@ export default {
                         this.downloadCsv(csv, `sales_by_category_${dateStr}.csv`);
                     }
                 } else if (this.activeTab === 'byDepartment') {
-                    const params = new URLSearchParams();
-                    if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
-                    if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
-                    const res = await HTTP.get(`Admin/GetDepartmentPerformanceReport?${params.toString()}`);
-                    const list = res.data?.data?.rows || [];
+                    const list = this.departmentPerformanceDisplayRows || [];
                     if (!list.length) {
                         this.$toast.info(this.$t('noDataToExport') || 'لا توجد بيانات للتصدير', { position: 'top-right', timeout: 3000 });
                     } else {
@@ -3055,25 +3288,35 @@ export default {
                         const headers = [
                             this.$t('reportDateRange') || 'فترة التقرير',
                             this.$t('departmentOrBranch') || 'القسم / الفرع',
-                            this.$t('departmentSales') || 'مبيعات القسم',
+                            this.$t('salesQuantity') || 'كمية البيع',
+                            this.$t('totalSalesAmount') || 'المبلغ الكلي',
+                            this.$t('orderCount') || 'عدد الطلبات',
                             this.$t('warehouseWithdrawalCost') || 'تكلفة سحب المخزن',
                             this.$t('salesMinusStockCost') || 'المبيعات − تكلفة المخزن',
-                            this.$t('withdrawalOperationsCount') || 'عدد عمليات السحب',
-                            this.$t('salesQuantity') || 'كمية البيع',
                         ];
                         let csv = headers.map(this.csvEscape).join(',') + '\r\n';
                         list.forEach((item) => {
                             csv += [
                                 period,
                                 item.department,
+                                item.salesQuantity ?? '',
                                 item.totalSales ?? '',
+                                item.orderCount ?? '',
                                 item.withdrawalCost ?? '',
                                 item.contribution ?? '',
-                                item.withdrawalCount ?? '',
-                                item.salesQuantity ?? '',
                             ].map(this.csvEscape).join(',') + '\r\n';
                         });
-                        this.downloadCsv(csv, `department_performance_${dateStr}.csv`);
+                        const s = this.departmentDisplaySummary;
+                        csv += [
+                            period,
+                            this.$t('grandTotal') || 'المجموع الكلي',
+                            s.salesQuantity ?? '',
+                            s.totalSales ?? '',
+                            '',
+                            s.totalWithdrawalCost ?? '',
+                            s.totalContribution ?? '',
+                        ].map(this.csvEscape).join(',') + '\r\n';
+                        this.downloadCsv(csv, `department_sales_${dateStr}.csv`);
                     }
                 } else if (this.activeTab === 'byEmployee') {
                     const params = new URLSearchParams();
@@ -3249,7 +3492,7 @@ export default {
 
 .edit-order-input:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 10%, transparent);
     outline: none;
 }
 

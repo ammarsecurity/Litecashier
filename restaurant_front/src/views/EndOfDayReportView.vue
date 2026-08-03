@@ -612,7 +612,7 @@ export default {
 }
 
 .eod-empty-btn:hover {
-  background: var(--primary-dark, #4338ca);
+  background: var(--primary-dark, var(--primary-color));
   transform: translateY(-1px);
 }
 
@@ -623,8 +623,8 @@ export default {
   padding: 1rem 1.25rem;
   margin-bottom: 1.25rem;
   border-radius: 0.85rem;
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.05) 100%);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 30%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 10%, transparent) 0%, color-mix(in srgb, var(--primary-color) 5%, transparent) 100%);
 }
 
 .eod-period-icon {
@@ -676,7 +676,7 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.14) 0%, rgba(79, 70, 229, 0.08) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 14%, transparent) 0%, color-mix(in srgb, var(--primary-color) 8%, transparent) 100%);
   color: var(--primary-color);
   font-size: 1.1rem;
 }

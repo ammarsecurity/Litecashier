@@ -1337,7 +1337,7 @@ html.public-order-page .po-title {
 }
 
 html.public-order-page .po-eyebrow {
-  color: #4f46e5 !important;
+  color: var(--primary-color) !important;
 }
 
 html.public-order-page .po-tagline {
@@ -1363,7 +1363,7 @@ html.public-order-page .b-toaster {
 }
 
 html.public-order-page .b-toast {
-  --po-toast-accent: #6366f1;
+  --po-toast-accent: var(--primary-color);
   overflow: hidden;
   border-radius: 16px !important;
   border: 1px solid #e2e8f0 !important;
@@ -1381,7 +1381,7 @@ html.public-order-page .b-toast-solid.b-toast-danger {
 }
 
 html.public-order-page .b-toast-solid.b-toast-success {
-  --po-toast-accent: #6366f1;
+  --po-toast-accent: var(--primary-color);
 }
 
 html.public-order-page .b-toast-solid.b-toast-warning {
@@ -1389,7 +1389,7 @@ html.public-order-page .b-toast-solid.b-toast-warning {
 }
 
 html.public-order-page .b-toast-solid.b-toast-info {
-  --po-toast-accent: #6366f1;
+  --po-toast-accent: var(--primary-color);
 }
 
 html.public-order-page .b-toast-solid.b-toast-danger,
@@ -1421,7 +1421,7 @@ html.public-order-page .b-toast .toast-header .close {
 
 html.public-order-page .b-toast .toast-header .close:hover {
   color: #0f172a !important;
-  background: color-mix(in srgb, #6366f1 10%, #f1f5f9);
+  background: color-mix(in srgb, var(--primary-color) 10%, #f1f5f9);
 }
 
 html.public-order-page .b-toast .toast-body {

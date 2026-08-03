@@ -533,7 +533,7 @@ export default {
 }
 
 .eod-empty-btn:hover {
-  background: var(--primary-dark, #4338ca);
+  background: var(--primary-dark, var(--primary-color));
   transform: translateY(-1px);
 }
 
@@ -620,8 +620,8 @@ export default {
   align-items: center;
   justify-content: center;
   font-size: 1rem;
-  background: rgba(99, 102, 241, 0.12);
-  color: #4f46e5;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  color: var(--primary-color);
 }
 
 .eod-payment-card--cash .eod-payment-card-icon {

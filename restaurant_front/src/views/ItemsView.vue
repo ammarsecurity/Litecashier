@@ -2683,7 +2683,7 @@ export default {
 }
 
 .items-pagination >>> .page-link:hover {
-  background-color: rgba(99, 102, 241, 0.1);
+  background-color: color-mix(in srgb, var(--primary-color) 10%, transparent);
   border-color: var(--border-dark);
   color: var(--primary-color);
 }
@@ -2726,7 +2726,7 @@ export default {
 
 .upload-mode-btn.active {
   border-color: var(--primary-color);
-  background: rgba(129, 140, 248, 0.1);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
   color: var(--primary-color);
 }
 
@@ -2958,7 +2958,7 @@ export default {
   background-color: var(--primary-color-dark);
   border-color: var(--primary-color-dark);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 30%, transparent);
 }
 
 .add-more-ai-button:disabled {
@@ -2990,7 +2990,7 @@ export default {
 
 .item-row:hover {
   border-color: var(--primary-color);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 10%, transparent);
 }
 
 .item-checkbox {

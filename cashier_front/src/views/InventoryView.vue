@@ -1624,7 +1624,7 @@ export default {
   color: var(--text-secondary);
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
-  background: rgba(99, 102, 241, 0.1);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
 }
 
 .inventory-add-line-btn {
@@ -1715,7 +1715,7 @@ export default {
 .stock-line-amount {
   font-weight: 700;
   text-align: center;
-  color: var(--primary-color, #6366f1) !important;
+  color: var(--primary-color) !important;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1745,7 +1745,7 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 0.85rem 1rem;
-  background: rgba(99, 102, 241, 0.08);
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
   border-top: 1px solid var(--border-color);
 }
 
@@ -1778,7 +1778,7 @@ export default {
 
 .inventory-file-drop:hover {
   border-color: var(--primary-color);
-  background: rgba(99, 102, 241, 0.06);
+  background: color-mix(in srgb, var(--primary-color) 6%, transparent);
 }
 
 .inventory-file-drop__input {
@@ -1819,8 +1819,8 @@ export default {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--primary-color);
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.35);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
   text-decoration: none;
   line-height: 1.2;
   transition:
@@ -1832,11 +1832,11 @@ export default {
 }
 
 .receipt-link-btn:hover {
-  background: rgba(99, 102, 241, 0.18);
+  background: color-mix(in srgb, var(--primary-color) 18%, transparent);
   border-color: var(--primary-color);
-  color: var(--primary-hover, #4f46e5);
+  color: var(--primary-hover, var(--primary-color));
   text-decoration: none;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 20%, transparent);
 }
 
 .receipt-link-btn__icon {

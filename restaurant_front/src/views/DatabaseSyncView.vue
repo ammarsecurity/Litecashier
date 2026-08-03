@@ -795,7 +795,7 @@ export default {
 
 .sync-now-btn {
 
-  background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-color)) !important;
 
 }
 
@@ -975,9 +975,9 @@ export default {
 
 .sync-status-badge--running {
 
-  background: rgba(99, 102, 241, 0.15);
+  background: color-mix(in srgb, var(--primary-color) 15%, transparent);
 
-  color: #6366f1;
+  color: var(--primary-color);
 
 }
 

@@ -88,6 +88,17 @@
       <p v-else class="system-sections-empty">
         {{ $t("noSectionsAvailable") || "لا توجد أقسام متاحة" }}
       </p>
+
+      <footer class="system-sections-modal-footer">
+        <router-link
+          to="/logout"
+          class="system-sections-logout-btn"
+          @click.native="closeModal"
+        >
+          <b-icon icon="box-arrow-right" class="system-sections-logout-icon"></b-icon>
+          <span>{{ $t("Logout") || "تسجيل الخروج" }}</span>
+        </router-link>
+      </footer>
     </b-modal>
   </div>
 </template>
@@ -208,13 +219,13 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid rgba(99, 102, 241, 0.32);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 32%, transparent);
   border-radius: 0.85rem;
   background: var(--bg-primary);
   color: var(--primary-color);
   box-shadow:
-    0 6px 22px rgba(99, 102, 241, 0.2),
-    0 0 0 1px rgba(99, 102, 241, 0.08);
+    0 6px 22px color-mix(in srgb, var(--primary-color) 20%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--primary-color) 8%, transparent);
   cursor: pointer;
   overflow: hidden;
   transition:
@@ -235,8 +246,8 @@ export default {
   border-radius: 0.7rem;
   background: linear-gradient(
     145deg,
-    rgba(99, 102, 241, 0.14) 0%,
-    rgba(129, 140, 248, 0.06) 48%,
+    color-mix(in srgb, var(--primary-color) 14%, transparent) 0%,
+    color-mix(in srgb, var(--primary-color) 6%, transparent) 48%,
     transparent 100%
   );
   opacity: 0.65;
@@ -245,22 +256,22 @@ export default {
 }
 
 .system-sections-fab:hover:not(.system-sections-fab--open) {
-  background: linear-gradient(145deg, #6366f1 0%, #7c83f6 52%, #818cf8 100%);
+  background: linear-gradient(145deg, var(--primary-color) 0%, #7c83f6 52%, var(--primary-color) 100%);
   border-color: rgba(255, 255, 255, 0.22);
   color: #ffffff;
   box-shadow:
-    0 8px 22px rgba(99, 102, 241, 0.38),
-    0 0 0 1px rgba(99, 102, 241, 0.2);
+    0 8px 22px color-mix(in srgb, var(--primary-color) 38%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--primary-color) 20%, transparent);
   transform: scale(1.05);
 }
 
 .system-sections-fab--open {
-  background: linear-gradient(145deg, #4f46e5 0%, #6366f1 48%, #4338ca 100%);
-  border-color: #a5b4fc;
+  background: linear-gradient(145deg, var(--primary-color) 0%, var(--primary-color) 48%, var(--primary-color) 100%);
+  border-color: var(--primary-light);
   color: #ffffff;
   box-shadow:
-    0 0 0 3px rgba(99, 102, 241, 0.28),
-    0 12px 30px rgba(79, 70, 229, 0.45);
+    0 0 0 3px color-mix(in srgb, var(--primary-color) 28%, transparent),
+    0 12px 30px color-mix(in srgb, var(--primary-color) 45%, transparent);
   transform: scale(1.07);
 }
 
@@ -283,8 +294,8 @@ export default {
   background: linear-gradient(
     145deg,
     rgba(255, 255, 255, 0.28) 0%,
-    rgba(199, 210, 254, 0.16) 42%,
-    rgba(99, 102, 241, 0.08) 100%
+    color-mix(in srgb, var(--primary-color) 16%, transparent) 42%,
+    color-mix(in srgb, var(--primary-color) 8%, transparent) 100%
   );
 }
 
@@ -327,7 +338,7 @@ export default {
 }
 
 .system-sections-fab-root--open .system-sections-fab-badge {
-  border-color: #4338ca;
+  border-color: var(--primary-color);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
 }
 
@@ -397,20 +408,20 @@ export default {
 
 .hub-module-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(99, 102, 241, 0.45);
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.12);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--primary-color) 12%, transparent);
   color: var(--text-primary);
   text-decoration: none;
 }
 
 .hub-module-card--active {
-  border-color: rgba(99, 102, 241, 0.55);
+  border-color: color-mix(in srgb, var(--primary-color) 55%, transparent);
   background: linear-gradient(
     180deg,
-    rgba(99, 102, 241, 0.1) 0%,
-    rgba(99, 102, 241, 0.04) 100%
+    color-mix(in srgb, var(--primary-color) 10%, transparent) 0%,
+    color-mix(in srgb, var(--primary-color) 4%, transparent) 100%
   );
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.14);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--primary-color) 14%, transparent);
 }
 
 .hub-module-icon-wrap {
@@ -418,18 +429,18 @@ export default {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: rgba(99, 102, 241, 0.08);
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(99, 102, 241, 0.12);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 12%, transparent);
   transition: background 0.18s ease, border-color 0.18s ease;
 }
 
 .hub-module-card:hover .hub-module-icon-wrap,
 .hub-module-card--active .hub-module-icon-wrap {
-  background: rgba(99, 102, 241, 0.14);
-  border-color: rgba(99, 102, 241, 0.28);
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  border-color: color-mix(in srgb, var(--primary-color) 28%, transparent);
 }
 
 .hub-module-icon {
@@ -476,12 +487,12 @@ body .modal.system-sections-modal .modal-dialog {
 }
 
 .system-sections-modal-content {
-  border: 1px solid rgba(99, 102, 241, 0.18);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 18%, transparent);
   border-radius: 1rem;
   overflow: hidden;
   box-shadow:
     0 24px 48px rgba(15, 23, 42, 0.14),
-    0 0 0 1px rgba(99, 102, 241, 0.06);
+    0 0 0 1px color-mix(in srgb, var(--primary-color) 6%, transparent);
   background: var(--bg-primary);
 }
 
@@ -498,11 +509,11 @@ body .modal.system-sections-modal .modal-dialog {
   padding: 1.15rem 1.25rem 1rem;
   background: linear-gradient(
     135deg,
-    rgba(99, 102, 241, 0.12) 0%,
-    rgba(129, 140, 248, 0.06) 55%,
+    color-mix(in srgb, var(--primary-color) 12%, transparent) 0%,
+    color-mix(in srgb, var(--primary-color) 6%, transparent) 55%,
     transparent 100%
   );
-  border-bottom: 1px solid rgba(99, 102, 241, 0.12);
+  border-bottom: 1px solid color-mix(in srgb, var(--primary-color) 12%, transparent);
 }
 
 .system-sections-modal-title {
@@ -528,7 +539,7 @@ body .modal.system-sections-modal .modal-dialog {
   width: 2.15rem;
   height: 2.15rem;
   padding: 0;
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 20%, transparent);
   border-radius: 0.6rem;
   background: var(--bg-primary);
   color: var(--text-secondary);
@@ -541,71 +552,129 @@ body .modal.system-sections-modal .modal-dialog {
 }
 
 .system-sections-modal-close:hover {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.35);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+  border-color: color-mix(in srgb, var(--primary-color) 35%, transparent);
   color: var(--primary-color);
   transform: scale(1.04);
 }
 
 .system-sections-hub {
-  padding: 1rem 1.15rem 1.2rem;
+  padding: 1rem 1.15rem 0.75rem;
+}
+
+.system-sections-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: stretch;
+  gap: 0.75rem;
+  padding: 0.85rem 1.15rem 1.15rem;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 88%, var(--bg-secondary));
+}
+
+.system-sections-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 2.65rem;
+  padding: 0.7rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, #dc2626 28%, var(--border-color));
+  background: color-mix(in srgb, #dc2626 8%, var(--bg-primary));
+  color: #b91c1c;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.system-sections-logout-btn:hover {
+  background: color-mix(in srgb, #dc2626 14%, var(--bg-primary));
+  border-color: color-mix(in srgb, #dc2626 45%, var(--border-color));
+  color: #991b1b;
+  box-shadow: 0 6px 16px color-mix(in srgb, #dc2626 18%, transparent);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+.system-sections-logout-icon {
+  font-size: 1.05rem;
+}
+
+:root.dark-theme .system-sections-logout-btn {
+  background: color-mix(in srgb, #ef4444 14%, var(--bg-primary));
+  border-color: color-mix(in srgb, #ef4444 35%, var(--border-color));
+  color: #fca5a5;
+}
+
+:root.dark-theme .system-sections-logout-btn:hover {
+  background: color-mix(in srgb, #ef4444 22%, var(--bg-primary));
+  color: #fecaca;
 }
 
 :root.light-theme .system-sections-modal-content {
-  border-color: rgba(99, 102, 241, 0.22);
+  border-color: color-mix(in srgb, var(--primary-color) 22%, transparent);
   box-shadow:
     0 20px 40px rgba(15, 23, 42, 0.08),
-    0 0 0 1px rgba(99, 102, 241, 0.08);
+    0 0 0 1px color-mix(in srgb, var(--primary-color) 8%, transparent);
 }
 
 :root.light-theme .system-sections-modal-header {
   background: linear-gradient(
     135deg,
-    #eef2ff 0%,
+    color-mix(in srgb, var(--primary-color) 6%, #ffffff) 0%,
     #f8fafc 72%,
     #ffffff 100%
   );
-  border-bottom-color: rgba(99, 102, 241, 0.14);
+  border-bottom-color: color-mix(in srgb, var(--primary-color) 14%, transparent);
 }
 
 :root.dark-theme .system-sections-modal-header {
   background: linear-gradient(
     135deg,
-    rgba(99, 102, 241, 0.22) 0%,
+    color-mix(in srgb, var(--primary-color) 22%, transparent) 0%,
     rgba(30, 41, 59, 0.4) 100%
   );
 }
 
 :root.light-theme .system-sections-fab {
   background: #ffffff;
-  border-color: rgba(99, 102, 241, 0.28);
-  color: #4f46e5;
+  border-color: color-mix(in srgb, var(--primary-color) 28%, transparent);
+  color: var(--primary-color);
   box-shadow:
-    0 4px 14px rgba(99, 102, 241, 0.12),
-    0 0 0 1px rgba(99, 102, 241, 0.08);
+    0 4px 14px color-mix(in srgb, var(--primary-color) 12%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--primary-color) 8%, transparent);
 }
 
 :root.light-theme .system-sections-fab-glow {
   background: linear-gradient(
     145deg,
-    rgba(99, 102, 241, 0.1) 0%,
-    rgba(129, 140, 248, 0.04) 50%,
+    color-mix(in srgb, var(--primary-color) 10%, transparent) 0%,
+    color-mix(in srgb, var(--primary-color) 4%, transparent) 50%,
     transparent 100%
   );
 }
 
 :root.light-theme .system-sections-fab:hover:not(.system-sections-fab--open) {
-  background: linear-gradient(145deg, #6366f1 0%, #7c83f6 100%);
+  background: linear-gradient(145deg, var(--primary-color) 0%, #7c83f6 100%);
   border-color: rgba(255, 255, 255, 0.35);
   color: #ffffff;
 }
 
 :root.light-theme .system-sections-fab.system-sections-fab--open {
-  background: linear-gradient(145deg, #4338ca 0%, #4f46e5 45%, #6366f1 100%);
-  border-color: #c7d2fe;
+  background: linear-gradient(145deg, var(--primary-color) 0%, var(--primary-color) 45%, var(--primary-color) 100%);
+  border-color: color-mix(in srgb, var(--primary-color) 35%, #ffffff);
   color: #ffffff;
   box-shadow:
-    0 0 0 3px rgba(99, 102, 241, 0.22),
+    0 0 0 3px color-mix(in srgb, var(--primary-color) 22%, transparent),
     0 12px 28px rgba(67, 56, 202, 0.38);
 }
 
@@ -620,11 +689,11 @@ body .modal.system-sections-modal .modal-dialog {
 
 :root.dark-theme .system-sections-fab {
   background: linear-gradient(180deg, #1e293b 0%, #172033 100%);
-  border-color: rgba(129, 140, 248, 0.38);
-  color: #a5b4fc;
+  border-color: color-mix(in srgb, var(--primary-color) 38%, transparent);
+  color: var(--primary-light);
   box-shadow:
     0 4px 18px rgba(0, 0, 0, 0.28),
-    0 0 0 1px rgba(129, 140, 248, 0.12);
+    0 0 0 1px color-mix(in srgb, var(--primary-color) 12%, transparent);
 }
 
 :root.dark-theme .system-sections-fab-glow {
@@ -632,11 +701,11 @@ body .modal.system-sections-modal .modal-dialog {
 }
 
 :root.dark-theme .system-sections-fab.system-sections-fab--open {
-  background: linear-gradient(145deg, #3730a3 0%, #4f46e5 50%, #6366f1 100%);
-  border-color: #818cf8;
+  background: linear-gradient(145deg, var(--primary-dark) 0%, var(--primary-color) 50%, var(--primary-color) 100%);
+  border-color: var(--primary-color);
   color: #ffffff;
   box-shadow:
-    0 0 0 3px rgba(129, 140, 248, 0.32),
+    0 0 0 3px color-mix(in srgb, var(--primary-color) 32%, transparent),
     0 12px 30px rgba(67, 56, 202, 0.55);
 }
 
@@ -644,7 +713,7 @@ body .modal.system-sections-modal .modal-dialog {
   background: linear-gradient(
     145deg,
     rgba(255, 255, 255, 0.22) 0%,
-    rgba(165, 180, 252, 0.14) 45%,
+    color-mix(in srgb, var(--primary-color) 14%, transparent) 45%,
     transparent 100%
   );
 }

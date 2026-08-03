@@ -694,9 +694,9 @@ export default {
 }
 
 .deferred-tab--active {
-  background: var(--primary-color, #6366f1);
+  background: var(--primary-color);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 35%, transparent);
 }
 
 .deferred-tab-badge {
@@ -741,8 +741,8 @@ export default {
   width: 2.1rem;
   height: 2.1rem;
   border-radius: 50%;
-  background: rgba(99, 102, 241, 0.12);
-  color: #6366f1;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  color: var(--primary-color);
   font-size: 1.1rem;
   flex-shrink: 0;
 }
@@ -803,7 +803,7 @@ export default {
 
 .deferred-amount--bold {
   font-weight: 700;
-  color: #4f46e5;
+  color: var(--primary-color);
 }
 
 .deferred-progress-wrap {
@@ -961,8 +961,8 @@ export default {
 }
 
 .deferred-filter-chip--active {
-  background: var(--primary-color, #6366f1);
-  border-color: var(--primary-color, #6366f1);
+  background: var(--primary-color);
+  border-color: var(--primary-color);
   color: #fff;
 }
 
@@ -1100,7 +1100,7 @@ export default {
 
 .deferred-settle-amount {
   font-size: 1.15rem;
-  color: #4f46e5;
+  color: var(--primary-color);
 }
 
 .deferred-settle-hint {
@@ -1138,10 +1138,10 @@ export default {
 }
 
 .deferred-method-btn--active {
-  border-color: var(--primary-color, #6366f1);
-  background: rgba(99, 102, 241, 0.08);
-  color: var(--primary-color, #6366f1);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  border-color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+  color: var(--primary-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 15%, transparent);
 }
 
 .loading-state,

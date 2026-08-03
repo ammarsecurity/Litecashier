@@ -1373,7 +1373,7 @@ export default {
 }
 
 .printer-chip--main {
-  background: rgba(99, 102, 241, 0.12);
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
   color: var(--primary-color);
 }
 

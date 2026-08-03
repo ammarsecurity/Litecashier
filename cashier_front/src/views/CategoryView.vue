@@ -587,7 +587,7 @@ export default {
 }
 
 .categories-pagination >>> .page-link:hover {
-  background-color: rgba(99, 102, 241, 0.1);
+  background-color: color-mix(in srgb, var(--primary-color) 10%, transparent);
   border-color: var(--border-dark);
   color: var(--primary-color);
 }

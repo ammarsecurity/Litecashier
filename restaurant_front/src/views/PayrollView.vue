@@ -1338,39 +1338,51 @@ export default {
 <style scoped>
 .payroll-tabs-card {
   margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
+  padding: 0;
+  overflow: hidden;
 }
 
 .payroll-tabs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-wrap: nowrap;
+  gap: 0.3rem;
+  overflow-x: auto;
+  padding: 0.35rem;
+  border-radius: 0.95rem;
+  background: color-mix(in srgb, var(--bg-secondary) 92%, var(--primary-color));
+  border: 1px solid color-mix(in srgb, var(--primary-color) 12%, var(--border-color));
+  scrollbar-width: thin;
 }
 
 .payroll-tab {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  border: 1px solid var(--border-color);
-  background: var(--bg-primary);
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--text-secondary);
-  padding: 0.45rem 0.85rem;
-  border-radius: var(--radius-md);
+  padding: 0.55rem 0.95rem;
+  border-radius: 0.7rem;
   cursor: pointer;
   font-weight: 600;
-  font-size: 0.9rem;
-  transition: all var(--transition-base, 0.2s);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  min-height: 2.45rem;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .payroll-tab:hover {
-  border-color: color-mix(in srgb, var(--primary-color) 40%, var(--border-color));
-  color: var(--text-primary);
+  background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-primary));
+  border-color: color-mix(in srgb, var(--primary-color) 18%, transparent);
+  color: var(--primary-color);
 }
 
 .payroll-tab.active {
-  background: color-mix(in srgb, var(--primary-color) 12%, var(--bg-primary));
-  color: var(--primary-color);
-  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+  background: var(--primary-color);
+  color: #ffffff;
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 28%, transparent);
 }
 
 .payroll-tab-icon {

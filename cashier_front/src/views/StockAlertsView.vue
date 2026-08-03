@@ -395,7 +395,7 @@ export default {
   display: inline-block;
   padding: 0.15rem 0.55rem;
   border-radius: 0.4rem;
-  background: color-mix(in srgb, var(--primary-color, #6366f1) 10%, transparent);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
   color: var(--text-primary, #111827);
   font-size: 0.85rem;
   font-weight: 500;

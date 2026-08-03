@@ -1595,13 +1595,13 @@ export default {
 <style scoped>
 /* Page */
 .reservations-page .res-page-icon {
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.18), rgba(99, 102, 241, 0.12));
-  color: #7c3aed;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.18), color-mix(in srgb, var(--primary-color) 12%, transparent));
+  color: var(--primary-dark);
 }
 
 .app-overview-stat-icon--purple {
   background: rgba(124, 58, 237, 0.14);
-  color: #7c3aed;
+  color: var(--primary-dark);
 }
 
 .res-stat-card {
@@ -1701,7 +1701,7 @@ export default {
   padding: 0 0.45rem;
   border-radius: 999px;
   background: rgba(124, 58, 237, 0.15);
-  color: #a78bfa;
+  color: var(--primary-light);
   font-size: 0.75rem;
   font-weight: 700;
   vertical-align: middle;
@@ -1740,12 +1740,12 @@ export default {
 }
 
 .res-date-chip:hover {
-  border-color: #a78bfa;
+  border-color: var(--primary-light);
   color: #6d28d9;
 }
 
 .res-date-chip--active {
-  background: linear-gradient(135deg, #a78bfa, #7c3aed);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
   border-color: transparent;
   color: #fff;
   box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
@@ -1823,7 +1823,7 @@ export default {
 /* Floor plan */
 .app-section-icon-wrap--purple {
   background: linear-gradient(135deg, rgba(124, 58, 237, 0.16), rgba(109, 40, 217, 0.08));
-  color: #7c3aed;
+  color: var(--primary-dark);
 }
 
 .res-clear-filter-btn {
@@ -1905,7 +1905,7 @@ export default {
 .res-status-dropdown--open {
   background: rgba(124, 58, 237, 0.18) !important;
   border-color: rgba(124, 58, 237, 0.45) !important;
-  color: #a78bfa !important;
+  color: var(--primary-light) !important;
 }
 
 .reservations-page .reservations-table tbody tr:hover {
@@ -1924,7 +1924,7 @@ export default {
 
 .res-empty-icon {
   font-size: 2.75rem;
-  color: #a78bfa;
+  color: var(--primary-light);
   opacity: 0.85;
   margin-bottom: 0.25rem;
 }
@@ -1952,7 +1952,7 @@ export default {
 
 /* Status */
 .reservation-pending { --res-accent: #d97706; }
-.reservation-confirmed { --res-accent: #7c3aed; }
+.reservation-confirmed { --res-accent: var(--primary-dark); }
 .reservation-seated { --res-accent: #059669; }
 .reservation-completed { --res-accent: #64748b; }
 .reservation-cancelled { --res-accent: #dc2626; }
@@ -1995,7 +1995,7 @@ export default {
   gap: 0.35rem;
   padding: 0.2rem 0.55rem;
   border-radius: 0.45rem;
-  background: color-mix(in srgb, #7c3aed 10%, var(--bg-secondary));
+  background: color-mix(in srgb, var(--primary-dark) 10%, var(--bg-secondary));
   color: #6d28d9;
   font-weight: 600;
   font-size: 0.8125rem;
@@ -2055,7 +2055,7 @@ export default {
 
 .action-btn--status {
   background: rgba(124, 58, 237, 0.12);
-  color: #7c3aed;
+  color: var(--primary-dark);
   border-color: rgba(124, 58, 237, 0.28);
 }
 
@@ -2089,8 +2089,8 @@ export default {
 }
 
 .reservations-pagination >>> .page-item.active .page-link {
-  background: linear-gradient(135deg, #a78bfa, #7c3aed);
-  border-color: #7c3aed;
+  background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+  border-color: var(--primary-dark);
   color: #fff;
 }
 
@@ -2146,13 +2146,13 @@ export default {
 }
 
 .res-customer-mode-label:has(.res-customer-mode-input:checked) {
-  border-color: #a78bfa;
-  color: #7c3aed;
+  border-color: var(--primary-light);
+  color: var(--primary-dark);
   background: rgba(124, 58, 237, 0.08);
 }
 
 .res-customer-mode-input {
-  accent-color: #7c3aed;
+  accent-color: var(--primary-dark);
 }
 
 .res-customer-existing {
@@ -2404,7 +2404,7 @@ export default {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #a78bfa !important;
+  color: var(--primary-light) !important;
   padding: 0.4rem 0.55rem 0.5rem;
   background: transparent !important;
   border-bottom: 1px solid rgba(148, 163, 184, 0.14);
@@ -2470,9 +2470,9 @@ export default {
 }
 
 .res-status-menu .res-status-option--confirmed {
-  border-inline-start-color: #a78bfa;
+  border-inline-start-color: var(--primary-light);
 }
-.res-status-menu .res-status-option--confirmed .b-icon { color: #a78bfa !important; }
+.res-status-menu .res-status-option--confirmed .b-icon { color: var(--primary-light) !important; }
 .res-status-menu .res-status-option--confirmed.active {
   background: rgba(124, 58, 237, 0.2) !important;
   color: #ddd6fe !important;
@@ -2542,7 +2542,7 @@ export default {
 
 :root.light-theme .res-status-menu .res-status-option--confirmed.active {
   background: rgba(124, 58, 237, 0.1) !important;
-  color: #5b21b6 !important;
+  color: var(--primary-dark) !important;
 }
 
 :root.light-theme .res-status-menu .res-status-option--seated.active {

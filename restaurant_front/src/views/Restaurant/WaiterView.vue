@@ -2761,8 +2761,8 @@ export default {
         top: `${z.y * 100}%`,
         width: `${z.w * 100}%`,
         height: `${z.h * 100}%`,
-        borderColor: z.color || "#6366f1",
-        backgroundColor: z.color ? `${z.color}33` : "rgba(99,102,241,0.12)",
+        borderColor: z.color || "var(--primary-color)",
+        backgroundColor: z.color ? `${z.color}33` : "color-mix(in srgb, var(--primary-color) 12%, transparent)",
       };
     },
     async loadMergedTableIds(tableId) {
@@ -4489,9 +4489,9 @@ export default {
   border-radius: 999px;
   font-size: 0.68rem;
   font-weight: 800;
-  background: rgba(129, 140, 248, 0.22);
+  background: color-mix(in srgb, var(--primary-color) 22%, transparent);
   color: var(--primary-color);
-  border: 1px solid rgba(129, 140, 248, 0.38);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 38%, transparent);
 }
 
 .pos-tables-toolbar-end {
@@ -4566,7 +4566,7 @@ export default {
 
 .order-notes-input:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 10%, transparent);
   outline: none;
 }
 
@@ -4586,7 +4586,7 @@ export default {
 
 .order-notes-textarea:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 10%, transparent);
   outline: none;
 }
 
@@ -4659,7 +4659,7 @@ export default {
 .order-discount-type-btn-active {
   border-color: var(--primary-color);
   color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 12%, transparent);
 }
 
 .order-discount-input-row {
@@ -4688,7 +4688,7 @@ export default {
 
 .order-discount-preset-btn {
   border: 1px dashed var(--primary-color);
-  background: rgba(99, 102, 241, 0.08);
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
   color: var(--primary-color);
   border-radius: 999px;
   padding: 0.35rem 0.7rem;
@@ -4755,7 +4755,7 @@ export default {
   padding: 0.75rem;
   background: white;
   border-radius: 0.5rem;
-  border-left: 3px solid var(--primary-color, #818cf8);
+  border-left: 3px solid var(--primary-color);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -4769,7 +4769,7 @@ export default {
 
 .pos-order-note-code {
   font-weight: 600;
-  color: var(--primary-color, #818cf8);
+  color: var(--primary-color);
   display: flex;
   align-items: center;
 }
@@ -4812,14 +4812,14 @@ export default {
 
 /* Transfer Table Button */
 .pos-transfer-table-btn {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.15) 0%, rgba(167, 139, 250, 0.15) 100%);
-  border: 1px solid rgba(129, 140, 248, 0.3);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 15%, transparent) 0%, color-mix(in srgb, var(--primary-light) 15%, transparent) 100%);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 30%, transparent);
   color: var(--primary-color);
 }
 
 .pos-transfer-table-btn:hover {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.25) 0%, rgba(167, 139, 250, 0.25) 100%);
-  border-color: rgba(129, 140, 248, 0.5);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 25%, transparent) 0%, color-mix(in srgb, var(--primary-light) 25%, transparent) 100%);
+  border-color: color-mix(in srgb, var(--primary-color) 50%, transparent);
   color: #ffffff;
 }
 
@@ -4873,7 +4873,7 @@ export default {
 
 .transfer-table-select-input:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 10%, transparent);
   outline: none;
 }
 
@@ -4942,21 +4942,21 @@ export default {
   padding: 0.5rem 0.75rem;
   border: none;
   border-radius: 0.5rem;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.15) 0%, rgba(167, 139, 250, 0.15) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 15%, transparent) 0%, color-mix(in srgb, var(--primary-light) 15%, transparent) 100%);
   color: var(--primary-color);
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  border: 1px solid rgba(129, 140, 248, 0.3);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 30%, transparent);
 }
 
 .pos-merge-tables-btn-compact:hover {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.25) 0%, rgba(167, 139, 250, 0.25) 100%);
-  border-color: rgba(129, 140, 248, 0.5);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 25%, transparent) 0%, color-mix(in srgb, var(--primary-light) 25%, transparent) 100%);
+  border-color: color-mix(in srgb, var(--primary-color) 50%, transparent);
   color: #ffffff;
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.3);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 30%, transparent);
 }
 
 .pos-merge-tables-btn-compact .b-icon {
@@ -4970,8 +4970,8 @@ export default {
 /* Multi-Selected Table */
 .pos-table-multi-selected {
   border: 2px solid var(--primary-color) !important;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.1) 0%, rgba(167, 139, 250, 0.1) 100%) !important;
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 10%, transparent) 0%, color-mix(in srgb, var(--primary-light) 10%, transparent) 100%) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent) !important;
 }
 
 .pos-table-multi-selected .pos-table-number-compact {
@@ -5108,11 +5108,11 @@ export default {
 }
 
 .pos-table-action-transfer--merge {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
 }
 
 .pos-table-action-transfer--merge:hover {
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #6d28d9 100%);
 }
 
 .pos-table-action-transfer .b-icon {
@@ -5609,7 +5609,7 @@ export default {
 
 .delivery-radio-label:has(.delivery-radio-input:checked) {
   border-color: var(--primary-color);
-  background: rgba(129, 140, 248, 0.1);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
 }
 
 .delivery-radio-text {
@@ -5657,7 +5657,7 @@ export default {
   color: #ffffff;
   border-color: var(--primary-color);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(129, 140, 248, 0.3);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 30%, transparent);
 }
 
 [dir="rtl"] .delivery-info-section {
@@ -5716,7 +5716,7 @@ export default {
   gap: 0.25rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--primary-color, #818cf8);
+  color: var(--primary-color);
 }
 
 .pos-order-note-date {
@@ -5746,8 +5746,8 @@ export default {
 }
 
 .pos-route--v2 .pos-cart-item--v2:hover {
-  border-color: rgba(129, 140, 248, 0.38) !important;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.14) !important;
+  border-color: color-mix(in srgb, var(--primary-color) 38%, transparent) !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--primary-color) 14%, transparent) !important;
 }
 
 .pos-cart-item-top {
@@ -5763,7 +5763,7 @@ export default {
   flex-shrink: 0;
   font-size: 0.95rem;
   font-weight: 800;
-  color: #a5b4fc;
+  color: var(--primary-light);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   line-height: 1.25;
@@ -5813,8 +5813,8 @@ export default {
   color: var(--text-primary);
   padding: 0.1rem 0.42rem;
   border-radius: 999px;
-  background: rgba(99, 102, 241, 0.14);
-  border: 1px solid rgba(129, 140, 248, 0.28);
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 28%, transparent);
   font-variant-numeric: tabular-nums;
 }
 
@@ -5920,16 +5920,16 @@ export default {
   align-items: center;
   justify-content: center;
   border-radius: 0.55rem;
-  border: 1px solid rgba(79, 70, 229, 0.24);
-  background: linear-gradient(180deg, rgba(99, 102, 241, 0.14) 0%, rgba(79, 70, 229, 0.08) 100%);
-  color: #4f46e5;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 24%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary-color) 14%, transparent) 0%, color-mix(in srgb, var(--primary-color) 8%, transparent) 100%);
+  color: var(--primary-color);
   transition: all 0.16s ease;
 }
 
 .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer:hover {
-  border-color: rgba(79, 70, 229, 0.42);
-  background: linear-gradient(180deg, rgba(99, 102, 241, 0.2) 0%, rgba(79, 70, 229, 0.13) 100%);
-  color: #3730a3;
+  border-color: color-mix(in srgb, var(--primary-color) 42%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary-color) 20%, transparent) 0%, color-mix(in srgb, var(--primary-color) 13%, transparent) 100%);
+  color: var(--primary-dark);
   transform: translateY(-1px);
 }
 
@@ -5939,7 +5939,7 @@ export default {
 
 .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.26);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 26%, transparent);
 }
 
 /* السلة على الشاشات الصغيرة/المتوسطة: ترتيب أوضح لسطر المادة */
@@ -6075,7 +6075,7 @@ export default {
 
 .pos-cart-items-section::-webkit-scrollbar-thumb:hover,
 .pos-cart-items-list::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-color, #818cf8);
+  background: var(--primary-color);
 }
 
 /* RTL Support */
@@ -6103,16 +6103,16 @@ export default {
 
 :root.light-theme .pos-header-section::before {
   background: 
-    radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 80% 50%, rgba(99, 102, 241, 0.05) 0%, transparent 50%);
+    radial-gradient(circle at 20% 50%, color-mix(in srgb, var(--primary-color) 8%, transparent) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, color-mix(in srgb, var(--primary-color) 5%, transparent) 0%, transparent 50%);
 }
 
 :root.light-theme .pos-header-section::after {
   background: linear-gradient(90deg, 
     transparent 0%, 
-    rgba(99, 102, 241, 0.3) 20%, 
-    rgba(99, 102, 241, 0.3) 50%, 
-    rgba(99, 102, 241, 0.3) 80%, 
+    color-mix(in srgb, var(--primary-color) 30%, transparent) 20%, 
+    color-mix(in srgb, var(--primary-color) 30%, transparent) 50%, 
+    color-mix(in srgb, var(--primary-color) 30%, transparent) 80%, 
     transparent 100%);
 }
 
@@ -6124,7 +6124,7 @@ export default {
 :root.light-theme .pos-logo-section:hover {
   background: var(--bg-dark);
   border-color: var(--primary-color);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 15%, transparent);
 }
 
 :root.light-theme .pos-logo {
@@ -6142,7 +6142,7 @@ export default {
 }
 
 :root.light-theme .pos-employee-info .b-icon {
-  filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.2));
+  filter: drop-shadow(0 2px 4px color-mix(in srgb, var(--primary-color) 20%, transparent));
 }
 
 :root.light-theme .pos-employee-label {
@@ -6469,12 +6469,12 @@ export default {
   padding: 0.85rem 1rem 1rem;
   background: linear-gradient(
     155deg,
-    rgba(129, 140, 248, 0.09) 0%,
+    color-mix(in srgb, var(--primary-color) 9%, transparent) 0%,
     var(--bg-tertiary) 42%,
     var(--bg-tertiary) 100%
   );
   border-radius: 1rem;
-  border: 1px solid rgba(129, 140, 248, 0.22);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 22%, transparent);
   box-shadow:
     0 6px 22px rgba(0, 0, 0, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -6486,7 +6486,7 @@ export default {
   gap: 0.55rem;
   margin-bottom: 0.7rem;
   padding-bottom: 0.55rem;
-  border-bottom: 1px solid rgba(129, 140, 248, 0.18);
+  border-bottom: 1px solid color-mix(in srgb, var(--primary-color) 18%, transparent);
 }
 
 .pos-fp-gate-tabs-card__icon-wrap {
@@ -6499,12 +6499,12 @@ export default {
   justify-content: center;
   background: linear-gradient(
     145deg,
-    rgba(129, 140, 248, 0.35) 0%,
-    rgba(167, 139, 250, 0.22) 100%
+    color-mix(in srgb, var(--primary-color) 35%, transparent) 0%,
+    color-mix(in srgb, var(--primary-light) 22%, transparent) 100%
   );
   color: var(--primary-color);
   font-size: 1.05rem;
-  box-shadow: 0 2px 10px rgba(129, 140, 248, 0.25);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--primary-color) 25%, transparent);
 }
 
 .pos-fp-gate-tabs-card__header .pos-fp-gate-tabs-label {
@@ -6557,29 +6557,29 @@ export default {
 
 .pos-floor-plan-gate-tab:hover {
   border-color: var(--primary-color);
-  border-inline-start-color: rgba(129, 140, 248, 0.45);
+  border-inline-start-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
   color: var(--primary-color);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(129, 140, 248, 0.18);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--primary-color) 18%, transparent);
 }
 
 .pos-floor-plan-gate-tab:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.35);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 35%, transparent);
 }
 
 .pos-floor-plan-gate-tab--active {
-  border-color: rgba(129, 140, 248, 0.55);
+  border-color: color-mix(in srgb, var(--primary-color) 55%, transparent);
   border-inline-start-color: var(--primary-color);
   background: linear-gradient(
     118deg,
-    rgba(129, 140, 248, 0.22) 0%,
-    rgba(167, 139, 250, 0.12) 55%,
+    color-mix(in srgb, var(--primary-color) 22%, transparent) 0%,
+    color-mix(in srgb, var(--primary-light) 12%, transparent) 55%,
     var(--bg-primary) 100%
   );
   color: var(--primary-color);
   box-shadow:
-    0 3px 14px rgba(129, 140, 248, 0.28),
+    0 3px 14px color-mix(in srgb, var(--primary-color) 28%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
@@ -6589,7 +6589,7 @@ export default {
     padding: 1rem 0.85rem;
     background: linear-gradient(
       165deg,
-      rgba(129, 140, 248, 0.08) 0%,
+      color-mix(in srgb, var(--primary-color) 8%, transparent) 0%,
       var(--bg-primary) 48%
     );
   }
@@ -6613,7 +6613,7 @@ export default {
     border-radius: 0.85rem;
     flex: 0 0 auto;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: rgba(129, 140, 248, 0.25);
+    -webkit-tap-highlight-color: color-mix(in srgb, var(--primary-color) 25%, transparent);
     box-sizing: border-box;
   }
 
@@ -6637,7 +6637,7 @@ export default {
     align-items: center;
     justify-content: center;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: rgba(129, 140, 248, 0.2);
+    -webkit-tap-highlight-color: color-mix(in srgb, var(--primary-color) 20%, transparent);
   }
 
   .pos-floor-plan-gate--page .pos-fp-gate-tabs-card:not(.pos-fp-gate-tabs-card--navbar) .pos-fp-gate-tabs-card__header .pos-fp-gate-tabs-label {
@@ -6772,7 +6772,7 @@ export default {
 }
 
 .pos-fp-chip-res {
-  background: linear-gradient(135deg, #a78bfa, #7c3aed);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
   color: #fff;
 }
 
@@ -6838,9 +6838,9 @@ export default {
 }
 
 .pos-floor-plan-gate-btn--primary {
-  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(129, 140, 248, 0.3);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 30%, transparent);
 }
 
 .pos-floor-plan-gate-btn--secondary {
@@ -6863,7 +6863,7 @@ export default {
 }
 
 :root.light-theme .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-title {
-  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -6897,26 +6897,26 @@ export default {
 }
 
 :root.light-theme .pos-fp-gate-tabs-card {
-  border-color: rgba(99, 102, 241, 0.22);
+  border-color: color-mix(in srgb, var(--primary-color) 22%, transparent);
   background: linear-gradient(
     155deg,
-    rgba(99, 102, 241, 0.06) 0%,
+    color-mix(in srgb, var(--primary-color) 6%, transparent) 0%,
     var(--bg-tertiary, #f3f4f6) 45%
   );
   box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
 }
 
 :root.light-theme .pos-fp-gate-tabs-card__header {
-  border-bottom-color: rgba(99, 102, 241, 0.14);
+  border-bottom-color: color-mix(in srgb, var(--primary-color) 14%, transparent);
 }
 
 :root.light-theme .pos-floor-plan-gate--page .pos-fp-launch__eyebrow {
   background: linear-gradient(
     135deg,
-    rgba(99, 102, 241, 0.12) 0%,
+    color-mix(in srgb, var(--primary-color) 12%, transparent) 0%,
     rgba(139, 92, 246, 0.08) 100%
   );
-  border-color: rgba(99, 102, 241, 0.28);
+  border-color: color-mix(in srgb, var(--primary-color) 28%, transparent);
 }
 
 /* ——— POS v2: هيكل، سلة جانبية، أرضية ——— */
@@ -7414,7 +7414,7 @@ export default {
   margin-bottom: 0;
   padding-bottom: 0;
   border-bottom: none;
-  border-inline-end: 1px solid rgba(129, 140, 248, 0.22);
+  border-inline-end: 1px solid color-mix(in srgb, var(--primary-color) 22%, transparent);
   padding-inline-end: 0.5rem;
 }
 
@@ -7454,7 +7454,7 @@ export default {
   font-weight: 600;
   line-height: 1.25;
   border-radius: 0.55rem;
-  border: 2px solid rgba(129, 140, 248, 0.35);
+  border: 2px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
   background: var(--bg-primary);
   color: var(--text-primary);
   cursor: pointer;
@@ -7466,13 +7466,13 @@ export default {
 }
 
 .pos-floor-plan-gate--page .pos-fp-gate-plan-select:hover {
-  border-color: rgba(129, 140, 248, 0.55);
+  border-color: color-mix(in srgb, var(--primary-color) 55%, transparent);
 }
 
 .pos-floor-plan-gate--page .pos-fp-gate-plan-select:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.28);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 28%, transparent);
 }
 
 [dir="rtl"] .pos-floor-plan-gate--page .pos-fp-gate-plan-select {
@@ -7535,9 +7535,9 @@ export default {
   line-height: 1.35;
   color: var(--text-secondary);
   padding: 0.24rem 0.34rem;
-  border: 1px dashed rgba(129, 140, 248, 0.32);
+  border: 1px dashed color-mix(in srgb, var(--primary-color) 32%, transparent);
   border-radius: 0.4rem;
-  background: rgba(129, 140, 248, 0.06);
+  background: color-mix(in srgb, var(--primary-color) 6%, transparent);
 }
 
 .pos-fp-gate-help-ic {
@@ -7615,8 +7615,8 @@ export default {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  border: 1px solid rgba(129, 140, 248, 0.45);
-  background: rgba(129, 140, 248, 0.18);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 45%, transparent);
+  background: color-mix(in srgb, var(--primary-color) 18%, transparent);
   color: var(--primary-color);
   font-size: 0.58rem;
   font-weight: 700;
@@ -7637,8 +7637,8 @@ export default {
   border-color: var(--primary-color);
   background: linear-gradient(
     135deg,
-    rgba(129, 140, 248, 0.16) 0%,
-    rgba(167, 139, 250, 0.12) 100%
+    color-mix(in srgb, var(--primary-color) 16%, transparent) 0%,
+    color-mix(in srgb, var(--primary-light) 12%, transparent) 100%
   );
   color: var(--primary-color);
 }
@@ -7649,18 +7649,18 @@ export default {
 }
 
 .pos-fp-gate-tool-btn--accent {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.12) 0%, rgba(167, 139, 250, 0.08) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 12%, transparent) 0%, color-mix(in srgb, var(--primary-light) 8%, transparent) 100%);
 }
 
 .pos-fp-gate-tool-btn--on {
   border-color: var(--primary-color);
   background: linear-gradient(
     135deg,
-    rgba(129, 140, 248, 0.18) 0%,
-    rgba(167, 139, 250, 0.14) 100%
+    color-mix(in srgb, var(--primary-color) 18%, transparent) 0%,
+    color-mix(in srgb, var(--primary-light) 14%, transparent) 100%
   );
   color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.16);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 16%, transparent);
 }
 
 .pos-fp-gate-tool-ic {
@@ -7685,7 +7685,7 @@ export default {
   font-weight: 800;
   line-height: 1.25;
   margin: 0 0 0.65rem;
-  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -7709,11 +7709,11 @@ export default {
   color: var(--primary-color);
   background: linear-gradient(
     135deg,
-    rgba(129, 140, 248, 0.16) 0%,
-    rgba(167, 139, 250, 0.1) 100%
+    color-mix(in srgb, var(--primary-color) 16%, transparent) 0%,
+    color-mix(in srgb, var(--primary-light) 10%, transparent) 100%
   );
-  border: 1px solid rgba(129, 140, 248, 0.35);
-  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.12);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 12%, transparent);
 }
 
 .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-title {
@@ -7805,7 +7805,7 @@ export default {
   border-radius: 0.45rem;
   white-space: nowrap;
   min-height: unset;
-  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.28);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 28%, transparent);
 }
 
 .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip .button-text {
@@ -7864,9 +7864,9 @@ export default {
   width: 3.75rem;
   height: 3.75rem;
   border-radius: 1rem;
-  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
   border: none;
-  box-shadow: 0 4px 12px rgba(129, 140, 248, 0.35);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 35%, transparent);
 }
 
 :root.light-theme .pos-route--v2 .main-content-wrapper {
@@ -7975,8 +7975,8 @@ export default {
 }
 
 .pos-browse-back-btn:hover {
-  background: var(--primary-color, #6366f1);
-  border-color: var(--primary-color, #6366f1);
+  background: var(--primary-color);
+  border-color: var(--primary-color);
   color: #fff;
 }
 

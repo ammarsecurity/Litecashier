@@ -1844,8 +1844,8 @@ export default {
 }
 
 .overview-stat-icon--primary {
-  background: rgba(99, 102, 241, 0.14);
-  color: #4f46e5;
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  color: var(--primary-color);
 }
 
 .overview-stat-icon--info {
@@ -1987,7 +1987,7 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.16) 0%, rgba(79, 70, 229, 0.08) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 16%, transparent) 0%, color-mix(in srgb, var(--primary-color) 8%, transparent) 100%);
   color: var(--primary-color);
   flex-shrink: 0;
 }
@@ -2043,7 +2043,7 @@ export default {
 }
 
 .print-server-item-card:hover {
-  border-color: rgba(99, 102, 241, 0.45);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
@@ -2114,8 +2114,8 @@ export default {
 }
 
 .item-badge--public {
-  background: rgba(99, 102, 241, 0.14);
-  color: #4f46e5;
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  color: var(--primary-color);
 }
 
 .item-badge--inactive {
@@ -2178,9 +2178,9 @@ export default {
   justify-content: center;
   gap: 0.45rem;
   padding: 0.55rem 0.75rem;
-  border: 1px solid rgba(99, 102, 241, 0.35);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
   border-radius: 0.6rem;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(79, 70, 229, 0.06) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 12%, transparent) 0%, color-mix(in srgb, var(--primary-color) 6%, transparent) 100%);
   color: var(--primary-color);
   font-weight: 700;
   font-size: 0.85rem;
@@ -2189,7 +2189,7 @@ export default {
 }
 
 .print-server-test-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(79, 70, 229, 0.12) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 20%, transparent) 0%, color-mix(in srgb, var(--primary-color) 12%, transparent) 100%);
   transform: translateY(-1px);
 }
 
@@ -2898,7 +2898,7 @@ export default {
 .form-control:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent);
   background: var(--bg-primary);
 }
 
@@ -3026,7 +3026,7 @@ select.form-control {
 select.form-control:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent);
   background: var(--bg-primary);
 }
 
@@ -3509,7 +3509,7 @@ select.form-control:focus {
 .form-control:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 10%, transparent);
 }
 
 .tag-printer-multi-select {

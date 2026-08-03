@@ -310,7 +310,7 @@ export default {
 }
 
 .cpw-icon-circle--waiting {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(129, 140, 248, 0.12));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 22%, transparent), color-mix(in srgb, var(--primary-color) 12%, transparent));
   border-color: var(--primary-color);
 }
 
@@ -356,7 +356,7 @@ export default {
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--primary-light);
-  background: rgba(129, 140, 248, 0.14);
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
   border: 1px solid var(--border-color);
 }
 
@@ -497,13 +497,13 @@ export default {
 
 .cpw-step-pill--active {
   border-color: var(--primary-color);
-  background: rgba(129, 140, 248, 0.1);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
 }
 
 .cpw-step-pill--active .cpw-step-pill-icon {
   color: var(--primary-color);
   border-color: var(--primary-color);
-  background: rgba(129, 140, 248, 0.15);
+  background: color-mix(in srgb, var(--primary-color) 15%, transparent);
 }
 
 .cpw-step-pill--active .cpw-step-pill-label {
@@ -637,9 +637,9 @@ export default {
 .card-payment-wait-modal-root--light .cpw-shell--light {
   --cpw-bg: #ffffff;
   --cpw-surface: #f8fafc;
-  --cpw-accent: #6366f1;
-  --cpw-accent-dark: #4f46e5;
-  --cpw-accent-soft: color-mix(in srgb, #6366f1 12%, transparent);
+  --cpw-accent: var(--primary-color);
+  --cpw-accent-dark: var(--primary-color);
+  --cpw-accent-soft: color-mix(in srgb, var(--primary-color) 12%, transparent);
   --cpw-text: #0f172a;
   --cpw-muted: #64748b;
   --cpw-border: #e2e8f0;
@@ -653,7 +653,7 @@ export default {
 }
 
 .card-payment-wait-modal-root--light .cpw-shell--light .cpw-icon-circle--waiting {
-  background: color-mix(in srgb, #6366f1 14%, #ffffff);
+  background: color-mix(in srgb, var(--primary-color) 14%, #ffffff);
   border-color: var(--cpw-accent);
 }
 
@@ -668,7 +668,7 @@ export default {
 .card-payment-wait-modal-root--light .cpw-shell--light .cpw-badge {
   color: var(--cpw-accent-dark);
   background: var(--cpw-accent-soft);
-  border-color: color-mix(in srgb, #6366f1 28%, #e2e8f0);
+  border-color: color-mix(in srgb, var(--primary-color) 28%, #e2e8f0);
 }
 
 .card-payment-wait-modal-root--light .cpw-shell--light .cpw-title {
@@ -740,7 +740,7 @@ export default {
 .card-payment-wait-modal-root--light .cpw-shell--light .cpw-step-pill--active .cpw-step-pill-icon {
   color: var(--cpw-accent);
   border-color: var(--cpw-accent);
-  background: color-mix(in srgb, #6366f1 16%, #ffffff);
+  background: color-mix(in srgb, var(--primary-color) 16%, #ffffff);
 }
 
 .card-payment-wait-modal-root--light .cpw-shell--light .cpw-step-pill--active .cpw-step-pill-label {
@@ -760,11 +760,11 @@ export default {
 .card-payment-wait-modal-root--light .cpw-shell--light .cpw-btn--ghost:hover:not(:disabled) {
   background: var(--cpw-surface);
   color: var(--cpw-text);
-  border-color: color-mix(in srgb, #6366f1 35%, #e2e8f0);
+  border-color: color-mix(in srgb, var(--primary-color) 35%, #e2e8f0);
 }
 
 .card-payment-wait-modal-root--light .cpw-shell--light .cpw-btn--primary {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-color));
   color: #ffffff;
 }
 

@@ -487,7 +487,7 @@ export default {
 .audit-log-filter-select:focus,
 .audit-log-filter-input:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 10%, transparent);
     outline: none;
 }
 

@@ -1092,7 +1092,7 @@ export default {
 
 .category-maintenance {
   background: rgba(139, 92, 246, 0.15);
-  color: #8b5cf6;
+  color: var(--primary-color);
   border: 1px solid rgba(139, 92, 246, 0.3);
 }
 
@@ -1152,7 +1152,7 @@ export default {
 
 .empty-icon {
   font-size: 4rem;
-  color: rgba(129, 140, 248, 0.4);
+  color: color-mix(in srgb, var(--primary-color) 40%, transparent);
   margin-bottom: 1rem;
 }
 

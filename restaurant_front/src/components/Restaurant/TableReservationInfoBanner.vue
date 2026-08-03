@@ -142,7 +142,7 @@ export default {
   margin: 0 0 0.75rem;
   border-radius: 0.8rem;
   overflow: hidden;
-  border: 1px solid rgba(167, 139, 250, 0.28);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 28%, transparent);
   background:
     linear-gradient(145deg, rgba(124, 58, 237, 0.12) 0%, rgba(30, 27, 75, 0.55) 55%, rgba(15, 23, 42, 0.9) 100%);
   box-shadow:
@@ -164,7 +164,7 @@ export default {
   top: 0;
   bottom: 0;
   width: 3px;
-  background: linear-gradient(180deg, #c4b5fd, #7c3aed 55%, #5b21b6);
+  background: linear-gradient(180deg, var(--primary-light), var(--primary-dark) 55%, var(--primary-dark));
 }
 
 .res-info-card-inner {
@@ -187,7 +187,7 @@ export default {
   border-radius: 0.55rem;
   flex-shrink: 0;
   color: #ede9fe;
-  background: linear-gradient(135deg, rgba(167, 139, 250, 0.35), rgba(124, 58, 237, 0.22));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-light) 35%, transparent), rgba(124, 58, 237, 0.22));
   border: 1px solid rgba(196, 181, 253, 0.35);
   font-size: 1rem;
 }
@@ -216,7 +216,7 @@ export default {
   font-weight: 700;
   color: #ddd6fe;
   background: rgba(124, 58, 237, 0.28);
-  border: 1px solid rgba(167, 139, 250, 0.35);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 35%, transparent);
 }
 
 .res-info-card-stats {
@@ -245,7 +245,7 @@ export default {
   border-radius: 0.45rem;
   flex-shrink: 0;
   background: rgba(124, 58, 237, 0.16);
-  color: #c4b5fd;
+  color: var(--primary-light);
 }
 
 .res-info-stat-icon {
@@ -299,7 +299,7 @@ export default {
 }
 
 .res-info-stat-link {
-  color: #c4b5fd;
+  color: var(--primary-light);
   text-decoration: none;
 }
 
@@ -341,7 +341,7 @@ export default {
 }
 
 :root.light-theme .res-info-card-accent {
-  background: linear-gradient(180deg, #a78bfa, #7c3aed 60%, #6d28d9);
+  background: linear-gradient(180deg, var(--primary-light), var(--primary-dark) 60%, #6d28d9);
 }
 
 :root.light-theme .res-info-card-badge {
@@ -356,7 +356,7 @@ export default {
 
 :root.light-theme .res-info-card-status {
   color: #6d28d9;
-  background: rgba(167, 139, 250, 0.22);
+  background: color-mix(in srgb, var(--primary-light) 22%, transparent);
   border-color: rgba(124, 58, 237, 0.16);
 }
 
@@ -368,7 +368,7 @@ export default {
 
 :root.light-theme .res-info-stat-icon-wrap {
   background: #f3e8ff;
-  color: #7c3aed;
+  color: var(--primary-dark);
 }
 
 :root.light-theme .res-info-stat-label {
@@ -384,6 +384,6 @@ export default {
 }
 
 :root.light-theme .res-info-stat-link:hover {
-  color: #5b21b6;
+  color: var(--primary-dark);
 }
 </style>

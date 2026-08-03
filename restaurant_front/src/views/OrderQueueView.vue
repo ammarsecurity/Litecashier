@@ -1224,7 +1224,7 @@ export default {
 }
 
 .queue-card:hover {
-  border-color: rgba(129, 140, 248, 0.45);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
 }
 
@@ -1258,9 +1258,9 @@ export default {
 }
 
 .dinein-badge {
-  background: rgba(99, 102, 241, 0.12);
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
   color: var(--primary-color);
-  border: 1px solid rgba(99, 102, 241, 0.22);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 22%, transparent);
 }
 
 .takeaway-badge {
@@ -1342,8 +1342,8 @@ export default {
 }
 
 .processing-btn {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color) 100%);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent);
 }
 
 .ready-btn {
@@ -1670,8 +1670,8 @@ export default {
   margin-top: 0.85rem;
   padding: 0.75rem 0.85rem;
   border-radius: 0.55rem;
-  background: rgba(129, 140, 248, 0.08);
-  border: 1px solid rgba(129, 140, 248, 0.2);
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 20%, transparent);
 }
 
 .oq-detail-notes-icon {
@@ -1740,7 +1740,7 @@ export default {
 }
 
 .oq-detail-items-table tbody tr:hover {
-  background: rgba(129, 140, 248, 0.04);
+  background: color-mix(in srgb, var(--primary-color) 4%, transparent);
 }
 
 .oq-detail-item-name {
@@ -1836,8 +1836,8 @@ export default {
 }
 
 .oq-detail-action--processing {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.28);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color) 100%);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 28%, transparent);
 }
 
 .oq-detail-action--ready,

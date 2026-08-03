@@ -886,14 +886,22 @@
             >
               <div class="modal-content-wrapper order-notes-modal-wrap">
                 <div class="order-notes-content order-notes-content--compact">
-                  <div class="order-notes-header order-notes-header--compact">
-                    <b-icon icon="file-text" class="me-2" />
+                  <div class="order-notes-hero">
+                    <div class="order-notes-hero-icon" aria-hidden="true">
+                      <b-icon icon="receipt-cutoff" />
+                    </div>
                     <h3 class="order-notes-title">{{ $t("orderNotes") || "ملاحظات الطلب" }}</h3>
+                    <p class="order-notes-subtitle">
+                      {{ $t("orderNotesPaymentHint") || "اختر طريقة الدفع وأكمل تفاصيل الطلب" }}
+                    </p>
                   </div>
 
                   <div class="order-notes-meta-row">
                     <div class="order-notes-input-wrapper order-notes-input-wrapper--grow">
-                      <label class="order-notes-label">{{ $t("notesLabel") || "الملاحظات (اختياري)" }}</label>
+                      <label class="order-notes-label">
+                        <b-icon icon="chat-left-text" class="order-notes-label-icon" />
+                        {{ $t("notesLabel") || "الملاحظات (اختياري)" }}
+                      </label>
                       <textarea
                         v-model="orderForSend.notes"
                         class="order-notes-textarea order-notes-textarea--compact"
@@ -902,7 +910,10 @@
                       ></textarea>
                     </div>
                     <div class="order-notes-input-wrapper order-notes-input-wrapper--pager">
-                      <label class="order-notes-label">{{ $t("pagerNumber") || "رقم النداء" }}</label>
+                      <label class="order-notes-label">
+                        <b-icon icon="broadcast" class="order-notes-label-icon" />
+                        {{ $t("pagerNumber") || "رقم النداء" }}
+                      </label>
                       <input
                         v-model="orderForSend.pagerNumber"
                         type="text"
@@ -913,7 +924,7 @@
                   </div>
 
                   <div class="order-notes-checkout-card">
-                    <div class="order-notes-pay-row">
+                    <div class="order-notes-pay-block">
                       <span class="order-notes-label">{{ $t("paymentMethod") || "طريقة الدفع" }}</span>
                       <div class="order-notes-pay-toggle">
                         <button
@@ -922,8 +933,13 @@
                           :class="{ 'order-notes-pay-btn--active': orderForSend.paymentMethod === 'Cash' }"
                           @click="setPosPaymentMethod('Cash')"
                         >
-                          <b-icon icon="cash-stack" />
-                          {{ $t("cash") || "كاش" }}
+                          <span class="order-notes-pay-btn-icon">
+                            <b-icon icon="cash-stack" />
+                          </span>
+                          <span class="order-notes-pay-btn-text">
+                            <strong>{{ $t("cash") || "كاش" }}</strong>
+                            <small>{{ $t("orderNotesCashHint") || "دفع نقدي" }}</small>
+                          </span>
                         </button>
                         <button
                           type="button"
@@ -931,8 +947,13 @@
                           :class="{ 'order-notes-pay-btn--active': orderForSend.paymentMethod === 'Card' }"
                           @click="setPosPaymentMethod('Card')"
                         >
-                          <b-icon icon="credit-card" />
-                          {{ $t("card") || "بطاقة" }}
+                          <span class="order-notes-pay-btn-icon">
+                            <b-icon icon="credit-card" />
+                          </span>
+                          <span class="order-notes-pay-btn-text">
+                            <strong>{{ $t("card") || "بطاقة" }}</strong>
+                            <small>{{ $t("orderNotesCardHint") || "جهاز البطاقة" }}</small>
+                          </span>
                         </button>
                       </div>
                     </div>
@@ -954,7 +975,7 @@
                       @click="orderNotesDiscountOpen = !orderNotesDiscountOpen"
                     >
                       <span>
-                        <b-icon icon="percent" class="me-2" />
+                        <b-icon icon="percent" />
                         {{ $t("orderDiscount") || "خصم الطلب" }}
                         <small v-if="orderDiscountAmount > 0" class="order-discount-collapse-badge">
                           -{{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}
@@ -1010,11 +1031,11 @@
 
                   <div class="order-notes-actions order-notes-actions--compact">
                     <button class="order-notes-confirm-button" @click="confirmAddOrder">
-                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                      <b-icon icon="check-lg"></b-icon>
                       {{ $t("orderNotesComplete") || "اكمال" }}
                     </button>
                     <button class="order-notes-cancel-button" @click="closeModel('modal-order-notes')">
-                      <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+                      <b-icon icon="x-lg"></b-icon>
                       {{ $t("cancelButton") || "إلغاء" }}
                     </button>
                   </div>
@@ -3429,8 +3450,8 @@ export default {
         top: `${z.y * 100}%`,
         width: `${z.w * 100}%`,
         height: `${z.h * 100}%`,
-        borderColor: z.color || "#6366f1",
-        backgroundColor: z.color ? `${z.color}33` : "rgba(99,102,241,0.12)",
+        borderColor: z.color || "var(--primary-color)",
+        backgroundColor: z.color ? `${z.color}33` : "color-mix(in srgb, var(--primary-color) 12%, transparent)",
       };
     },
     async loadMergedTableIds(tableId) {
@@ -5396,9 +5417,9 @@ export default {
   border-radius: 999px;
   font-size: 0.68rem;
   font-weight: 800;
-  background: rgba(129, 140, 248, 0.22);
+  background: color-mix(in srgb, var(--primary-color) 22%, transparent);
   color: var(--primary-color);
-  border: 1px solid rgba(129, 140, 248, 0.38);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 38%, transparent);
 }
 
 .pos-tables-toolbar-end {
@@ -5473,7 +5494,7 @@ export default {
 
 .order-notes-input:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 10%, transparent);
   outline: none;
 }
 
@@ -5493,7 +5514,7 @@ export default {
 
 .order-notes-textarea:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 10%, transparent);
   outline: none;
 }
 
@@ -5546,92 +5567,233 @@ export default {
   overflow: hidden !important;
 }
 
+.order-notes-modal-root .modal-dialog {
+  max-width: 520px;
+}
+
+.order-notes-modal-root .modal-content {
+  border: none;
+  border-radius: 1.15rem;
+  overflow: hidden;
+  box-shadow:
+    0 24px 48px color-mix(in srgb, #0f172a 18%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--primary-color) 12%, transparent);
+}
+
 .order-notes-modal-wrap {
-  padding: 1rem 1.15rem !important;
+  padding: 0 !important;
 }
 
 .order-notes-content--compact {
-  gap: 0.75rem;
+  gap: 0;
+}
+
+.order-notes-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.35rem;
+  padding: 1.2rem 1.2rem 1rem;
+  background:
+    radial-gradient(
+      ellipse 90% 80% at 50% 0%,
+      color-mix(in srgb, var(--primary-color) 16%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary-color) 6%, var(--bg-primary)),
+      var(--bg-primary)
+    );
+  border-bottom: 1px solid color-mix(in srgb, var(--primary-color) 12%, var(--border-color));
+}
+
+.order-notes-hero-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.9rem;
+  display: grid;
+  place-items: center;
+  font-size: 1.25rem;
+  color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 14%, var(--bg-primary));
+  border: 1px solid color-mix(in srgb, var(--primary-color) 28%, transparent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary-color) 16%, transparent);
+  margin-bottom: 0.15rem;
 }
 
 .order-notes-header--compact {
   margin-bottom: 0;
 }
 
-.order-notes-header--compact .order-notes-title {
-  font-size: 1.15rem;
+.order-notes-header--compact .order-notes-title,
+.order-notes-hero .order-notes-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.order-notes-subtitle {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  max-width: 320px;
 }
 
 .order-notes-meta-row {
   display: grid;
-  grid-template-columns: 1fr minmax(110px, 28%);
-  gap: 0.65rem;
+  grid-template-columns: 1fr minmax(120px, 32%);
+  gap: 0.75rem;
   align-items: start;
+  padding: 1rem 1.15rem 0.15rem;
+}
+
+.order-notes-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  margin-bottom: 0.35rem;
+}
+
+.order-notes-label-icon {
+  color: var(--primary-color);
+  font-size: 0.9rem;
 }
 
 .order-notes-textarea--compact {
-  min-height: 58px;
-  padding: 0.55rem 0.7rem;
-  font-size: 0.88rem;
+  min-height: 72px;
+  padding: 0.7rem 0.8rem;
+  font-size: 0.9rem;
   resize: none;
+  border-radius: 0.8rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
 }
 
 .order-notes-input--compact {
-  padding: 0.55rem 0.7rem;
-  font-size: 0.88rem;
+  padding: 0.7rem 0.8rem;
+  font-size: 0.9rem;
+  border-radius: 0.8rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.order-notes-textarea--compact:focus,
+.order-notes-input--compact:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 16%, transparent);
+  outline: none;
+  background: var(--bg-primary);
 }
 
 .order-notes-checkout-card {
-  padding: 0.7rem 0.8rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
-  background: var(--bg-secondary);
+  margin: 0.85rem 1.15rem 0;
+  padding: 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 16%, var(--border-color));
+  border-radius: 1rem;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--primary-color) 7%, var(--bg-primary)),
+      var(--bg-secondary)
+    );
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.order-notes-pay-block {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
 }
 
-.order-notes-pay-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-  flex-wrap: wrap;
-}
-
-.order-notes-pay-row > .order-notes-label {
-  margin: 0;
-  font-size: 0.84rem;
-  white-space: nowrap;
-}
-
 .order-notes-pay-toggle {
-  display: inline-flex;
-  gap: 0.4rem;
-  flex: 1;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
 }
 
 .order-notes-pay-btn {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.42rem 0.75rem;
-  border-radius: 0.55rem;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.7rem 0.75rem;
+  border-radius: 0.8rem;
   border: 1px solid var(--border-color);
   background: var(--bg-primary);
   color: var(--text-secondary);
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  text-align: start;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.order-notes-pay-btn-icon {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.6rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-secondary));
+  color: var(--primary-color);
+  font-size: 1rem;
+}
+
+.order-notes-pay-btn-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.order-notes-pay-btn-text strong {
+  font-size: 0.9rem;
+  color: inherit;
+}
+
+.order-notes-pay-btn-text small {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.order-notes-pay-btn:hover {
+  border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
+  color: var(--primary-color);
+  transform: translateY(-1px);
 }
 
 .order-notes-pay-btn--active {
   border-color: var(--primary-color);
-  color: var(--primary-light);
-  background: rgba(129, 140, 248, 0.12);
-  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.1);
+  color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 12%, var(--bg-primary));
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+
+.order-notes-pay-btn--active .order-notes-pay-btn-icon {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.order-notes-pay-btn--active .order-notes-pay-btn-text small {
+  color: color-mix(in srgb, var(--primary-color) 75%, var(--text-muted));
 }
 
 .order-notes-total-bar {
@@ -5639,33 +5801,45 @@ export default {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding-top: 0.45rem;
-  border-top: 1px dashed var(--border-color);
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.8rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   flex-wrap: wrap;
 }
 
 .order-notes-total-main {
   display: flex;
   align-items: baseline;
-  gap: 0.45rem;
+  gap: 0.55rem;
   font-size: 0.84rem;
   color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .order-notes-total-main strong {
-  font-size: 1.05rem;
-  color: var(--text-primary);
+  font-size: 1.25rem;
+  color: var(--primary-color);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .order-notes-total-discount {
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--success-color);
+  color: var(--success-color, #16a34a);
+  background: color-mix(in srgb, var(--success-color, #16a34a) 12%, transparent);
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
 }
 
 .order-discount-wrapper--compact {
+  margin: 0.85rem 1.15rem 0;
   padding: 0;
   overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 0.9rem;
+  background: var(--bg-secondary);
 }
 
 .order-discount-collapse-toggle {
@@ -5674,11 +5848,11 @@ export default {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.65rem 0.8rem;
+  padding: 0.8rem 0.9rem;
   border: none;
   background: transparent;
   color: var(--text-primary);
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -5686,39 +5860,65 @@ export default {
 .order-discount-collapse-toggle span {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .order-discount-collapse-badge {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--success-color);
+  color: var(--success-color, #16a34a);
+  background: color-mix(in srgb, var(--success-color, #16a34a) 12%, transparent);
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
 }
 
 .order-discount-collapse-body {
-  padding: 0 0.8rem 0.75rem;
-  border-top: 1px solid var(--border-light);
+  padding: 0 0.9rem 0.9rem;
+  border-top: 1px solid var(--border-light, var(--border-color));
 }
 
 .order-discount-presets--compact {
-  margin-top: 0.5rem;
-  gap: 0.35rem;
+  margin-top: 0.55rem;
+  gap: 0.4rem;
 }
 
 .order-discount-presets--compact .order-discount-preset-btn {
-  padding: 0.28rem 0.55rem;
-  font-size: 0.75rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  border-radius: 0.55rem;
 }
 
 .order-notes-actions--compact {
-  margin-top: 0;
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
   gap: 0.65rem;
+  margin: 0.95rem 0 0;
+  padding: 0.95rem 1.15rem 1.15rem;
+  border-top: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-secondary) 70%, var(--bg-primary));
 }
 
 .order-notes-actions--compact .order-notes-confirm-button,
 .order-notes-actions--compact .order-notes-cancel-button {
-  padding: 0.62rem 1.1rem;
-  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.7rem;
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border-radius: 0.8rem;
+  width: 100%;
+}
+
+.order-notes-actions--compact .order-notes-confirm-button {
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary-color) 28%, transparent);
+}
+
+.order-notes-actions--compact .order-notes-cancel-button {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
 }
 
 @media (max-width: 575px) {
@@ -5726,28 +5926,20 @@ export default {
     grid-template-columns: 1fr;
   }
 
-  .order-notes-pay-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .order-notes-pay-toggle {
-    justify-content: stretch;
-  }
-
-  .order-notes-pay-btn {
-    flex: 1;
-    justify-content: center;
+    grid-template-columns: 1fr;
   }
 
   .order-notes-actions--compact {
-    flex-direction: column-reverse;
+    grid-template-columns: 1fr;
   }
 
-  .order-notes-actions--compact .order-notes-confirm-button,
   .order-notes-actions--compact .order-notes-cancel-button {
-    width: 100%;
-    justify-content: center;
+    order: 2;
+  }
+
+  .order-notes-actions--compact .order-notes-confirm-button {
+    order: 1;
   }
 }
 
@@ -5801,8 +5993,8 @@ export default {
 
 .order-notes-payment-option--active {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.14);
-  background: rgba(129, 140, 248, 0.08);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 14%, transparent);
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
 }
 
 .order-notes-payment-icon-wrap {
@@ -5822,7 +6014,7 @@ export default {
 
 .order-notes-payment-icon-wrap--card {
   color: var(--primary-color);
-  background: rgba(129, 140, 248, 0.15);
+  background: color-mix(in srgb, var(--primary-color) 15%, transparent);
 }
 
 .order-notes-payment-text {
@@ -5873,7 +6065,7 @@ export default {
 .order-discount-type-btn-active {
   border-color: var(--primary-color);
   color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 12%, transparent);
 }
 
 .order-discount-input-row {
@@ -5902,7 +6094,7 @@ export default {
 
 .order-discount-preset-btn {
   border: 1px dashed var(--primary-color);
-  background: rgba(99, 102, 241, 0.08);
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
   color: var(--primary-color);
   border-radius: 999px;
   padding: 0.35rem 0.7rem;
@@ -5969,7 +6161,7 @@ export default {
   padding: 0.75rem;
   background: white;
   border-radius: 0.5rem;
-  border-left: 3px solid var(--primary-color, #818cf8);
+  border-left: 3px solid var(--primary-color);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -5983,7 +6175,7 @@ export default {
 
 .pos-order-note-code {
   font-weight: 600;
-  color: var(--primary-color, #818cf8);
+  color: var(--primary-color);
   display: flex;
   align-items: center;
 }
@@ -6026,14 +6218,14 @@ export default {
 
 /* Transfer Table Button */
 .pos-transfer-table-btn {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.15) 0%, rgba(167, 139, 250, 0.15) 100%);
-  border: 1px solid rgba(129, 140, 248, 0.3);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 15%, transparent) 0%, color-mix(in srgb, var(--primary-light) 15%, transparent) 100%);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 30%, transparent);
   color: var(--primary-color);
 }
 
 .pos-transfer-table-btn:hover {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.25) 0%, rgba(167, 139, 250, 0.25) 100%);
-  border-color: rgba(129, 140, 248, 0.5);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 25%, transparent) 0%, color-mix(in srgb, var(--primary-light) 25%, transparent) 100%);
+  border-color: color-mix(in srgb, var(--primary-color) 50%, transparent);
   color: #ffffff;
 }
 
@@ -6087,7 +6279,7 @@ export default {
 
 .transfer-table-select-input:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 10%, transparent);
   outline: none;
 }
 
@@ -6156,21 +6348,21 @@ export default {
   padding: 0.5rem 0.75rem;
   border: none;
   border-radius: 0.5rem;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.15) 0%, rgba(167, 139, 250, 0.15) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 15%, transparent) 0%, color-mix(in srgb, var(--primary-light) 15%, transparent) 100%);
   color: var(--primary-color);
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  border: 1px solid rgba(129, 140, 248, 0.3);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 30%, transparent);
 }
 
 .pos-merge-tables-btn-compact:hover {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.25) 0%, rgba(167, 139, 250, 0.25) 100%);
-  border-color: rgba(129, 140, 248, 0.5);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 25%, transparent) 0%, color-mix(in srgb, var(--primary-light) 25%, transparent) 100%);
+  border-color: color-mix(in srgb, var(--primary-color) 50%, transparent);
   color: #ffffff;
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.3);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 30%, transparent);
 }
 
 .pos-merge-tables-btn-compact .b-icon {
@@ -6184,8 +6376,8 @@ export default {
 /* Multi-Selected Table */
 .pos-table-multi-selected {
   border: 2px solid var(--primary-color) !important;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.1) 0%, rgba(167, 139, 250, 0.1) 100%) !important;
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 10%, transparent) 0%, color-mix(in srgb, var(--primary-light) 10%, transparent) 100%) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent) !important;
 }
 
 .pos-table-multi-selected .pos-table-number-compact {
@@ -6417,11 +6609,11 @@ export default {
 }
 
 .pos-table-action-transfer--merge {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
 }
 
 .pos-table-action-transfer--merge:hover {
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #6d28d9 100%);
 }
 
 .pos-table-action-transfer .b-icon {
@@ -6935,7 +7127,7 @@ export default {
 
 .delivery-radio-label:has(.delivery-radio-input:checked) {
   border-color: var(--primary-color);
-  background: rgba(129, 140, 248, 0.1);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
 }
 
 .delivery-radio-text {
@@ -6983,7 +7175,7 @@ export default {
   color: #ffffff;
   border-color: var(--primary-color);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(129, 140, 248, 0.3);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 30%, transparent);
 }
 
 .delivery-add-btn:disabled {
@@ -7070,7 +7262,7 @@ export default {
   gap: 0.25rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--primary-color, #818cf8);
+  color: var(--primary-color);
 }
 
 .pos-order-note-date {
@@ -7100,8 +7292,8 @@ export default {
 }
 
 .pos-route--v2 .pos-cart-item--v2:hover {
-  border-color: rgba(129, 140, 248, 0.38) !important;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.14) !important;
+  border-color: color-mix(in srgb, var(--primary-color) 38%, transparent) !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--primary-color) 14%, transparent) !important;
 }
 
 .pos-cart-item-top {
@@ -7117,7 +7309,7 @@ export default {
   flex-shrink: 0;
   font-size: 0.95rem;
   font-weight: 800;
-  color: #a5b4fc;
+  color: var(--primary-light);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   line-height: 1.25;
@@ -7167,8 +7359,8 @@ export default {
   color: var(--text-primary);
   padding: 0.1rem 0.42rem;
   border-radius: 999px;
-  background: rgba(99, 102, 241, 0.14);
-  border: 1px solid rgba(129, 140, 248, 0.28);
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 28%, transparent);
   font-variant-numeric: tabular-nums;
 }
 
@@ -7274,16 +7466,16 @@ export default {
   align-items: center;
   justify-content: center;
   border-radius: 0.55rem;
-  border: 1px solid rgba(79, 70, 229, 0.24);
-  background: linear-gradient(180deg, rgba(99, 102, 241, 0.14) 0%, rgba(79, 70, 229, 0.08) 100%);
-  color: #4f46e5;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 24%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary-color) 14%, transparent) 0%, color-mix(in srgb, var(--primary-color) 8%, transparent) 100%);
+  color: var(--primary-color);
   transition: all 0.16s ease;
 }
 
 .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer:hover {
-  border-color: rgba(79, 70, 229, 0.42);
-  background: linear-gradient(180deg, rgba(99, 102, 241, 0.2) 0%, rgba(79, 70, 229, 0.13) 100%);
-  color: #3730a3;
+  border-color: color-mix(in srgb, var(--primary-color) 42%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary-color) 20%, transparent) 0%, color-mix(in srgb, var(--primary-color) 13%, transparent) 100%);
+  color: var(--primary-dark);
   transform: translateY(-1px);
 }
 
@@ -7293,7 +7485,7 @@ export default {
 
 .pos-route--v2 .pos-cart-item--v2 .pos-cart-item-transfer:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.26);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 26%, transparent);
 }
 
 /* السلة على الشاشات الصغيرة/المتوسطة: ترتيب أوضح لسطر المادة */
@@ -7429,7 +7621,7 @@ export default {
 
 .pos-cart-items-section::-webkit-scrollbar-thumb:hover,
 .pos-cart-items-list::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-color, #818cf8);
+  background: var(--primary-color);
 }
 
 /* RTL Support */
@@ -7457,16 +7649,16 @@ export default {
 
 :root.light-theme .pos-header-section::before {
   background: 
-    radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 80% 50%, rgba(99, 102, 241, 0.05) 0%, transparent 50%);
+    radial-gradient(circle at 20% 50%, color-mix(in srgb, var(--primary-color) 8%, transparent) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, color-mix(in srgb, var(--primary-color) 5%, transparent) 0%, transparent 50%);
 }
 
 :root.light-theme .pos-header-section::after {
   background: linear-gradient(90deg, 
     transparent 0%, 
-    rgba(99, 102, 241, 0.3) 20%, 
-    rgba(99, 102, 241, 0.3) 50%, 
-    rgba(99, 102, 241, 0.3) 80%, 
+    color-mix(in srgb, var(--primary-color) 30%, transparent) 20%, 
+    color-mix(in srgb, var(--primary-color) 30%, transparent) 50%, 
+    color-mix(in srgb, var(--primary-color) 30%, transparent) 80%, 
     transparent 100%);
 }
 
@@ -7478,7 +7670,7 @@ export default {
 :root.light-theme .pos-logo-section:hover {
   background: var(--bg-dark);
   border-color: var(--primary-color);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 15%, transparent);
 }
 
 :root.light-theme .pos-logo {
@@ -7496,7 +7688,7 @@ export default {
 }
 
 :root.light-theme .pos-employee-info .b-icon {
-  filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.2));
+  filter: drop-shadow(0 2px 4px color-mix(in srgb, var(--primary-color) 20%, transparent));
 }
 
 :root.light-theme .pos-employee-label {
@@ -7823,12 +8015,12 @@ export default {
   padding: 0.85rem 1rem 1rem;
   background: linear-gradient(
     155deg,
-    rgba(129, 140, 248, 0.09) 0%,
+    color-mix(in srgb, var(--primary-color) 9%, transparent) 0%,
     var(--bg-tertiary) 42%,
     var(--bg-tertiary) 100%
   );
   border-radius: 1rem;
-  border: 1px solid rgba(129, 140, 248, 0.22);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 22%, transparent);
   box-shadow:
     0 6px 22px rgba(0, 0, 0, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -7840,7 +8032,7 @@ export default {
   gap: 0.55rem;
   margin-bottom: 0.7rem;
   padding-bottom: 0.55rem;
-  border-bottom: 1px solid rgba(129, 140, 248, 0.18);
+  border-bottom: 1px solid color-mix(in srgb, var(--primary-color) 18%, transparent);
 }
 
 .pos-fp-gate-tabs-card__icon-wrap {
@@ -7853,12 +8045,12 @@ export default {
   justify-content: center;
   background: linear-gradient(
     145deg,
-    rgba(129, 140, 248, 0.35) 0%,
-    rgba(167, 139, 250, 0.22) 100%
+    color-mix(in srgb, var(--primary-color) 35%, transparent) 0%,
+    color-mix(in srgb, var(--primary-light) 22%, transparent) 100%
   );
   color: var(--primary-color);
   font-size: 1.05rem;
-  box-shadow: 0 2px 10px rgba(129, 140, 248, 0.25);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--primary-color) 25%, transparent);
 }
 
 .pos-fp-gate-tabs-card__header .pos-fp-gate-tabs-label {
@@ -7911,29 +8103,29 @@ export default {
 
 .pos-floor-plan-gate-tab:hover {
   border-color: var(--primary-color);
-  border-inline-start-color: rgba(129, 140, 248, 0.45);
+  border-inline-start-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
   color: var(--primary-color);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(129, 140, 248, 0.18);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--primary-color) 18%, transparent);
 }
 
 .pos-floor-plan-gate-tab:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.35);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 35%, transparent);
 }
 
 .pos-floor-plan-gate-tab--active {
-  border-color: rgba(129, 140, 248, 0.55);
+  border-color: color-mix(in srgb, var(--primary-color) 55%, transparent);
   border-inline-start-color: var(--primary-color);
   background: linear-gradient(
     118deg,
-    rgba(129, 140, 248, 0.22) 0%,
-    rgba(167, 139, 250, 0.12) 55%,
+    color-mix(in srgb, var(--primary-color) 22%, transparent) 0%,
+    color-mix(in srgb, var(--primary-light) 12%, transparent) 55%,
     var(--bg-primary) 100%
   );
   color: var(--primary-color);
   box-shadow:
-    0 3px 14px rgba(129, 140, 248, 0.28),
+    0 3px 14px color-mix(in srgb, var(--primary-color) 28%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
@@ -7943,7 +8135,7 @@ export default {
     padding: 1rem 0.85rem;
     background: linear-gradient(
       165deg,
-      rgba(129, 140, 248, 0.08) 0%,
+      color-mix(in srgb, var(--primary-color) 8%, transparent) 0%,
       var(--bg-primary) 48%
     );
   }
@@ -7967,7 +8159,7 @@ export default {
     border-radius: 0.85rem;
     flex: 0 0 auto;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: rgba(129, 140, 248, 0.25);
+    -webkit-tap-highlight-color: color-mix(in srgb, var(--primary-color) 25%, transparent);
     box-sizing: border-box;
   }
 
@@ -7991,7 +8183,7 @@ export default {
     align-items: center;
     justify-content: center;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: rgba(129, 140, 248, 0.2);
+    -webkit-tap-highlight-color: color-mix(in srgb, var(--primary-color) 20%, transparent);
   }
 
   .pos-floor-plan-gate--page .pos-fp-gate-tabs-card:not(.pos-fp-gate-tabs-card--navbar) .pos-fp-gate-tabs-card__header .pos-fp-gate-tabs-label {
@@ -8126,7 +8318,7 @@ export default {
 }
 
 .pos-fp-chip-res {
-  background: linear-gradient(135deg, #a78bfa, #7c3aed);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
   color: #fff;
 }
 
@@ -8192,9 +8384,9 @@ export default {
 }
 
 .pos-floor-plan-gate-btn--primary {
-  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(129, 140, 248, 0.3);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 30%, transparent);
 }
 
 .pos-floor-plan-gate-btn--secondary {
@@ -8217,7 +8409,7 @@ export default {
 }
 
 :root.light-theme .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-title {
-  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -8251,26 +8443,26 @@ export default {
 }
 
 :root.light-theme .pos-fp-gate-tabs-card {
-  border-color: rgba(99, 102, 241, 0.22);
+  border-color: color-mix(in srgb, var(--primary-color) 22%, transparent);
   background: linear-gradient(
     155deg,
-    rgba(99, 102, 241, 0.06) 0%,
+    color-mix(in srgb, var(--primary-color) 6%, transparent) 0%,
     var(--bg-tertiary, #f3f4f6) 45%
   );
   box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
 }
 
 :root.light-theme .pos-fp-gate-tabs-card__header {
-  border-bottom-color: rgba(99, 102, 241, 0.14);
+  border-bottom-color: color-mix(in srgb, var(--primary-color) 14%, transparent);
 }
 
 :root.light-theme .pos-floor-plan-gate--page .pos-fp-launch__eyebrow {
   background: linear-gradient(
     135deg,
-    rgba(99, 102, 241, 0.12) 0%,
+    color-mix(in srgb, var(--primary-color) 12%, transparent) 0%,
     rgba(139, 92, 246, 0.08) 100%
   );
-  border-color: rgba(99, 102, 241, 0.28);
+  border-color: color-mix(in srgb, var(--primary-color) 28%, transparent);
 }
 
 /* ——— POS v2: هيكل، سلة جانبية، أرضية ——— */
@@ -8779,7 +8971,7 @@ export default {
   margin-bottom: 0;
   padding-bottom: 0;
   border-bottom: none;
-  border-inline-end: 1px solid rgba(129, 140, 248, 0.22);
+  border-inline-end: 1px solid color-mix(in srgb, var(--primary-color) 22%, transparent);
   padding-inline-end: 0.5rem;
 }
 
@@ -8819,7 +9011,7 @@ export default {
   font-weight: 600;
   line-height: 1.25;
   border-radius: 0.55rem;
-  border: 2px solid rgba(129, 140, 248, 0.35);
+  border: 2px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
   background: var(--bg-primary);
   color: var(--text-primary);
   cursor: pointer;
@@ -8831,13 +9023,13 @@ export default {
 }
 
 .pos-floor-plan-gate--page .pos-fp-gate-plan-select:hover {
-  border-color: rgba(129, 140, 248, 0.55);
+  border-color: color-mix(in srgb, var(--primary-color) 55%, transparent);
 }
 
 .pos-floor-plan-gate--page .pos-fp-gate-plan-select:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.28);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 28%, transparent);
 }
 
 [dir="rtl"] .pos-floor-plan-gate--page .pos-fp-gate-plan-select {
@@ -8900,9 +9092,9 @@ export default {
   line-height: 1.35;
   color: var(--text-secondary);
   padding: 0.24rem 0.34rem;
-  border: 1px dashed rgba(129, 140, 248, 0.32);
+  border: 1px dashed color-mix(in srgb, var(--primary-color) 32%, transparent);
   border-radius: 0.4rem;
-  background: rgba(129, 140, 248, 0.06);
+  background: color-mix(in srgb, var(--primary-color) 6%, transparent);
 }
 
 .pos-fp-gate-help-ic {
@@ -8980,8 +9172,8 @@ export default {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  border: 1px solid rgba(129, 140, 248, 0.45);
-  background: rgba(129, 140, 248, 0.18);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 45%, transparent);
+  background: color-mix(in srgb, var(--primary-color) 18%, transparent);
   color: var(--primary-color);
   font-size: 0.58rem;
   font-weight: 700;
@@ -9002,8 +9194,8 @@ export default {
   border-color: var(--primary-color);
   background: linear-gradient(
     135deg,
-    rgba(129, 140, 248, 0.16) 0%,
-    rgba(167, 139, 250, 0.12) 100%
+    color-mix(in srgb, var(--primary-color) 16%, transparent) 0%,
+    color-mix(in srgb, var(--primary-light) 12%, transparent) 100%
   );
   color: var(--primary-color);
 }
@@ -9014,18 +9206,18 @@ export default {
 }
 
 .pos-fp-gate-tool-btn--accent {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.12) 0%, rgba(167, 139, 250, 0.08) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 12%, transparent) 0%, color-mix(in srgb, var(--primary-light) 8%, transparent) 100%);
 }
 
 .pos-fp-gate-tool-btn--on {
   border-color: var(--primary-color);
   background: linear-gradient(
     135deg,
-    rgba(129, 140, 248, 0.18) 0%,
-    rgba(167, 139, 250, 0.14) 100%
+    color-mix(in srgb, var(--primary-color) 18%, transparent) 0%,
+    color-mix(in srgb, var(--primary-light) 14%, transparent) 100%
   );
   color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.16);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 16%, transparent);
 }
 
 .pos-fp-gate-tool-ic {
@@ -9050,7 +9242,7 @@ export default {
   font-weight: 800;
   line-height: 1.25;
   margin: 0 0 0.65rem;
-  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -9074,11 +9266,11 @@ export default {
   color: var(--primary-color);
   background: linear-gradient(
     135deg,
-    rgba(129, 140, 248, 0.16) 0%,
-    rgba(167, 139, 250, 0.1) 100%
+    color-mix(in srgb, var(--primary-color) 16%, transparent) 0%,
+    color-mix(in srgb, var(--primary-light) 10%, transparent) 100%
   );
-  border: 1px solid rgba(129, 140, 248, 0.35);
-  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.12);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 12%, transparent);
 }
 
 .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-title {
@@ -9170,7 +9362,7 @@ export default {
   border-radius: 0.45rem;
   white-space: nowrap;
   min-height: unset;
-  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.28);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 28%, transparent);
 }
 
 .pos-floor-plan-gate--page .pos-floor-plan-gate-card--v2 .pos-floor-plan-gate-actions--footer .users-add-button.pos-fp-gate-btn-skip .button-text {
@@ -9229,9 +9421,9 @@ export default {
   width: 3.75rem;
   height: 3.75rem;
   border-radius: 1rem;
-  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
   border: none;
-  box-shadow: 0 4px 12px rgba(129, 140, 248, 0.35);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 35%, transparent);
 }
 
 :root.light-theme .pos-route--v2 .main-content-wrapper {
@@ -9340,8 +9532,8 @@ export default {
 }
 
 .pos-browse-back-btn:hover {
-  background: var(--primary-color, #6366f1);
-  border-color: var(--primary-color, #6366f1);
+  background: var(--primary-color);
+  border-color: var(--primary-color);
   color: #fff;
 }
 
@@ -9516,13 +9708,13 @@ export default {
 }
 
 .pos-cart-checkout-stat--pill-total {
-  border-color: rgba(129, 140, 248, 0.38) !important;
-  background: rgba(129, 140, 248, 0.12) !important;
+  border-color: color-mix(in srgb, var(--primary-color) 38%, transparent) !important;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent) !important;
 }
 
 :root.light-theme .pos-cart-checkout-stat--pill-total {
-  background: linear-gradient(165deg, #eef2ff 0%, #f8fafc 100%) !important;
-  border-color: rgba(129, 140, 248, 0.42) !important;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--primary-color) 6%, #ffffff) 0%, #f8fafc 100%) !important;
+  border-color: color-mix(in srgb, var(--primary-color) 42%, transparent) !important;
 }
 
 .pos-cart-checkout-stat--pill-total strong {
@@ -9600,8 +9792,8 @@ export default {
   gap: 0.35rem;
   padding: 0.34rem 0.68rem;
   border-radius: 0.55rem;
-  border: 1px solid rgba(129, 140, 248, 0.4);
-  background: rgba(129, 140, 248, 0.12);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 40%, transparent);
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
   color: var(--primary-color);
   font-size: 0.76rem;
   font-weight: 600;
@@ -9610,8 +9802,8 @@ export default {
 }
 
 .pos-cart-checkout-delivery-btn:hover {
-  background: rgba(129, 140, 248, 0.2);
-  border-color: rgba(129, 140, 248, 0.55);
+  background: color-mix(in srgb, var(--primary-color) 20%, transparent);
+  border-color: color-mix(in srgb, var(--primary-color) 55%, transparent);
 }
 
 .pos-cart-checkout-printer-select {
@@ -9686,11 +9878,11 @@ export default {
 }
 
 .pos-cart-checkout-bar .pos-cart-checkout-action-btn.pos-action-btn-primary {
-  background: linear-gradient(135deg, #818cf8 0%, #6366f1 42%, #4f46e5 100%) !important;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color) 42%, var(--primary-color) 100%) !important;
   color: #fff !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   box-shadow:
-    0 2px 10px rgba(79, 70, 229, 0.38),
+    0 2px 10px color-mix(in srgb, var(--primary-color) 38%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
 }
 
@@ -9712,26 +9904,26 @@ export default {
 
 .pos-cart-checkout-bar .pos-cart-checkout-action-btn.pos-action-btn-secondary {
   background: transparent !important;
-  color: #c4b5fd !important;
-  border: 1.5px solid rgba(165, 180, 252, 0.55) !important;
+  color: var(--primary-light) !important;
+  border: 1.5px solid color-mix(in srgb, var(--primary-color) 55%, transparent) !important;
   box-shadow: none !important;
 }
 
 .pos-cart-checkout-bar .pos-cart-checkout-action-btn.pos-action-btn-secondary:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.16) !important;
+  background: color-mix(in srgb, var(--primary-color) 16%, transparent) !important;
   color: #fff !important;
-  border-color: rgba(199, 210, 254, 0.85) !important;
+  border-color: color-mix(in srgb, var(--primary-color) 85%, transparent) !important;
 }
 
 :root.light-theme .pos-cart-checkout-bar .pos-cart-checkout-action-btn.pos-action-btn-secondary {
-  color: #4f46e5 !important;
-  border-color: rgba(99, 102, 241, 0.42) !important;
+  color: var(--primary-color) !important;
+  border-color: color-mix(in srgb, var(--primary-color) 42%, transparent) !important;
 }
 
 :root.light-theme .pos-cart-checkout-bar .pos-cart-checkout-action-btn.pos-action-btn-secondary:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.12) !important;
-  color: #4338ca !important;
-  border-color: rgba(79, 70, 229, 0.55) !important;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent) !important;
+  color: var(--primary-color) !important;
+  border-color: color-mix(in srgb, var(--primary-color) 55%, transparent) !important;
 }
 
 .main-content-wrapper.pos-route.pos-has-checkout-bar .pos-main-section--v2 {
