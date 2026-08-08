@@ -1,0 +1,35 @@
+litecashier-keys.smartstick-iq.com  // for license 
+
+litecashier.smartstick-iq.com  // for cashier 
+
+قاعدة بيانات الكاشير 
+74.50.65.142
+db name : pos	
+db user : pos
+sb pass : 123Ammar123@
+
+
+
+
+restaurant.smartstick-iq.com // for restaurant 
+
+
+قاعدة بيانات المطاعم 
+74.50.65.142
+db name : restaurant_pos	
+db user : restaurant_pos
+sb pass : 123Ammar123@
+
+ssh 
+
+74.50.65.142
+user : root
+password: 123Ammar123@
+
+
+
+السيرفر منصب علي aapanel لا تمحسح ولا تضيف اي شي منه عده استخدم الموجود فيها 
+الباك ايند شغلة دوكر اما الفرونت ارفع الدبلوي للدومينات اعلاه 
+
+
+

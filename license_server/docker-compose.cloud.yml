@@ -1,0 +1,19 @@
+services:
+  license-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: litecashier_license_api
+    restart: always
+    ports:
+      - "127.0.0.1:5099:5099"
+    volumes:
+      - license_data:/app/data
+      - ./appsettings.Cloud.json:/app/appsettings.json:ro
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5099
+      - ConnectionStrings__LicenseDb=Data Source=/app/data/licenses.db
+
+volumes:
+  license_data:

@@ -155,3 +155,7 @@ docker-compose.tar
 **/docker-compose.tar
 restaurant_back/restaurant_back.zip
 **/*.zip
+
+# حزم النشر المحلية (لا تُرفع إلى GitHub)
+_deploy_packages/*.tgz
+_deploy_stage/
