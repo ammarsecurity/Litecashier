@@ -355,10 +355,18 @@
 
   // Boot
   updateDurationVisibility();
-  if (getAdminKey()) {
-    showApp();
-    loadKeys();
-  } else {
-    showLogin();
-  }
+  (async () => {
+    if (!getAdminKey()) {
+      showLogin();
+      return;
+    }
+    try {
+      await api("/api/admin/ping");
+      showApp();
+      await loadKeys();
+    } catch {
+      clearAdminKey();
+      showLogin();
+    }
+  })();
 })();
