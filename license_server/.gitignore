@@ -1,0 +1,6 @@
+bin/
+obj/
+licenses.db
+licenses.db-*
+*.user
+appsettings.Production.json

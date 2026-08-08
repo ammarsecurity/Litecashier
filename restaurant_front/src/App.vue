@@ -2,17 +2,19 @@
   <div id="app">
     <router-view />
     <SystemSectionsFab v-if="showSectionsFab" />
+    <LicenseGate />
   </div>
 </template>
 
 <script>
 import { syncNotifyLocale } from '@/plugins/notifyPlugin';
 import SystemSectionsFab from '@/components/Layout/SystemSectionsFab.vue';
+import LicenseGate from '@/components/LicenseGate.vue';
 import pendingOrderAlertSound from '@/utils/pendingOrderAlertSound.js';
 
 export default {
   name: 'App',
-  components: { SystemSectionsFab },
+  components: { SystemSectionsFab, LicenseGate },
   computed: {
     showSectionsFab() {
       const token = localStorage.getItem('token');

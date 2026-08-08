@@ -1,14 +1,17 @@
 <template>
   <div id="app">
     <router-view />
+    <LicenseGate />
   </div>
 </template>
 
 <script>
 import { syncNotifyLocale } from '@/plugins/notifyPlugin';
+import LicenseGate from '@/components/LicenseGate.vue';
 
 export default {
   name: 'App',
+  components: { LicenseGate },
   watch: {
     '$i18n.locale'(locale) {
       syncNotifyLocale(locale);

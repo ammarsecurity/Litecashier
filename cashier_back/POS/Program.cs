@@ -10,6 +10,7 @@ using POS.Db;
 using POS.Hubs;
 using POS.Models;
 using POS.Models.Requests;
+using POS.Middleware;
 using POS.Services;
 using System.Text;
 
@@ -27,6 +28,14 @@ builder.Services.AddDbContext<DbConfig>(options =>
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddHttpClient("NebulaPayment");
+builder.Services.AddHttpClient("LicenseServer", (sp, client) =>
+{
+    var baseUrl = sp.GetRequiredService<IConfiguration>()["License:BaseUrl"]?.TrimEnd('/') ?? "";
+    if (!string.IsNullOrWhiteSpace(baseUrl))
+        client.BaseAddress = new Uri(baseUrl.EndsWith("/") ? baseUrl : baseUrl + "/");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+builder.Services.AddSingleton<ILicenseService, LicenseService>();
 builder.Services.AddScoped<INebulaPaymentService, NebulaPaymentService>();
 builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
 builder.Services.AddScoped<IItemImportService, ItemImportService>();
@@ -179,6 +188,7 @@ if (Directory.Exists(spaRoot))
 app.UseAuthentication();
 app.UseCors("CorsPolicy");
 app.UseAuthorization();
+app.UseMiddleware<LicenseEnforcementMiddleware>();
 app.MapControllers();
 app.MapHub<OrderHub>("/orderHub");
 

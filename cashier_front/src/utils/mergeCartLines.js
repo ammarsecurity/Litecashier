@@ -40,6 +40,13 @@ export function cartLineMergeKey(line) {
   return `${itemId}|${note}`;
 }
 
+/** Move a cart line to index 0 (newest / last touched first). */
+export function promoteCartLineToFront(carditems, index) {
+  if (!Array.isArray(carditems) || index <= 0 || index >= carditems.length) return;
+  const [line] = carditems.splice(index, 1);
+  carditems.unshift(line);
+}
+
 export function mergeCartLines(lines) {
   const merged = [];
   const indexByKey = new Map();

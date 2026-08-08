@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Litecashier License Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body>
+  <div class="bg-atmosphere" aria-hidden="true"></div>
+
+  <!-- Login -->
+  <section id="loginView" class="login-view">
+    <div class="login-panel">
+      <p class="brand">Litecashier</p>
+      <h1>إدارة التراخيص</h1>
+      <p class="login-hint">أدخل مفتاح الأدمن للوصول إلى لوحة السيريالات</p>
+      <form id="loginForm" class="login-form">
+        <label for="adminKeyInput">Admin API Key</label>
+        <input id="adminKeyInput" type="password" autocomplete="current-password" placeholder="AdminApiKey" required />
+        <p id="loginError" class="form-error" hidden></p>
+        <button type="submit" class="btn btn-primary">دخول</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Dashboard -->
+  <section id="appView" class="app-view" hidden>
+    <header class="topbar">
+      <div class="topbar-brand">
+        <span class="brand-mark">LC</span>
+        <div>
+          <strong>Litecashier License</strong>
+          <small>إدارة السيريالات</small>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" id="refreshBtn" class="btn btn-ghost">تحديث</button>
+        <button type="button" id="logoutBtn" class="btn btn-ghost">خروج</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="create-panel">
+        <h2>إنشاء سيريال جديد</h2>
+        <form id="createForm" class="create-form">
+          <label>
+            المنتج
+            <select id="product" name="product">
+              <option value="Both">كاشير + مطعم</option>
+              <option value="Cashier">كاشير فقط</option>
+              <option value="Restaurant">مطعم فقط</option>
+            </select>
+          </label>
+
+          <label>
+            نوع المدة
+            <select id="durationType" name="durationType">
+              <option value="Days">أيام (تجربة)</option>
+              <option value="Months">أشهر</option>
+              <option value="Lifetime">مدى الحياة</option>
+            </select>
+          </label>
+
+          <label id="durationValueWrap">
+            القيمة
+            <input id="durationValue" name="durationValue" type="number" min="1" value="2" />
+          </label>
+
+          <label>
+            أقصى تفعيلات
+            <input id="maxActivations" name="maxActivations" type="number" min="1" value="1" />
+          </label>
+
+          <label>
+            ملاحظات
+            <input id="notes" name="notes" type="text" placeholder="اسم الزبون / الفرع" />
+          </label>
+
+          <p id="createError" class="form-error" hidden></p>
+          <p id="createSuccess" class="form-success" hidden></p>
+          <button type="submit" class="btn btn-primary btn-block">توليد الكود</button>
+        </form>
+
+        <div id="lastCreated" class="last-created" hidden>
+          <span>آخر كود:</span>
+          <code id="lastCreatedCode"></code>
+          <button type="button" id="copyLastBtn" class="btn btn-small">نسخ</button>
+        </div>
+      </aside>
+
+      <section class="keys-panel">
+        <div class="stats" id="statsRow">
+          <article class="stat-card"><span>الإجمالي</span><strong id="statTotal">0</strong></article>
+          <article class="stat-card"><span>نشط</span><strong id="statActive">0</strong></article>
+          <article class="stat-card"><span>ملغى</span><strong id="statRevoked">0</strong></article>
+          <article class="stat-card"><span>تفعيلات</span><strong id="statActivations">0</strong></article>
+        </div>
+
+        <div class="toolbar">
+          <input id="searchInput" type="search" placeholder="بحث بالكود أو الملاحظات..." />
+          <select id="filterProduct">
+            <option value="">كل المنتجات</option>
+            <option value="Both">Both</option>
+            <option value="Cashier">Cashier</option>
+            <option value="Restaurant">Restaurant</option>
+          </select>
+          <select id="filterStatus">
+            <option value="">كل الحالات</option>
+            <option value="active">نشط</option>
+            <option value="revoked">ملغى</option>
+          </select>
+        </div>
+
+        <div id="keysEmpty" class="empty-state" hidden>لا توجد سيريالات بعد.</div>
+        <div id="keysError" class="form-error" hidden></div>
+
+        <div class="table-wrap">
+          <table class="keys-table">
+            <thead>
+              <tr>
+                <th>الكود</th>
+                <th>المنتج</th>
+                <th>المدة</th>
+                <th>تفعيلات</th>
+                <th>الحالة</th>
+                <th>ملاحظات</th>
+                <th>تاريخ الإنشاء</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="keysBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </section>
+
+  <!-- Activations modal -->
+  <div id="detailModal" class="modal" hidden>
+    <div class="modal-card">
+      <header class="modal-head">
+        <h3 id="detailTitle">تفاصيل التفعيل</h3>
+        <button type="button" id="closeModalBtn" class="btn btn-ghost">إغلاق</button>
+      </header>
+      <div id="detailBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/js/admin.js"></script>
+</body>
+</html>

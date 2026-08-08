@@ -1554,7 +1554,7 @@ import posFullscreenMixin from "@/mixins/posFullscreenMixin.js";
 import CardPaymentWaitModal from "@/components/CardPaymentWaitModal.vue";
 import TableGuestsModal from "@/components/TableGuestsModal.vue";
 import TableReservationInfoBanner from "@/components/Restaurant/TableReservationInfoBanner.vue";
-import { findCartLineIndex, mergeCartLines } from "@/utils/mergeCartLines.js";
+import { findCartLineIndex, mergeCartLines, promoteCartLineToFront } from "@/utils/mergeCartLines.js";
 import {
   productImageSrc,
   isProductImageFallback,
@@ -3803,8 +3803,9 @@ export default {
           const disCountPrice = existingItem.disCountPrice || 0;
           const finalPrice = (disCountPrice > 0 && disCountPrice !== price) ? disCountPrice : price;
           this.carditems[existingItemIndex].total = finalPrice * existingItem.quantity;
+          promoteCartLineToFront(this.carditems, existingItemIndex);
         } else {
-          // New item, add to cart
+          // New item, add to top of cart
           // Ensure prices are valid numbers
           const sellingPrice = item.sellingPrice || 0;
           const disCountPrice = item.disCountPrice || 0;
@@ -3820,7 +3821,7 @@ export default {
             tags: item.tags || 'مواد اخرى', // Add tags from original item
           };
 
-          this.carditems.push(cartItem);
+          this.carditems.unshift(cartItem);
         }
 
         // Show compact notification

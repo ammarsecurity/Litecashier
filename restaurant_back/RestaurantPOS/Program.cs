@@ -77,6 +77,14 @@ builder.Services.AddDbContext<DbConfig>(options =>
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddHttpClient("NebulaPayment");
+builder.Services.AddHttpClient("LicenseServer", (sp, client) =>
+{
+    var baseUrl = sp.GetRequiredService<IConfiguration>()["License:BaseUrl"]?.TrimEnd('/') ?? "";
+    if (!string.IsNullOrWhiteSpace(baseUrl))
+        client.BaseAddress = new Uri(baseUrl.EndsWith("/") ? baseUrl : baseUrl + "/");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+builder.Services.AddSingleton<ILicenseService, LicenseService>();
 builder.Services.AddScoped<INebulaPaymentService, NebulaPaymentService>();
 builder.Services.AddScoped<IOrderCheckoutService, OrderCheckoutService>();
 builder.Services.AddScoped<ICommercialTenantDeleteService, CommercialTenantDeleteService>();
@@ -320,6 +328,7 @@ app.UseCors("CorsPolicy");
 // Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<LicenseEnforcementMiddleware>();
 
 // Map API controllers
 app.MapControllers();
@@ -342,7 +351,7 @@ app.Use(async (context, next) =>
         "/Loyalty", "/PublicMenu", "/Sync", "/PaymentDevices", "/CardPayments",
         "/CreditAccounts", "/Expenses", "/ExpenseCategories", "/Customers",
         "/Employees", "/DeliveryDrivers", "/Printers", "/TagPrinters", "/AuditLog",
-        "/Payroll", "/Items", "/Users", "/Orders", "/Reports"
+        "/Payroll", "/Items", "/Users", "/Orders", "/Reports", "/License"
     ];
     var isApiPath = apiPrefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
 

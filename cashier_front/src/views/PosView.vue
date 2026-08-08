@@ -1245,6 +1245,7 @@ import {
   getCartLineUnitPrice,
   getCartLineTotal,
   hasCartLineDiscount,
+  promoteCartLineToFront,
 } from "@/utils/mergeCartLines.js";
 import { applyPosPageSize, POS_ITEMS_PER_PAGE } from "@/utils/posPageSize.js";
 import {
@@ -1930,17 +1931,17 @@ export default {
       }
       if ((key === "+" || key === "=") && this.carditems.length > 0) {
         e.preventDefault();
-        this.increaseQuantity(this.carditems.length - 1);
+        this.increaseQuantity(0);
         return;
       }
       if (key === "-" && this.carditems.length > 0) {
         e.preventDefault();
-        this.decreaseQuantity(this.carditems.length - 1);
+        this.decreaseQuantity(0);
         return;
       }
       if (key === "Delete" && this.carditems.length > 0) {
         e.preventDefault();
-        this.deleteItem(this.carditems.length - 1, { silent: true });
+        this.deleteItem(0, { silent: true });
       }
     },
     async quickPay(withPrint = false) {
@@ -2394,6 +2395,7 @@ export default {
             this.carditems[existingItemIndex],
             this.isWholesale
           );
+          promoteCartLineToFront(this.carditems, existingItemIndex);
         } else {
           const cartItem = {
             name: item.name,
@@ -2405,7 +2407,7 @@ export default {
             id: item.id,
           };
           cartItem.total = getCartLineTotal(cartItem, this.isWholesale);
-          this.carditems.push(cartItem);
+          this.carditems.unshift(cartItem);
         }
 
         if (this.$refs.codeNumber) {
@@ -2553,6 +2555,7 @@ export default {
                 this.carditems[existingItemIndex],
                 this.isWholesale
               );
+              promoteCartLineToFront(this.carditems, existingItemIndex);
             } else {
               // Check if item has available quantity
               if (!this.SearchItems.quantity || this.SearchItems.quantity <= 0) {
@@ -2573,7 +2576,7 @@ export default {
                 return;
               }
               
-              // New item, add to cart
+              // New item, add to top of cart
               const item = {
                 name: this.SearchItems.name,
                 quantity: 1,
@@ -2584,7 +2587,7 @@ export default {
                 id: this.SearchItems.id,
               };
               item.total = getCartLineTotal(item, this.isWholesale);
-              this.carditems.push(item);
+              this.carditems.unshift(item);
             }
             
             this.feedbackItemAdded(this.SearchItems.name);
