@@ -210,7 +210,7 @@ builder.Services.AddSingleton<IWwwrootErrorLogService, WwwrootErrorLogService>()
 
 var app = builder.Build();
 
-// تطبيق ترحيلات EF تلقائياً (مثل TableChipSizePx) عند التشغيل؛ عطّل عبر DatabaseSettings:ApplyMigrationsOnStartup = false
+// تطبيق ترحيلات EF تلقائياً عند التشغيل؛ عطّل عبر DatabaseSettings:ApplyMigrationsOnStartup = false
 var applyMigrations = app.Configuration.GetValue("DatabaseSettings:ApplyMigrationsOnStartup", true);
 using (var scope = app.Services.CreateScope())
 {
@@ -220,11 +220,11 @@ using (var scope = app.Services.CreateScope())
     {
         try
         {
-            db.Database.Migrate();
+            DatabaseBootstrap.EnsureDatabaseAndMigrate(db, connectionString, migrateLogger);
         }
         catch (Exception ex)
         {
-            migrateLogger.LogError(ex, "تعذر تطبيق ترحيلات قاعدة البيانات (EF Migrate). تحقق من سلسلة الاتصال والصلاحيات.");
+            migrateLogger.LogError(ex, "تعذر تجهيز/تطبيق ترحيلات قاعدة البيانات. تحقق من سلسلة الاتصال والصلاحيات.");
             throw;
         }
     }

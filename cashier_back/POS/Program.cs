@@ -142,13 +142,14 @@ if (applyMigrations)
     {
         var db = scope.ServiceProvider.GetRequiredService<DbConfig>();
         var migrateLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        var connectionString = app.Configuration.GetConnectionString("WebApiDatabase");
         try
         {
-            db.Database.Migrate();
+            DatabaseBootstrap.EnsureDatabaseAndMigrate(db, connectionString, migrateLogger);
         }
         catch (Exception ex)
         {
-            migrateLogger.LogError(ex, "Failed to apply EF migrations on startup.");
+            migrateLogger.LogError(ex, "Failed to prepare database / apply EF migrations on startup.");
             throw;
         }
 

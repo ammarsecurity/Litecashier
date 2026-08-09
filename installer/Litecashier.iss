@@ -2,7 +2,7 @@
 ; Build staging first: powershell -ExecutionPolicy Bypass -File build-installer.ps1
 
 #define MyAppName "Litecashier"
-#define MyAppVersion "1.0.19"
+#define MyAppVersion "1.0.20"
 #define MyAppPublisher "Litecashier"
 #define MyAppExeName "Litecashier.exe"
 
@@ -63,6 +63,63 @@ Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name="
 Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name=""Litecashier POS"" & netsh advfirewall firewall delete rule name=""Litecashier PrintServer"""; Flags: runhidden
 
 [Code]
+var
+  DbPage: TInputQueryWizardPage;
+
+function EscapeJson(const S: string): string;
+begin
+  Result := S;
+  StringChangeEx(Result, '\', '\\', True);
+  StringChangeEx(Result, '"', '\"', True);
+  StringChangeEx(Result, #13, '\r', True);
+  StringChangeEx(Result, #10, '\n', True);
+  StringChangeEx(Result, #9, '\t', True);
+end;
+
+function BuildDbConnectionString: string;
+begin
+  Result :=
+    'Server=' + Trim(DbPage.Values[0]) +
+    ';Port=' + Trim(DbPage.Values[1]) +
+    ';Database=' + Trim(DbPage.Values[4]) +
+    ';User=' + Trim(DbPage.Values[2]) +
+    ';Password=' + DbPage.Values[3] +
+    ';CharSet=utf8mb4;Connection Timeout=30;';
+end;
+
+procedure WriteProductionAppsettings;
+var
+  Path, Content, Conn: string;
+begin
+  Path := ExpandConstant('{app}\POS\appsettings.Production.json');
+  Conn := EscapeJson(BuildDbConnectionString);
+  Content :=
+    '{' + #13#10 +
+    '  "Urls": "http://0.0.0.0:5189",' + #13#10 +
+    '  "ConnectionStrings": {' + #13#10 +
+    '    "WebApiDatabase": "' + Conn + '"' + #13#10 +
+    '  },' + #13#10 +
+    '  "ApiSettings": {' + #13#10 +
+    '    "ImageBaseUrl": "/Images/"' + #13#10 +
+    '  },' + #13#10 +
+    '  "DatabaseSettings": {' + #13#10 +
+    '    "ApplyMigrationsOnStartup": true,' + #13#10 +
+    '    "SeedOnStartup": false,' + #13#10 +
+    '    "SeedDemoAccounts": false,' + #13#10 +
+    '    "CommercialUserId": 0,' + #13#10 +
+    '    "MysqldumpPath": ""' + #13#10 +
+    '  },' + #13#10 +
+    '  "License": {' + #13#10 +
+    '    "Enabled": true,' + #13#10 +
+    '    "BaseUrl": "https://litecashier-keys.smartstick-iq.com",' + #13#10 +
+    '    "Product": "Cashier",' + #13#10 +
+    '    "RevalidateHours": 24' + #13#10 +
+    '  }' + #13#10 +
+    '}' + #13#10;
+  if not SaveStringToFile(Path, Content, False) then
+    MsgBox('تعذر كتابة إعدادات قاعدة البيانات:' + #13#10 + Path, mbError, MB_OK);
+end;
+
 procedure KillLitecashierProcesses;
 var
   ResultCode: Integer;
@@ -85,6 +142,58 @@ function InitializeUninstall(): Boolean;
 begin
   KillLitecashierProcesses;
   Result := True;
+end;
+
+procedure InitializeWizard;
+begin
+  DbPage := CreateInputQueryPage(wpSelectDir,
+    'إعدادات قاعدة البيانات MySQL',
+    'أدخل بيانات الاتصال — النظام ينشئ القاعدة إن لم تكن موجودة أو يحدّثها إن وُجدت',
+    'تأكد أن خدمة MySQL (مثلاً من XAMPP) تعمل قبل تشغيل Litecashier.');
+  DbPage.Add('Host / Server:', False);
+  DbPage.Add('Port:', False);
+  DbPage.Add('User:', False);
+  DbPage.Add('Password:', True);
+  DbPage.Add('Database name:', False);
+  DbPage.Values[0] := 'localhost';
+  DbPage.Values[1] := '3306';
+  DbPage.Values[2] := 'root';
+  DbPage.Values[3] := '';
+  DbPage.Values[4] := 'pos';
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if CurPageID = DbPage.ID then
+  begin
+    if Trim(DbPage.Values[0]) = '' then
+    begin
+      MsgBox('أدخل عنوان السيرفر (Host).', mbError, MB_OK);
+      Result := False;
+    end
+    else if Trim(DbPage.Values[1]) = '' then
+    begin
+      MsgBox('أدخل المنفذ (Port).', mbError, MB_OK);
+      Result := False;
+    end
+    else if Trim(DbPage.Values[2]) = '' then
+    begin
+      MsgBox('أدخل اسم المستخدم (User).', mbError, MB_OK);
+      Result := False;
+    end
+    else if Trim(DbPage.Values[4]) = '' then
+    begin
+      MsgBox('أدخل اسم قاعدة البيانات.', mbError, MB_OK);
+      Result := False;
+    end;
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    WriteProductionAppsettings;
 end;
 
 function NeedsVCRedist: Boolean;
