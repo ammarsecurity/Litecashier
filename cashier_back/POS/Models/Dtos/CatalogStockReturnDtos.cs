@@ -6,6 +6,8 @@ namespace POS.Models.Dtos
         public string OrderCode { get; set; } = string.Empty;
         public DateTime InsertDate { get; set; }
         public string PaymentMethod { get; set; } = string.Empty;
+        public int? WarehouseId { get; set; }
+        public string? WarehouseName { get; set; }
         public List<OrderForReturnLineDto> Lines { get; set; } = new();
     }
 
@@ -34,5 +36,7 @@ namespace POS.Models.Dtos
         public string? Notes { get; set; }
         public DateTime InsertDate { get; set; }
         public string? CreatedByUsername { get; set; }
+        public int? WarehouseId { get; set; }
+        public string? WarehouseName { get; set; }
     }
 }

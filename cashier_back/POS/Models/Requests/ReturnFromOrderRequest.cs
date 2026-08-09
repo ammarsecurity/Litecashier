@@ -10,6 +10,9 @@ namespace POS.Models.Requests
         [MaxLength(1000)]
         public string? Notes { get; set; }
 
+        /// <summary>Optional target warehouse; defaults to the order warehouse then commercial default.</summary>
+        public int? WarehouseId { get; set; }
+
         [Required]
         [MinLength(1)]
         public List<ReturnFromOrderLineRequest> Lines { get; set; } = new();

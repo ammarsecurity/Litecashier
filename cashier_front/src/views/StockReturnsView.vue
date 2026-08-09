@@ -180,6 +180,34 @@
                       <strong>{{ $t("paymentMethod") || "الدفع" }}:</strong>
                       {{ orderForReturn.paymentMethod }}
                     </span>
+                    <span>
+                      <strong>{{ $t("warehouseName") || "المخزن" }}:</strong>
+                      {{ orderForReturn.warehouseName || "—" }}
+                    </span>
+                  </div>
+
+                  <div v-if="warehouses.length" class="stock-returns-form-row">
+                    <div class="stock-returns-field stock-returns-grow">
+                      <label class="stock-returns-label">
+                        {{ $t("stockReturnsTargetWarehouse") || "مخزن الإرجاع" }}
+                      </label>
+                      <div class="users-search-container">
+                        <b-icon icon="building" class="search-icon"></b-icon>
+                        <select
+                          v-model.number="orderReturnWarehouseId"
+                          class="users-search-input reports-filter-select"
+                        >
+                          <option
+                            v-for="wh in warehouses"
+                            :key="'order-wh-' + wh.id"
+                            :value="wh.id"
+                          >
+                            {{ wh.name }}
+                            {{ wh.isDefault ? ($t("defaultWarehouse") || "(افتراضي)") : "" }}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="table-responsive report-table-container">
@@ -265,6 +293,28 @@
               <!-- Manual restock -->
               <div v-show="activeTab === 'manual'" class="stock-returns-panel">
                 <div class="stock-returns-form-row">
+                  <div v-if="warehouses.length" class="stock-returns-field">
+                    <label class="stock-returns-label">
+                      {{ $t("stockReturnsTargetWarehouse") || "مخزن الإرجاع" }}
+                    </label>
+                    <div class="users-search-container">
+                      <b-icon icon="building" class="search-icon"></b-icon>
+                      <select
+                        v-model.number="manualWarehouseId"
+                        class="users-search-input reports-filter-select"
+                        @change="onManualWarehouseChange"
+                      >
+                        <option
+                          v-for="wh in warehouses"
+                          :key="'manual-wh-' + wh.id"
+                          :value="wh.id"
+                        >
+                          {{ wh.name }}
+                          {{ wh.isDefault ? ($t("defaultWarehouse") || "(افتراضي)") : "" }}
+                        </option>
+                      </select>
+                    </div>
+                  </div>
                   <div class="users-search-container stock-returns-grow">
                     <b-icon icon="search" class="search-icon"></b-icon>
                     <input
@@ -404,7 +454,7 @@
                   </button>
                 </div>
               </div>
-              <div class="app-filters-fields app-filters-fields--2">
+              <div class="app-filters-fields app-filters-fields--3">
                 <label class="app-filter-field">
                   <span class="app-filter-label">{{ $t("stockReturnsType") || "النوع" }}</span>
                   <div class="users-search-container">
@@ -417,6 +467,26 @@
                       <option value="">{{ $t("stockReturnsAllTypes") || "كل الأنواع" }}</option>
                       <option value="Order">{{ $t("stockReturnsTabOrder") || "مرتجع فاتورة" }}</option>
                       <option value="Manual">{{ $t("stockReturnsTabManual") || "إرجاع يدوي" }}</option>
+                    </select>
+                  </div>
+                </label>
+                <label class="app-filter-field" v-if="warehouses.length">
+                  <span class="app-filter-label">{{ $t("warehouseName") || "المخزن" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="building" class="search-icon"></b-icon>
+                    <select
+                      v-model="historyWarehouseId"
+                      class="users-search-input reports-filter-select"
+                      @change="loadHistory"
+                    >
+                      <option value="">{{ $t("allWarehouses") || "كل المخازن" }}</option>
+                      <option
+                        v-for="wh in warehouses"
+                        :key="'hist-wh-' + wh.id"
+                        :value="String(wh.id)"
+                      >
+                        {{ wh.name }}
+                      </option>
                     </select>
                   </div>
                 </label>
@@ -453,6 +523,7 @@
                     <tr>
                       <th>{{ $t("date") || "التاريخ" }}</th>
                       <th>{{ $t("stockReturnsType") || "النوع" }}</th>
+                      <th>{{ $t("warehouseName") || "المخزن" }}</th>
                       <th>{{ $t("itemNamePlaceholder") || "المنتج" }}</th>
                       <th>{{ $t("codePlaceholder") || "الكود" }}</th>
                       <th>{{ $t("quantityLabel") || "الكمية" }}</th>
@@ -475,6 +546,7 @@
                           {{ returnTypeLabel(row.returnType) }}
                         </span>
                       </td>
+                      <td>{{ row.warehouseName || "—" }}</td>
                       <td>{{ row.itemName }}</td>
                       <td>{{ row.itemCode || "—" }}</td>
                       <td>{{ row.quantity }}</td>
@@ -508,12 +580,15 @@ export default {
       orderForReturn: null,
       returnQtyByItem: {},
       orderReturnNotes: "",
+      orderReturnWarehouseId: null,
       orderSubmitting: false,
+      warehouses: [],
       itemSearch: "",
       itemSearchTimer: null,
       itemSearchLoading: false,
       itemResults: [],
       selectedItem: null,
+      manualWarehouseId: null,
       manualQty: 1,
       manualNotes: "",
       manualSubmitting: false,
@@ -521,6 +596,7 @@ export default {
       historyRows: [],
       historyTotal: 0,
       historyType: "",
+      historyWarehouseId: "",
       historySearch: "",
       orderReturnCount: 0,
       manualReturnCount: 0,
@@ -536,6 +612,7 @@ export default {
     },
   },
   mounted() {
+    this.loadWarehouses();
     this.loadHistory();
   },
   beforeDestroy() {
@@ -555,6 +632,22 @@ export default {
         return this.$t("stockReturnsTabOrder") || "مرتجع فاتورة";
       }
       return this.$t("stockReturnsTabManual") || "إرجاع يدوي";
+    },
+    async loadWarehouses() {
+      try {
+        const res = await HTTP.get("Warehouses/ForPos");
+        this.warehouses = (res.data?.data || []).map((w) => ({
+          id: w.id ?? w.Id,
+          name: w.name ?? w.Name,
+          isDefault: !!(w.isDefault ?? w.IsDefault),
+        }));
+        const def = this.warehouses.find((w) => w.isDefault) || this.warehouses[0];
+        if (!this.manualWarehouseId && def) {
+          this.manualWarehouseId = def.id;
+        }
+      } catch (_) {
+        this.warehouses = [];
+      }
     },
     async lookupOrder() {
       const code = (this.orderCode || "").trim();
@@ -581,6 +674,13 @@ export default {
           qtyMap[line.itemId] = 0;
         });
         this.returnQtyByItem = qtyMap;
+        const whId = data?.warehouseId ?? data?.WarehouseId;
+        if (whId) {
+          this.orderReturnWarehouseId = Number(whId);
+        } else {
+          const def = this.warehouses.find((w) => w.isDefault) || this.warehouses[0];
+          this.orderReturnWarehouseId = def?.id || null;
+        }
       } catch (err) {
         const msg =
           err?.response?.data?.message ||
@@ -621,6 +721,7 @@ export default {
         const response = await HTTP.post("Admin/ReturnFromOrder", {
           orderId: this.orderForReturn.orderId,
           notes: this.orderReturnNotes || null,
+          warehouseId: this.orderReturnWarehouseId || null,
           lines,
         });
         if (response.data?.errorStatus) {
@@ -652,6 +753,12 @@ export default {
       clearTimeout(this.itemSearchTimer);
       this.itemSearchTimer = setTimeout(() => this.searchItems(), 350);
     },
+    onManualWarehouseChange() {
+      this.selectedItem = null;
+      if ((this.itemSearch || "").trim()) {
+        this.searchItems();
+      }
+    },
     async searchItems() {
       const q = (this.itemSearch || "").trim();
       if (q.length < 1) {
@@ -665,6 +772,9 @@ export default {
           pageSize: "20",
           info: q,
         });
+        if (this.manualWarehouseId) {
+          params.set("warehouseId", String(this.manualWarehouseId));
+        }
         const response = await HTTP.get(`Admin/GetItems?${params.toString()}`);
         this.itemResults = response.data?.data?.items || [];
       } catch (_) {
@@ -680,12 +790,20 @@ export default {
     },
     async submitManualRestock() {
       if (!this.selectedItem || !(this.manualQty > 0)) return;
+      if (this.warehouses.length && !this.manualWarehouseId) {
+        this.$notify.error(
+          this.$t("warehouseRequired") || "اختر المخزن",
+          { position: "top-right", timeout: 3000, maxToasts: 1 }
+        );
+        return;
+      }
       this.manualSubmitting = true;
       try {
         const response = await HTTP.post("Admin/RestockItem", {
           itemId: this.selectedItem.id,
           quantity: Number(this.manualQty),
           notes: this.manualNotes || null,
+          warehouseId: this.manualWarehouseId || null,
         });
         if (response.data?.errorStatus) {
           this.$notify.error(
@@ -731,6 +849,9 @@ export default {
         }
         if (this.historyType) {
           params.returnType = this.historyType;
+        }
+        if (this.historyWarehouseId) {
+          params.warehouseId = Number(this.historyWarehouseId);
         }
         const response = await HTTP.get("Admin/GetStockReturns", { params });
         const data = response.data?.data;

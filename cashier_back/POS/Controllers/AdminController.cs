@@ -3509,6 +3509,7 @@ namespace POS.Controllers
                     .Include(x => x.CustomerOrderItem!)
                     .ThenInclude(i => i.Item)
                     .Include(x => x.User)
+                    .Include(x => x.Warehouse)
                     .FirstOrDefaultAsync(x =>
                         !x.IsDeleted &&
                         x.OrderCode == code &&
@@ -3525,6 +3526,12 @@ namespace POS.Controllers
                         Message = "الفاتورة غير موجودة"
                     });
                 }
+
+                var commercialUserId = GetCommercialUserId();
+                var defaultWh = await _warehouseStock.EnsureDefaultWarehouseAsync(commercialUserId);
+                var orderWarehouseId = order.WarehouseId ?? defaultWh.Id;
+                var orderWarehouse = await _warehouseStock.GetActiveWarehouseAsync(commercialUserId, orderWarehouseId)
+                    ?? defaultWh;
 
                 var activeLines = GetActiveOrderItems(order.CustomerOrderItem);
                 var soldByItem = activeLines
@@ -3569,6 +3576,8 @@ namespace POS.Controllers
                         OrderCode = order.OrderCode,
                         InsertDate = order.InsertDate,
                         PaymentMethod = order.PaymentMethod ?? "Cash",
+                        WarehouseId = orderWarehouse.Id,
+                        WarehouseName = orderWarehouse.Name,
                         Lines = lines
                     },
                     ErrorStatus = false,
@@ -3697,9 +3706,17 @@ namespace POS.Controllers
                 var created = new List<object>();
 
                 var defaultWh = await _warehouseStock.EnsureDefaultWarehouseAsync(commercialUserId);
-                var returnWarehouseId = order.WarehouseId ?? defaultWh.Id;
-                var returnWh = await _warehouseStock.GetActiveWarehouseAsync(commercialUserId, returnWarehouseId)
-                    ?? defaultWh;
+                var returnWarehouseId = request.WarehouseId ?? order.WarehouseId ?? defaultWh.Id;
+                var returnWh = await _warehouseStock.GetActiveWarehouseAsync(commercialUserId, returnWarehouseId);
+                if (returnWh == null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "invalidWarehouse"
+                    });
+                }
 
                 foreach (var kv in requestedByItem)
                 {
@@ -3876,6 +3893,7 @@ namespace POS.Controllers
             int pageSize = 50,
             string? info = null,
             string? returnType = null,
+            int? warehouseId = null,
             DateTime? startDate = null,
             DateTime? endDate = null)
         {
@@ -3898,6 +3916,7 @@ namespace POS.Controllers
                     .AsNoTracking()
                     .Include(r => r.Item)
                     .Include(r => r.User)
+                    .Include(r => r.Warehouse)
                     .Where(r => !r.IsDeleted &&
                         (r.InsertByUserId == commercialUserId ||
                          r.User!.Id == commercialUserId ||
@@ -3909,6 +3928,11 @@ namespace POS.Controllers
                     query = query.Where(r => r.ReturnType == type);
                 }
 
+                if (warehouseId.HasValue && warehouseId.Value > 0)
+                {
+                    query = query.Where(r => r.WarehouseId == warehouseId.Value);
+                }
+
                 if (!string.IsNullOrWhiteSpace(info))
                 {
                     var term = info.Trim();
@@ -3916,7 +3940,8 @@ namespace POS.Controllers
                         (r.OrderCode != null && r.OrderCode.Contains(term)) ||
                         (r.Item != null && r.Item.Name.Contains(term)) ||
                         (r.Item != null && r.Item.Code != null && r.Item.Code.Contains(term)) ||
-                        (r.Notes != null && r.Notes.Contains(term)));
+                        (r.Notes != null && r.Notes.Contains(term)) ||
+                        (r.Warehouse != null && r.Warehouse.Name.Contains(term)));
                 }
 
                 if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
@@ -3942,7 +3967,9 @@ namespace POS.Controllers
                         UnitPrice = r.UnitPrice,
                         Notes = r.Notes,
                         InsertDate = r.InsertDate,
-                        CreatedByUsername = r.User != null ? r.User.Username : null
+                        CreatedByUsername = r.User != null ? r.User.Username : null,
+                        WarehouseId = r.WarehouseId,
+                        WarehouseName = r.Warehouse != null ? r.Warehouse.Name : null
                     })
                     .ToListAsync();
 
