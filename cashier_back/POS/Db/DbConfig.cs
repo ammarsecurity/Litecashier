@@ -65,6 +65,8 @@ namespace POS.Db
         public DbSet<Customer> Customers { get; set; }
         public DbSet<PaymentDevice> PaymentDevices { get; set; }
         public DbSet<CardPaymentTransaction> CardPaymentTransactions { get; set; }
+        public DbSet<Warehouse> Warehouses { get; set; }
+        public DbSet<ItemWarehouseStock> ItemWarehouseStocks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -119,6 +121,39 @@ namespace POS.Db
             modelBuilder.Entity<Supplier>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<Customer>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<CustomerOrder>().HasOne(r => r.CreditCustomer).WithMany().HasForeignKey(x => x.CreditCustomerId).OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Warehouse>()
+                .HasOne(w => w.User)
+                .WithMany()
+                .HasForeignKey(w => w.InsertByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Warehouse>()
+                .HasIndex(w => new { w.InsertByUserId, w.Name });
+
+            modelBuilder.Entity<ItemWarehouseStock>()
+                .HasOne(s => s.Item)
+                .WithMany(i => i.WarehouseStocksNav)
+                .HasForeignKey(s => s.ItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<ItemWarehouseStock>()
+                .HasOne(s => s.Warehouse)
+                .WithMany(w => w.Stocks)
+                .HasForeignKey(s => s.WarehouseId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<ItemWarehouseStock>()
+                .HasIndex(s => new { s.ItemId, s.WarehouseId })
+                .IsUnique();
+
+            modelBuilder.Entity<CustomerOrder>()
+                .HasOne(o => o.Warehouse)
+                .WithMany()
+                .HasForeignKey(o => o.WarehouseId)
+                .OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<CatalogStockReturn>()
+                .HasOne(r => r.Warehouse)
+                .WithMany()
+                .HasForeignKey(r => r.WarehouseId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.LoginCode)

@@ -357,185 +357,266 @@
       </b-modal>
 
       <!-- Add Item Modal -->
-      <b-modal id="modal-addItem" :title="$t('addItemModalTitle')" hide-header hide-footer class="users-modal" size="lg" scrollable>
-        <div class="modal-content-wrapper">
-          <h2 class="modal-title">{{ $t("addItemModalTitle") }}</h2>
-          <form @submit.prevent="addItem" class="users-form">
-            <!-- Image Upload Section -->
-            <div class="text-center mb-3" style="margin-bottom: 1rem;">
-              <input type="file" ref="uploadPhoto" @change="uploadFile" hidden />
-              <div @click="getFile" style="cursor: pointer; display: inline-block;">
-                <img
-                  v-if="!imagePreview"
-                  @click="getFile"
-                  src="../assets/upload.png"
-                  alt="upload"
-                  width="120"
-                  style="cursor: pointer;"
-                />
-                <b-avatar v-if="imagePreview" :src="imagePreview" size="6rem"></b-avatar>
+      <b-modal
+        id="modal-addItem"
+        :title="$t('addItemModalTitle')"
+        hide-header
+        hide-footer
+        class="users-modal item-form-modal"
+        size="lg"
+        scrollable
+        centered
+      >
+        <div class="modal-content-wrapper item-form-modal__body">
+          <div class="modal-title-row">
+            <span class="modal-title-icon">
+              <b-icon icon="plus-circle-fill"></b-icon>
+            </span>
+            <h2 class="modal-title">{{ $t("addItemModalTitle") }}</h2>
+          </div>
+
+          <form @submit.prevent="addItem" class="users-form item-form">
+            <div class="item-form-upload" @click="getFile" role="button" tabindex="0" @keyup.enter="getFile">
+              <input type="file" ref="uploadPhoto" @change="uploadFile" hidden accept="image/*" />
+              <b-avatar v-if="imagePreview" :src="imagePreview" size="5.5rem" class="item-form-upload__avatar"></b-avatar>
+              <div v-else class="item-form-upload__placeholder">
+                <img src="../assets/upload.png" alt="upload" width="72" />
+                <span>{{ $t("itemImageUploadHint") || "اضغط لإضافة صورة" }}</span>
               </div>
             </div>
 
-            <!-- Form Fields Grid -->
-            <div class="modal-form-grid">
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="tag-fill" class="form-label-icon"></b-icon>
-                  {{ $t("itemNamePlaceholder") }}
-                </label>
-                <input 
-                  id="inputName"
-                  v-model="addForm.name" 
-                  type="text"
-                  :placeholder="$t('itemNamePlaceholder')" 
-                  required 
-                  class="users-form-input"
-                />
+            <div class="item-form-section">
+              <div class="item-form-section__head">
+                <b-icon icon="info-circle-fill"></b-icon>
+                <span>{{ $t("itemBasicInfoSection") || "البيانات الأساسية" }}</span>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="tags" class="form-label-icon"></b-icon>
-                  {{ $t("categoryPlaceholder") }}
-                </label>
-                <select v-model="addForm.tags" class="users-form-select">
-                  <option v-for="item in tags" :value="item.name">{{ item.name }}</option>
-                </select>
+              <div class="modal-form-grid">
+                <div class="users-form-group">
+                  <label class="users-form-label" for="inputName">
+                    <b-icon icon="tag-fill" class="form-label-icon"></b-icon>
+                    {{ $t("itemNamePlaceholder") }}
+                  </label>
+                  <input
+                    id="inputName"
+                    v-model="addForm.name"
+                    type="text"
+                    :placeholder="$t('itemNamePlaceholder')"
+                    required
+                    class="users-form-input"
+                  />
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label">
+                    <b-icon icon="tags" class="form-label-icon"></b-icon>
+                    {{ $t("categoryPlaceholder") }}
+                  </label>
+                  <select v-model="addForm.tags" class="users-form-select">
+                    <option v-for="(item, idx) in tags" :key="'add-tag-' + (item.id || idx)" :value="item.name">
+                      {{ item.name }}
+                    </option>
+                  </select>
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label" for="inputCode">
+                    <b-icon icon="upc-scan" class="form-label-icon"></b-icon>
+                    {{ $t("codePlaceholder") }}
+                  </label>
+                  <input
+                    id="inputCode"
+                    v-model="addForm.code"
+                    type="text"
+                    :placeholder="$t('codePlaceholder')"
+                    required
+                    class="users-form-input"
+                  />
+                </div>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="currency-dollar" class="form-label-icon"></b-icon>
-                  {{ $t("sellingPricePlaceholder") }}
-                </label>
-                <input 
-                  id="inputSellingPrice"
-                  v-model="addForm.sellingPrice" 
-                  type="number"
-                  :placeholder="$t('sellingPricePlaceholder')" 
-                  required 
-                  class="users-form-input"
-                />
+            </div>
+
+            <div class="item-form-section">
+              <div class="item-form-section__head">
+                <b-icon icon="cash-coin"></b-icon>
+                <span>{{ $t("itemPricesSection") || "الأسعار" }}</span>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="percent" class="form-label-icon"></b-icon>
-                  {{ $t("disCountPricePlaceholder") }}
-                </label>
-                <input 
-                  id="inputDisCountPrice"
-                  v-model="addForm.disCountPrice" 
-                  type="number"
-                  :placeholder="$t('disCountPricePlaceholder')" 
-                  required 
-                  class="users-form-input"
-                />
+              <div class="modal-form-grid">
+                <div class="users-form-group">
+                  <label class="users-form-label" for="inputSellingPrice">
+                    <b-icon icon="currency-dollar" class="form-label-icon"></b-icon>
+                    {{ $t("sellingPricePlaceholder") }}
+                  </label>
+                  <input
+                    id="inputSellingPrice"
+                    v-model="addForm.sellingPrice"
+                    type="number"
+                    :placeholder="$t('sellingPricePlaceholder')"
+                    required
+                    class="users-form-input"
+                  />
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label" for="inputDisCountPrice">
+                    <b-icon icon="percent" class="form-label-icon"></b-icon>
+                    {{ $t("disCountPricePlaceholder") }}
+                  </label>
+                  <input
+                    id="inputDisCountPrice"
+                    v-model="addForm.disCountPrice"
+                    type="number"
+                    :placeholder="$t('disCountPricePlaceholder')"
+                    required
+                    class="users-form-input"
+                  />
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label" for="inputWholesalePrice">
+                    <b-icon icon="cash-stack" class="form-label-icon"></b-icon>
+                    {{ $t("wholesalePricePlaceholder") }}
+                  </label>
+                  <input
+                    id="inputWholesalePrice"
+                    v-model="addForm.wholesalePrice"
+                    type="number"
+                    :placeholder="$t('wholesalePricePlaceholder')"
+                    min="0"
+                    class="users-form-input"
+                  />
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label" for="inputPurchasingPrice">
+                    <b-icon icon="cart" class="form-label-icon"></b-icon>
+                    {{ $t("purchasingPricePlaceholder") }}
+                  </label>
+                  <input
+                    id="inputPurchasingPrice"
+                    v-model="addForm.purchasingPrice"
+                    type="number"
+                    :placeholder="$t('purchasingPricePlaceholder')"
+                    required
+                    class="users-form-input"
+                  />
+                </div>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="cash-stack" class="form-label-icon"></b-icon>
-                  {{ $t("wholesalePricePlaceholder") }}
-                </label>
-                <input 
-                  id="inputWholesalePrice"
-                  v-model="addForm.wholesalePrice" 
-                  type="number"
-                  :placeholder="$t('wholesalePricePlaceholder')" 
-                  min="0"
-                  class="users-form-input"
-                />
+            </div>
+
+            <div class="item-form-section item-form-section--stock" v-if="warehouseStockRows.length">
+              <div class="item-form-section__head">
+                <div class="item-form-section__title">
+                  <b-icon icon="building"></b-icon>
+                  <span>{{ $t("warehouseQuantities") }}</span>
+                </div>
+                <span class="item-form-total-pill">
+                  {{ $t("totalQuantity") || "إجمالي الكمية" }}:
+                  <strong>{{ addWarehouseTotal }}</strong>
+                </span>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="cart" class="form-label-icon"></b-icon>
-                  {{ $t("purchasingPricePlaceholder") }}
-                </label>
-                <input 
-                  id="inputPurchasingPrice"
-                  v-model="addForm.purchasingPrice" 
-                  type="number"
-                  :placeholder="$t('purchasingPricePlaceholder')" 
-                  required 
-                  class="users-form-input"
-                />
+              <p class="item-form-section__hint">
+                {{
+                  $t("warehouseQuantitiesAlertHint") ||
+                  "حدد كمية كل مخزن وحد تنبيه الكمية له (اترك التنبيه فارغاً لتعطيله)"
+                }}
+              </p>
+              <div class="item-warehouse-grid item-warehouse-grid--with-alert">
+                <div
+                  v-for="row in warehouseStockRows"
+                  :key="'add-wh-' + row.warehouseId"
+                  class="item-warehouse-card"
+                >
+                  <div class="item-warehouse-card__title">
+                    <b-icon icon="building"></b-icon>
+                    <span>{{ row.warehouseName }}</span>
+                  </div>
+                  <div class="item-warehouse-card__fields">
+                    <div class="users-form-group">
+                      <label class="users-form-label" :for="'add-wh-qty-' + row.warehouseId">
+                        <b-icon icon="box-seam" class="form-label-icon"></b-icon>
+                        {{ $t("quantityLabel") || "الكمية" }}
+                      </label>
+                      <input
+                        :id="'add-wh-qty-' + row.warehouseId"
+                        v-model.number="row.quantity"
+                        type="number"
+                        min="0"
+                        class="users-form-input"
+                      />
+                    </div>
+                    <div class="users-form-group">
+                      <label class="users-form-label" :for="'add-wh-alert-' + row.warehouseId">
+                        <b-icon icon="bell-fill" class="form-label-icon"></b-icon>
+                        {{ $t("lowStockAlertQuantityLabel") || "تنبيه الكمية" }}
+                      </label>
+                      <input
+                        :id="'add-wh-alert-' + row.warehouseId"
+                        v-model="row.lowStockAlertQuantity"
+                        type="number"
+                        min="0"
+                        :placeholder="$t('lowStockAlertQuantityPlaceholder') || 'مثال: 10'"
+                        class="users-form-input"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="upc-scan" class="form-label-icon"></b-icon>
-                  {{ $t("codePlaceholder") }}
-                </label>
-                <input 
-                  id="inputCode"
-                  v-model="addForm.code" 
-                  type="text"
-                  :placeholder="$t('codePlaceholder')" 
-                  required 
-                  class="users-form-input"
-                />
+            </div>
+            <div class="item-form-section" v-else>
+              <div class="item-form-section__head">
+                <b-icon icon="box"></b-icon>
+                <span>{{ $t("quantityPlaceholder") || "الكمية" }}</span>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="box" class="form-label-icon"></b-icon>
-                  {{ $t("quantityPlaceholder") || "الكمية" }}
-                </label>
-                <input 
-                  id="inputQuantity"
-                  v-model="addForm.quantity" 
-                  type="number"
-                  :placeholder="$t('quantityPlaceholder') || 'الكمية'" 
-                  required 
-                  min="0"
-                  class="users-form-input"
-                />
+              <div class="modal-form-grid">
+                <div class="users-form-group">
+                  <input
+                    v-model="addForm.quantity"
+                    type="number"
+                    min="0"
+                    class="users-form-input"
+                    required
+                  />
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label" for="inputLowStockAlert">
+                    <b-icon icon="bell-fill" class="form-label-icon"></b-icon>
+                    {{ $t("lowStockAlertQuantityLabel") || "تنبيه الكمية" }}
+                  </label>
+                  <input
+                    id="inputLowStockAlert"
+                    v-model="addForm.lowStockAlertQuantity"
+                    type="number"
+                    min="0"
+                    :placeholder="$t('lowStockAlertQuantityPlaceholder') || 'مثال: 10'"
+                    class="users-form-input"
+                  />
+                </div>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="bell-fill" class="form-label-icon"></b-icon>
-                  {{ $t("lowStockAlertQuantityLabel") || "تنبيه الكمية" }}
+            </div>
+
+            <div class="item-form-section">
+              <div class="users-form-group item-form-group--flush">
+                <label class="users-form-label" for="inputDescription">
+                  <b-icon icon="file-text" class="form-label-icon"></b-icon>
+                  {{ $t("descriptionPlaceholder") }}
                 </label>
                 <input
-                  id="inputLowStockAlert"
-                  v-model="addForm.lowStockAlertQuantity"
-                  type="number"
-                  min="0"
-                  :placeholder="$t('lowStockAlertQuantityHint') || 'اتركه فارغاً لتعطيل التنبيه'"
+                  id="inputDescription"
+                  v-model="addForm.description"
+                  type="text"
+                  :placeholder="$t('descriptionPlaceholder')"
                   class="users-form-input"
                 />
-                <small class="users-form-hint">{{ $t("lowStockAlertQuantityHint") }}</small>
+              </div>
+              <div v-if="addForm.code && addForm.code.toString()" class="item-form-barcode">
+                <vue-barcode
+                  ref="BarImg"
+                  tag="img"
+                  :value="addForm.code.toString()"
+                  :options="{ displayValue: true, lineColor: '#2B2B2C', width: 2, height: 52 }"
+                />
               </div>
             </div>
 
-            <!-- Description Full Width -->
-            <div class="users-form-group">
-              <label class="users-form-label">
-                <b-icon icon="file-text" class="form-label-icon"></b-icon>
-                {{ $t("descriptionPlaceholder") }}
-              </label>
-              <input 
-                id="inputDescription"
-                v-model="addForm.description" 
-                type="text"
-                :placeholder="$t('descriptionPlaceholder')" 
-                class="users-form-input"
-              />
-            </div>
-
-            <!-- Barcode Preview -->
-            <div class="text-center mb-3" v-if="addForm.code.toString()" style="margin-top: 0.5rem;">
-              <vue-barcode
-                ref="BarImg"
-                v-if="addForm.code.toString()"
-                tag="img"
-                :value="addForm.code.toString()"
-                :options="{ displayValue: true, lineColor: '#2B2B2C', width: 2, height: 60 }"
-                style="max-width: 200px;"
-              />
-            </div>
-
-            <!-- Form Actions -->
             <div class="users-form-actions">
               <button type="submit" class="users-form-submit-button" :disabled="show == true">
                 <b-spinner small v-if="show == true" class="me-2"></b-spinner>
-                <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                <b-icon v-else icon="check-circle-fill" class="me-2"></b-icon>
                 {{ $t("addButton") }}
               </button>
               <button type="button" class="users-form-cancel-button" @click="closeModel('modal-addItem')">
@@ -548,185 +629,272 @@
       </b-modal>
 
       <!-- Edit Item Modal -->
-      <b-modal id="modal-editItem" :title="$t('editItemModalTitle')" hide-header hide-footer class="users-modal" size="lg" scrollable>
-        <div class="modal-content-wrapper">
-          <h2 class="modal-title">{{ $t("editItemModalTitle") }}</h2>
-          <form @submit.prevent="EditItem" class="users-form">
-            <!-- Image Upload Section -->
-            <div class="text-center mb-3" style="margin-bottom: 1rem;">
-              <input type="file" ref="uploadPhotoEdit" @change="uploadFileEdit" hidden />
-              <div @click="getFileEdit" style="cursor: pointer; display: inline-block;">
-                <img
-                  v-if="!imagePreview && !itemImage"
-                  @click="getFileEdit"
-                  src="../assets/upload.png"
-                  alt="upload"
-                  width="120"
-                  style="cursor: pointer;"
-                />
-                <b-avatar v-if="imagePreview || itemImage" :src="imagePreview || itemImage" size="6rem"></b-avatar>
+      <b-modal
+        id="modal-editItem"
+        :title="$t('editItemModalTitle')"
+        hide-header
+        hide-footer
+        class="users-modal item-form-modal"
+        size="lg"
+        scrollable
+        centered
+      >
+        <div class="modal-content-wrapper item-form-modal__body">
+          <div class="modal-title-row">
+            <span class="modal-title-icon">
+              <b-icon icon="pencil-square"></b-icon>
+            </span>
+            <h2 class="modal-title">{{ $t("editItemModalTitle") }}</h2>
+          </div>
+
+          <form @submit.prevent="EditItem" class="users-form item-form">
+            <div class="item-form-upload" @click="getFileEdit" role="button" tabindex="0" @keyup.enter="getFileEdit">
+              <input type="file" ref="uploadPhotoEdit" @change="uploadFileEdit" hidden accept="image/*" />
+              <b-avatar
+                v-if="imagePreview || itemImage"
+                :src="imagePreview || itemImage"
+                size="5.5rem"
+                class="item-form-upload__avatar"
+              ></b-avatar>
+              <div v-else class="item-form-upload__placeholder">
+                <img src="../assets/upload.png" alt="upload" width="72" />
+                <span>{{ $t("itemImageUploadHint") || "اضغط لإضافة صورة" }}</span>
               </div>
             </div>
 
-            <!-- Form Fields Grid -->
-            <div class="modal-form-grid">
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="tag-fill" class="form-label-icon"></b-icon>
-                  {{ $t("itemNamePlaceholder") }}
-                </label>
-                <input 
-                  id="editInputName"
-                  v-model="editForm.name" 
-                  type="text"
-                  :placeholder="$t('itemNamePlaceholder')" 
-                  required 
-                  class="users-form-input"
-                />
+            <div class="item-form-section">
+              <div class="item-form-section__head">
+                <b-icon icon="info-circle-fill"></b-icon>
+                <span>{{ $t("itemBasicInfoSection") || "البيانات الأساسية" }}</span>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="tags" class="form-label-icon"></b-icon>
-                  {{ $t("categoryPlaceholder") }}
-                </label>
-                <select v-model="editForm.tags" class="users-form-select">
-                  <option v-for="item in tags" :value="item.name">{{ item.name }}</option>
-                </select>
+              <div class="modal-form-grid">
+                <div class="users-form-group">
+                  <label class="users-form-label" for="editInputName">
+                    <b-icon icon="tag-fill" class="form-label-icon"></b-icon>
+                    {{ $t("itemNamePlaceholder") }}
+                  </label>
+                  <input
+                    id="editInputName"
+                    v-model="editForm.name"
+                    type="text"
+                    :placeholder="$t('itemNamePlaceholder')"
+                    required
+                    class="users-form-input"
+                  />
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label">
+                    <b-icon icon="tags" class="form-label-icon"></b-icon>
+                    {{ $t("categoryPlaceholder") }}
+                  </label>
+                  <select v-model="editForm.tags" class="users-form-select">
+                    <option v-for="(item, idx) in tags" :key="'edit-tag-' + (item.id || idx)" :value="item.name">
+                      {{ item.name }}
+                    </option>
+                  </select>
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label" for="editInputCode">
+                    <b-icon icon="upc-scan" class="form-label-icon"></b-icon>
+                    {{ $t("codePlaceholder") }}
+                  </label>
+                  <input
+                    id="editInputCode"
+                    v-model="editForm.code"
+                    type="text"
+                    :placeholder="$t('codePlaceholder')"
+                    required
+                    class="users-form-input"
+                  />
+                </div>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="currency-dollar" class="form-label-icon"></b-icon>
-                  {{ $t("sellingPricePlaceholder") }}
-                </label>
-                <input 
-                  id="editInputSellingPrice"
-                  v-model="editForm.sellingPrice" 
-                  type="number"
-                  :placeholder="$t('sellingPricePlaceholder')" 
-                  required 
-                  class="users-form-input"
-                />
+            </div>
+
+            <div class="item-form-section">
+              <div class="item-form-section__head">
+                <b-icon icon="cash-coin"></b-icon>
+                <span>{{ $t("itemPricesSection") || "الأسعار" }}</span>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="percent" class="form-label-icon"></b-icon>
-                  {{ $t("disCountPricePlaceholder") }}
-                </label>
-                <input 
-                  id="editInputDisCountPrice"
-                  v-model="editForm.disCountPrice" 
-                  type="number"
-                  :placeholder="$t('disCountPricePlaceholder')" 
-                  required 
-                  class="users-form-input"
-                />
+              <div class="modal-form-grid">
+                <div class="users-form-group">
+                  <label class="users-form-label" for="editInputSellingPrice">
+                    <b-icon icon="currency-dollar" class="form-label-icon"></b-icon>
+                    {{ $t("sellingPricePlaceholder") }}
+                  </label>
+                  <input
+                    id="editInputSellingPrice"
+                    v-model="editForm.sellingPrice"
+                    type="number"
+                    :placeholder="$t('sellingPricePlaceholder')"
+                    required
+                    class="users-form-input"
+                  />
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label" for="editInputDisCountPrice">
+                    <b-icon icon="percent" class="form-label-icon"></b-icon>
+                    {{ $t("disCountPricePlaceholder") }}
+                  </label>
+                  <input
+                    id="editInputDisCountPrice"
+                    v-model="editForm.disCountPrice"
+                    type="number"
+                    :placeholder="$t('disCountPricePlaceholder')"
+                    required
+                    class="users-form-input"
+                  />
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label" for="editInputWholesalePrice">
+                    <b-icon icon="cash-stack" class="form-label-icon"></b-icon>
+                    {{ $t("wholesalePricePlaceholder") }}
+                  </label>
+                  <input
+                    id="editInputWholesalePrice"
+                    v-model="editForm.wholesalePrice"
+                    type="number"
+                    :placeholder="$t('wholesalePricePlaceholder')"
+                    min="0"
+                    class="users-form-input"
+                  />
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label" for="editInputPurchasingPrice">
+                    <b-icon icon="cart" class="form-label-icon"></b-icon>
+                    {{ $t("purchasingPricePlaceholder") }}
+                  </label>
+                  <input
+                    id="editInputPurchasingPrice"
+                    v-model="editForm.purchasingPrice"
+                    type="number"
+                    :placeholder="$t('purchasingPricePlaceholder')"
+                    required
+                    class="users-form-input"
+                  />
+                </div>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="cash-stack" class="form-label-icon"></b-icon>
-                  {{ $t("wholesalePricePlaceholder") }}
-                </label>
-                <input 
-                  id="editInputWholesalePrice"
-                  v-model="editForm.wholesalePrice" 
-                  type="number"
-                  :placeholder="$t('wholesalePricePlaceholder')" 
-                  min="0"
-                  class="users-form-input"
-                />
+            </div>
+
+            <div class="item-form-section item-form-section--stock" v-if="editWarehouseStockRows.length">
+              <div class="item-form-section__head">
+                <div class="item-form-section__title">
+                  <b-icon icon="building"></b-icon>
+                  <span>{{ $t("warehouseQuantities") }}</span>
+                </div>
+                <span class="item-form-total-pill">
+                  {{ $t("totalQuantity") || "إجمالي الكمية" }}:
+                  <strong>{{ editWarehouseTotal }}</strong>
+                </span>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="cart" class="form-label-icon"></b-icon>
-                  {{ $t("purchasingPricePlaceholder") }}
-                </label>
-                <input 
-                  id="editInputPurchasingPrice"
-                  v-model="editForm.purchasingPrice" 
-                  type="number"
-                  :placeholder="$t('purchasingPricePlaceholder')" 
-                  required 
-                  class="users-form-input"
-                />
+              <p class="item-form-section__hint">
+                {{
+                  $t("warehouseQuantitiesAlertHint") ||
+                  "حدد كمية كل مخزن وحد تنبيه الكمية له (اترك التنبيه فارغاً لتعطيله)"
+                }}
+              </p>
+              <div class="item-warehouse-grid item-warehouse-grid--with-alert">
+                <div
+                  v-for="row in editWarehouseStockRows"
+                  :key="'edit-wh-' + row.warehouseId"
+                  class="item-warehouse-card"
+                >
+                  <div class="item-warehouse-card__title">
+                    <b-icon icon="building"></b-icon>
+                    <span>{{ row.warehouseName }}</span>
+                  </div>
+                  <div class="item-warehouse-card__fields">
+                    <div class="users-form-group">
+                      <label class="users-form-label" :for="'edit-wh-qty-' + row.warehouseId">
+                        <b-icon icon="box-seam" class="form-label-icon"></b-icon>
+                        {{ $t("quantityLabel") || "الكمية" }}
+                      </label>
+                      <input
+                        :id="'edit-wh-qty-' + row.warehouseId"
+                        v-model.number="row.quantity"
+                        type="number"
+                        min="0"
+                        class="users-form-input"
+                      />
+                    </div>
+                    <div class="users-form-group">
+                      <label class="users-form-label" :for="'edit-wh-alert-' + row.warehouseId">
+                        <b-icon icon="bell-fill" class="form-label-icon"></b-icon>
+                        {{ $t("lowStockAlertQuantityLabel") || "تنبيه الكمية" }}
+                      </label>
+                      <input
+                        :id="'edit-wh-alert-' + row.warehouseId"
+                        v-model="row.lowStockAlertQuantity"
+                        type="number"
+                        min="0"
+                        :placeholder="$t('lowStockAlertQuantityPlaceholder') || 'مثال: 10'"
+                        class="users-form-input"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="upc-scan" class="form-label-icon"></b-icon>
-                  {{ $t("codePlaceholder") }}
-                </label>
-                <input 
-                  id="editInputCode"
-                  v-model="editForm.code" 
-                  type="text"
-                  :placeholder="$t('codePlaceholder')" 
-                  required 
-                  class="users-form-input"
-                />
+            </div>
+            <div class="item-form-section" v-else>
+              <div class="item-form-section__head">
+                <b-icon icon="box"></b-icon>
+                <span>{{ $t("quantityPlaceholder") || "الكمية" }}</span>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="box" class="form-label-icon"></b-icon>
-                  {{ $t("quantityPlaceholder") || "الكمية" }}
-                </label>
-                <input 
-                  id="editInputQuantity"
-                  v-model="editForm.quantity" 
-                  type="number"
-                  :placeholder="$t('quantityPlaceholder') || 'الكمية'" 
-                  required 
-                  min="0"
-                  class="users-form-input"
-                />
+              <div class="modal-form-grid">
+                <div class="users-form-group">
+                  <input
+                    id="editInputQuantity"
+                    v-model="editForm.quantity"
+                    type="number"
+                    min="0"
+                    class="users-form-input"
+                    required
+                  />
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label" for="editInputLowStockAlert">
+                    <b-icon icon="bell-fill" class="form-label-icon"></b-icon>
+                    {{ $t("lowStockAlertQuantityLabel") || "تنبيه الكمية" }}
+                  </label>
+                  <input
+                    id="editInputLowStockAlert"
+                    v-model="editForm.lowStockAlertQuantity"
+                    type="number"
+                    min="0"
+                    :placeholder="$t('lowStockAlertQuantityPlaceholder') || 'مثال: 10'"
+                    class="users-form-input"
+                  />
+                </div>
               </div>
-              <div class="users-form-group">
-                <label class="users-form-label">
-                  <b-icon icon="bell-fill" class="form-label-icon"></b-icon>
-                  {{ $t("lowStockAlertQuantityLabel") || "تنبيه الكمية" }}
+            </div>
+
+            <div class="item-form-section">
+              <div class="users-form-group item-form-group--flush">
+                <label class="users-form-label" for="editInputDescription">
+                  <b-icon icon="file-text" class="form-label-icon"></b-icon>
+                  {{ $t("descriptionPlaceholder") }}
                 </label>
                 <input
-                  id="editInputLowStockAlert"
-                  v-model="editForm.lowStockAlertQuantity"
-                  type="number"
-                  min="0"
-                  :placeholder="$t('lowStockAlertQuantityHint') || 'اتركه فارغاً لتعطيل التنبيه'"
+                  id="editInputDescription"
+                  v-model="editForm.description"
+                  type="text"
+                  :placeholder="$t('descriptionPlaceholder')"
                   class="users-form-input"
                 />
-                <small class="users-form-hint">{{ $t("lowStockAlertQuantityHint") }}</small>
+              </div>
+              <div v-if="editForm.code && editForm.code.toString()" class="item-form-barcode">
+                <vue-barcode
+                  ref="BarImgEdit"
+                  tag="img"
+                  :value="editForm.code.toString()"
+                  :options="{ displayValue: true, lineColor: '#2B2B2C', width: 2, height: 52 }"
+                />
               </div>
             </div>
 
-            <!-- Description Full Width -->
-            <div class="users-form-group">
-              <label class="users-form-label">
-                <b-icon icon="file-text" class="form-label-icon"></b-icon>
-                {{ $t("descriptionPlaceholder") }}
-              </label>
-              <input 
-                id="editInputDescription"
-                v-model="editForm.description" 
-                type="text"
-                :placeholder="$t('descriptionPlaceholder')" 
-                class="users-form-input"
-              />
-            </div>
-
-            <!-- Barcode Preview -->
-            <div class="text-center mb-3" v-if="editForm.code && editForm.code.toString()" style="margin-top: 0.5rem;">
-              <vue-barcode
-                ref="BarImgEdit"
-                v-if="editForm.code.toString()"
-                tag="img"
-                :value="editForm.code.toString()"
-                :options="{ displayValue: true, lineColor: '#2B2B2C', width: 2, height: 60 }"
-                style="max-width: 200px;"
-              />
-            </div>
-
-            <!-- Form Actions -->
             <div class="users-form-actions">
               <button type="submit" class="users-form-submit-button" :disabled="show == true">
                 <b-spinner small v-if="show == true" class="me-2"></b-spinner>
-                <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+                <b-icon v-else icon="check-circle-fill" class="me-2"></b-icon>
                 {{ $t("editItemButtonLabel") }}
               </button>
               <button type="button" class="users-form-cancel-button" @click="closeModel('modal-editItem')">
@@ -1022,6 +1190,9 @@ export default {
       codesModalSaving: false,
       codesModalDeletingId: null,
       newItemCode: "",
+      warehouses: [],
+      warehouseStockRows: [],
+      editWarehouseStockRows: [],
     };
   },
 
@@ -1054,12 +1225,19 @@ export default {
 
   mounted() {
     this.getTags();
+    this.loadWarehouses();
     this.GetAllItems();
     this.addForm.code = Math.floor(Math.random() * 1000000000).toString();
     this.userInfo = JSON.parse(localStorage.getItem("info"));
   },
 
   computed: {
+    addWarehouseTotal() {
+      return (this.warehouseStockRows || []).reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+    },
+    editWarehouseTotal() {
+      return (this.editWarehouseStockRows || []).reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+    },
     itemFields() {
       return [
         {
@@ -1328,6 +1506,46 @@ export default {
         this.codesModalDeletingId = null;
       }
     },
+    async loadWarehouses() {
+      try {
+        const res = await HTTP.get("Warehouses/ForPos");
+        this.warehouses = (res.data?.data || []).map((w) => ({
+          id: w.id,
+          name: w.name,
+          isDefault: w.isDefault,
+          isActive: true,
+        }));
+        this.resetAddWarehouseRows();
+      } catch (_) {
+        this.warehouses = [];
+        this.warehouseStockRows = [];
+      }
+    },
+    resetAddWarehouseRows() {
+      this.warehouseStockRows = (this.warehouses || []).map((w) => ({
+        warehouseId: w.id,
+        warehouseName: w.name,
+        quantity: w.isDefault ? Number(this.addForm.quantity) || 0 : 0,
+        lowStockAlertQuantity: "",
+      }));
+    },
+    normalizeWarehouseAlert(value) {
+      if (value === null || value === undefined || String(value).trim() === "") {
+        return null;
+      }
+      const n = Number(value);
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    },
+    buildWarehouseStocksJson(rows) {
+      if (!rows || !rows.length) return null;
+      return JSON.stringify(
+        rows.map((r) => ({
+          warehouseId: r.warehouseId,
+          quantity: Math.max(0, Number(r.quantity) || 0),
+          lowStockAlertQuantity: this.normalizeWarehouseAlert(r.lowStockAlertQuantity),
+        }))
+      );
+    },
     getItemInfo(item) {
       this.itemPhoto = null;
       this.itemImage = item.image || "";
@@ -1346,6 +1564,31 @@ export default {
         lowStockAlertQuantity:
           item.lowStockAlertQuantity ?? item.LowStockAlertQuantity ?? "",
       };
+      const stocks = item.warehouseStocks || item.WarehouseStocks || [];
+      const legacyAlert =
+        item.lowStockAlertQuantity ?? item.LowStockAlertQuantity ?? "";
+      if (stocks.length) {
+        this.editWarehouseStockRows = stocks.map((s) => {
+          const alert =
+            s.lowStockAlertQuantity ??
+            s.LowStockAlertQuantity ??
+            (s.isDefault || s.IsDefault ? legacyAlert : "");
+          return {
+            warehouseId: s.warehouseId ?? s.WarehouseId,
+            warehouseName: s.warehouseName ?? s.WarehouseName,
+            quantity: Number(s.quantity ?? s.Quantity) || 0,
+            lowStockAlertQuantity:
+              alert === null || alert === undefined ? "" : alert,
+          };
+        });
+      } else {
+        this.editWarehouseStockRows = (this.warehouses || []).map((w) => ({
+          warehouseId: w.id,
+          warehouseName: w.name,
+          quantity: w.isDefault ? Number(item.quantity) || 0 : 0,
+          lowStockAlertQuantity: w.isDefault ? legacyAlert : "",
+        }));
+      }
       this.$bvModal.show("modal-editItem");
     },
     addItem() {
@@ -1360,8 +1603,16 @@ export default {
       formData.append("Image", this.itemPhoto);
       formData.append("DisCountPrice", this.addForm.disCountPrice);
       formData.append("WholesalePrice", this.addForm.wholesalePrice);
-      formData.append("Quantity", this.addForm.quantity);
-      this.appendLowStockAlertQuantity(formData, this.addForm.lowStockAlertQuantity);
+      const totalQty = this.warehouseStockRows.length
+        ? this.addWarehouseTotal
+        : this.addForm.quantity;
+      formData.append("Quantity", totalQty);
+      const stocksJson = this.buildWarehouseStocksJson(this.warehouseStockRows);
+      if (stocksJson) {
+        formData.append("WarehouseStocksJson", stocksJson);
+      } else {
+        this.appendLowStockAlertQuantity(formData, this.addForm.lowStockAlertQuantity);
+      }
 
       HTTP.post(`Admin/AddItem`, formData)
         .then((response) => {
@@ -1389,6 +1640,7 @@ export default {
           this.addForm.wholesalePrice = 0;
           this.addForm.quantity = 0;
           this.addForm.lowStockAlertQuantity = "";
+          this.resetAddWarehouseRows();
           this.imagePreview = "";
           this.itemPhoto = null;
           this.GetAllItems();
@@ -1423,8 +1675,16 @@ export default {
       formData.append("Image", this.itemPhoto);
       formData.append("DisCountPrice", this.editForm.disCountPrice);
       formData.append("WholesalePrice", this.editForm.wholesalePrice);
-      formData.append("Quantity", this.editForm.quantity);
-      this.appendLowStockAlertQuantity(formData, this.editForm.lowStockAlertQuantity, true);
+      const editTotal = this.editWarehouseStockRows.length
+        ? this.editWarehouseTotal
+        : this.editForm.quantity;
+      formData.append("Quantity", editTotal);
+      const editStocksJson = this.buildWarehouseStocksJson(this.editWarehouseStockRows);
+      if (editStocksJson) {
+        formData.append("WarehouseStocksJson", editStocksJson);
+      } else {
+        this.appendLowStockAlertQuantity(formData, this.editForm.lowStockAlertQuantity, true);
+      }
 
       this.show = true;
       HTTP.put(`Admin/UpdateItem?id=${this.editForm.id}`, formData)
@@ -1524,6 +1784,16 @@ export default {
       return Number.isFinite(n) ? n : null;
     },
     isStockAlertActive(item) {
+      const stocks = item?.warehouseStocks || item?.WarehouseStocks || [];
+      if (stocks.length) {
+        return stocks.some((s) => {
+          const alert = s.lowStockAlertQuantity ?? s.LowStockAlertQuantity;
+          if (alert === null || alert === undefined || alert === "") return false;
+          const t = Number(alert);
+          if (!Number.isFinite(t)) return false;
+          return Number(s.quantity ?? s.Quantity) <= t;
+        });
+      }
       const threshold = this.getLowStockAlertThreshold(item);
       if (threshold === null) return false;
       return Number(item?.quantity) <= threshold;
@@ -1656,6 +1926,194 @@ export default {
 </script>
 
 <style scoped>
+.item-form-modal__body {
+  padding-top: 0.25rem;
+}
+
+.item-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.item-form-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0 auto 0.25rem;
+  padding: 0.85rem 1rem;
+  min-width: 160px;
+  border: 1px dashed var(--border-color, rgba(148, 163, 184, 0.45));
+  border-radius: 16px;
+  background: rgba(148, 163, 184, 0.06);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.item-form-upload:hover {
+  border-color: rgba(15, 110, 110, 0.55);
+  background: rgba(15, 110, 110, 0.08);
+}
+
+.item-form-upload__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.item-form-section {
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.28));
+  border-radius: 14px;
+  background: rgba(148, 163, 184, 0.04);
+}
+
+.item-form-section--stock {
+  background: linear-gradient(
+    160deg,
+    rgba(15, 110, 110, 0.08) 0%,
+    rgba(148, 163, 184, 0.03) 100%
+  );
+  border-color: rgba(15, 110, 110, 0.28);
+}
+
+.item-form-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary, #e2e8f0);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.item-form-section__head > .b-icon,
+.item-form-section__title .b-icon {
+  color: #0f6e6e;
+}
+
+.item-form-section__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.item-form-section__head .item-form-total-pill {
+  margin-inline-start: auto;
+}
+
+.item-form-section__hint {
+  margin: -0.35rem 0 0.75rem;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.item-form-total-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(15, 110, 110, 0.14);
+  color: #14b8a6;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.item-form-total-pill strong {
+  font-weight: 800;
+  color: inherit;
+}
+
+.item-warehouse-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.item-warehouse-grid--with-alert {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.item-warehouse-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  background: rgba(15, 110, 110, 0.04);
+}
+
+.item-warehouse-card__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-primary, #e2e8f0);
+}
+
+.item-warehouse-card__title .bi {
+  color: #14b8a6;
+}
+
+.item-warehouse-card__fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.item-warehouse-card__fields .users-form-group {
+  margin-bottom: 0;
+}
+
+.item-warehouse-field .users-form-group,
+.item-warehouse-field {
+  margin-bottom: 0;
+}
+
+.item-form-group--flush {
+  margin-bottom: 0;
+}
+
+.item-form-barcode {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.85rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.item-form-barcode img {
+  max-width: 220px;
+  height: auto;
+}
+
+.item-form .modal-form-grid {
+  margin: 0;
+}
+
+.item-form .users-form-group {
+  margin-bottom: 0;
+}
+
+.item-form .users-form-actions {
+  margin-top: 0.35rem;
+}
+
 .items-table-container {
   margin-top: 0.75rem;
 }

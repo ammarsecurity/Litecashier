@@ -68,6 +68,12 @@ export function buildNavItems(t) {
       icon: "box-seam",
     },
     {
+      name: "warehouses",
+      label: t("warehousesTitle") || "المخازن",
+      link: "/warehouses",
+      icon: "building",
+    },
+    {
       name: "printServer",
       label: t("printServerManagement") || "إدارة خادم الطباعة",
       link: "/print-server",

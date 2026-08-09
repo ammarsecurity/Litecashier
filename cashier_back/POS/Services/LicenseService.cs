@@ -49,6 +49,8 @@ public interface ILicenseService
     LicenseStatusDto GetStatus();
     Task<LicenseStatusDto> ActivateAsync(string code, CancellationToken ct = default);
     Task<bool> EnsureLicensedAsync(CancellationToken ct = default);
+    /// <summary>True when the license server is reachable over the network.</summary>
+    Task<bool> CanReachLicenseServerAsync(CancellationToken ct = default);
 }
 
 public class LicenseService : ILicenseService
@@ -323,6 +325,80 @@ public class LicenseService : ILicenseService
             _logger.LogWarning(ex, "License revalidate failed; using local cache");
             return IsLocallyActive(state);
         }
+    }
+
+    public async Task<bool> CanReachLicenseServerAsync(CancellationToken ct = default)
+    {
+        // Settings UI needs "has internet", not "license host is up".
+        // Activation still talks to the license server and surfaces its own errors.
+        if (!EnforcementEnabled) return true;
+
+        if (!string.IsNullOrWhiteSpace(_options.BaseUrl) && await TryReachLicenseServerAsync(ct))
+            return true;
+
+        return await HasGeneralInternetAsync(ct);
+    }
+
+    private async Task<bool> TryReachLicenseServerAsync(CancellationToken ct)
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient("LicenseServer");
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(5));
+            using var request = new HttpRequestMessage(HttpMethod.Get, "");
+            using var response = await client.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cts.Token);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogInformation(ex, "License server unreachable during connectivity check");
+            return false;
+        }
+    }
+
+    private async Task<bool> HasGeneralInternetAsync(CancellationToken ct)
+    {
+        // Lightweight public probes used by Windows/Android captive-portal checks.
+        string[] probes =
+        [
+            "https://www.msftconnecttest.com/connecttest.txt",
+            "https://connectivitycheck.gstatic.com/generate_204",
+            "http://www.msftconnecttest.com/connecttest.txt"
+        ];
+
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(5);
+            foreach (var url in probes)
+            {
+                try
+                {
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    cts.CancelAfter(TimeSpan.FromSeconds(5));
+                    using var response = await client.GetAsync(
+                        url,
+                        HttpCompletionOption.ResponseHeadersRead,
+                        cts.Token);
+                    if ((int)response.StatusCode < 500)
+                        return true;
+                }
+                catch
+                {
+                    // try next probe
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogInformation(ex, "General internet connectivity check failed");
+        }
+
+        return false;
     }
 
     private static string? TryReadMessage(string body)

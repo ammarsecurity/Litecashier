@@ -22,5 +22,8 @@
         public int? CardPaymentTransactionId { get; set; }
 
         public int? CreditCustomerId { get; set; }
+
+        /// <summary>Warehouse to deduct stock from for this order.</summary>
+        public int? WarehouseId { get; set; }
     }
 }

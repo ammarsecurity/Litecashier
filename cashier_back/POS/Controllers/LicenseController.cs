@@ -22,6 +22,17 @@ public class LicenseController : ControllerBase
     [HttpGet("machine-id")]
     public IActionResult MachineId() => Ok(new { machineId = _licenseService.GetMachineId() });
 
+    [HttpGet("connectivity")]
+    public async Task<IActionResult> Connectivity(CancellationToken ct)
+    {
+        var online = await _licenseService.CanReachLicenseServerAsync(ct);
+        return Ok(new
+        {
+            online,
+            enforcementEnabled = _licenseService.EnforcementEnabled
+        });
+    }
+
     public class ActivateBody
     {
         public string? Code { get; set; }

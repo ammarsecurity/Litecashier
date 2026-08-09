@@ -31,6 +31,10 @@ namespace POS.Models
         /// </summary>
         public int? DefaultPrinterId { get; set; }
 
+        /// <summary>Invoice print format for the commercial account: Pos (thermal) or A4.</summary>
+        [StringLength(10)]
+        public string PrintInvoiceFormat { get; set; } = "Pos";
+
         [JsonIgnore]
         [ForeignKey(nameof(DefaultPrinterId))]
         public Printer? DefaultPrinter { get; set; }

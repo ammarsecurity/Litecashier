@@ -6,6 +6,7 @@ import {
   buildReceiptPrintDocument,
   ensurePrintOrderCodeInHtml,
 } from "@/utils/receiptPrint.js";
+import { buildA4InvoicePrintDocument } from "@/utils/a4InvoicePrint.js";
 
 export default {
   data() {
@@ -31,6 +32,17 @@ export default {
       return (this.managedPrinters || []).filter(
         (p) => (p.isActive ?? p.IsActive) !== false
       );
+    },
+    /** Normalized print format from commercial settings: "Pos" | "A4" */
+    printInvoiceFormat() {
+      const fromInfo =
+        this.commercialUserInfo?.printInvoiceFormat ??
+        this.commercialUserInfo?.PrintInvoiceFormat;
+      const raw =
+        fromInfo ||
+        localStorage.getItem("printInvoiceFormat") ||
+        "Pos";
+      return String(raw).toUpperCase() === "A4" ? "A4" : "Pos";
     },
   },
   methods: {
@@ -176,8 +188,189 @@ export default {
       div.textContent = text == null ? "" : String(text);
       return div.innerHTML;
     },
+    resolveCreditCustomerName() {
+      const id =
+        this.orderForSend?.creditCustomerId ??
+        this.order?.creditCustomerId ??
+        this.order?.customerId;
+      if (id == null) {
+        return (
+          this.order?.customerName ||
+          this.order?.creditCustomerName ||
+          ""
+        );
+      }
+      const list = this.creditCustomers || [];
+      const match = list.find(
+        (c) => String(c.id ?? c.Id) === String(id)
+      );
+      return (
+        match?.name ||
+        match?.Name ||
+        this.order?.customerName ||
+        this.order?.creditCustomerName ||
+        ""
+      );
+    },
+    resolveWarehouseNameForPrint() {
+      const id =
+        this.orderForSend?.warehouseId ??
+        this.selectedWarehouseId ??
+        this.order?.warehouseId;
+      if (id == null) return this.order?.warehouseName || "";
+      const wh = (this.warehouses || []).find(
+        (w) => String(w.id ?? w.Id) === String(id)
+      );
+      return wh?.name || wh?.Name || this.order?.warehouseName || "";
+    },
+    buildA4InvoicePayload() {
+      const t = (key) => {
+        try {
+          return this.$t(key);
+        } catch {
+          return key;
+        }
+      };
+      const payText =
+        typeof this.getPaymentMethodText === "function"
+          ? this.getPaymentMethodText.bind(this)
+          : (m) => m;
+
+      // Reports invoice modal: `order` + `customerOrderItem`
+      if (this.order && Array.isArray(this.customerOrderItem)) {
+        const items =
+          this.customerOrderItemsWithTotalPrice || this.customerOrderItem || [];
+        const wholesale = !!(this.order?.isWholesale ?? this.order?.IsWholesale);
+        return {
+          t,
+          storeName: this.commercialUserInfo?.storeName || "LiteCashier",
+          logoUrl: this.commercialUserInfo?.logo || null,
+          appName: t("app-name"),
+          orderCode: this.order?.orderCode || this.orderForSend?.orderCode || "",
+          dateTime:
+            typeof this.formatDate === "function"
+              ? this.formatDate(this.order?.insertDate)
+              : this.order?.insertDate || "",
+          employeeName:
+            this.orderEmployeeName ||
+            this.userInfo?.name ||
+            this.userInfo?.fullName ||
+            "---",
+          paymentMethod: this.order?.paymentMethod || "Cash",
+          paymentMethodLabel: payText(this.order?.paymentMethod || "Cash"),
+          paymentStatus:
+            this.order?.paymentStatus || this.order?.PaymentStatus || "",
+          isCheckout: this.order?.isCheckout ?? this.order?.IsCheckout ?? true,
+          priceModeLabel: wholesale
+            ? t("wholesalePriceMode") || "جملة"
+            : t("retailPriceMode") || "مفرد",
+          creditCustomerName: this.resolveCreditCustomerName(),
+          warehouseName: this.resolveWarehouseNameForPrint(),
+          discountAmount: Number(this.order?.discountAmount || 0),
+          grandTotal: (() => {
+            const discount = Number(this.order?.discountAmount || 0);
+            if (typeof this.totaPrice === "number") {
+              return Math.max(this.totaPrice - discount, 0);
+            }
+            return Number(
+              this.order?.finalTotal ??
+                this.order?.totalPrice ??
+                0
+            );
+          })(),
+          itemsCount:
+            this.reportInvoiceItemCount ??
+            items.reduce((s, i) => s + (Number(i.quantity) || 0), 0),
+          currency: t("currency") || "",
+          notes: this.order?.notes || "",
+          lines: items.map((item) => {
+            const unit =
+              typeof this.getSellingPrice === "function"
+                ? this.getSellingPrice(item)
+                : Number(item.price || item.sellingPrice || 0);
+            const hasDisc =
+              typeof this.hasDiscount === "function"
+                ? this.hasDiscount(item)
+                : false;
+            return {
+              name: item.item?.name || item.name || "—",
+              quantity: Number(item.quantity) || 0,
+              unitPrice: unit,
+              hasDiscount: hasDisc,
+            };
+          }),
+        };
+      }
+
+      // POS cart
+      const wholesale = !!this.isWholesale;
+      const lines = (this.carditems || []).map((item) => {
+        const unit =
+          typeof this.cartLineUnitPrice === "function"
+            ? this.cartLineUnitPrice(item)
+            : Number(item.price || item.sellingPrice || 0);
+        const hasDisc =
+          typeof this.cartLineHasDiscount === "function"
+            ? this.cartLineHasDiscount(item)
+            : false;
+        return {
+          name: item.name || "—",
+          quantity: Number(item.quantity) || 0,
+          unitPrice: unit,
+          hasDiscount: hasDisc,
+        };
+      });
+
+      const discountAmount = Number(this.orderDiscountAmount || 0);
+      const grandTotal =
+        typeof this.finalOrderTotal === "number"
+          ? this.finalOrderTotal
+          : Math.max(
+              Number(this.totaPrice || 0) - discountAmount,
+              0
+            ) ||
+            lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
+
+      return {
+        t,
+        storeName: this.commercialUserInfo?.storeName || "LiteCashier",
+        logoUrl: this.commercialUserInfo?.logo || null,
+        appName: t("app-name"),
+        orderCode:
+          (typeof this.ensureOrderCodeForPrint === "function"
+            ? this.ensureOrderCodeForPrint()
+            : this.orderForSend?.orderCode) || "",
+        dateTime:
+          typeof this.getCurrentDateTime === "function"
+            ? this.getCurrentDateTime()
+            : new Date().toLocaleString("en-GB"),
+        employeeName: this.userInfo?.name || this.userInfo?.fullName || "---",
+        paymentMethod: this.orderForSend?.paymentMethod || "Cash",
+        paymentMethodLabel: payText(this.orderForSend?.paymentMethod || "Cash"),
+        paymentStatus: "",
+        isCheckout: true,
+        priceModeLabel: wholesale
+          ? t("wholesalePriceMode") || "جملة"
+          : t("retailPriceMode") || "مفرد",
+        creditCustomerName: this.resolveCreditCustomerName(),
+        warehouseName: this.resolveWarehouseNameForPrint(),
+        discountAmount,
+        grandTotal,
+        itemsCount:
+          this.totalCardItems ??
+          lines.reduce((s, l) => s + l.quantity, 0),
+        currency: t("currency") || "",
+        notes: this.orderForSend?.notes || "",
+        lines,
+      };
+    },
     async getReceiptHtmlContent() {
       await this.$nextTick();
+
+      if (this.printInvoiceFormat === "A4") {
+        return buildA4InvoicePrintDocument(this.buildA4InvoicePayload());
+      }
+
       const printElement = document.getElementById("print");
       if (!printElement) return "";
 
@@ -256,7 +449,11 @@ export default {
     },
     browserPrintReceipt(htmlContent) {
       return new Promise((resolve) => {
-        const printWindow = window.open("", "_blank", "width=420,height=720");
+        const isA4 = this.printInvoiceFormat === "A4";
+        const features = isA4
+          ? "width=900,height=1100"
+          : "width=420,height=720";
+        const printWindow = window.open("", "_blank", features);
         if (!printWindow) {
           this.fallbackPrintIframe(htmlContent);
           resolve(true);
@@ -271,8 +468,8 @@ export default {
           setTimeout(() => {
             printWindow.close();
             resolve(true);
-          }, 400);
-        }, 350);
+          }, isA4 ? 600 : 400);
+        }, isA4 ? 450 : 350);
       });
     },
     fallbackPrintIframe(htmlContent) {

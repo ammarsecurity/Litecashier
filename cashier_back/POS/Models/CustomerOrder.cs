@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace POS.Models
 {
@@ -42,5 +43,12 @@ namespace POS.Models
         public string? SettlementPaymentMethod { get; set; }
 
         public DateTime? SettledAt { get; set; }
+
+        /// <summary>Warehouse stock is deducted from for this invoice.</summary>
+        public int? WarehouseId { get; set; }
+
+        [JsonIgnore]
+        [ForeignKey(nameof(WarehouseId))]
+        public Warehouse? Warehouse { get; set; }
     }
 }

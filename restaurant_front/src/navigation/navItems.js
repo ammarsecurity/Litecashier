@@ -152,6 +152,12 @@ export function buildNavItems(t) {
       icon: "cloud-upload-fill",
     },
     {
+      name: "settings",
+      label: t("settingsTitle") || "الإعدادات",
+      link: "/settings",
+      icon: "gear-fill",
+    },
+    {
       name: "logout",
       label: t("Logout"),
       link: "/logout",
@@ -170,7 +176,13 @@ export function filterNavByRole(role, items, allowedSections = []) {
     );
   }
   if (role === "Admin") {
-    return items.filter((item) => item.name === "users" || item.name === "logout" || item.name === "customers");
+    return items.filter(
+      (item) =>
+        item.name === "users" ||
+        item.name === "logout" ||
+        item.name === "customers" ||
+        item.name === "settings"
+    );
   }
   if (role === "POS") {
     return items.filter(

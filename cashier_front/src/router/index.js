@@ -16,6 +16,7 @@ import PayrollView from '../views/PayrollView.vue'
 import CustomersView from '../views/CustomersView.vue'
 import ExpensesView from '../views/ExpensesView.vue'
 import InventoryView from '../views/InventoryView.vue'
+import WarehousesView from '../views/WarehousesView.vue'
 import AuditLogView from '../views/AuditLogView.vue'
 import PaymentDevicesView from '../views/PaymentDevicesView.vue'
 import CardPaymentsView from '../views/CardPaymentsView.vue'
@@ -250,6 +251,15 @@ const routes = [
     meta: {
       requiresAuth: true,
       roles: ['Commercial', 'POS', 'Admin']
+    }
+  },
+  {
+    path: '/warehouses',
+    name: 'warehouses',
+    component: WarehousesView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
     }
   },
   {

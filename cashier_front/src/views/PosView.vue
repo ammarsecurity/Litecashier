@@ -384,6 +384,25 @@
                         </div>
                       </div>
                       <div
+                        v-if="warehouses.length"
+                        class="pos-warehouse-bar"
+                      >
+                        <label class="pos-warehouse-bar__label" for="posWarehouseSelect">
+                          <b-icon icon="building"></b-icon>
+                          <span>{{ $t("selectWarehouse") }}</span>
+                        </label>
+                        <select
+                          id="posWarehouseSelect"
+                          class="pos-warehouse-bar__select"
+                          v-model.number="selectedWarehouseId"
+                          @change="onWarehouseChanged"
+                        >
+                          <option v-for="w in warehouses" :key="w.id" :value="w.id">
+                            {{ w.name }}
+                          </option>
+                        </select>
+                      </div>
+                      <div
                         class="pos-cart-items-list"
                         v-if="carditems.length > 0"
                         ref="posCartItemsList"
@@ -1305,7 +1324,8 @@ export default {
       userInfo: {},
       commercialUserInfo: {
         storeName: 'LiteCashier',
-        logo: null
+        logo: null,
+        printInvoiceFormat: 'Pos',
       },
       orderForSend: {
         orderCode: "",
@@ -1314,7 +1334,10 @@ export default {
         orderType: "Takeaway",
         notes: "",
         creditCustomerId: null,
+        warehouseId: null,
       },
+      warehouses: [],
+      selectedWarehouseId: null,
       posMobileCartOpen: false,
       quickSearch: "",
       quickSearchTimer: null,
@@ -1542,12 +1565,14 @@ export default {
   mounted() {
     try {
       this.getTags();
-      this.$nextTick(() => {
-        if (this.$refs.codeNumber) {
-          this.$refs.codeNumber.focus();
-        }
-        applyPosPageSize(this, false);
-        this.GetAllItems();
+      this.loadWarehouses().finally(() => {
+        this.$nextTick(() => {
+          if (this.$refs.codeNumber) {
+            this.$refs.codeNumber.focus();
+          }
+          applyPosPageSize(this, false);
+          this.GetAllItems();
+        });
       });
       this._posResizeHandler = () => {
         if (this._isDestroyed) return;
@@ -1630,17 +1655,27 @@ export default {
       HTTP.get("Admin/CommercialUserInfo")
         .then((response) => {
           if (response.data && response.data.data) {
+            const d = response.data.data;
+            const format =
+              String(d.printInvoiceFormat || d.PrintInvoiceFormat || "Pos").toUpperCase() ===
+              "A4"
+                ? "A4"
+                : "Pos";
             this.commercialUserInfo = {
-              storeName: response.data.data.storeName || response.data.data.StoreName || 'LiteCashier',
-              logo: response.data.data.logo || response.data.data.Logo || null
+              storeName: d.storeName || d.StoreName || "LiteCashier",
+              logo: d.logo || d.Logo || null,
+              printInvoiceFormat: format,
             };
+            localStorage.setItem("printInvoiceFormat", format);
           }
         })
         .catch((error) => {
-          console.error('Error loading commercial user info:', error);
+          console.error("Error loading commercial user info:", error);
           this.commercialUserInfo = {
-            storeName: 'LiteCashier',
-            logo: null
+            storeName: "LiteCashier",
+            logo: null,
+            printInvoiceFormat:
+              localStorage.getItem("printInvoiceFormat") === "A4" ? "A4" : "Pos",
           };
         });
     },
@@ -2467,12 +2502,42 @@ export default {
         );
       }
     },
+    async loadWarehouses() {
+      try {
+        const res = await HTTP.get("Warehouses/ForPos");
+        const raw = res.data?.data || res.data?.Data || [];
+        this.warehouses = (Array.isArray(raw) ? raw : []).map((w) => ({
+          id: w.id ?? w.Id,
+          name: w.name ?? w.Name ?? "—",
+          isDefault: !!(w.isDefault ?? w.IsDefault),
+        }));
+        const userId = this.userInfo?.id || localStorage.getItem("userId") || "anon";
+        const key = `posWarehouseId_${userId}`;
+        const saved = Number(localStorage.getItem(key));
+        const match = this.warehouses.find((w) => w.id === saved);
+        const def = this.warehouses.find((w) => w.isDefault) || this.warehouses[0];
+        this.selectedWarehouseId = match?.id || def?.id || null;
+        this.orderForSend.warehouseId = this.selectedWarehouseId;
+      } catch (error) {
+        console.warn("loadWarehouses failed:", error?.response?.status || error?.message);
+        this.warehouses = [];
+      }
+    },
+    onWarehouseChanged() {
+      const userId = this.userInfo?.id || localStorage.getItem("userId") || "anon";
+      localStorage.setItem(`posWarehouseId_${userId}`, String(this.selectedWarehouseId || ""));
+      this.orderForSend.warehouseId = this.selectedWarehouseId;
+      this.GetAllItems();
+    },
     GetAllItems() {
       this.show = true;
+      const wh = this.selectedWarehouseId
+        ? `&warehouseId=${this.selectedWarehouseId}`
+        : "";
       HTTP.get(
         `Admin/GetItems?pageNumber=${this.pageNumber - 1}&pageSize=${
           this.pageSize
-        }&info=${this.search.info}`
+        }&info=${this.search.info || ""}${wh}`
       )
         .then((response) => {
           this.Items = response.data.data.items.map(item => ({
@@ -2532,7 +2597,10 @@ export default {
       this.searchAbortController = new AbortController();
       this.isSearching = true;
       
-      HTTP.get(`Admin/GetItemsByCode?code=${this.searchCode}`, {
+      const whQuery = this.selectedWarehouseId
+        ? `&warehouseId=${this.selectedWarehouseId}`
+        : "";
+      HTTP.get(`Admin/GetItemsByCode?code=${this.searchCode}${whQuery}`, {
         signal: this.searchAbortController.signal
       })
         .then((response) => {
@@ -2695,5 +2763,43 @@ export default {
   margin-top: 0.5rem;
   font-size: 0.875rem;
   color: var(--text-secondary, #6c757d);
+}
+
+.pos-warehouse-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 0.55rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--primary-color, #0f6e6e) 28%, transparent);
+  background: color-mix(in srgb, var(--primary-color, #0f6e6e) 10%, transparent);
+}
+
+.pos-warehouse-bar__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary, #212529);
+}
+
+.pos-warehouse-bar__label .b-icon {
+  color: var(--primary-color, #0f6e6e);
+}
+
+.pos-warehouse-bar__select {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--border-color, #ced4da);
+  border-radius: 0.5rem;
+  padding: 0.38rem 0.55rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: var(--bg-primary, #fff);
+  color: var(--text-primary, #212529);
 }
 </style>

@@ -28,6 +28,7 @@ import PaymentDevicesView from '../views/PaymentDevicesView.vue'
 import CardPaymentsView from '../views/CardPaymentsView.vue'
 import DeferredPaymentsView from '../views/DeferredPaymentsView.vue'
 import DatabaseSyncView from '../views/DatabaseSyncView.vue'
+import SettingsView from '../views/SettingsView.vue'
 import { i18n } from '../main'
 import { managerCanAccessPath } from '../navigation/sectionRegistry.js'
 Vue.use(VueRouter)
@@ -354,6 +355,15 @@ const routes = [
     }
   },
   {
+    path: '/settings',
+    name: 'settings',
+    component: SettingsView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
+    }
+  },
+  {
     path: '/logout',
     name: 'logout',
   },
@@ -419,7 +429,14 @@ router.beforeEach((to, from, next) => {
           return next('/sections');
         }
         // If Admin tries to access any page other than /users, redirect to /users
-        if (role === 'Admin' && to.path !== '/users' && to.path !== '/logout' && to.path !== '/sections' && to.path !== '/customers') {
+        if (
+          role === 'Admin' &&
+          to.path !== '/users' &&
+          to.path !== '/logout' &&
+          to.path !== '/sections' &&
+          to.path !== '/customers' &&
+          to.path !== '/settings'
+        ) {
           return next('/users');
         }
         // If POS tries to access any page other than allowed paths, redirect to /pos

@@ -40,6 +40,9 @@ export default {
       this.orderForSend.cardPaymentTransactionId =
         this.cardPaymentTransactionIdForCheckout || null;
       this.orderForSend.isWholesale = !!this.isWholesale;
+      if (this.selectedWarehouseId) {
+        this.orderForSend.warehouseId = this.selectedWarehouseId;
+      }
     },
     parseInsufficientInventoryMessage(apiMessage) {
       if (!apiMessage || typeof apiMessage !== "string") return null;

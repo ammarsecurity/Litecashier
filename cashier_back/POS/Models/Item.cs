@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using POS.Models.Dtos;
 
 namespace POS.Models
 {
@@ -41,5 +42,12 @@ namespace POS.Models
 
         [JsonIgnore]
         public List<ItemCode> ItemCodes { get; set; } = new();
+
+        [JsonIgnore]
+        public List<ItemWarehouseStock> WarehouseStocksNav { get; set; } = new();
+
+        /// <summary>Per-warehouse quantities for API responses (not mapped).</summary>
+        [NotMapped]
+        public List<WarehouseStockDto>? WarehouseStocks { get; set; }
     }
 }

@@ -13,6 +13,7 @@ using POS.Models.Response;
 using POS.Services;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 
 namespace POS.Controllers
 {
@@ -31,6 +32,7 @@ namespace POS.Controllers
         private readonly IItemImportService _itemImportService;
         private readonly ICommercialCatalogClearService _catalogClearService;
         private readonly IDatabaseBackupService _databaseBackupService;
+        private readonly IWarehouseStockService _warehouseStock;
 
         public AdminController(
             ILogger<AdminController> logger,
@@ -40,7 +42,8 @@ namespace POS.Controllers
             IOrderCheckoutService orderCheckoutService,
             IItemImportService itemImportService,
             ICommercialCatalogClearService catalogClearService,
-            IDatabaseBackupService databaseBackupService)
+            IDatabaseBackupService databaseBackupService,
+            IWarehouseStockService warehouseStock)
         {
             _logger = logger;
             _dbConfig = dbConfig;
@@ -50,6 +53,7 @@ namespace POS.Controllers
             _itemImportService = itemImportService;
             _catalogClearService = catalogClearService;
             _databaseBackupService = databaseBackupService;
+            _warehouseStock = warehouseStock;
         }
 
         private int GetCommercialUserId()
@@ -1072,8 +1076,17 @@ namespace POS.Controllers
             }
             newItem.Code = itemCode;
             newItem.InsertByUserId = commercialUserId;
+            newItem.Quantity = Math.Max(0, request.Quantity);
             _dbConfig.Items.Add(newItem);
             await _dbConfig.SaveChangesAsync();
+
+            await _warehouseStock.SetItemStocksAsync(
+                newItem.Id,
+                commercialUserId,
+                ParseWarehouseStocksJson(request.WarehouseStocksJson),
+                request.Quantity);
+
+            newItem.WarehouseStocks = await _warehouseStock.GetItemStockBreakdownAsync(newItem.Id, commercialUserId);
 
             return Ok(new GlobalResponse<Item>
             {
@@ -1303,7 +1316,6 @@ namespace POS.Controllers
             item.WholesalePrice = request.WholesalePrice;
             item.Description = request.Description;
             item.SellingPrice = request.SellingPrice;
-            item.Quantity = request.Quantity;
             if (Request.Form.ContainsKey("LowStockAlertQuantity"))
             {
                 var alertRaw = Request.Form["LowStockAlertQuantity"].ToString();
@@ -1322,6 +1334,14 @@ namespace POS.Controllers
 
             _dbConfig.Items.Update(item);
             await _dbConfig.SaveChangesAsync();
+
+            await _warehouseStock.SetItemStocksAsync(
+                item.Id,
+                commercialUserId,
+                ParseWarehouseStocksJson(request.WarehouseStocksJson),
+                request.Quantity);
+
+            item.WarehouseStocks = await _warehouseStock.GetItemStockBreakdownAsync(item.Id, commercialUserId);
 
             return Ok(new GlobalResponse<Item>
             {
@@ -1372,12 +1392,13 @@ namespace POS.Controllers
 
         [Authorize(Roles = "Commercial,POS")]
         [HttpGet("GetItems")]
-        public ActionResult<GlobalResponse<PagedList<Item>>> GetItems(
+        public async Task<ActionResult<GlobalResponse<PagedList<Item>>>> GetItems(
             int pageNumber,
             int pageSize,
             string? info,
             string? tag = null,
-            string? stockStatus = null)
+            string? stockStatus = null,
+            int? warehouseId = null)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
             var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
@@ -1393,6 +1414,24 @@ namespace POS.Controllers
             }
 
             var commercialUserId = GetCommercialUserId();
+            await _warehouseStock.EnsureDefaultWarehouseAsync(commercialUserId);
+
+            int? filterWarehouseId = null;
+            if (warehouseId.HasValue)
+            {
+                var wh = await _warehouseStock.GetActiveWarehouseAsync(commercialUserId, warehouseId.Value);
+                if (wh == null)
+                {
+                    return BadRequest(new GlobalResponse<PagedList<Item>>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "invalidWarehouse"
+                    });
+                }
+                filterWarehouseId = wh.Id;
+            }
+
             var item = AccessibleItemsQuery(commercialUserId);
 
             if (!string.IsNullOrWhiteSpace(info))
@@ -1415,7 +1454,41 @@ namespace POS.Controllers
                 item = item.Where(x => x.Tags != null && x.Tags == tagFilter);
             }
 
-            if (!string.IsNullOrWhiteSpace(stockStatus))
+            if (filterWarehouseId.HasValue && !string.IsNullOrWhiteSpace(stockStatus))
+            {
+                var wid = filterWarehouseId.Value;
+                switch (stockStatus.Trim().ToLowerInvariant())
+                {
+                    case "instock":
+                        item = item.Where(x => _dbConfig.ItemWarehouseStocks.Any(s =>
+                            !s.IsDeleted && s.ItemId == x.Id && s.WarehouseId == wid && s.Quantity > 0));
+                        break;
+                    case "outofstock":
+                        item = item.Where(x => !_dbConfig.ItemWarehouseStocks.Any(s =>
+                            !s.IsDeleted && s.ItemId == x.Id && s.WarehouseId == wid && s.Quantity > 0));
+                        break;
+                    case "lowstock":
+                        item = item.Where(x =>
+                            _dbConfig.ItemWarehouseStocks.Any(s =>
+                                !s.IsDeleted &&
+                                s.ItemId == x.Id &&
+                                s.WarehouseId == wid &&
+                                s.LowStockAlertQuantity != null &&
+                                s.Quantity <= s.LowStockAlertQuantity.Value)
+                            ||
+                            (
+                                x.LowStockAlertQuantity != null &&
+                                !_dbConfig.ItemWarehouseStocks.Any(s =>
+                                    !s.IsDeleted && s.ItemId == x.Id && s.WarehouseId == wid && s.LowStockAlertQuantity != null) &&
+                                (_dbConfig.ItemWarehouseStocks
+                                    .Where(s => !s.IsDeleted && s.ItemId == x.Id && s.WarehouseId == wid)
+                                    .Select(s => (int?)s.Quantity)
+                                    .FirstOrDefault() ?? 0) <= x.LowStockAlertQuantity.Value
+                            ));
+                        break;
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(stockStatus))
             {
                 switch (stockStatus.Trim().ToLowerInvariant())
                 {
@@ -1427,8 +1500,18 @@ namespace POS.Controllers
                         break;
                     case "lowstock":
                         item = item.Where(x =>
-                            x.LowStockAlertQuantity != null &&
-                            x.Quantity <= x.LowStockAlertQuantity.Value);
+                            _dbConfig.ItemWarehouseStocks.Any(s =>
+                                !s.IsDeleted &&
+                                s.ItemId == x.Id &&
+                                s.LowStockAlertQuantity != null &&
+                                s.Quantity <= s.LowStockAlertQuantity.Value)
+                            ||
+                            (
+                                x.LowStockAlertQuantity != null &&
+                                !_dbConfig.ItemWarehouseStocks.Any(s =>
+                                    !s.IsDeleted && s.ItemId == x.Id && s.LowStockAlertQuantity != null) &&
+                                x.Quantity <= x.LowStockAlertQuantity.Value
+                            ));
                         break;
                 }
             }
@@ -1442,11 +1525,25 @@ namespace POS.Controllers
                 .ToList();
 
             var imageBaseUrl = _configuration["ApiSettings:ImageBaseUrl"] ?? "https://pos-api.tatwer.tech/Images/";
+            Dictionary<int, int>? warehouseQtyMap = null;
+            if (filterWarehouseId.HasValue)
+            {
+                warehouseQtyMap = await _warehouseStock.GetStocksForItemsAsync(
+                    pagedItems.Select(i => i.Id),
+                    filterWarehouseId.Value);
+            }
+
             foreach (var n in pagedItems)
             {
                 if (!string.IsNullOrEmpty(n.Image))
                 {
                     n.Image = imageBaseUrl + n.Image;
+                }
+
+                n.WarehouseStocks = await _warehouseStock.GetItemStockBreakdownAsync(n.Id, commercialUserId);
+                if (warehouseQtyMap != null && warehouseQtyMap.TryGetValue(n.Id, out var wq))
+                {
+                    n.Quantity = wq;
                 }
             }
 
@@ -1497,6 +1594,14 @@ namespace POS.Controllers
             if (!string.IsNullOrEmpty(item.Image))
             {
                 item.Image = imageBaseUrl + item.Image;
+            }
+
+            item.WarehouseStocks = await _warehouseStock.GetItemStockBreakdownAsync(item.Id, commercialUserId);
+            if (int.TryParse(Request.Query["warehouseId"], out var whId))
+            {
+                var wh = await _warehouseStock.GetActiveWarehouseAsync(commercialUserId, whId);
+                if (wh != null)
+                    item.Quantity = await _warehouseStock.GetStockAsync(item.Id, wh.Id);
             }
             
             var response = new GlobalResponse<Object>
@@ -1717,6 +1822,19 @@ namespace POS.Controllers
                 var commercialUserId = GetCommercialUserId();
                 var items = AccessibleItemsQuery(commercialUserId).ToList();
 
+                var defaultWh = await _warehouseStock.EnsureDefaultWarehouseAsync(commercialUserId);
+                var warehouseId = request.WarehouseId ?? defaultWh.Id;
+                var warehouse = await _warehouseStock.GetActiveWarehouseAsync(commercialUserId, warehouseId);
+                if (warehouse == null)
+                {
+                    return BadRequest(new GlobalResponse<CustomerOrder>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "invalidWarehouse"
+                    });
+                }
+
                 var orderCode = request.OrderCode ?? RandomCode();
                 var paymentMethod = request.PaymentMethod ?? "Cash";
                 int? creditCustomerId = null;
@@ -1757,6 +1875,40 @@ namespace POS.Controllers
                     ? "Pending"
                     : (request.IsCheckout ? "Paid" : "Pending");
 
+                if (request.CustomerOrderItem != null && request.CustomerOrderItem.Any())
+                {
+                    var itemIds = request.CustomerOrderItem.Select(x => x.ItemId).Distinct().ToList();
+                    var invalidItemIds = itemIds.Where(id => !items.Any(x => x.Id == id)).ToList();
+                    if (invalidItemIds.Any())
+                    {
+                        return BadRequest(new GlobalResponse<CustomerOrder>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = $"Invalid item IDs: {string.Join(", ", invalidItemIds)}"
+                        });
+                    }
+
+                    var neededByItem = request.CustomerOrderItem
+                        .GroupBy(x => x.ItemId)
+                        .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+                    var stockMap = await _warehouseStock.GetStocksForItemsAsync(neededByItem.Keys, warehouse.Id);
+                    foreach (var kv in neededByItem)
+                    {
+                        var currentItem = items.First(x => x.Id == kv.Key);
+                        stockMap.TryGetValue(kv.Key, out var available);
+                        if (available < kv.Value)
+                        {
+                            return BadRequest(new GlobalResponse<CustomerOrder>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = $"insufficientInventory|{currentItem.Name}|{available}|{kv.Value}"
+                            });
+                        }
+                    }
+                }
+
                 var newOrder = new CustomerOrder
                 {
                     OrderCode = orderCode,
@@ -1771,6 +1923,7 @@ namespace POS.Controllers
                     CreditCustomerId = creditCustomerId,
                     PaymentStatus = paymentStatus,
                     IsWholesale = request.IsWholesale,
+                    WarehouseId = warehouse.Id,
                 };
                 _dbConfig.CustomerOrders.Add(newOrder);
                 await _dbConfig.SaveChangesAsync();
@@ -1778,46 +1931,6 @@ namespace POS.Controllers
                 if (request.CustomerOrderItem != null && request.CustomerOrderItem.Any())
                 {
                     var insertItems = new List<CustomerOrderItem>();
-                    var itemIds = request.CustomerOrderItem.Select(x => x.ItemId).Distinct().ToList();
-                    
-                    // Validate all items exist before processing
-                    var invalidItemIds = itemIds.Where(id => !items.Any(x => x.Id == id)).ToList();
-                    if (invalidItemIds.Any())
-                    {
-                        _logger.LogWarning("Invalid item IDs in order: {ItemIds}", string.Join(", ", invalidItemIds));
-                        return BadRequest(new GlobalResponse<CustomerOrder>
-                        {
-                            Data = null,
-                            ErrorStatus = true,
-                            Message = $"Invalid item IDs: {string.Join(", ", invalidItemIds)}"
-                        });
-                    }
-
-                    // Check inventory availability before processing
-                    var itemsToUpdate = new List<Item>();
-                    foreach (var itemRequest in request.CustomerOrderItem)
-                    {
-                        var currentItem = items.FirstOrDefault(x => x.Id == itemRequest.ItemId);
-                        if (currentItem == null) continue;
-
-                        // Calculate total quantity needed for this item (including duplicates in order)
-                        var totalQuantityNeeded = request.CustomerOrderItem
-                            .Where(x => x.ItemId == itemRequest.ItemId)
-                            .Sum(x => x.Quantity);
-
-                        // Check if enough quantity is available
-                        if (currentItem.Quantity < totalQuantityNeeded)
-                        {
-                            _logger.LogWarning("Insufficient inventory for item {ItemId}: Available {Available}, Required {Required}", 
-                                itemRequest.ItemId, currentItem.Quantity, totalQuantityNeeded);
-                            return BadRequest(new GlobalResponse<CustomerOrder>
-                            {
-                                Data = null,
-                                ErrorStatus = true,
-                                Message = $"insufficientInventory|{currentItem.Name}|{currentItem.Quantity}|{totalQuantityNeeded}"
-                            });
-                        }
-                    }
 
                     foreach (var itemRequest in request.CustomerOrderItem)
                     {
@@ -1838,7 +1951,6 @@ namespace POS.Controllers
                             var currentItem = items.FirstOrDefault(x => x.Id == itemRequest.ItemId);
                             if (currentItem == null)
                             {
-                                _logger.LogWarning("Item not found: {ItemId}", itemRequest.ItemId);
                                 return BadRequest(new GlobalResponse<CustomerOrder>
                                 {
                                     Data = null,
@@ -1847,10 +1959,9 @@ namespace POS.Controllers
                                 });
                             }
 
-                            // Retail: discount if set and different; Wholesale: wholesale if > 0 else selling
                             var finalPrice = ResolveItemUnitPrice(currentItem, request.IsWholesale);
 
-                            var newOrderItem = new CustomerOrderItem
+                            insertItems.Add(new CustomerOrderItem
                             {
                                 CustomerOrderId = newOrder.Id,
                                 SellingPrice = finalPrice,
@@ -1859,27 +1970,13 @@ namespace POS.Controllers
                                 ItemId = itemRequest.ItemId,
                                 Notes = normalizedNotes,
                                 InsertByUserId = userId,
-                            };
-
-                            insertItems.Add(newOrderItem);
-                            
-                            // Track items to update inventory
-                            if (!itemsToUpdate.Any(x => x.Id == currentItem.Id))
-                            {
-                                itemsToUpdate.Add(currentItem);
-                            }
+                            });
                         }
                     }
 
-                    // Update inventory quantities
-                    foreach (var itemToUpdate in itemsToUpdate)
+                    foreach (var group in insertItems.GroupBy(x => x.ItemId))
                     {
-                        var totalQuantitySold = insertItems
-                            .Where(x => x.ItemId == itemToUpdate.Id)
-                            .Sum(x => x.Quantity);
-                        
-                        itemToUpdate.Quantity -= totalQuantitySold;
-                        _dbConfig.Items.Update(itemToUpdate);
+                        await _warehouseStock.DeductAsync(group.Key, warehouse.Id, group.Sum(x => x.Quantity));
                     }
 
                     _dbConfig.CustomerOrderItems.AddRange(insertItems);
@@ -2224,6 +2321,13 @@ namespace POS.Controllers
                 existingOrder.OrderTotalAfterDiscount = request.OrderTotalAfterDiscount;
                 existingOrder.IsWholesale = request.IsWholesale;
 
+                var commercialUserId = GetCommercialUserId();
+                var defaultWh = await _warehouseStock.EnsureDefaultWarehouseAsync(commercialUserId);
+                var warehouseId = existingOrder.WarehouseId ?? defaultWh.Id;
+                var warehouse = await _warehouseStock.GetActiveWarehouseAsync(commercialUserId, warehouseId)
+                    ?? defaultWh;
+                existingOrder.WarehouseId = warehouse.Id;
+
                 var now = DateTime.UtcNow;
                 foreach (var item in activeOrderItems)
                 {
@@ -2238,7 +2342,7 @@ namespace POS.Controllers
                 {
                     foreach (var itemRequest in request.CustomerOrderItem)
                     {
-                        var currentItem = await FindAccessibleItemAsync(itemRequest.ItemId, GetCommercialUserId());
+                        var currentItem = await FindAccessibleItemAsync(itemRequest.ItemId, commercialUserId);
 
                         if (currentItem == null)
                         {
@@ -2294,18 +2398,24 @@ namespace POS.Controllers
                         var stockItem = await _dbConfig.Items.FirstOrDefaultAsync(i => i.Id == itemId && !i.IsDeleted);
                         if (stockItem == null) continue;
 
-                        if (delta > 0 && stockItem.Quantity < delta)
+                        if (delta > 0)
                         {
-                            return BadRequest(new GlobalResponse<CustomerOrder>
+                            var available = await _warehouseStock.GetStockAsync(itemId, warehouse.Id);
+                            if (available < delta)
                             {
-                                Data = null,
-                                ErrorStatus = true,
-                                Message = $"insufficientInventory|{stockItem.Name}|{stockItem.Quantity}|{delta}"
-                            });
+                                return BadRequest(new GlobalResponse<CustomerOrder>
+                                {
+                                    Data = null,
+                                    ErrorStatus = true,
+                                    Message = $"insufficientInventory|{stockItem.Name}|{available}|{delta}"
+                                });
+                            }
+                            await _warehouseStock.DeductAsync(itemId, warehouse.Id, delta);
                         }
-
-                        stockItem.Quantity -= delta;
-                        _dbConfig.Items.Update(stockItem);
+                        else
+                        {
+                            await _warehouseStock.AddAsync(itemId, warehouse.Id, -delta);
+                        }
                     }
 
                     _dbConfig.CustomerOrderItems.AddRange(newOrderItems);
@@ -2314,12 +2424,7 @@ namespace POS.Controllers
                 {
                     foreach (var kvp in oldQtyByItem)
                     {
-                        var stockItem = await _dbConfig.Items.FirstOrDefaultAsync(i => i.Id == kvp.Key && !i.IsDeleted);
-                        if (stockItem != null)
-                        {
-                            stockItem.Quantity += kvp.Value;
-                            _dbConfig.Items.Update(stockItem);
-                        }
+                        await _warehouseStock.AddAsync(kvp.Key, warehouse.Id, kvp.Value);
                     }
                 }
 
@@ -2354,6 +2459,21 @@ namespace POS.Controllers
             var randomPart = random.Next(100000, 999999); // 6 digits
             var code = (timestamp + randomPart) % 1000000000; // Ensure 9 digits
             return code.ToString().PadLeft(9, '0'); // Ensure exactly 9 digits
+        }
+
+        private static List<WarehouseStockInputDto>? ParseWarehouseStocksJson(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return null;
+            try
+            {
+                return JsonSerializer.Deserialize<List<WarehouseStockInputDto>>(json,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static decimal ResolveItemUnitPrice(Item item, bool isWholesale)
@@ -3159,6 +3279,64 @@ namespace POS.Controllers
         }
 
         [Authorize(Roles = "Commercial,Admin,POS")]
+        [HttpGet("GetSalesByWarehouse")]
+        public ActionResult<GlobalResponse<object>> GetSalesByWarehouse(DateTime? startDate = null, DateTime? endDate = null)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+
+                IQueryable<CustomerOrder> ordersQuery = QueryActiveOrdersForCommercial(userId)
+                    .Include(x => x.Warehouse)
+                    .Include(x => x.CustomerOrderItem);
+
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
+                {
+                    ordersQuery = ordersQuery.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
+                }
+
+                var salesByWarehouse = ordersQuery
+                    .ToList()
+                    .GroupBy(x => new
+                    {
+                        WarehouseId = x.WarehouseId,
+                        WarehouseName = x.Warehouse?.Name
+                    })
+                    .Select(g => new
+                    {
+                        warehouseId = g.Key.WarehouseId,
+                        warehouseName = string.IsNullOrWhiteSpace(g.Key.WarehouseName)
+                            ? "غير محدد"
+                            : g.Key.WarehouseName,
+                        totalOrders = g.Count(),
+                        totalSales = g.Sum(o =>
+                            GetActiveOrderItems(o.CustomerOrderItem).Sum(x => x.SellingPrice * x.Quantity)),
+                        totalItemsSold = g.Sum(o =>
+                            GetActiveOrderItems(o.CustomerOrderItem).Sum(x => x.Quantity))
+                    })
+                    .OrderByDescending(x => x.totalSales)
+                    .ToList();
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = salesByWarehouse,
+                    ErrorStatus = false,
+                    Message = "Success"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting sales by warehouse");
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ: {ex.Message}"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial,Admin,POS")]
         [HttpGet("GetLowStockItems")]
         public ActionResult<GlobalResponse<object>> GetLowStockItems(int threshold = 10)
         {
@@ -3222,22 +3400,59 @@ namespace POS.Controllers
                 }
 
                 var commercialUserId = GetCommercialUserId();
-                var alerts = AccessibleItemsQuery(commercialUserId)
+                var accessibleItemIds = AccessibleItemsQuery(commercialUserId).Select(x => x.Id);
+
+                var warehouseAlerts = (
+                    from s in _dbConfig.ItemWarehouseStocks.AsNoTracking()
+                    join i in _dbConfig.Items.AsNoTracking() on s.ItemId equals i.Id
+                    join w in _dbConfig.Warehouses.AsNoTracking() on s.WarehouseId equals w.Id
+                    where !s.IsDeleted
+                          && !i.IsDeleted
+                          && !w.IsDeleted
+                          && accessibleItemIds.Contains(i.Id)
+                          && w.InsertByUserId == commercialUserId
+                          && s.LowStockAlertQuantity != null
+                          && s.Quantity <= s.LowStockAlertQuantity.Value
+                    select new
+                    {
+                        itemId = i.Id,
+                        itemName = i.Name,
+                        itemCode = i.Code,
+                        warehouseId = (int?)w.Id,
+                        warehouseName = w.Name,
+                        currentQuantity = s.Quantity,
+                        alertThreshold = s.LowStockAlertQuantity,
+                        category = i.Tags,
+                        status = s.Quantity == 0 ? "out" : "low"
+                    }
+                ).ToList();
+
+                // Legacy fallback: item-level alert when no per-warehouse thresholds exist.
+                var legacyAlerts = AccessibleItemsQuery(commercialUserId)
                     .Where(x =>
-                                x.LowStockAlertQuantity != null &&
-                                x.Quantity <= x.LowStockAlertQuantity)
+                        x.LowStockAlertQuantity != null &&
+                        x.Quantity <= x.LowStockAlertQuantity &&
+                        !_dbConfig.ItemWarehouseStocks.Any(s =>
+                            !s.IsDeleted && s.ItemId == x.Id && s.LowStockAlertQuantity != null))
                     .Select(x => new
                     {
                         itemId = x.Id,
                         itemName = x.Name,
                         itemCode = x.Code,
+                        warehouseId = (int?)null,
+                        warehouseName = "—",
                         currentQuantity = x.Quantity,
                         alertThreshold = x.LowStockAlertQuantity,
                         category = x.Tags,
                         status = x.Quantity == 0 ? "out" : "low"
                     })
+                    .ToList();
+
+                var alerts = warehouseAlerts
+                    .Concat(legacyAlerts)
                     .OrderBy(x => x.currentQuantity)
                     .ThenBy(x => x.itemName)
+                    .ThenBy(x => x.warehouseName)
                     .ToList();
 
                 return Ok(new GlobalResponse<object>
@@ -3481,6 +3696,11 @@ namespace POS.Controllers
                 var notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
                 var created = new List<object>();
 
+                var defaultWh = await _warehouseStock.EnsureDefaultWarehouseAsync(commercialUserId);
+                var returnWarehouseId = order.WarehouseId ?? defaultWh.Id;
+                var returnWh = await _warehouseStock.GetActiveWarehouseAsync(commercialUserId, returnWarehouseId)
+                    ?? defaultWh;
+
                 foreach (var kv in requestedByItem)
                 {
                     var stockItem = await FindAccessibleItemAsync(kv.Key, commercialUserId);
@@ -3494,8 +3714,8 @@ namespace POS.Controllers
                         });
                     }
 
-                    stockItem.Quantity += kv.Value;
-                    _dbConfig.Items.Update(stockItem);
+                    await _warehouseStock.AddAsync(kv.Key, returnWh.Id, kv.Value);
+                    var newQty = await _warehouseStock.GetStockAsync(kv.Key, returnWh.Id);
 
                     unitPriceByItem.TryGetValue(kv.Key, out var unitPrice);
                     var entry = new CatalogStockReturn
@@ -3507,10 +3727,11 @@ namespace POS.Controllers
                         OrderCode = order.OrderCode,
                         UnitPrice = unitPrice,
                         Notes = notes,
-                        InsertByUserId = userId
+                        InsertByUserId = userId,
+                        WarehouseId = returnWh.Id
                     };
                     _dbConfig.CatalogStockReturns.Add(entry);
-                    created.Add(new { itemId = kv.Key, quantity = kv.Value, newQuantity = stockItem.Quantity });
+                    created.Add(new { itemId = kv.Key, quantity = kv.Value, newQuantity = newQty, warehouseId = returnWh.Id });
                 }
 
                 await _dbConfig.SaveChangesAsync();
@@ -3576,9 +3797,22 @@ namespace POS.Controllers
                 }
 
                 var notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
-                var previousQty = item.Quantity;
-                item.Quantity += request.Quantity;
-                _dbConfig.Items.Update(item);
+                var defaultWh = await _warehouseStock.EnsureDefaultWarehouseAsync(commercialUserId);
+                var warehouseId = request.WarehouseId ?? defaultWh.Id;
+                var warehouse = await _warehouseStock.GetActiveWarehouseAsync(commercialUserId, warehouseId);
+                if (warehouse == null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "invalidWarehouse"
+                    });
+                }
+
+                var previousQty = await _warehouseStock.GetStockAsync(item.Id, warehouse.Id);
+                await _warehouseStock.AddAsync(item.Id, warehouse.Id, request.Quantity);
+                var newQty = await _warehouseStock.GetStockAsync(item.Id, warehouse.Id);
 
                 var entry = new CatalogStockReturn
                 {
@@ -3589,7 +3823,8 @@ namespace POS.Controllers
                     OrderCode = null,
                     UnitPrice = item.SellingPrice,
                     Notes = notes,
-                    InsertByUserId = userId
+                    InsertByUserId = userId,
+                    WarehouseId = warehouse.Id
                 };
                 _dbConfig.CatalogStockReturns.Add(entry);
                 await _dbConfig.SaveChangesAsync();
@@ -3601,8 +3836,8 @@ namespace POS.Controllers
                     item.Name,
                     userId,
                     commercialUserId,
-                    new { quantity = previousQty },
-                    new { quantity = item.Quantity, returned = request.Quantity, notes },
+                    new { quantity = previousQty, warehouseId = warehouse.Id },
+                    new { quantity = newQty, returned = request.Quantity, notes, warehouseId = warehouse.Id },
                     "إرجاع يدوي للمخزون");
 
                 return Ok(new GlobalResponse<object>
@@ -3614,7 +3849,8 @@ namespace POS.Controllers
                         itemName = item.Name,
                         quantity = request.Quantity,
                         previousQuantity = previousQty,
-                        newQuantity = item.Quantity
+                        newQuantity = newQty,
+                        warehouseId = warehouse.Id
                     },
                     ErrorStatus = false,
                     Message = "تم الإرجاع بنجاح"
@@ -3787,10 +4023,15 @@ namespace POS.Controllers
 
                 var imageBaseUrl = _configuration["ApiSettings:ImageBaseUrl"] ?? "https://pos-api.tatwer.tech/Images/";
 
+                var format = string.Equals(commercialUser.PrintInvoiceFormat, "A4", StringComparison.OrdinalIgnoreCase)
+                    ? "A4"
+                    : "Pos";
+
                 var userInfo = new CommercialUserInfoDto
                 {
                     StoreName = commercialUser.StoreName ?? commercialUser.Name,
-                    Logo = string.IsNullOrEmpty(commercialUser.Logo) ? null : imageBaseUrl + commercialUser.Logo
+                    Logo = string.IsNullOrEmpty(commercialUser.Logo) ? null : imageBaseUrl + commercialUser.Logo,
+                    PrintInvoiceFormat = format
                 };
 
                 return Ok(new GlobalResponse<CommercialUserInfoDto>
@@ -3808,6 +4049,56 @@ namespace POS.Controllers
                     Data = null,
                     ErrorStatus = true,
                     Message = $"حدث خطأ أثناء جلب المعلومات: {ex.Message}"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial,Admin")]
+        [HttpPut("UpdatePrintSettings")]
+        [HttpPost("UpdatePrintSettings")]
+        public async Task<ActionResult<GlobalResponse<CommercialUserInfoDto>>> UpdatePrintSettings(
+            [FromBody] UpdatePrintSettingsRequest request)
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var commercialUser = await _dbConfig.Users
+                    .FirstOrDefaultAsync(u => u.Id == commercialUserId && !u.IsDeleted);
+                if (commercialUser == null)
+                {
+                    return NotFound(new GlobalResponse<CommercialUserInfoDto>
+                    {
+                        ErrorStatus = true,
+                        Message = "المستخدم غير موجود"
+                    });
+                }
+
+                var format = string.Equals(request?.PrintInvoiceFormat, "A4", StringComparison.OrdinalIgnoreCase)
+                    ? "A4"
+                    : "Pos";
+                commercialUser.PrintInvoiceFormat = format;
+                await _dbConfig.SaveChangesAsync();
+
+                var imageBaseUrl = _configuration["ApiSettings:ImageBaseUrl"] ?? "https://pos-api.tatwer.tech/Images/";
+                return Ok(new GlobalResponse<CommercialUserInfoDto>
+                {
+                    Data = new CommercialUserInfoDto
+                    {
+                        StoreName = commercialUser.StoreName ?? commercialUser.Name,
+                        Logo = string.IsNullOrEmpty(commercialUser.Logo) ? null : imageBaseUrl + commercialUser.Logo,
+                        PrintInvoiceFormat = format
+                    },
+                    ErrorStatus = false,
+                    Message = "ok"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating print settings");
+                return StatusCode(500, new GlobalResponse<CommercialUserInfoDto>
+                {
+                    ErrorStatus = true,
+                    Message = ex.Message
                 });
             }
         }

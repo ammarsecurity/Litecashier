@@ -17,6 +17,7 @@ public static class SectionDefinitions
         "endOfDayReport",
         "expenses",
         "inventory",
+        "warehouses",
         "printServer",
         "paymentDevices",
         "cardPayments",

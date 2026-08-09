@@ -172,6 +172,7 @@
                     <tr>
                       <th>{{ $t("itemNamePlaceholder") || "اسم المنتج" }}</th>
                       <th>{{ $t("codePlaceholder") || "الباركود" }}</th>
+                      <th>{{ $t("warehouseName") || "المخزن" }}</th>
                       <th>{{ $t("categoryPlaceholder") || "القسم" }}</th>
                       <th>{{ $t("quantityLabel") || "الكمية" }}</th>
                       <th>{{ $t("stockAlertThresholdLabel") || "حد التنبيه" }}</th>
@@ -181,11 +182,12 @@
                   <tbody>
                     <tr
                       v-for="item in filteredAlerts"
-                      :key="item.itemId"
+                      :key="(item.itemId || '') + '-' + (item.warehouseId || 'x')"
                       :class="{ 'stock-alerts-row--out': item.status === 'out' }"
                     >
                       <td class="stock-alerts-name">{{ item.itemName }}</td>
                       <td class="stock-alerts-code">{{ item.itemCode || "—" }}</td>
+                      <td>{{ item.warehouseName || "—" }}</td>
                       <td>
                         <span class="stock-alerts-category">{{ item.category || "—" }}</span>
                       </td>

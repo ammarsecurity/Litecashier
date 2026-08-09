@@ -76,6 +76,14 @@
                                 <b-icon icon="people-fill" class="me-2"></b-icon>
                                 {{ $t('salesByEmployee') || 'المبيعات حسب الموظف' }}
                             </button>
+                            <button
+                                class="report-tab"
+                                :class="{ 'report-tab-active': activeTab === 'byWarehouse' }"
+                                @click="activeTab = 'byWarehouse'; loadSalesByWarehouse()"
+                            >
+                                <b-icon icon="building" class="me-2"></b-icon>
+                                {{ $t('salesByWarehouse') || 'المبيعات حسب المخازن' }}
+                            </button>
                             <button 
                                 class="report-tab" 
                                 :class="{ 'report-tab-active': activeTab === 'lowStock' }"
@@ -709,6 +717,52 @@
                             </div>
                         </div>
 
+                        <!-- Sales By Warehouse -->
+                        <div v-if="activeTab === 'byWarehouse'" class="report-section">
+                            <div class="report-section-intro" v-if="salesByWarehouse.length > 0">
+                                <div class="report-info-banner">
+                                    <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
+                                    <span>{{ $t('salesByWarehouseDescription') || 'تحليل المبيعات حسب المخزن الذي خُصمت منه الكمية' }}</span>
+                                </div>
+                            </div>
+                            <div class="report-table-container" v-if="salesByWarehouse.length > 0">
+                                <table class="report-table">
+                                    <thead>
+                                        <tr>
+                                            <th>{{ $t('warehouseName') || 'اسم المخزن' }}</th>
+                                            <th>{{ $t('totalOrders') || 'إجمالي الطلبات' }}</th>
+                                            <th>{{ $t('totalSales') || 'إجمالي المبيعات' }}</th>
+                                            <th>{{ $t('totalItemsSold') || 'إجمالي المواد المباعة' }}</th>
+                                            <th>{{ $t('averageOrderValue') || 'متوسط قيمة الطلب' }}</th>
+                                            <th>{{ $t('itemsPerOrder') || 'مواد لكل طلب' }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr
+                                            v-for="row in salesByWarehouse"
+                                            :key="row.warehouseId != null ? row.warehouseId : 'none'"
+                                        >
+                                            <td class="report-item-name">
+                                                <div class="employee-cell">
+                                                    <b-icon icon="building" class="employee-icon"></b-icon>
+                                                    {{ row.warehouseName }}
+                                                </div>
+                                            </td>
+                                            <td class="report-item-quantity">{{ row.totalOrders }}</td>
+                                            <td class="report-item-price">{{ formatPrice(row.totalSales) }} {{ $t('currency') }}</td>
+                                            <td class="report-item-quantity">{{ row.totalItemsSold }}</td>
+                                            <td class="report-item-price">{{ formatPrice(row.totalOrders > 0 ? row.totalSales / row.totalOrders : 0) }} {{ $t('currency') }}</td>
+                                            <td class="report-item-quantity">{{ row.totalOrders > 0 ? (row.totalItemsSold / row.totalOrders).toFixed(2) : 0 }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div v-else-if="!show" class="empty-state">
+                                <b-icon icon="building" class="empty-icon"></b-icon>
+                                <p>{{ $t('noWarehouseSalesData') || 'لا توجد مبيعات حسب المخازن في الفترة المحددة' }}</p>
+                            </div>
+                        </div>
+
                         <!-- Low Stock Items -->
                         <div v-if="activeTab === 'lowStock'" class="report-section">
                             <div v-if="lowStockItems.length > 0" class="app-overview-grid reports-orders-summary">
@@ -1116,6 +1170,7 @@ export default {
             commercialUserInfo: {
                 storeName: 'LiteCashier',
                 logo: null,
+                printInvoiceFormat: 'Pos',
             },
             orderForSend: {
                 orderCode: "",
@@ -1176,6 +1231,7 @@ export default {
             },
             salesByCategory: [],
             salesByEmployee: [],
+            salesByWarehouse: [],
             lowStockItems: [],
             lowStockThreshold: 10,
             exportingExcel: false,
@@ -1243,6 +1299,7 @@ export default {
                 productSales: this.$t("productSalesFiltersHint") || "فلترة حسب التاريخ والقسم واسم المنتج",
                 byCategory: this.$t("dateFiltersHint") || "حدد فترة التقرير",
                 byEmployee: this.$t("dateFiltersHint") || "حدد فترة التقرير",
+                byWarehouse: this.$t("dateFiltersHint") || "حدد فترة التقرير",
                 lowStock: this.$t("lowStockFiltersHint") || "حد الكمية لعرض المنتجات القليلة أو المنتهية",
             };
             return map[this.activeTab] || (this.$t("filters") || "فلاتر التقرير");
@@ -1520,17 +1577,27 @@ export default {
             HTTP.get("Admin/CommercialUserInfo")
                 .then((response) => {
                     if (response.data && response.data.data) {
+                        const d = response.data.data;
+                        const format =
+                            String(d.printInvoiceFormat || d.PrintInvoiceFormat || "Pos").toUpperCase() ===
+                            "A4"
+                                ? "A4"
+                                : "Pos";
                         this.commercialUserInfo = {
-                            storeName: response.data.data.storeName || response.data.data.StoreName || 'LiteCashier',
-                            logo: response.data.data.logo || response.data.data.Logo || null,
+                            storeName: d.storeName || d.StoreName || "LiteCashier",
+                            logo: d.logo || d.Logo || null,
+                            printInvoiceFormat: format,
                         };
+                        localStorage.setItem("printInvoiceFormat", format);
                     }
                 })
                 .catch((error) => {
-                    console.error('Error loading commercial user info:', error);
+                    console.error("Error loading commercial user info:", error);
                     this.commercialUserInfo = {
-                        storeName: 'LiteCashier',
+                        storeName: "LiteCashier",
                         logo: null,
+                        printInvoiceFormat:
+                            localStorage.getItem("printInvoiceFormat") === "A4" ? "A4" : "Pos",
                     };
                 });
         },
@@ -1817,6 +1884,8 @@ export default {
                 this.loadSalesByCategory();
             } else if (this.activeTab === 'byEmployee') {
                 this.loadSalesByEmployee();
+            } else if (this.activeTab === 'byWarehouse') {
+                this.loadSalesByWarehouse();
             }
         },
 
@@ -1929,6 +1998,24 @@ export default {
                 .catch((error) => {
                     this.show = false;
                     console.error('Error loading sales by employee:', error);
+                });
+        },
+
+        loadSalesByWarehouse() {
+            this.show = true;
+            const params = new URLSearchParams();
+            if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
+            if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
+
+            HTTP.get(`Admin/GetSalesByWarehouse?${params.toString()}`)
+                .then((response) => {
+                    this.salesByWarehouse = response.data?.data || response.data?.Data || [];
+                    this.show = false;
+                })
+                .catch((error) => {
+                    this.show = false;
+                    this.salesByWarehouse = [];
+                    console.error('Error loading sales by warehouse:', error);
                 });
         },
 

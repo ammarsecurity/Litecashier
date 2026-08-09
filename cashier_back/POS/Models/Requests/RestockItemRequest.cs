@@ -13,5 +13,8 @@ namespace POS.Models.Requests
 
         [MaxLength(1000)]
         public string? Notes { get; set; }
+
+        /// <summary>Target warehouse; defaults to commercial default warehouse when omitted.</summary>
+        public int? WarehouseId { get; set; }
     }
 }

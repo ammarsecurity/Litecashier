@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace POS.Models
 {
@@ -39,5 +40,11 @@ namespace POS.Models
         public int InsertByUserId { get; set; }
 
         public User? User { get; set; }
+
+        public int? WarehouseId { get; set; }
+
+        [JsonIgnore]
+        [ForeignKey(nameof(WarehouseId))]
+        public Warehouse? Warehouse { get; set; }
     }
 }

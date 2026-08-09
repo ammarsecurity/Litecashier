@@ -1,13 +1,29 @@
 <template>
   <div v-if="visible" class="license-gate-overlay" role="dialog" aria-modal="true">
     <div class="license-gate-card">
+      <button
+        v-if="canDismiss"
+        type="button"
+        class="license-gate-close"
+        :aria-label="$t('cancelButtonLabel') || 'إغلاق'"
+        :disabled="busy"
+        @click="dismiss"
+      >
+        <b-icon icon="x-lg"></b-icon>
+      </button>
       <div class="license-gate-icon">
         <b-icon icon="key-fill"></b-icon>
       </div>
-      <h2 class="license-gate-title">{{ $t("licenseActivationTitle") }}</h2>
+      <h2 class="license-gate-title">
+        {{ changeMode ? ($t("licenseChangeTitle") || $t("licenseActivationTitle")) : $t("licenseActivationTitle") }}
+      </h2>
       <p class="license-gate-subtitle">{{ statusMessage }}</p>
 
       <div v-if="status && status.enforcementEnabled" class="license-gate-meta">
+        <div v-if="status.code" class="license-gate-current">
+          {{ $t("licenseCurrentCode") || "الكود الحالي" }}:
+          <code>{{ status.code }}</code>
+        </div>
         <div v-if="status.isLifetime && status.isActive">
           {{ $t("licenseLifetime") }}
         </div>
@@ -33,7 +49,13 @@
         />
         <p v-if="error" class="license-gate-error">{{ error }}</p>
         <button type="submit" class="license-gate-submit" :disabled="busy || !code.trim()">
-          {{ busy ? ($t("pleaseWait") || "...") : $t("licenseActivateButton") }}
+          {{
+            busy
+              ? ($t("pleaseWait") || "...")
+              : changeMode
+                ? ($t("licenseChangeActivateButton") || $t("licenseActivateButton"))
+                : $t("licenseActivateButton")
+          }}
         </button>
       </form>
     </div>
@@ -50,6 +72,7 @@ export default {
     return {
       visible: false,
       forced: false,
+      changeMode: false,
       busy: false,
       code: "",
       error: "",
@@ -57,9 +80,15 @@ export default {
     };
   },
   computed: {
+    canDismiss() {
+      return this.changeMode && this.status?.isActive;
+    },
     statusMessage() {
       if (!this.status) return this.$t("licenseChecking");
       if (!this.status.enforcementEnabled) return "";
+      if (this.changeMode && this.status.isActive) {
+        return this.$t("licenseChangeHint") || this.$t("licenseActiveHint");
+      }
       if (this.status.isActive) return this.$t("licenseActiveHint");
       if (this.status.message === "expired") return this.$t("licenseExpiredMessage");
       return this.$t("licenseRequiredMessage");
@@ -68,10 +97,12 @@ export default {
   mounted() {
     registerLicenseGateHandler((payload) => {
       this.forced = true;
+      this.changeMode = !!(payload && (payload.allowChange || payload.changeMode));
       if (payload && payload.status) this.status = payload.status;
       this.visible = true;
       this.error = "";
-      this.refreshStatus();
+      this.code = "";
+      this.refreshStatus({ keepOpenForChange: this.changeMode });
     });
     this.refreshStatus();
   },
@@ -79,25 +110,40 @@ export default {
     registerLicenseGateHandler(null);
   },
   methods: {
-    async refreshStatus() {
+    dismiss() {
+      if (!this.canDismiss || this.busy) return;
+      this.visible = false;
+      this.forced = false;
+      this.changeMode = false;
+      this.error = "";
+      this.code = "";
+    },
+    async refreshStatus({ keepOpenForChange = false } = {}) {
       try {
         const res = await HTTP.get("License/status");
         this.status = res.data;
         if (!this.status?.enforcementEnabled) {
           this.visible = false;
           this.forced = false;
+          this.changeMode = false;
           return;
         }
         if (this.status.isActive) {
+          if (keepOpenForChange || this.changeMode) {
+            this.visible = true;
+            return;
+          }
           this.forced = false;
           this.visible = false;
           return;
         }
+        this.changeMode = false;
         this.visible = true;
       } catch (e) {
         // If license endpoint missing (old server), do not block UI
         if (e?.response?.status === 404) {
           this.visible = false;
+          this.changeMode = false;
         }
       }
     },
@@ -110,6 +156,7 @@ export default {
         if (this.status?.isActive) {
           this.visible = false;
           this.forced = false;
+          this.changeMode = false;
           this.code = "";
           if (this.$notify?.success) {
             this.$notify.success(this.$t("licenseActivatedSuccess"));
@@ -147,12 +194,33 @@ export default {
 }
 
 .license-gate-card {
+  position: relative;
   width: min(440px, 100%);
   background: var(--bg-secondary, #0f2430);
   border: 1px solid color-mix(in srgb, var(--primary-color, #3db4d0) 35%, transparent);
   border-radius: 1rem;
   padding: 1.75rem 1.5rem;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  color: var(--text-primary, #fff);
+}
+
+.license-gate-close {
+  position: absolute;
+  top: 0.75rem;
+  inset-inline-end: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 0.5rem;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+}
+
+.license-gate-close:hover {
+  background: rgba(148, 163, 184, 0.15);
   color: var(--text-primary, #fff);
 }
 
@@ -191,13 +259,18 @@ export default {
   text-align: center;
 }
 
+.license-gate-current {
+  margin-bottom: 0.35rem;
+}
+
 .license-gate-machine {
   margin-top: 0.35rem;
   word-break: break-all;
   opacity: 0.85;
 }
 
-.license-gate-machine code {
+.license-gate-machine code,
+.license-gate-current code {
   font-family: ui-monospace, monospace;
 }
 

@@ -18,6 +18,172 @@
             </div>
           </div>
 
+          <div
+            v-if="licenseStatus && licenseStatus.enforcementEnabled"
+            class="app-section-card settings-license-zone"
+          >
+            <div class="app-section-header">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap settings-license-zone__icon">
+                  <b-icon icon="key-fill"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("settingsLicenseTitle") || "الترخيص" }}</h3>
+                  <p class="app-section-subtitle">
+                    {{ $t("settingsLicenseSubtitle") || "عرض حالة الترخيص واستبدال كود التفعيل" }}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="app-section-body">
+              <div v-if="licenseConnectivityLoading" class="settings-license-zone__intro">
+                <b-spinner small></b-spinner>
+              </div>
+              <template v-else-if="!licenseOnline">
+                <div class="settings-license-offline">
+                  <b-icon icon="wifi-off" class="settings-license-offline__icon"></b-icon>
+                  <p class="settings-license-offline__title">
+                    {{ $t("settingsLicenseOfflineTitle") || "اتصل بالإنترنت أولاً" }}
+                  </p>
+                  <p class="settings-license-offline__text">
+                    {{
+                      $t("settingsLicenseOfflineMessage") ||
+                      "لتغيير كود الترخيص أو عرض حالة التفعيل يلزم اتصال بالإنترنت."
+                    }}
+                  </p>
+                  <button
+                    type="button"
+                    class="users-add-button"
+                    :disabled="licenseConnectivityLoading"
+                    @click="checkLicenseConnectivity"
+                  >
+                    <b-icon icon="arrow-clockwise" class="button-icon"></b-icon>
+                    <span class="button-text">{{ $t("retry") || "إعادة المحاولة" }}</span>
+                  </button>
+                </div>
+              </template>
+              <template v-else>
+                <p class="settings-license-zone__intro">
+                  {{ $t("settingsLicenseHint") || "إذا حصلت على كود ترخيص جديد يمكنك استبدال الكود الحالي من هنا." }}
+                </p>
+                <div class="settings-license-meta" v-if="!licenseStatusLoading">
+                  <div class="settings-license-meta__row">
+                    <span>{{ $t("licenseCurrentCode") || "الكود الحالي" }}</span>
+                    <strong><code>{{ licenseStatus.code || "—" }}</code></strong>
+                  </div>
+                  <div class="settings-license-meta__row">
+                    <span>{{ $t("status") || "الحالة" }}</span>
+                    <strong>
+                      {{
+                        licenseStatus.isActive
+                          ? ($t("licenseActiveHint") || "نشط")
+                          : ($t("licenseExpiredMessage") || "غير نشط")
+                      }}
+                    </strong>
+                  </div>
+                  <div v-if="licenseStatus.isLifetime && licenseStatus.isActive" class="settings-license-meta__row">
+                    <span>{{ $t("licenseLifetime") }}</span>
+                  </div>
+                  <div
+                    v-else-if="licenseStatus.daysRemaining != null"
+                    class="settings-license-meta__row"
+                  >
+                    <span>{{ $t("licenseDaysRemaining", { days: licenseStatus.daysRemaining }) }}</span>
+                  </div>
+                  <div class="settings-license-meta__row">
+                    <span>{{ $t("licenseMachineId") }}</span>
+                    <strong><code>{{ licenseStatus.machineId }}</code></strong>
+                  </div>
+                </div>
+                <div v-else class="settings-license-zone__intro">
+                  <b-spinner small></b-spinner>
+                </div>
+                <div class="settings-danger-zone__actions">
+                  <button
+                    type="button"
+                    class="users-add-button"
+                    :disabled="licenseStatusLoading || !licenseOnline"
+                    @click="openChangeLicense"
+                  >
+                    <b-icon icon="arrow-repeat" class="button-icon"></b-icon>
+                    <span class="button-text">
+                      {{ $t("settingsLicenseChangeButton") || "تغيير كود الترخيص" }}
+                    </span>
+                  </button>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div class="app-section-card settings-print-zone">
+            <div class="app-section-header">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap settings-print-zone__icon">
+                  <b-icon icon="printer-fill"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("settingsPrintTitle") }}</h3>
+                  <p class="app-section-subtitle">{{ $t("settingsPrintSubtitle") }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="app-section-body">
+              <p class="settings-print-zone__intro">{{ $t("settingsPrintHint") }}</p>
+              <div class="settings-print-options" role="radiogroup" :aria-label="$t('settingsPrintTitle')">
+                <label
+                  class="settings-print-option"
+                  :class="{ 'settings-print-option--active': printInvoiceFormat === 'Pos' }"
+                >
+                  <input
+                    v-model="printInvoiceFormat"
+                    type="radio"
+                    value="Pos"
+                    class="settings-print-option__input"
+                    :disabled="printSettingsLoading || printSettingsSaving"
+                  />
+                  <span class="settings-print-option__body">
+                    <strong>{{ $t("printFormatPos") }}</strong>
+                    <span>{{ $t("printFormatPosHint") }}</span>
+                  </span>
+                </label>
+                <label
+                  class="settings-print-option"
+                  :class="{ 'settings-print-option--active': printInvoiceFormat === 'A4' }"
+                >
+                  <input
+                    v-model="printInvoiceFormat"
+                    type="radio"
+                    value="A4"
+                    class="settings-print-option__input"
+                    :disabled="printSettingsLoading || printSettingsSaving"
+                  />
+                  <span class="settings-print-option__body">
+                    <strong>{{ $t("printFormatA4") }}</strong>
+                    <span>{{ $t("printFormatA4Hint") }}</span>
+                  </span>
+                </label>
+              </div>
+              <div class="settings-danger-zone__actions">
+                <button
+                  type="button"
+                  class="users-add-button"
+                  :disabled="printSettingsLoading || printSettingsSaving || !printFormatDirty"
+                  @click="savePrintSettings"
+                >
+                  <b-spinner small v-if="printSettingsSaving" class="button-icon"></b-spinner>
+                  <b-icon v-else icon="check2-circle" class="button-icon"></b-icon>
+                  <span class="button-text">
+                    {{
+                      printSettingsSaving
+                        ? $t("settingsPrintSaving")
+                        : $t("settingsPrintSave")
+                    }}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div class="app-section-card settings-backup-zone">
             <div class="app-section-header">
               <div class="app-section-title-wrap">
@@ -172,6 +338,7 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "@/http/api.js";
+import { openLicenseGate } from "@/utils/licenseGateBus.js";
 
 export default {
   name: "SettingsView",
@@ -182,9 +349,138 @@ export default {
       clearCatalogLoading: false,
       clearCatalogResult: null,
       backupLoading: false,
+      printInvoiceFormat: "Pos",
+      savedPrintInvoiceFormat: "Pos",
+      printSettingsLoading: false,
+      printSettingsSaving: false,
+      licenseStatus: null,
+      licenseStatusLoading: false,
+      licenseOnline: false,
+      licenseConnectivityLoading: false,
     };
   },
+  computed: {
+    printFormatDirty() {
+      return this.printInvoiceFormat !== this.savedPrintInvoiceFormat;
+    },
+  },
+  mounted() {
+    this.loadPrintSettings();
+    this.loadLicenseStatus();
+    this.checkLicenseConnectivity();
+    window.addEventListener("online", this.onBrowserOnline);
+    window.addEventListener("offline", this.onBrowserOffline);
+  },
+  beforeDestroy() {
+    window.removeEventListener("online", this.onBrowserOnline);
+    window.removeEventListener("offline", this.onBrowserOffline);
+  },
   methods: {
+    onBrowserOnline() {
+      this.checkLicenseConnectivity();
+    },
+    onBrowserOffline() {
+      this.licenseOnline = false;
+      this.licenseConnectivityLoading = false;
+    },
+    async checkLicenseConnectivity() {
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        this.licenseOnline = false;
+        this.licenseConnectivityLoading = false;
+        return;
+      }
+      this.licenseConnectivityLoading = true;
+      try {
+        const res = await HTTP.get("License/connectivity", { timeout: 12000 });
+        const data = res.data || {};
+        this.licenseOnline = !!(data.online ?? data.Online);
+        // Browser reports online but probe failed: still allow UI (activate shows server errors).
+        if (!this.licenseOnline && typeof navigator !== "undefined" && navigator.onLine) {
+          this.licenseOnline = true;
+        }
+      } catch (_) {
+        this.licenseOnline =
+          typeof navigator === "undefined" ? true : navigator.onLine !== false;
+      } finally {
+        this.licenseConnectivityLoading = false;
+      }
+    },
+    async loadLicenseStatus() {
+      this.licenseStatusLoading = true;
+      try {
+        const res = await HTTP.get("License/status");
+        this.licenseStatus = res.data || null;
+      } catch (_) {
+        this.licenseStatus = null;
+      } finally {
+        this.licenseStatusLoading = false;
+      }
+    },
+    openChangeLicense() {
+      if (!this.licenseOnline) {
+        this.checkLicenseConnectivity();
+        return;
+      }
+      openLicenseGate({ allowChange: true, status: this.licenseStatus });
+    },
+    async loadPrintSettings() {
+      this.printSettingsLoading = true;
+      try {
+        const response = await HTTP.get("Admin/CommercialUserInfo");
+        const d = response?.data?.data;
+        if (d) {
+          const format =
+            String(d.printInvoiceFormat || d.PrintInvoiceFormat || "Pos").toUpperCase() ===
+            "A4"
+              ? "A4"
+              : "Pos";
+          this.printInvoiceFormat = format;
+          this.savedPrintInvoiceFormat = format;
+          localStorage.setItem("printInvoiceFormat", format);
+        }
+      } catch (error) {
+        console.error("Error loading print settings:", error);
+        const cached = localStorage.getItem("printInvoiceFormat") === "A4" ? "A4" : "Pos";
+        this.printInvoiceFormat = cached;
+        this.savedPrintInvoiceFormat = cached;
+      } finally {
+        this.printSettingsLoading = false;
+      }
+    },
+    async savePrintSettings() {
+      if (this.printSettingsSaving || !this.printFormatDirty) return;
+      this.printSettingsSaving = true;
+      try {
+        const response = await HTTP.post("Admin/UpdatePrintSettings", {
+          printInvoiceFormat: this.printInvoiceFormat,
+        });
+        if (response?.data?.errorStatus) {
+          throw new Error(response.data.message || "saveFailed");
+        }
+        const d = response?.data?.data;
+        const format =
+          String(d?.printInvoiceFormat || d?.PrintInvoiceFormat || this.printInvoiceFormat)
+            .toUpperCase() === "A4"
+            ? "A4"
+            : "Pos";
+        this.printInvoiceFormat = format;
+        this.savedPrintInvoiceFormat = format;
+        localStorage.setItem("printInvoiceFormat", format);
+        this.$notify.success(this.$t("settingsPrintSaveSuccess"), {
+          position: "top-right",
+          timeout: 3000,
+          maxToasts: 1,
+        });
+      } catch (error) {
+        const msg = error?.response?.data?.message || error?.message;
+        this.$notify.error(
+          msg && this.$te(msg) ? this.$t(msg) : this.$t("settingsPrintSaveFailed"),
+          { position: "top-right", timeout: 4000, maxToasts: 1 }
+        );
+      } finally {
+        this.printSettingsSaving = false;
+      }
+    },
     async downloadDatabaseBackup() {
       if (this.backupLoading) return;
       this.backupLoading = true;
@@ -289,6 +585,142 @@ export default {
 </script>
 
 <style scoped>
+.settings-license-zone {
+  margin-bottom: 1.25rem;
+}
+
+.settings-license-zone__icon {
+  background: rgba(245, 158, 11, 0.18);
+  color: #f59e0b;
+}
+
+.settings-license-zone__intro {
+  margin: 0 0 1rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.6;
+}
+
+.settings-license-offline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.5rem;
+  padding: 1rem 0.5rem 0.25rem;
+}
+
+.settings-license-offline__icon {
+  font-size: 1.75rem;
+  color: #f59e0b;
+  margin-bottom: 0.25rem;
+}
+
+.settings-license-offline__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary, #e2e8f0);
+}
+
+.settings-license-offline__text {
+  margin: 0 0 0.75rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.55;
+  max-width: 36rem;
+}
+
+.settings-license-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-bottom: 1.25rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.settings-license-meta__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.9rem;
+}
+
+.settings-license-meta__row strong {
+  color: var(--text-primary, #e2e8f0);
+  font-weight: 700;
+}
+
+.settings-license-meta__row code {
+  font-family: ui-monospace, monospace;
+  word-break: break-all;
+}
+
+.settings-print-zone {
+  margin-bottom: 1.25rem;
+}
+
+.settings-print-zone__icon {
+  background: rgba(15, 110, 110, 0.15);
+  color: #0f6e6e;
+}
+
+.settings-print-zone__intro {
+  margin: 0 0 1rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.6;
+}
+
+.settings-print-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.settings-print-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.35));
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.settings-print-option--active {
+  border-color: #0f6e6e;
+  background: rgba(15, 110, 110, 0.1);
+}
+
+.settings-print-option__input {
+  margin-top: 0.2rem;
+  accent-color: #0f6e6e;
+}
+
+.settings-print-option__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.settings-print-option__body strong {
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.98rem;
+}
+
+.settings-print-option__body span {
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
 .settings-backup-zone {
   margin-bottom: 1.25rem;
 }
