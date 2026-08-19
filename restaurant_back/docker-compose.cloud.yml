@@ -10,6 +10,10 @@ services:
     volumes:
       - ./RestaurantPOS/wwwroot/Images:/app/wwwroot/Images
       - ./RestaurantPOS/wwwroot/app:/app/wwwroot/app
+      # SPA assets live on host so cloud frontend deploys don't require image rebuild
+      - ./RestaurantPOS/wwwroot/static:/app/wwwroot/static
+      - ./RestaurantPOS/wwwroot/fonts:/app/wwwroot/fonts
+      - ./RestaurantPOS/wwwroot/index.html:/app/wwwroot/index.html:ro
       - ./RestaurantPOS/appsettings.Cloud.json:/app/appsettings.Production.json:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"

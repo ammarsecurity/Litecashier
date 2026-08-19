@@ -24,6 +24,7 @@ import DeferredPaymentsView from '../views/DeferredPaymentsView.vue'
 import StockAlertsView from '../views/StockAlertsView.vue'
 import StockReturnsView from '../views/StockReturnsView.vue'
 import SettingsView from '../views/SettingsView.vue'
+import ProfileView from '../views/ProfileView.vue'
 import { i18n } from '../main'
 import { managerCanAccessPath } from '../navigation/sectionRegistry.js'
 Vue.use(VueRouter)
@@ -275,6 +276,15 @@ const routes = [
     path: '/settings',
     name: 'settings',
     component: SettingsView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial']
+    }
+  },
+  {
+    path: '/profile',
+    name: 'profile',
+    component: ProfileView,
     meta: {
       requiresAuth: true,
       roles: ['Commercial']

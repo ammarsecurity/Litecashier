@@ -88,6 +88,7 @@ export default {
         { name: "priceReader", label: this.$t("PriceReader"), link: "/priceReader", icon: "upc-scan" },
         { name: "printServer", label: this.$t("printServerManagement") || "إدارة خادم الطباعة", link: "/print-server", icon: "server" },
         { name: "paymentDevices", label: this.$t("paymentDevicesManagement") || "إدارة أجهزة الدفع", link: "/payment-devices", icon: "credit-card-2-front-fill" },
+        { name: "profile", label: this.$t("myProfile") || "الحساب الشخصي", link: "/profile", icon: "person-circle" },
         { name: "logout", label: this.$t("Logout"), link: "/logout", icon: "box-arrow-right", class: "nav-item-logout" },
       ],
     };

@@ -35,6 +35,14 @@ namespace POS.Models
         [StringLength(10)]
         public string PrintInvoiceFormat { get; set; } = "Pos";
 
+        /// <summary>Footer credit/rights line printed on all receipts (e.g. "برمجة وتصميم ...").</summary>
+        [StringLength(200)]
+        public string? FooterCreditText { get; set; }
+
+        /// <summary>Footer support phone number printed on all receipts.</summary>
+        [StringLength(30)]
+        public string? FooterCreditPhone { get; set; }
+
         [JsonIgnore]
         [ForeignKey(nameof(DefaultPrinterId))]
         public Printer? DefaultPrinter { get; set; }

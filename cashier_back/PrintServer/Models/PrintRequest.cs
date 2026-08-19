@@ -60,6 +60,12 @@ public class PrintRequest
 
     [JsonPropertyName("qrCode")]
     public string? QrCode { get; set; }
+
+    [JsonPropertyName("footerCreditText")]
+    public string? FooterCreditText { get; set; }
+
+    [JsonPropertyName("footerCreditPhone")]
+    public string? FooterCreditPhone { get; set; }
 }
 
 public class PrintItem

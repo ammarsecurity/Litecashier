@@ -7,11 +7,17 @@ namespace POS.Models.Dtos
 
         /// <summary>Pos | A4</summary>
         public string PrintInvoiceFormat { get; set; } = "Pos";
+
+        public string? FooterCreditText { get; set; }
+        public string? FooterCreditPhone { get; set; }
     }
 
     public class UpdatePrintSettingsRequest
     {
         /// <summary>Pos | A4</summary>
         public string PrintInvoiceFormat { get; set; } = "Pos";
+
+        public string? FooterCreditText { get; set; }
+        public string? FooterCreditPhone { get; set; }
     }
 }

@@ -1241,8 +1241,8 @@
         <div class="bill-footer">
           <p class="bill-footer-text">{{ $t("thankYouMessage") || "شكراً لزيارتك" }}</p>
           <p class="bill-footer-date">{{ getCurrentDate() }}</p>
-          <p class="bill-footer-credit">نظام لايت كاشير - برمجة وتصميم عمار الاصفر</p>
-          <p class="bill-footer-credit-phone">07830200030</p>
+          <p v-if="commercialUserInfo.footerCreditText" class="bill-footer-credit">{{ commercialUserInfo.footerCreditText }}</p>
+          <p v-if="commercialUserInfo.footerCreditPhone" class="bill-footer-credit-phone">{{ commercialUserInfo.footerCreditPhone }}</p>
         </div>
       </div>
     </div>
@@ -1326,6 +1326,8 @@ export default {
         storeName: 'LiteCashier',
         logo: null,
         printInvoiceFormat: 'Pos',
+        footerCreditText: null,
+        footerCreditPhone: null,
       },
       orderForSend: {
         orderCode: "",
@@ -1665,6 +1667,8 @@ export default {
               storeName: d.storeName || d.StoreName || "LiteCashier",
               logo: d.logo || d.Logo || null,
               printInvoiceFormat: format,
+              footerCreditText: d.footerCreditText || d.FooterCreditText || null,
+              footerCreditPhone: d.footerCreditPhone || d.FooterCreditPhone || null,
             };
             localStorage.setItem("printInvoiceFormat", format);
           }
@@ -1676,6 +1680,8 @@ export default {
             logo: null,
             printInvoiceFormat:
               localStorage.getItem("printInvoiceFormat") === "A4" ? "A4" : "Pos",
+            footerCreditText: null,
+            footerCreditPhone: null,
           };
         });
     },

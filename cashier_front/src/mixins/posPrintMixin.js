@@ -245,6 +245,8 @@ export default {
           t,
           storeName: this.commercialUserInfo?.storeName || "LiteCashier",
           logoUrl: this.commercialUserInfo?.logo || null,
+          footerCreditText: this.commercialUserInfo?.footerCreditText || null,
+          footerCreditPhone: this.commercialUserInfo?.footerCreditPhone || null,
           appName: t("app-name"),
           orderCode: this.order?.orderCode || this.orderForSend?.orderCode || "",
           dateTime:
@@ -335,6 +337,8 @@ export default {
         t,
         storeName: this.commercialUserInfo?.storeName || "LiteCashier",
         logoUrl: this.commercialUserInfo?.logo || null,
+        footerCreditText: this.commercialUserInfo?.footerCreditText || null,
+        footerCreditPhone: this.commercialUserInfo?.footerCreditPhone || null,
         appName: t("app-name"),
         orderCode:
           (typeof this.ensureOrderCodeForPrint === "function"

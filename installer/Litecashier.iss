@@ -2,7 +2,7 @@
 ; Build staging first: powershell -ExecutionPolicy Bypass -File build-installer.ps1
 
 #define MyAppName "Litecashier"
-#define MyAppVersion "1.0.20"
+#define MyAppVersion "1.0.26"
 #define MyAppPublisher "Litecashier"
 #define MyAppExeName "Litecashier.exe"
 
@@ -42,7 +42,7 @@ Name: "{commonappdata}\Litecashier\Logs"; Permissions: users-modify
 [Files]
 Source: "staging\Litecashier.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Stop-Litecashier.bat"; DestDir: "{app}"; Flags: ignoreversion
-Source: "staging\POS\*"; DestDir: "{app}\POS"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "staging\POS\*"; DestDir: "{app}\POS"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "appsettings.Production.json"
 Source: "staging\PrintServer\*"; DestDir: "{app}\PrintServer"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "deps\MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 Source: "deps\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
@@ -191,9 +191,17 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ExistingPath: string;
 begin
   if CurStep = ssPostInstall then
-    WriteProductionAppsettings;
+  begin
+    ExistingPath := ExpandConstant('{app}\POS\appsettings.Production.json');
+    { Only write a new appsettings when no previous config exists (fresh install).
+      On upgrade, the existing config is preserved so the database connection is not lost. }
+    if not FileExists(ExistingPath) then
+      WriteProductionAppsettings;
+  end;
 end;
 
 function NeedsVCRedist: Boolean;

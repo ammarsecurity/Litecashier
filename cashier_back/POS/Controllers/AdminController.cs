@@ -523,6 +523,14 @@ namespace POS.Controllers
                 if (request.Role == "Commercial" && currentUser?.Role == "Admin" && !string.IsNullOrEmpty(request.StoreName))
                     newUse.StoreName = request.StoreName;
 
+                if (request.Role == "Commercial" && currentUser?.Role == "Admin")
+                {
+                    if (request.FooterCreditText != null)
+                        newUse.FooterCreditText = string.IsNullOrWhiteSpace(request.FooterCreditText) ? null : request.FooterCreditText.Trim();
+                    if (request.FooterCreditPhone != null)
+                        newUse.FooterCreditPhone = string.IsNullOrWhiteSpace(request.FooterCreditPhone) ? null : request.FooterCreditPhone.Trim();
+                }
+
                 if (request.Role == "Commercial" && currentUser?.Role == "Admin" && !string.IsNullOrWhiteSpace(request.LoginCode))
                 {
                     var lc = NormalizeLoginCode(request.LoginCode);
@@ -705,6 +713,11 @@ namespace POS.Controllers
 
                     if (!string.IsNullOrWhiteSpace(request.StoreName))
                         user.StoreName = request.StoreName;
+
+                    if (request.FooterCreditText != null)
+                        user.FooterCreditText = string.IsNullOrWhiteSpace(request.FooterCreditText) ? null : request.FooterCreditText.Trim();
+                    if (request.FooterCreditPhone != null)
+                        user.FooterCreditPhone = string.IsNullOrWhiteSpace(request.FooterCreditPhone) ? null : request.FooterCreditPhone.Trim();
 
                     if (string.IsNullOrWhiteSpace(request.LoginCode))
                         user.LoginCode = null;
@@ -4058,7 +4071,9 @@ namespace POS.Controllers
                 {
                     StoreName = commercialUser.StoreName ?? commercialUser.Name,
                     Logo = string.IsNullOrEmpty(commercialUser.Logo) ? null : imageBaseUrl + commercialUser.Logo,
-                    PrintInvoiceFormat = format
+                    PrintInvoiceFormat = format,
+                    FooterCreditText = commercialUser.FooterCreditText,
+                    FooterCreditPhone = commercialUser.FooterCreditPhone
                 };
 
                 return Ok(new GlobalResponse<CommercialUserInfoDto>
@@ -4104,6 +4119,13 @@ namespace POS.Controllers
                     ? "A4"
                     : "Pos";
                 commercialUser.PrintInvoiceFormat = format;
+
+                // Update branding fields when provided (null means "don't change", empty string clears)
+                if (request?.FooterCreditText != null)
+                    commercialUser.FooterCreditText = string.IsNullOrWhiteSpace(request.FooterCreditText) ? null : request.FooterCreditText.Trim();
+                if (request?.FooterCreditPhone != null)
+                    commercialUser.FooterCreditPhone = string.IsNullOrWhiteSpace(request.FooterCreditPhone) ? null : request.FooterCreditPhone.Trim();
+
                 await _dbConfig.SaveChangesAsync();
 
                 var imageBaseUrl = _configuration["ApiSettings:ImageBaseUrl"] ?? "https://pos-api.tatwer.tech/Images/";
@@ -4113,7 +4135,9 @@ namespace POS.Controllers
                     {
                         StoreName = commercialUser.StoreName ?? commercialUser.Name,
                         Logo = string.IsNullOrEmpty(commercialUser.Logo) ? null : imageBaseUrl + commercialUser.Logo,
-                        PrintInvoiceFormat = format
+                        PrintInvoiceFormat = format,
+                        FooterCreditText = commercialUser.FooterCreditText,
+                        FooterCreditPhone = commercialUser.FooterCreditPhone
                     },
                     ErrorStatus = false,
                     Message = "ok"
@@ -4122,6 +4146,106 @@ namespace POS.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating print settings");
+                return StatusCode(500, new GlobalResponse<CommercialUserInfoDto>
+                {
+                    ErrorStatus = true,
+                    Message = ex.Message
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial")]
+        [HttpPut("UpdateMyProfile")]
+        [HttpPost("UpdateMyProfile")]
+        public async Task<ActionResult<GlobalResponse<CommercialUserInfoDto>>> UpdateMyProfile([FromForm] UpdateMyProfileRequest request)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var user = await _dbConfig.Users.FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
+                if (user == null)
+                {
+                    return NotFound(new GlobalResponse<CommercialUserInfoDto>
+                    {
+                        ErrorStatus = true,
+                        Message = "المستخدم غير موجود"
+                    });
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Name))
+                    user.Name = request.Name.Trim();
+
+                if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
+                {
+                    // Ensure phone uniqueness (excluding current user)
+                    if (await _dbConfig.Users.AnyAsync(u => u.PhoneNumber == request.PhoneNumber.Trim() && u.Id != userId && !u.IsDeleted))
+                    {
+                        return BadRequest(new GlobalResponse<CommercialUserInfoDto>
+                        {
+                            ErrorStatus = true,
+                            Message = "رقم الهاتف مستخدم من حساب آخر"
+                        });
+                    }
+                    user.PhoneNumber = request.PhoneNumber.Trim();
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Username))
+                {
+                    if (await _dbConfig.Users.AnyAsync(u => u.Username == request.Username.Trim() && u.Id != userId && !u.IsDeleted))
+                    {
+                        return BadRequest(new GlobalResponse<CommercialUserInfoDto>
+                        {
+                            ErrorStatus = true,
+                            Message = "اسم المستخدم مستخدم من حساب آخر"
+                        });
+                    }
+                    user.Username = request.Username.Trim();
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Password))
+                    user.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
+
+                if (!string.IsNullOrWhiteSpace(request.StoreName))
+                    user.StoreName = request.StoreName.Trim();
+
+                if (request.Logo != null && request.Logo.Length > 0)
+                {
+                    try
+                    {
+                        user.Logo = await UploadIamgesAsync(request.Logo);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error uploading logo for user {UserId}", userId);
+                        return BadRequest(new GlobalResponse<CommercialUserInfoDto>
+                        {
+                            ErrorStatus = true,
+                            Message = $"خطأ في رفع الشعار: {ex.Message}"
+                        });
+                    }
+                }
+
+                await _dbConfig.SaveChangesAsync();
+
+                var imageBaseUrl = _configuration["ApiSettings:ImageBaseUrl"] ?? "https://pos-api.tatwer.tech/Images/";
+                var format = string.Equals(user.PrintInvoiceFormat, "A4", StringComparison.OrdinalIgnoreCase) ? "A4" : "Pos";
+                return Ok(new GlobalResponse<CommercialUserInfoDto>
+                {
+                    Data = new CommercialUserInfoDto
+                    {
+                        StoreName = user.StoreName ?? user.Name,
+                        Logo = string.IsNullOrEmpty(user.Logo) ? null : imageBaseUrl + user.Logo,
+                        PrintInvoiceFormat = format,
+                        FooterCreditText = user.FooterCreditText,
+                        FooterCreditPhone = user.FooterCreditPhone
+                    },
+                    ErrorStatus = false,
+                    Message = "تم تحديث الملف الشخصي بنجاح"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating profile for user");
                 return StatusCode(500, new GlobalResponse<CommercialUserInfoDto>
                 {
                     ErrorStatus = true,

@@ -387,6 +387,7 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { resolvePrintServerUrl } from "@/utils/apiBase.js";
+import { HTTP } from "@/http/api.js";
 
 export default {
   name: "PrintServerManagementView",
@@ -414,13 +415,15 @@ Test Print
 الخادم يعمل بشكل صحيح
 Server is working correctly
 تاريخ: ${new Date().toLocaleDateString('ar-EG')}
-الوقت: ${new Date().toLocaleTimeString('ar-EG')}`
+الوقت: ${new Date().toLocaleTimeString('ar-EG')}`,
+      commercialUserInfo: { footerCreditText: null, footerCreditPhone: null }
     };
   },
   mounted() {
     this.checkServerHealth();
     this.loadPrinters();
     this.loadConfig();
+    this.loadCommercialUserInfo();
   },
   computed: {
     defaultPrinterName() {
@@ -433,6 +436,18 @@ Server is working correctly
       // Check if this printer is the default (prioritize configured printer)
       return printerName === this.currentDefaultPrinter || 
              (printerName === this.defaultPrinter && !this.currentDefaultPrinter);
+    },
+    async loadCommercialUserInfo() {
+      try {
+        const res = await HTTP.get("Admin/CommercialUserInfo");
+        const d = res?.data?.data;
+        if (d) {
+          this.commercialUserInfo = {
+            footerCreditText: d.footerCreditText || d.FooterCreditText || null,
+            footerCreditPhone: d.footerCreditPhone || d.FooterCreditPhone || null,
+          };
+        }
+      } catch (_) { /* ignore */ }
     },
     async checkServerHealth() {
       this.loading = true;
@@ -660,8 +675,8 @@ Server is working correctly
               <p><strong>طريقة الدفع:</strong> ${testReceipt.paymentMethod}</p>
               <hr>
               <p>شكراً لزيارتك</p>
-              <p>نظام لايت كاشير - برمجة وتصميم عمار الاصفر</p>
-              <p>07830200030</p>
+              ${this.commercialUserInfo?.footerCreditText ? `<p>${this.commercialUserInfo.footerCreditText}</p>` : ''}
+              ${this.commercialUserInfo?.footerCreditPhone ? `<p>${this.commercialUserInfo.footerCreditPhone}</p>` : ''}
             </div>`
           }),
         });

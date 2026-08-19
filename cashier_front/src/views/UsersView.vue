@@ -331,6 +331,33 @@
                             />
                             <small class="text-muted d-block mt-1">{{ $t('accountLoginCodeAdminHint') || 'يسمح لتاجر الحساب بتسجيل الدخول بهذا الرمز فقط دون هاتف وكلمة مرور' }}</small>
                         </div>
+                        <div class="users-form-group">
+                            <label class="users-form-label">
+                                <b-icon icon="file-text" class="form-label-icon"></b-icon>
+                                {{ $t('footerCreditText') || 'سطر حقوق البرمجة/التصميم' }}
+                            </label>
+                            <input
+                                v-model="addForm.footerCreditText"
+                                type="text"
+                                maxlength="200"
+                                class="users-form-input"
+                                :placeholder="$t('footerCreditTextPlaceholder') || 'مثال: برمجة وتصميم شركة ...'"
+                            />
+                            <small class="text-muted d-block mt-1">{{ $t('footerCreditTextHint') || 'يظهر في أسفل كل فاتورة مطبوعة' }}</small>
+                        </div>
+                        <div class="users-form-group">
+                            <label class="users-form-label">
+                                <b-icon icon="telephone-fill" class="form-label-icon"></b-icon>
+                                {{ $t('footerCreditPhone') || 'رقم هاتف الدعم' }}
+                            </label>
+                            <input
+                                v-model="addForm.footerCreditPhone"
+                                type="text"
+                                maxlength="30"
+                                class="users-form-input"
+                                :placeholder="$t('footerCreditPhonePlaceholder') || 'مثال: 07901234567'"
+                            />
+                        </div>
                     </template>
                     
                     <div class="users-form-actions">
@@ -508,6 +535,33 @@
                             />
                             <small class="text-muted d-block mt-1">{{ $t('accountLoginCodeAdminHint') || 'يسمح لتاجر الحساب بتسجيل الدخول بهذا الرمز فقط دون هاتف وكلمة مرور' }}</small>
                         </div>
+                        <div class="users-form-group">
+                            <label class="users-form-label">
+                                <b-icon icon="file-text" class="form-label-icon"></b-icon>
+                                {{ $t('footerCreditText') || 'سطر حقوق البرمجة/التصميم' }}
+                            </label>
+                            <input
+                                v-model="editForm.footerCreditText"
+                                type="text"
+                                maxlength="200"
+                                class="users-form-input"
+                                :placeholder="$t('footerCreditTextPlaceholder') || 'مثال: برمجة وتصميم شركة ...'"
+                            />
+                            <small class="text-muted d-block mt-1">{{ $t('footerCreditTextHint') || 'يظهر في أسفل كل فاتورة مطبوعة' }}</small>
+                        </div>
+                        <div class="users-form-group">
+                            <label class="users-form-label">
+                                <b-icon icon="telephone-fill" class="form-label-icon"></b-icon>
+                                {{ $t('footerCreditPhone') || 'رقم هاتف الدعم' }}
+                            </label>
+                            <input
+                                v-model="editForm.footerCreditPhone"
+                                type="text"
+                                maxlength="30"
+                                class="users-form-input"
+                                :placeholder="$t('footerCreditPhonePlaceholder') || 'مثال: 07901234567'"
+                            />
+                        </div>
                     </template>
                     
                     <div class="users-form-actions">
@@ -594,7 +648,9 @@ export default {
                 logoPreview: null,
                 logoFile: null,
                 allowedSections: [],
-                canUseOwnLoginCodeForSensitiveActions: false
+                canUseOwnLoginCodeForSensitiveActions: false,
+                footerCreditText: "",
+                footerCreditPhone: ""
             },
             addForm: {
                 name: "",
@@ -607,7 +663,9 @@ export default {
                 logoFile: null,
                 logoPreview: null,
                 allowedSections: [],
-                canUseOwnLoginCodeForSensitiveActions: false
+                canUseOwnLoginCodeForSensitiveActions: false,
+                footerCreditText: "",
+                footerCreditPhone: ""
             },
             UserId: '',
         };
@@ -716,7 +774,9 @@ export default {
                 canUseOwnLoginCodeForSensitiveActions: !!(
                     User.canUseOwnLoginCodeForSensitiveActions ||
                     User.CanUseOwnLoginCodeForSensitiveActions
-                )
+                ),
+                footerCreditText: User.footerCreditText || User.FooterCreditText || '',
+                footerCreditPhone: User.footerCreditPhone || User.FooterCreditPhone || ''
             };
             this.$bvModal.show("modal-editUser");
         },
@@ -751,6 +811,12 @@ export default {
                 if (this.addForm.loginCode && String(this.addForm.loginCode).trim()) {
                     formData.append('loginCode', String(this.addForm.loginCode).trim());
                 }
+                if (this.addForm.footerCreditText !== undefined) {
+                    formData.append('footerCreditText', this.addForm.footerCreditText || '');
+                }
+                if (this.addForm.footerCreditPhone !== undefined) {
+                    formData.append('footerCreditPhone', this.addForm.footerCreditPhone || '');
+                }
             }
             this.appendManagerSections(
                 formData,
@@ -777,7 +843,9 @@ export default {
                         logoFile: null,
                         logoPreview: null,
                         allowedSections: [],
-                        canUseOwnLoginCodeForSensitiveActions: false
+                        canUseOwnLoginCodeForSensitiveActions: false,
+                        footerCreditText: "",
+                        footerCreditPhone: ""
                     };
                     this.GetAllUsers();
                     this.$bvModal.hide('modal-addUser');
@@ -805,6 +873,8 @@ export default {
             if (this.role === 'Admin' && this.editForm.role === 'Commercial') {
                 formData.append('storeName', this.editForm.storeName || this.editForm.StoreName || '');
                 formData.append('loginCode', this.editForm.loginCode || '');
+                formData.append('footerCreditText', this.editForm.footerCreditText || '');
+                formData.append('footerCreditPhone', this.editForm.footerCreditPhone || '');
             }
             this.appendManagerSections(
                 formData,

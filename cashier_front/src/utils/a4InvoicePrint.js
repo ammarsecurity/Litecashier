@@ -277,7 +277,9 @@ export function buildA4InvoicePrintDocument(data = {}) {
 
     <footer class="a4-footer">
       <p class="thanks">${esc(t("thankYouMessage") || "شكراً لتعاملكم معنا")}</p>
-      <p>${esc(data.footerLine || "نظام لايت كاشير")}</p>
+      ${data.footerLine ? `<p>${esc(data.footerLine)}</p>` : ""}
+      ${data.footerCreditText ? `<p>${esc(data.footerCreditText)}</p>` : ""}
+      ${data.footerCreditPhone ? `<p>${esc(data.footerCreditPhone)}</p>` : ""}
     </footer>
   </div>
 </body>

@@ -105,15 +105,15 @@ internal sealed class SplashForm : Form
 
         if (_logoImage != null)
         {
-            const int maxLogoW = 480;
-            const int maxLogoH = 175;
+            const int maxLogoW = 520;
+            const int maxLogoH = 190;
             var scale = Math.Min(
                 maxLogoW / (float)_logoImage.Width,
                 maxLogoH / (float)_logoImage.Height);
             var lw = (int)(_logoImage.Width * scale);
             var lh = (int)(_logoImage.Height * scale);
             var lx = (ClientSize.Width - lw) / 2;
-            var ly = 36;
+            var ly = 28;
             g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
             g.DrawImage(_logoImage, new Rectangle(lx, ly, lw, lh));
         }

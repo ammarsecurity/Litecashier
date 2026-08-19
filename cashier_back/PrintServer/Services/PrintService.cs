@@ -824,8 +824,10 @@ public class PrintService
         // Footer
         html.AppendLine("<div class='receipt-footer'>");
         html.AppendLine("<div class='footer-text'>شكراً لزيارتكم</div>");
-        html.AppendLine("<div class='footer-text receipt-credit'>نظام لايت كاشير - برمجة وتصميم عمار الاصفر</div>");
-        html.AppendLine("<div class='footer-text receipt-credit-phone'>07830200030</div>");
+        if (!string.IsNullOrEmpty(data.FooterCreditText))
+            html.AppendLine($"<div class='footer-text receipt-credit'>{System.Net.WebUtility.HtmlEncode(data.FooterCreditText)}</div>");
+        if (!string.IsNullOrEmpty(data.FooterCreditPhone))
+            html.AppendLine($"<div class='footer-text receipt-credit-phone'>{System.Net.WebUtility.HtmlEncode(data.FooterCreditPhone)}</div>");
         html.AppendLine("</div>");
         
         html.AppendLine("</div>");

@@ -134,6 +134,12 @@ export function buildNavItems(t) {
       icon: "journal-text",
     },
     {
+      name: "profile",
+      label: t("myProfile") || "الحساب الشخصي",
+      link: "/profile",
+      icon: "person-circle",
+    },
+    {
       name: "settings",
       label: t("settingsTitle") || "الإعدادات",
       link: "/settings",
