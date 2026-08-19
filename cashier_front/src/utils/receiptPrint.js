@@ -1,3 +1,5 @@
+import { resolveAbsoluteAssetUrl } from "@/utils/apiBase.js";
+
 /**
  * Shared receipt print styles and HTML document builder.
  * Used for browser print and Print Server (localhost:5000) so output matches the POS preview.
@@ -400,7 +402,7 @@ export const RECEIPT_PRINT_STYLES_HTML = `
  * @returns {string} Full HTML document for Print Server / browser print
  */
 export function buildReceiptPrintDocument(innerHtml, title = 'Receipt') {
-  const body = innerHtml || '';
+  const body = rewriteRelativeAssetUrlsInHtml(innerHtml || '');
   const trimmed = body.trim();
   if (/^<!DOCTYPE/i.test(trimmed) || /^<html/i.test(trimmed)) {
     if (!/<style[\s>]/i.test(body)) {
@@ -716,6 +718,21 @@ export function ensurePrintTableNumberInHtml(
     return htmlContent.replace(afterEmployee, `$1${row}`);
   }
   return htmlContent;
+}
+
+/**
+ * Rewrite relative img src paths so Print Server WebView2 can load assets from POS (:5189).
+ */
+export function rewriteRelativeAssetUrlsInHtml(htmlContent) {
+  if (!htmlContent) return htmlContent;
+
+  return htmlContent.replace(
+    /(\ssrc\s*=\s*["'])([^"']+)(["'])/gi,
+    (match, prefix, url, suffix) => {
+      const resolved = resolveAbsoluteAssetUrl(url);
+      return resolved ? `${prefix}${resolved}${suffix}` : match;
+    }
+  );
 }
 
 /**

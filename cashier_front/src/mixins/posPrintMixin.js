@@ -1,5 +1,5 @@
 import { HTTP } from "@/http/api.js";
-import { resolvePrintServerUrl } from "@/utils/apiBase.js";
+import { resolvePrintServerUrl, resolveAbsoluteAssetUrl } from "@/utils/apiBase.js";
 import {
   PRINT_API_TIMEOUT_MS,
   PRINT_SERVER_FETCH_TIMEOUT_MS,
@@ -244,7 +244,7 @@ export default {
         return {
           t,
           storeName: this.commercialUserInfo?.storeName || "LiteCashier",
-          logoUrl: this.commercialUserInfo?.logo || null,
+          logoUrl: resolveAbsoluteAssetUrl(this.commercialUserInfo?.logo) || null,
           footerCreditText: this.commercialUserInfo?.footerCreditText || null,
           footerCreditPhone: this.commercialUserInfo?.footerCreditPhone || null,
           appName: t("app-name"),
@@ -336,7 +336,7 @@ export default {
       return {
         t,
         storeName: this.commercialUserInfo?.storeName || "LiteCashier",
-        logoUrl: this.commercialUserInfo?.logo || null,
+        logoUrl: resolveAbsoluteAssetUrl(this.commercialUserInfo?.logo) || null,
         footerCreditText: this.commercialUserInfo?.footerCreditText || null,
         footerCreditPhone: this.commercialUserInfo?.footerCreditPhone || null,
         appName: t("app-name"),

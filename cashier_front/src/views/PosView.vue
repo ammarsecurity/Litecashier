@@ -1255,6 +1255,7 @@ import CalculatorComp from "@/components/CalculatorComp.vue";
 import ClockVue from "@/components/ClockVue.vue";
 import VueBarcode from "@chenfengyuan/vue-barcode";
 import { HTTP } from "../http/api.js";
+import { resolveAbsoluteAssetUrl } from "@/utils/apiBase.js";
 import posOrderPersistMixin from "@/mixins/posOrderPersistMixin.js";
 import posCardPaymentMixin from "@/mixins/posCardPaymentMixin.js";
 import posPrintMixin from "@/mixins/posPrintMixin.js";
@@ -1665,7 +1666,7 @@ export default {
                 : "Pos";
             this.commercialUserInfo = {
               storeName: d.storeName || d.StoreName || "LiteCashier",
-              logo: d.logo || d.Logo || null,
+              logo: resolveAbsoluteAssetUrl(d.logo || d.Logo) || null,
               printInvoiceFormat: format,
               footerCreditText: d.footerCreditText || d.FooterCreditText || null,
               footerCreditPhone: d.footerCreditPhone || d.FooterCreditPhone || null,

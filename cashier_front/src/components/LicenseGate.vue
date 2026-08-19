@@ -49,13 +49,7 @@
         />
         <p v-if="error" class="license-gate-error">{{ error }}</p>
         <button type="submit" class="license-gate-submit" :disabled="busy || !code.trim()">
-          {{
-            busy
-              ? ($t("pleaseWait") || "...")
-              : changeMode
-                ? ($t("licenseChangeActivateButton") || $t("licenseActivateButton"))
-                : $t("licenseActivateButton")
-          }}
+          {{ submitButtonLabel }}
         </button>
       </form>
     </div>
@@ -92,6 +86,19 @@ export default {
       if (this.status.isActive) return this.$t("licenseActiveHint");
       if (this.status.message === "expired") return this.$t("licenseExpiredMessage");
       return this.$t("licenseRequiredMessage");
+    },
+    submitButtonLabel() {
+      if (this.busy) {
+        if (this.$te("licenseActivating")) return this.$t("licenseActivating");
+        if (this.$te("pleaseWait")) return this.$t("pleaseWait");
+        return "جاري التفعيل...";
+      }
+      if (this.changeMode) {
+        return this.$te("licenseChangeActivateButton")
+          ? this.$t("licenseChangeActivateButton")
+          : this.$t("licenseActivateButton");
+      }
+      return this.$t("licenseActivateButton");
     },
   },
   mounted() {

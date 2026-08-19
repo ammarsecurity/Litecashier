@@ -238,6 +238,7 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "@/http/api.js";
+import { resolveAbsoluteAssetUrl } from "@/utils/apiBase.js";
 
 export default {
   name: "ProfileView",
@@ -275,7 +276,7 @@ export default {
         if (d) {
           this.form.name = d.storeName || d.StoreName || "";
           this.form.storeName = d.storeName || d.StoreName || "";
-          this.currentLogo = d.logo || d.Logo || null;
+          this.currentLogo = resolveAbsoluteAssetUrl(d.logo || d.Logo) || null;
         }
         // Also fetch user's own info from localStorage
         try {
@@ -364,7 +365,7 @@ export default {
 
         const d = res?.data?.data;
         if (d?.logo || d?.Logo) {
-          this.currentLogo = d.logo || d.Logo;
+          this.currentLogo = resolveAbsoluteAssetUrl(d.logo || d.Logo);
         }
         this.logoFile = null;
         this.logoPreview = null;

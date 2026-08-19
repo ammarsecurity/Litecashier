@@ -1,4 +1,5 @@
 import { RECEIPT_PRINT_CAIRO_FONT_HTML } from "@/utils/receiptPrint.js";
+import { resolveAbsoluteAssetUrl } from "@/utils/apiBase.js";
 
 /**
  * Resolve invoice status badge for A4 print.
@@ -59,8 +60,9 @@ export function buildA4InvoicePrintDocument(data = {}) {
   const t = typeof data.t === "function" ? data.t : (k) => k;
   const status = resolveInvoiceStatus(data, t);
   const storeName = esc(data.storeName || "LiteCashier");
-  const logoHtml = data.logoUrl
-    ? `<img class="a4-logo" src="${esc(data.logoUrl)}" alt="logo" />`
+  const logoUrl = resolveAbsoluteAssetUrl(data.logoUrl);
+  const logoHtml = logoUrl
+    ? `<img class="a4-logo" src="${esc(logoUrl)}" alt="logo" />`
     : `<div class="a4-logo-fallback">${storeName.slice(0, 1)}</div>`;
 
   const lines = Array.isArray(data.lines) ? data.lines : [];

@@ -67,6 +67,33 @@ namespace POS.Controllers
             return user?.InsertByUserId ?? userId;
         }
 
+        /// <summary>
+        /// Build an absolute image URL for clients and Print Server (relative /Images/ paths fail in WebView2 print).
+        /// </summary>
+        private string? BuildPublicImageUrl(string? fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName) || fileName == "not a valid image extension")
+                return null;
+
+            var configured = _configuration["ApiSettings:ImageBaseUrl"] ?? "/Images/";
+            if (configured.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                || configured.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                return configured.TrimEnd('/') + "/" + fileName.TrimStart('/');
+            }
+
+            var path = configured.StartsWith('/') ? configured : "/" + configured;
+            if (!path.EndsWith('/'))
+                path += "/";
+
+            var host = HttpContext?.Request?.Host;
+            if (host == null || host.Value == null)
+                return path + fileName.TrimStart('/');
+
+            var scheme = HttpContext.Request.Scheme;
+            return $"{scheme}://{host.Value}{path}{fileName.TrimStart('/')}";
+        }
+
         private async Task<(bool Ok, string? ErrorKey)> TryVerifySensitiveCredentialAsync(int commercialUserId, string password)
         {
             var commercial = await _dbConfig.Users
@@ -4061,8 +4088,6 @@ namespace POS.Controllers
                     });
                 }
 
-                var imageBaseUrl = _configuration["ApiSettings:ImageBaseUrl"] ?? "https://pos-api.tatwer.tech/Images/";
-
                 var format = string.Equals(commercialUser.PrintInvoiceFormat, "A4", StringComparison.OrdinalIgnoreCase)
                     ? "A4"
                     : "Pos";
@@ -4070,7 +4095,7 @@ namespace POS.Controllers
                 var userInfo = new CommercialUserInfoDto
                 {
                     StoreName = commercialUser.StoreName ?? commercialUser.Name,
-                    Logo = string.IsNullOrEmpty(commercialUser.Logo) ? null : imageBaseUrl + commercialUser.Logo,
+                    Logo = BuildPublicImageUrl(commercialUser.Logo),
                     PrintInvoiceFormat = format,
                     FooterCreditText = commercialUser.FooterCreditText,
                     FooterCreditPhone = commercialUser.FooterCreditPhone
@@ -4128,13 +4153,12 @@ namespace POS.Controllers
 
                 await _dbConfig.SaveChangesAsync();
 
-                var imageBaseUrl = _configuration["ApiSettings:ImageBaseUrl"] ?? "https://pos-api.tatwer.tech/Images/";
                 return Ok(new GlobalResponse<CommercialUserInfoDto>
                 {
                     Data = new CommercialUserInfoDto
                     {
                         StoreName = commercialUser.StoreName ?? commercialUser.Name,
-                        Logo = string.IsNullOrEmpty(commercialUser.Logo) ? null : imageBaseUrl + commercialUser.Logo,
+                        Logo = BuildPublicImageUrl(commercialUser.Logo),
                         PrintInvoiceFormat = format,
                         FooterCreditText = commercialUser.FooterCreditText,
                         FooterCreditPhone = commercialUser.FooterCreditPhone
@@ -4227,14 +4251,13 @@ namespace POS.Controllers
 
                 await _dbConfig.SaveChangesAsync();
 
-                var imageBaseUrl = _configuration["ApiSettings:ImageBaseUrl"] ?? "https://pos-api.tatwer.tech/Images/";
                 var format = string.Equals(user.PrintInvoiceFormat, "A4", StringComparison.OrdinalIgnoreCase) ? "A4" : "Pos";
                 return Ok(new GlobalResponse<CommercialUserInfoDto>
                 {
                     Data = new CommercialUserInfoDto
                     {
                         StoreName = user.StoreName ?? user.Name,
-                        Logo = string.IsNullOrEmpty(user.Logo) ? null : imageBaseUrl + user.Logo,
+                        Logo = BuildPublicImageUrl(user.Logo),
                         PrintInvoiceFormat = format,
                         FooterCreditText = user.FooterCreditText,
                         FooterCreditPhone = user.FooterCreditPhone

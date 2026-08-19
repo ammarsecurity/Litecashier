@@ -32,3 +32,24 @@ export function resolvePrintServerUrl() {
   }
   return "http://localhost:5000";
 }
+
+/**
+ * Turn a relative asset path (/Images/foo.png) into an absolute URL so Print Server
+ * WebView2 can load images (it has no same-origin base as the POS SPA).
+ */
+export function resolveAbsoluteAssetUrl(url) {
+  if (url == null || url === "") return null;
+  const raw = String(url).trim();
+  if (
+    raw.startsWith("http://") ||
+    raw.startsWith("https://") ||
+    raw.startsWith("data:")
+  ) {
+    return raw;
+  }
+  const base = resolveApiBaseUrl().replace(/\/$/, "");
+  if (raw.startsWith("/")) {
+    return `${base}${raw}`;
+  }
+  return `${base}/${raw}`;
+}
