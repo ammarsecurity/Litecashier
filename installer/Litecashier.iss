@@ -1,8 +1,9 @@
 ; Litecashier Windows 11 all-in-one installer
 ; Build staging first: powershell -ExecutionPolicy Bypass -File build-installer.ps1
+; Safe for upgrades: keeps DB connection, Images, ProgramData license; applies EF migrations only.
 
 #define MyAppName "Litecashier"
-#define MyAppVersion "1.0.26"
+#define MyAppVersion "1.0.27"
 #define MyAppPublisher "Litecashier"
 #define MyAppExeName "Litecashier.exe"
 
@@ -10,6 +11,7 @@
 AppId={{A3F9C2E1-8B4D-4F6A-9C1E-2D7E5A8B4F31}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
@@ -27,6 +29,9 @@ SetupIconFile=Assets\app.ico
 ; Close/replace locked files when updating over a running install
 CloseApplications=force
 RestartApplications=no
+; Same AppId → Inno treats this as an upgrade (keeps uninstall entry + data)
+UsePreviousAppDir=yes
+DisableDirPage=auto
 
 [Languages]
 Name: "arabic"; MessagesFile: "compiler:Languages\Arabic.isl"
@@ -38,11 +43,13 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Dirs]
 Name: "{commonappdata}\Litecashier"; Permissions: users-modify
 Name: "{commonappdata}\Litecashier\Logs"; Permissions: users-modify
+Name: "{app}\POS\wwwroot\Images"; Permissions: users-modify
 
 [Files]
 Source: "staging\Litecashier.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Stop-Litecashier.bat"; DestDir: "{app}"; Flags: ignoreversion
-Source: "staging\POS\*"; DestDir: "{app}\POS"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "appsettings.Production.json"
+; Never overwrite live DB settings or customer product images on upgrade
+Source: "staging\POS\*"; DestDir: "{app}\POS"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "appsettings.Production.json,wwwroot\Images\*"
 Source: "staging\PrintServer\*"; DestDir: "{app}\PrintServer"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "deps\MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 Source: "deps\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
@@ -58,6 +65,7 @@ Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; S
 Filename: "{tmp}\MicrosoftEdgeWebview2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "Installing WebView2 Runtime..."; Check: NeedsWebView2; Flags: waituntilterminated
 Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name=""Litecashier POS"" & netsh advfirewall firewall add rule name=""Litecashier POS"" dir=in action=allow protocol=TCP localport=5189"; StatusMsg: "Opening firewall for Litecashier..."; Flags: runhidden
 Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name=""Litecashier PrintServer"" & netsh advfirewall firewall add rule name=""Litecashier PrintServer"" dir=in action=allow protocol=TCP localport=5000"; Flags: runhidden
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name=""Litecashier POS"" & netsh advfirewall firewall delete rule name=""Litecashier PrintServer"""; Flags: runhidden
@@ -65,6 +73,12 @@ Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name="
 [Code]
 var
   DbPage: TInputQueryWizardPage;
+
+function IsUpgradeInstall: Boolean;
+begin
+  Result := FileExists(ExpandConstant('{app}\POS\appsettings.Production.json'))
+    or FileExists(ExpandConstant('{app}\Litecashier.exe'));
+end;
 
 function EscapeJson(const S: string): string;
 begin
@@ -124,7 +138,6 @@ procedure KillLitecashierProcesses;
 var
   ResultCode: Integer;
 begin
-  { Stop running system before overwriting files — no manual Stop-Litecashier.bat needed }
   Exec('taskkill.exe', '/F /IM Litecashier.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec('taskkill.exe', '/F /IM POS.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec('taskkill.exe', '/F /IM PrintServer.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
@@ -148,7 +161,7 @@ procedure InitializeWizard;
 begin
   DbPage := CreateInputQueryPage(wpSelectDir,
     'إعدادات قاعدة البيانات MySQL',
-    'أدخل بيانات الاتصال — النظام ينشئ القاعدة إن لم تكن موجودة أو يحدّثها إن وُجدت',
+    'للتثبيت الجديد فقط — عند التحديث تُحفظ إعدادات القاعدة الحالية تلقائياً',
     'تأكد أن خدمة MySQL (مثلاً من XAMPP) تعمل قبل تشغيل Litecashier.');
   DbPage.Add('Host / Server:', False);
   DbPage.Add('Port:', False);
@@ -160,6 +173,13 @@ begin
   DbPage.Values[2] := 'root';
   DbPage.Values[3] := '';
   DbPage.Values[4] := 'pos';
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  if (PageID = DbPage.ID) and IsUpgradeInstall then
+    Result := True;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -197,8 +217,6 @@ begin
   if CurStep = ssPostInstall then
   begin
     ExistingPath := ExpandConstant('{app}\POS\appsettings.Production.json');
-    { Only write a new appsettings when no previous config exists (fresh install).
-      On upgrade, the existing config is preserved so the database connection is not lost. }
     if not FileExists(ExistingPath) then
       WriteProductionAppsettings;
   end;
@@ -229,4 +247,5 @@ begin
 end;
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{commonappdata}\Litecashier"
+; Keep license/machine identity; only remove logs on uninstall. Never touch MySQL/pos.
+Type: filesandordirs; Name: "{commonappdata}\Litecashier\Logs"
