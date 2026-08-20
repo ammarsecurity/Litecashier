@@ -42,13 +42,45 @@ public class LicenseStatusDto
     public string Message { get; set; } = "";
 }
 
+public class AnnouncementDto
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = "";
+    public string Body { get; set; } = "";
+    public string? ImageUrl { get; set; }
+    public string? LinkUrl { get; set; }
+    public int SortOrder { get; set; }
+}
+
+public class LocalDeviceControlState
+{
+    public bool IsPaused { get; set; }
+    public string? PauseReason { get; set; }
+    public List<AnnouncementDto> Announcements { get; set; } = new();
+    public DateTime? LastSyncedAt { get; set; }
+    public DateTime? ServerTime { get; set; }
+}
+
+public class DeviceStatusDto
+{
+    public bool IsPaused { get; set; }
+    public string? PauseReason { get; set; }
+    public List<AnnouncementDto> Announcements { get; set; } = new();
+    public DateTime? LastSyncedAt { get; set; }
+    public bool SyncOnline { get; set; }
+    public string MachineId { get; set; } = "";
+}
+
 public interface ILicenseService
 {
     bool EnforcementEnabled { get; }
     string GetMachineId();
     LicenseStatusDto GetStatus();
+    DeviceStatusDto GetDeviceStatus();
+    bool IsDevicePaused();
     Task<LicenseStatusDto> ActivateAsync(string code, CancellationToken ct = default);
     Task<bool> EnsureLicensedAsync(CancellationToken ct = default);
+    Task<DeviceStatusDto> SyncDeviceControlAsync(CancellationToken ct = default);
     /// <summary>True when the license server is reachable over the network.</summary>
     Task<bool> CanReachLicenseServerAsync(CancellationToken ct = default);
 }
@@ -60,6 +92,8 @@ public class LicenseService : ILicenseService
     private readonly ILogger<LicenseService> _logger;
     private readonly object _gate = new();
     private LocalLicenseState? _cache;
+    private LocalDeviceControlState? _deviceCache;
+    private DateTime _lastDeviceSyncAttempt = DateTime.MinValue;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -97,6 +131,7 @@ public class LicenseService : ILicenseService
     }
 
     private string LicenseFilePath => Path.Combine(DataDir, $"license-{_options.Product.ToLowerInvariant()}.dat");
+    private string DeviceControlFilePath => Path.Combine(DataDir, $"device-control-{_options.Product.ToLowerInvariant()}.dat");
     private string MachineFilePath => Path.Combine(DataDir, "machine.id");
 
     public string GetMachineId()
@@ -271,7 +306,125 @@ public class LicenseService : ILicenseService
             LastValidatedAt = DateTime.UtcNow
         };
         SaveState(state);
+        _ = await SyncDeviceControlAsync(ct);
         return GetStatus();
+    }
+
+    public bool IsDevicePaused()
+    {
+        if (!EnforcementEnabled) return false;
+        return LoadDeviceControl()?.IsPaused == true;
+    }
+
+    public DeviceStatusDto GetDeviceStatus()
+    {
+        var local = LoadDeviceControl() ?? new LocalDeviceControlState();
+        return new DeviceStatusDto
+        {
+            IsPaused = local.IsPaused,
+            PauseReason = local.PauseReason,
+            Announcements = local.Announcements ?? new List<AnnouncementDto>(),
+            LastSyncedAt = local.LastSyncedAt,
+            SyncOnline = false,
+            MachineId = GetMachineId()
+        };
+    }
+
+    private LocalDeviceControlState? LoadDeviceControl()
+    {
+        lock (_gate)
+        {
+            if (_deviceCache != null) return _deviceCache;
+            try
+            {
+                if (!File.Exists(DeviceControlFilePath)) return null;
+                var b64 = File.ReadAllText(DeviceControlFilePath).Trim();
+                var json = Encoding.UTF8.GetString(Convert.FromBase64String(b64));
+                _deviceCache = JsonSerializer.Deserialize<LocalDeviceControlState>(json, JsonOpts);
+                return _deviceCache;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed loading local device control");
+                return null;
+            }
+        }
+    }
+
+    private void SaveDeviceControl(LocalDeviceControlState state)
+    {
+        lock (_gate)
+        {
+            _deviceCache = state;
+            var json = JsonSerializer.Serialize(state, JsonOpts);
+            var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+            File.WriteAllText(DeviceControlFilePath, b64);
+        }
+    }
+
+    public async Task<DeviceStatusDto> SyncDeviceControlAsync(CancellationToken ct = default)
+    {
+        var result = GetDeviceStatus();
+        if (!EnforcementEnabled)
+            return result;
+
+        var license = LoadState();
+        if (license == null || string.IsNullOrWhiteSpace(license.Code))
+            return result;
+
+        try
+        {
+            var client = _httpClientFactory.CreateClient("LicenseServer");
+            var payload = new
+            {
+                code = license.Code,
+                machineId = GetMachineId(),
+                product = _options.Product
+            };
+            var response = await client.PostAsJsonAsync("api/device/sync", payload, JsonOpts, ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
+            _lastDeviceSyncAttempt = DateTime.UtcNow;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Device sync HTTP {Status}: {Body}", (int)response.StatusCode, body);
+                result.SyncOnline = false;
+                return result;
+            }
+
+            var remote = JsonSerializer.Deserialize<RemoteDeviceSyncDto>(body, JsonOpts);
+            if (remote == null)
+            {
+                result.SyncOnline = false;
+                return result;
+            }
+
+            var state = new LocalDeviceControlState
+            {
+                IsPaused = remote.IsPaused,
+                PauseReason = remote.PauseReason,
+                Announcements = remote.Announcements ?? new List<AnnouncementDto>(),
+                LastSyncedAt = DateTime.UtcNow,
+                ServerTime = remote.ServerTime
+            };
+            SaveDeviceControl(state);
+
+            return new DeviceStatusDto
+            {
+                IsPaused = state.IsPaused,
+                PauseReason = state.PauseReason,
+                Announcements = state.Announcements,
+                LastSyncedAt = state.LastSyncedAt,
+                SyncOnline = true,
+                MachineId = GetMachineId()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Device sync failed; using local cache");
+            result.SyncOnline = false;
+            return result;
+        }
     }
 
     public async Task<bool> EnsureLicensedAsync(CancellationToken ct = default)
@@ -285,39 +438,60 @@ public class LicenseService : ILicenseService
         var needsOnline = state!.LastValidatedAt == null
             || state.LastValidatedAt < DateTime.UtcNow.AddHours(-hours);
 
-        if (!needsOnline) return true;
+        var cachedDevice = LoadDeviceControl();
+        var needsDeviceSync = _lastDeviceSyncAttempt < DateTime.UtcNow.AddHours(-1)
+            || cachedDevice?.LastSyncedAt == null
+            || cachedDevice.LastSyncedAt < DateTime.UtcNow.AddHours(-1);
+
+        if (!needsOnline && !needsDeviceSync) return true;
 
         try
         {
-            var client = _httpClientFactory.CreateClient("LicenseServer");
-            var payload = new { code = state.Code, machineId = GetMachineId(), product = _options.Product };
-            var response = await client.PostAsJsonAsync("api/validate", payload, JsonOpts, ct);
-            var body = await response.Content.ReadAsStringAsync(ct);
-            if (!response.IsSuccessStatusCode)
+            if (needsOnline)
             {
-                // Offline grace: keep local until ExpiresAt
-                _logger.LogWarning("License validate HTTP {Status}", (int)response.StatusCode);
-                return IsLocallyActive(state);
-            }
+                var client = _httpClientFactory.CreateClient("LicenseServer");
+                var payload = new { code = state.Code, machineId = GetMachineId(), product = _options.Product };
+                var response = await client.PostAsJsonAsync("api/validate", payload, JsonOpts, ct);
+                var body = await response.Content.ReadAsStringAsync(ct);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("License validate HTTP {Status}", (int)response.StatusCode);
+                    if (needsDeviceSync)
+                        await SyncDeviceControlAsync(ct);
+                    return IsLocallyActive(state);
+                }
 
-            var remote = JsonSerializer.Deserialize<RemoteLicenseDto>(body, JsonOpts);
-            if (remote == null) return IsLocallyActive(state);
+                var remote = JsonSerializer.Deserialize<RemoteLicenseDto>(body, JsonOpts);
+                if (remote == null) return IsLocallyActive(state);
 
-            if (!remote.IsActive)
-            {
-                state.ExpiresAt = DateTime.UtcNow.AddSeconds(-1);
-                state.IsLifetime = false;
+                if (!remote.IsActive)
+                {
+                    state.ExpiresAt = DateTime.UtcNow.AddSeconds(-1);
+                    state.IsLifetime = false;
+                    state.LastValidatedAt = DateTime.UtcNow;
+                    SaveState(state);
+                    return false;
+                }
+
+                state.ExpiresAt = remote.ExpiresAt;
+                state.IsLifetime = remote.IsLifetime || remote.ExpiresAt == null;
+                state.DurationType = remote.DurationType ?? state.DurationType;
+                state.DurationValue = remote.DurationValue;
                 state.LastValidatedAt = DateTime.UtcNow;
                 SaveState(state);
-                return false;
+
+                if (remote.IsPaused)
+                {
+                    var dc = LoadDeviceControl() ?? new LocalDeviceControlState();
+                    dc.IsPaused = true;
+                    dc.PauseReason = remote.PauseReason;
+                    SaveDeviceControl(dc);
+                }
             }
 
-            state.ExpiresAt = remote.ExpiresAt;
-            state.IsLifetime = remote.IsLifetime || remote.ExpiresAt == null;
-            state.DurationType = remote.DurationType ?? state.DurationType;
-            state.DurationValue = remote.DurationValue;
-            state.LastValidatedAt = DateTime.UtcNow;
-            SaveState(state);
+            if (needsDeviceSync)
+                await SyncDeviceControlAsync(ct);
+
             return true;
         }
         catch (Exception ex)
@@ -362,6 +536,7 @@ public class LicenseService : ILicenseService
 
     private async Task<bool> HasGeneralInternetAsync(CancellationToken ct)
     {
+        // Lightweight public probes used by Windows/Android captive-portal checks.
         string[] probes =
         [
             "https://www.msftconnecttest.com/connecttest.txt",
@@ -422,7 +597,16 @@ public class LicenseService : ILicenseService
         public DateTime? ActivatedAt { get; set; }
         public DateTime? ExpiresAt { get; set; }
         public bool IsLifetime { get; set; }
+        public bool IsPaused { get; set; }
+        public string? PauseReason { get; set; }
         public string? Message { get; set; }
     }
-}
 
+    private sealed class RemoteDeviceSyncDto
+    {
+        public DateTime? ServerTime { get; set; }
+        public bool IsPaused { get; set; }
+        public string? PauseReason { get; set; }
+        public List<AnnouncementDto>? Announcements { get; set; }
+    }
+}

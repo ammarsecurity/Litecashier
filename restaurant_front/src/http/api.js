@@ -1,6 +1,7 @@
 import axios from "axios";
 import { resolveApiBaseUrl } from "@/utils/apiBase.js";
 import { openLicenseGate } from "@/utils/licenseGateBus.js";
+import { openDevicePausedGate } from "@/utils/devicePausedGateBus.js";
 
 /** PAX Nebula sale can wait for card/PIN on device — longer than default API calls. */
 export const CARD_PAYMENT_REQUEST_TIMEOUT_MS = 180000;
@@ -79,8 +80,11 @@ HTTP.interceptors.response.use(
                     openLicenseGate(error.response.data || {});
                     break;
                 case 403:
-                    // Forbidden - User doesn't have permission
-                    console.error('Access forbidden');
+                    if (error.response.data?.message === "devicePaused") {
+                        openDevicePausedGate(error.response.data || {});
+                    } else {
+                        console.error('Access forbidden');
+                    }
                     break;
                 case 404:
                     // Not found

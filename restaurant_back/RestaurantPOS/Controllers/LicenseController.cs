@@ -51,5 +51,14 @@ public class LicenseController : ControllerBase
             return BadRequest(new { message = ex.Message, status = _licenseService.GetStatus() });
         }
     }
-}
 
+    [HttpGet("device-status")]
+    public IActionResult DeviceStatus() => Ok(_licenseService.GetDeviceStatus());
+
+    [HttpPost("device-sync")]
+    public async Task<IActionResult> DeviceSync(CancellationToken ct)
+    {
+        var status = await _licenseService.SyncDeviceControlAsync(ct);
+        return Ok(status);
+    }
+}

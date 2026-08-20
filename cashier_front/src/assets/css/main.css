@@ -9441,6 +9441,10 @@ table .b-icon,
   max-width: 100%;
 }
 
+.main-content-wrapper.pos-route.pos-route--v2 .pos-page-container.pos-page-container--v2 {
+  min-height: 0 !important;
+}
+
 .pos-container-fluid {
   padding: 0;
 }
@@ -14018,6 +14022,61 @@ table .b-icon,
   color: #fff;
 }
 
+:root.light-theme .app-top-header-sections-link {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  color: #002536;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+:root.light-theme .app-top-header-sections-link:hover {
+  background: #f0f9ff;
+  border-color: #67e8f9;
+  color: #0e7490;
+  box-shadow: 0 2px 6px rgba(8, 145, 178, 0.12);
+}
+
+:root.light-theme .app-top-header-sections-link.router-link-active,
+:root.light-theme .app-top-header-sections-link.router-link-exact-active {
+  background: color-mix(in srgb, var(--primary-color) 10%, #ffffff);
+  border-color: color-mix(in srgb, var(--primary-color) 35%, #e5e7eb);
+  color: var(--primary-color);
+}
+
+:root.light-theme .app-top-header-sections-icon {
+  color: inherit;
+}
+
+/* POS — header icons on light retail-style background */
+:root.light-theme .pos-route .app-top-header-sections-link,
+:root.light-theme .pos-route .app-top-header-icon-btn,
+:root.light-theme .pos-route .app-top-header-lang,
+:root.light-theme .pos-route .app-top-header-fullscreen-btn {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+
+:root.light-theme .pos-route .app-top-header-sections-link:hover,
+:root.light-theme .pos-route .app-top-header-icon-btn:hover:not(:disabled),
+:root.light-theme .pos-route .app-top-header-lang:hover,
+:root.light-theme .pos-route .app-top-header-fullscreen-btn:hover {
+  background: #fff;
+  border-color: #f97316;
+  color: #ea580c;
+}
+
+:root.light-theme .pos-route .app-top-header {
+  background: #ffffff;
+  border-bottom-color: #e5e7eb;
+}
+
+:root.light-theme .pos-route .app-top-header .pos-quick-search--header .pos-quick-search-input {
+  background: #f3f4f6 !important;
+  border-color: #e5e7eb !important;
+  color: #111827 !important;
+}
+
 .role-manager {
   background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
   color: #ffffff;
@@ -15545,16 +15604,21 @@ table .b-icon,
 
   /* POS v2: قائمة السلة تمتد مع ارتفاع اللوحة بدل سقف 42vh؛ التمرير داخل القائمة فقط */
   .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-container {
+    flex: 1 1 0% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
     overflow-y: hidden !important;
     overflow-x: hidden !important;
   }
 
   .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-items-section {
-    flex: 1 1 auto !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
   }
 
   .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-items-list {
-    flex: 1 1 auto !important;
+    flex: 1 1 0% !important;
     max-height: none !important;
   }
 

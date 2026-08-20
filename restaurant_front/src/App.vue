@@ -3,6 +3,7 @@
     <router-view />
     <SystemSectionsFab v-if="showSectionsFab" />
     <LicenseGate />
+    <DevicePausedGate />
   </div>
 </template>
 
@@ -10,11 +11,12 @@
 import { syncNotifyLocale } from '@/plugins/notifyPlugin';
 import SystemSectionsFab from '@/components/Layout/SystemSectionsFab.vue';
 import LicenseGate from '@/components/LicenseGate.vue';
+import DevicePausedGate from '@/components/DevicePausedGate.vue';
 import pendingOrderAlertSound from '@/utils/pendingOrderAlertSound.js';
 
 export default {
   name: 'App',
-  components: { SystemSectionsFab, LicenseGate },
+  components: { SystemSectionsFab, LicenseGate, DevicePausedGate },
   computed: {
     showSectionsFab() {
       const token = localStorage.getItem('token');

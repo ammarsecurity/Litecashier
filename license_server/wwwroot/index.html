@@ -3,67 +3,52 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Litecashier — إدارة التراخيص</title>
+  <title>Litecashier — لوحة الإدارة</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/admin.css" />
 </head>
 <body>
-  <div class="bg-atmosphere" aria-hidden="true">
-    <span class="orb orb-a"></span>
-    <span class="orb orb-b"></span>
-    <span class="grid-fade"></span>
-  </div>
-
-  <!-- Login -->
   <section id="loginView" class="login-view">
     <div class="login-shell">
-      <div class="login-visual">
+      <div class="login-brand">
         <p class="brand-hero">Litecashier</p>
-        <p class="login-visual-line">نظام تراخيص نقاط البيع</p>
+        <p class="login-visual-line">إدارة التراخيص والإعلانات والأجهزة</p>
       </div>
-      <div class="login-panel reveal">
-        <h1>إدارة التراخيص</h1>
-        <p class="login-hint">أدخل مفتاح الأدمن للوصول إلى لوحة السيريالات</p>
+      <div class="login-panel">
+        <h1>دخول الأدمن</h1>
+        <p class="login-hint">أدخل مفتاح الأدمن للوصول إلى اللوحة المركزية</p>
         <form id="loginForm" class="login-form">
           <label for="adminKeyInput">مفتاح الأدمن</label>
-          <div class="field-shell">
-            <input id="adminKeyInput" type="password" autocomplete="current-password" placeholder="AdminApiKey" required />
-          </div>
+          <input id="adminKeyInput" type="password" autocomplete="current-password" placeholder="AdminApiKey" required />
           <p id="loginError" class="form-error" hidden></p>
-          <button type="submit" class="btn btn-primary btn-block">دخول إلى اللوحة</button>
+          <button type="submit" class="btn btn-primary btn-block">دخول</button>
         </form>
       </div>
     </div>
   </section>
 
-  <!-- Dashboard -->
   <section id="appView" class="app-view" hidden>
     <header class="topbar">
       <div class="topbar-brand">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M7 7h10v10H7z" opacity=".35"/>
-            <path d="M4 12h16M12 4v16"/>
-          </svg>
-        </span>
-        <div>
-          <strong>Litecashier</strong>
-          <small>لوحة التراخيص</small>
-        </div>
+        <strong>Litecashier</strong>
+        <small>لوحة الإدارة المركزية</small>
       </div>
+      <nav class="tabs" role="tablist">
+        <button type="button" class="tab active" data-tab="licenses">التراخيص</button>
+        <button type="button" class="tab" data-tab="announcements">الإعلانات</button>
+        <button type="button" class="tab" data-tab="devices">الأجهزة</button>
+      </nav>
       <div class="topbar-actions">
-        <button type="button" id="refreshBtn" class="btn btn-ghost">
-          <span class="btn-ico" aria-hidden="true">↻</span>
-          تحديث
-        </button>
+        <button type="button" id="refreshBtn" class="btn btn-ghost">تحديث</button>
         <button type="button" id="logoutBtn" class="btn btn-ghost">خروج</button>
       </div>
     </header>
 
-    <main class="layout">
-      <aside class="create-panel reveal">
+    <!-- Licenses -->
+    <main id="tab-licenses" class="tab-panel layout">
+      <aside class="create-panel">
         <div class="panel-head">
           <h2>إنشاء سيريال</h2>
           <p>ولّد كود تجربة أو اشتراك للزبون</p>
@@ -77,7 +62,6 @@
               <option value="Restaurant">مطعم فقط</option>
             </select>
           </label>
-
           <label>
             نوع المدة
             <select id="durationType" name="durationType">
@@ -86,7 +70,6 @@
               <option value="Lifetime">مدى الحياة</option>
             </select>
           </label>
-
           <div class="form-row">
             <label id="durationValueWrap">
               القيمة
@@ -97,17 +80,14 @@
               <input id="maxActivations" name="maxActivations" type="number" min="1" value="1" />
             </label>
           </div>
-
           <label>
             ملاحظات
             <input id="notes" name="notes" type="text" placeholder="اسم الزبون / الفرع" />
           </label>
-
           <p id="createError" class="form-error" hidden></p>
           <p id="createSuccess" class="form-success" hidden></p>
           <button type="submit" class="btn btn-primary btn-block">توليد الكود</button>
         </form>
-
         <div id="lastCreated" class="last-created" hidden>
           <div class="last-created-label">آخر كود تم إنشاؤه</div>
           <div class="last-created-row">
@@ -117,32 +97,17 @@
         </div>
       </aside>
 
-      <section class="keys-panel reveal delay-1">
+      <section class="keys-panel">
         <div class="stats" id="statsRow">
-          <article class="stat-card">
-            <span class="stat-label">الإجمالي</span>
-            <strong id="statTotal">0</strong>
-          </article>
-          <article class="stat-card stat-card--ok">
-            <span class="stat-label">نشط</span>
-            <strong id="statActive">0</strong>
-          </article>
-          <article class="stat-card stat-card--off">
-            <span class="stat-label">ملغى</span>
-            <strong id="statRevoked">0</strong>
-          </article>
-          <article class="stat-card stat-card--accent">
-            <span class="stat-label">تفعيلات</span>
-            <strong id="statActivations">0</strong>
-          </article>
+          <article class="stat-card"><span class="stat-label">الإجمالي</span><strong id="statTotal">0</strong></article>
+          <article class="stat-card stat-card--ok"><span class="stat-label">نشط</span><strong id="statActive">0</strong></article>
+          <article class="stat-card stat-card--off"><span class="stat-label">ملغى</span><strong id="statRevoked">0</strong></article>
+          <article class="stat-card"><span class="stat-label">تفعيلات</span><strong id="statActivations">0</strong></article>
         </div>
-
         <div class="panel-section-head">
           <h2>السيريالات</h2>
           <div class="toolbar">
-            <div class="search-shell">
-              <input id="searchInput" type="search" placeholder="بحث بالكود أو الملاحظات..." />
-            </div>
+            <input id="searchInput" type="search" placeholder="بحث بالكود أو الملاحظات..." />
             <select id="filterProduct">
               <option value="">كل المنتجات</option>
               <option value="Both">كاشير + مطعم</option>
@@ -156,25 +121,14 @@
             </select>
           </div>
         </div>
-
-        <div id="keysEmpty" class="empty-state" hidden>
-          <div class="empty-glyph" aria-hidden="true">◇</div>
-          <p>لا توجد سيريالات بعد. أنشئ أول كود من اللوحة الجانبية.</p>
-        </div>
+        <div id="keysEmpty" class="empty-state" hidden><p>لا توجد سيريالات بعد.</p></div>
         <div id="keysError" class="form-error" hidden></div>
-
         <div class="table-wrap">
-          <table class="keys-table">
+          <table class="data-table">
             <thead>
               <tr>
-                <th>الكود</th>
-                <th>المنتج</th>
-                <th>المدة</th>
-                <th>تفعيلات</th>
-                <th>الحالة</th>
-                <th>ملاحظات</th>
-                <th>تاريخ الإنشاء</th>
-                <th></th>
+                <th>الكود</th><th>المنتج</th><th>المدة</th><th>تفعيلات</th>
+                <th>الحالة</th><th>ملاحظات</th><th>تاريخ الإنشاء</th><th></th>
               </tr>
             </thead>
             <tbody id="keysBody"></tbody>
@@ -182,12 +136,84 @@
         </div>
       </section>
     </main>
+
+    <!-- Announcements -->
+    <main id="tab-announcements" class="tab-panel layout" hidden>
+      <aside class="create-panel">
+        <div class="panel-head">
+          <h2>إعلان جديد</h2>
+          <p>يظهر كسلايدر في صفحة الأقسام على الأجهزة</p>
+        </div>
+        <form id="announcementForm" class="create-form">
+          <label>العنوان<input id="annTitle" type="text" required maxlength="200" /></label>
+          <label>النص<textarea id="annBody" rows="3"></textarea></label>
+          <label>رابط الصورة (اختياري)<input id="annImageUrl" type="url" placeholder="https://..." /></label>
+          <label>رابط عند النقر (اختياري)<input id="annLinkUrl" type="url" placeholder="https://..." /></label>
+          <label>
+            النطاق
+            <select id="annScope">
+              <option value="Both">كاشير + مطعم</option>
+              <option value="Cashier">كاشير فقط</option>
+              <option value="Restaurant">مطعم فقط</option>
+            </select>
+          </label>
+          <div class="form-row">
+            <label>الترتيب<input id="annSort" type="number" value="0" /></label>
+            <label class="checkbox-label"><input id="annActive" type="checkbox" checked /> نشط</label>
+          </div>
+          <p id="annError" class="form-error" hidden></p>
+          <p id="annSuccess" class="form-success" hidden></p>
+          <button type="submit" class="btn btn-primary btn-block">حفظ الإعلان</button>
+        </form>
+      </aside>
+      <section class="keys-panel">
+        <div class="panel-section-head"><h2>الإعلانات</h2></div>
+        <div id="annEmpty" class="empty-state" hidden><p>لا توجد إعلانات.</p></div>
+        <div id="annErrorList" class="form-error" hidden></div>
+        <div id="announcementsList" class="cards-list"></div>
+      </section>
+    </main>
+
+    <!-- Devices -->
+    <main id="tab-devices" class="tab-panel layout layout-single" hidden>
+      <section class="keys-panel full-width">
+        <div class="panel-section-head">
+          <h2>الأجهزة المفعّلة</h2>
+          <div class="toolbar">
+            <input id="deviceSearch" type="search" placeholder="بحث بـ MachineId أو الكود..." />
+            <select id="deviceFilterProduct">
+              <option value="">كل المنتجات</option>
+              <option value="Cashier">كاشير</option>
+              <option value="Restaurant">مطعم</option>
+            </select>
+            <select id="deviceFilterStatus">
+              <option value="">كل الحالات</option>
+              <option value="active">نشط</option>
+              <option value="paused">متوقف</option>
+            </select>
+          </div>
+        </div>
+        <div id="devicesEmpty" class="empty-state" hidden><p>لا توجد أجهزة مفعّلة.</p></div>
+        <div id="devicesError" class="form-error" hidden></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>MachineId</th><th>المنتج</th><th>السيريال</th>
+                <th>آخر ظهور</th><th>الحالة</th><th>السبب</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="devicesBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
   </section>
 
   <div id="detailModal" class="modal" hidden>
-    <div class="modal-card reveal">
+    <div class="modal-card">
       <header class="modal-head">
-        <h3 id="detailTitle">تفاصيل التفعيل</h3>
+        <h3 id="detailTitle">تفاصيل</h3>
         <button type="button" id="closeModalBtn" class="btn btn-ghost btn-icon" aria-label="إغلاق">✕</button>
       </header>
       <div id="detailBody" class="modal-body"></div>

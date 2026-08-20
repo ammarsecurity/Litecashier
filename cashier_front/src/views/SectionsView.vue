@@ -20,6 +20,8 @@
             </div>
           </div>
 
+          <AnnouncementsSlider :items="announcements" />
+
           <div class="app-section-card" v-if="flatHubItems.length">
             <div class="app-section-header">
               <div class="app-section-title-wrap">
@@ -56,12 +58,20 @@
 
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
+import AnnouncementsSlider from "@/components/AnnouncementsSlider.vue";
 import { flatNavItemsForHub } from "@/navigation/navItems.js";
 import { getAllowedSections } from "@/navigation/sectionRegistry.js";
+import { HTTP } from "@/http/api.js";
+import { openDevicePausedGate } from "@/utils/devicePausedGateBus.js";
 
 export default {
   name: "SectionsView",
-  components: { AppHeader },
+  components: { AppHeader, AnnouncementsSlider },
+  data() {
+    return {
+      announcements: [],
+    };
+  },
   computed: {
     role() {
       return localStorage.getItem("role");
@@ -85,6 +95,31 @@ export default {
         icon: "house-door-fill",
       };
       return [dashboardEntry, ...modules];
+    },
+  },
+  mounted() {
+    this.loadAnnouncements();
+    window.addEventListener("online", this.loadAnnouncements);
+  },
+  beforeDestroy() {
+    window.removeEventListener("online", this.loadAnnouncements);
+  },
+  methods: {
+    async loadAnnouncements() {
+      try {
+        await HTTP.post("License/device-sync");
+      } catch {
+        /* offline — use cache */
+      }
+      try {
+        const { data } = await HTTP.get("License/device-status");
+        this.announcements = Array.isArray(data?.announcements) ? data.announcements : [];
+        if (data?.isPaused) {
+          openDevicePausedGate({ deviceStatus: data, pauseReason: data.pauseReason });
+        }
+      } catch {
+        this.announcements = [];
+      }
     },
   },
 };

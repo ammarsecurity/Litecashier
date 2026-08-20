@@ -121,6 +121,15 @@
                         />
                       </span>
                       <span class="pos-quick-barcode-actions">
+                        <button
+                          type="button"
+                          class="pos-shortcuts-trigger"
+                          :title="$t('posShortcutsTitle') || 'اختصارات لوحة المفاتيح'"
+                          :aria-label="$t('posShortcutsTitle') || 'اختصارات لوحة المفاتيح'"
+                          @click="showShortcutsModal = true"
+                        >
+                          <b-icon icon="keyboard-fill" aria-hidden="true"></b-icon>
+                        </button>
                         <kbd class="pos-kbd pos-kbd--barcode">F2</kbd>
                         <span class="pos-quick-barcode-enter-hint" aria-hidden="true">
                           <span class="pos-quick-barcode-enter-text">Enter</span>
@@ -128,67 +137,6 @@
                         </span>
                       </span>
                     </label>
-                  </div>
-
-                  <div class="pos-shortcuts-panel" :aria-label="$t('posShortcutsTitle')">
-                    <div class="pos-shortcuts-panel-head">
-                      <b-icon icon="keyboard-fill" class="pos-shortcuts-panel-icon" aria-hidden="true"></b-icon>
-                      <span class="pos-shortcuts-panel-title">{{ $t("posShortcutsTitle") || "اختصارات لوحة المفاتيح" }}</span>
-                    </div>
-                    <div class="pos-shortcuts-groups">
-                      <div class="pos-shortcuts-group">
-                        <span class="pos-shortcuts-group-label">{{ $t("posShortcutGroupPayment") || "الدفع" }}</span>
-                        <div class="pos-shortcuts-group-chips">
-                          <span class="pos-shortcut-chip pos-shortcut-chip--pay">
-                            <kbd class="pos-kbd">F4</kbd>
-                            <span class="pos-shortcut-chip-label">{{ $t("payNow") || "دفع" }}</span>
-                          </span>
-                          <span class="pos-shortcut-chip pos-shortcut-chip--pay">
-                            <kbd class="pos-kbd">F5</kbd>
-                            <span class="pos-shortcut-chip-label">{{ $t("payAndPrint") || "دفع وطباعة" }}</span>
-                          </span>
-                          <span class="pos-shortcut-chip">
-                            <kbd class="pos-kbd">F6</kbd>
-                            <span class="pos-shortcut-chip-label">{{ $t("printOnly") || "طباعة فقط" }}</span>
-                          </span>
-                          <span class="pos-shortcut-chip">
-                            <kbd class="pos-kbd">F7</kbd>
-                            <span class="pos-shortcut-chip-label">{{ $t("changeCalculator") || "حاسبة الباقي" }}</span>
-                          </span>
-                        </div>
-                      </div>
-                      <div class="pos-shortcuts-group">
-                        <span class="pos-shortcuts-group-label">{{ $t("posShortcutGroupOrder") || "الطلب" }}</span>
-                        <div class="pos-shortcuts-group-chips">
-                          <span class="pos-shortcut-chip">
-                            <kbd class="pos-kbd">F3</kbd>
-                            <span class="pos-shortcut-chip-label">{{ $t("searchPlaceholder") || "بحث" }}</span>
-                          </span>
-                          <span class="pos-shortcut-chip">
-                            <kbd class="pos-kbd">F8</kbd>
-                            <span class="pos-shortcut-chip-label">{{ $t("discountAndNotes") || "خصم وملاحظات" }}</span>
-                          </span>
-                          <span class="pos-shortcut-chip">
-                            <kbd class="pos-kbd">F9</kbd>
-                            <span class="pos-shortcut-chip-label">{{ $t("posInvoiceTabNew") || "فاتورة جديدة" }}</span>
-                          </span>
-                        </div>
-                      </div>
-                      <div class="pos-shortcuts-group">
-                        <span class="pos-shortcuts-group-label">{{ $t("posShortcutGroupCart") || "السلة" }}</span>
-                        <div class="pos-shortcuts-group-chips">
-                          <span class="pos-shortcut-chip">
-                            <kbd class="pos-kbd">+</kbd>
-                            <kbd class="pos-kbd">−</kbd>
-                            <span class="pos-shortcut-chip-label">{{ $t("quantity") || "الكمية" }}</span>
-                          </span>
-                          <span class="pos-shortcut-chip pos-shortcut-chip--danger">
-                            <kbd class="pos-kbd">Del</kbd>
-                            <span class="pos-shortcut-chip-label">{{ $t("posShortcutRemoveLast") || "حذف آخر منتج" }}</span>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
                   </div>
 
                   <div class="pos-categories-scroll pos-categories-scroll--pills">
@@ -502,24 +450,174 @@
               </aside>
             </div>
 
-            <b-modal id="modal-empty" :title="$t('confirmClearCartTitle')" hide-header hide-footer class="users-modal">
-              <div class="modal-content-wrapper">
-                <div class="delete-confirmation-content">
-                  <div class="delete-icon-wrapper">
-                    <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
+            <b-modal
+              id="modal-pos-shortcuts"
+              :visible.sync="showShortcutsModal"
+              hide-header
+              hide-footer
+              centered
+              size="md"
+              modal-class="users-modal pos-ui-modal pos-shortcuts-modal"
+              content-class="pos-ui-modal-content"
+              body-class="pos-ui-modal-body"
+            >
+              <div class="modal-content-wrapper pos-ui-modal-wrapper">
+                <div class="pos-ui-modal-hero">
+                  <div class="pos-ui-modal-hero-icon" aria-hidden="true">
+                    <b-icon icon="keyboard-fill"></b-icon>
                   </div>
-                  <h3 class="delete-confirmation-title">{{ $t("confirmClearCartTitle") }}</h3>
-                  <p class="delete-confirmation-text">{{ $t("confirmClearCartMessage") }}</p>
-                  <div class="delete-confirmation-actions">
-                    <button class="delete-confirm-button" @click="EmptycardList('modal-empty')">
-                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                      {{ $t("confirmButton") }}
-                    </button>
-                    <button class="delete-cancel-button" @click="closeModel('modal-empty')">
-                      <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-                      {{ $t("cancelButton") }}
-                    </button>
+                  <div class="pos-ui-modal-hero-text">
+                    <h3 class="pos-ui-modal-title">
+                      {{ $t("posShortcutsTitle") || "اختصارات لوحة المفاتيح" }}
+                    </h3>
+                    <p class="pos-ui-modal-subtitle">
+                      {{ $t("posShortcutsSubtitle") || "استخدم الاختصارات لتسريع عمليات البيع والدفع" }}
+                    </p>
                   </div>
+                  <button
+                    type="button"
+                    class="pos-ui-modal-close"
+                    :aria-label="$t('close') || 'إغلاق'"
+                    @click="showShortcutsModal = false"
+                  >
+                    <b-icon icon="x-lg"></b-icon>
+                  </button>
+                </div>
+
+                <div class="pos-ui-modal-body-content">
+                  <div class="pos-shortcuts-list" :aria-label="$t('posShortcutsTitle')">
+                    <section class="pos-shortcuts-section">
+                      <header class="pos-shortcuts-section-head">
+                        <span class="pos-shortcuts-section-icon pos-shortcuts-section-icon--pay" aria-hidden="true">
+                          <b-icon icon="cash-coin"></b-icon>
+                        </span>
+                        <h4 class="pos-shortcuts-section-title">{{ $t("posShortcutGroupPayment") || "الدفع" }}</h4>
+                      </header>
+                      <ul class="pos-shortcuts-rows">
+                        <li class="pos-shortcuts-row">
+                          <span class="pos-shortcuts-row-label">{{ $t("payNow") || "دفع" }}</span>
+                          <kbd class="pos-shortcuts-key pos-shortcuts-key--pay">F4</kbd>
+                        </li>
+                        <li class="pos-shortcuts-row">
+                          <span class="pos-shortcuts-row-label">{{ $t("payAndPrint") || "دفع وطباعة" }}</span>
+                          <kbd class="pos-shortcuts-key pos-shortcuts-key--pay">F5</kbd>
+                        </li>
+                        <li class="pos-shortcuts-row">
+                          <span class="pos-shortcuts-row-label">{{ $t("printOnly") || "طباعة فقط" }}</span>
+                          <kbd class="pos-shortcuts-key">F6</kbd>
+                        </li>
+                        <li class="pos-shortcuts-row">
+                          <span class="pos-shortcuts-row-label">{{ $t("changeCalculator") || "حاسبة الباقي" }}</span>
+                          <kbd class="pos-shortcuts-key">F7</kbd>
+                        </li>
+                      </ul>
+                    </section>
+
+                    <section class="pos-shortcuts-section">
+                      <header class="pos-shortcuts-section-head">
+                        <span class="pos-shortcuts-section-icon pos-shortcuts-section-icon--order" aria-hidden="true">
+                          <b-icon icon="receipt"></b-icon>
+                        </span>
+                        <h4 class="pos-shortcuts-section-title">{{ $t("posShortcutGroupOrder") || "الطلب" }}</h4>
+                      </header>
+                      <ul class="pos-shortcuts-rows">
+                        <li class="pos-shortcuts-row">
+                          <span class="pos-shortcuts-row-label">{{ $t("barcodeScanLabel") || "باركود" }}</span>
+                          <kbd class="pos-shortcuts-key">F2</kbd>
+                        </li>
+                        <li class="pos-shortcuts-row">
+                          <span class="pos-shortcuts-row-label">{{ $t("searchPlaceholder") || "بحث" }}</span>
+                          <kbd class="pos-shortcuts-key">F3</kbd>
+                        </li>
+                        <li class="pos-shortcuts-row">
+                          <span class="pos-shortcuts-row-label">{{ $t("discountAndNotes") || "خصم وملاحظات" }}</span>
+                          <kbd class="pos-shortcuts-key">F8</kbd>
+                        </li>
+                        <li class="pos-shortcuts-row">
+                          <span class="pos-shortcuts-row-label">{{ $t("posInvoiceTabNew") || "فاتورة جديدة" }}</span>
+                          <kbd class="pos-shortcuts-key">F9</kbd>
+                        </li>
+                      </ul>
+                    </section>
+
+                    <section class="pos-shortcuts-section">
+                      <header class="pos-shortcuts-section-head">
+                        <span class="pos-shortcuts-section-icon pos-shortcuts-section-icon--cart" aria-hidden="true">
+                          <b-icon icon="cart3"></b-icon>
+                        </span>
+                        <h4 class="pos-shortcuts-section-title">{{ $t("posShortcutGroupCart") || "السلة" }}</h4>
+                      </header>
+                      <ul class="pos-shortcuts-rows">
+                        <li class="pos-shortcuts-row">
+                          <span class="pos-shortcuts-row-label">{{ $t("quantity") || "الكمية" }}</span>
+                          <span class="pos-shortcuts-keys">
+                            <kbd class="pos-shortcuts-key">+</kbd>
+                            <kbd class="pos-shortcuts-key">−</kbd>
+                          </span>
+                        </li>
+                        <li class="pos-shortcuts-row">
+                          <span class="pos-shortcuts-row-label">{{ $t("posShortcutRemoveLast") || "حذف آخر منتج" }}</span>
+                          <kbd class="pos-shortcuts-key pos-shortcuts-key--danger">Del</kbd>
+                        </li>
+                      </ul>
+                    </section>
+                  </div>
+                </div>
+
+                <div class="pos-ui-modal-actions pos-ui-modal-actions--single">
+                  <button type="button" class="pos-ui-modal-btn pos-ui-modal-btn--primary" @click="showShortcutsModal = false">
+                    <b-icon icon="check-lg"></b-icon>
+                    {{ $t("close") || "إغلاق" }}
+                  </button>
+                </div>
+              </div>
+            </b-modal>
+
+            <b-modal
+              id="modal-empty"
+              hide-header
+              hide-footer
+              centered
+              size="md"
+              modal-class="users-modal pos-ui-modal pos-ui-modal--sm"
+              content-class="pos-ui-modal-content"
+              body-class="pos-ui-modal-body"
+            >
+              <div class="modal-content-wrapper pos-ui-modal-wrapper">
+                <div class="pos-ui-modal-hero pos-ui-modal-hero--danger">
+                  <div class="pos-ui-modal-hero-icon" aria-hidden="true">
+                    <b-icon icon="trash-fill"></b-icon>
+                  </div>
+                  <div class="pos-ui-modal-hero-text">
+                    <h3 class="pos-ui-modal-title">{{ $t("confirmClearCartTitle") }}</h3>
+                    <p class="pos-ui-modal-subtitle">{{ $t("confirmClearCartMessage") }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="pos-ui-modal-close"
+                    :aria-label="$t('close') || 'إغلاق'"
+                    @click="closeModel('modal-empty')"
+                  >
+                    <b-icon icon="x-lg"></b-icon>
+                  </button>
+                </div>
+                <div class="pos-ui-modal-body-content">
+                  <div class="pos-ui-modal-note pos-ui-modal-note--danger">
+                    <b-icon icon="exclamation-triangle-fill" class="pos-ui-modal-note-icon" aria-hidden="true"></b-icon>
+                    <p class="pos-ui-modal-note-text">
+                      {{ $t("confirmClearCartHint") || "سيتم حذف جميع المنتجات من السلة الحالية ولا يمكن التراجع عن هذا الإجراء." }}
+                    </p>
+                  </div>
+                </div>
+                <div class="pos-ui-modal-actions">
+                  <button type="button" class="pos-ui-modal-btn pos-ui-modal-btn--secondary" @click="closeModel('modal-empty')">
+                    <b-icon icon="x-circle-fill"></b-icon>
+                    {{ $t("cancelButton") }}
+                  </button>
+                  <button type="button" class="pos-ui-modal-btn pos-ui-modal-btn--danger" @click="EmptycardList('modal-empty')">
+                    <b-icon icon="trash-fill"></b-icon>
+                    {{ $t("confirmButton") }}
+                  </button>
                 </div>
               </div>
             </b-modal>
@@ -528,126 +626,168 @@
               id="modal-close-invoice-tab"
               hide-header
               hide-footer
-              class="users-modal"
+              centered
+              size="md"
+              modal-class="users-modal pos-ui-modal pos-ui-modal--sm"
+              content-class="pos-ui-modal-content"
+              body-class="pos-ui-modal-body"
               @hidden="invoiceTabPendingCloseId = null"
             >
-              <div class="modal-content-wrapper">
-                <div class="delete-confirmation-content">
-                  <div class="delete-icon-wrapper">
-                    <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
+              <div class="modal-content-wrapper pos-ui-modal-wrapper">
+                <div class="pos-ui-modal-hero pos-ui-modal-hero--danger">
+                  <div class="pos-ui-modal-hero-icon" aria-hidden="true">
+                    <b-icon icon="x-octagon-fill"></b-icon>
                   </div>
-                  <h3 class="delete-confirmation-title">
-                    {{ $t("posInvoiceTabCloseTitle") || "إغلاق الفاتورة؟" }}
-                  </h3>
-                  <p class="delete-confirmation-text">
-                    {{ $t("posInvoiceTabCloseMessage") || "هذه الفاتورة تحتوي أصنافاً. هل تريد إغلاقها وفقدان محتوياتها؟" }}
-                  </p>
-                  <div class="delete-confirmation-actions">
-                    <button class="delete-confirm-button" @click="confirmCloseInvoiceTab">
-                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                      {{ $t("confirmButton") || "تأكيد" }}
-                    </button>
-                    <button class="delete-cancel-button" @click="closeModel('modal-close-invoice-tab')">
-                      <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-                      {{ $t("cancelButton") || "إلغاء" }}
-                    </button>
+                  <div class="pos-ui-modal-hero-text">
+                    <h3 class="pos-ui-modal-title">
+                      {{ $t("posInvoiceTabCloseTitle") || "إغلاق الفاتورة؟" }}
+                    </h3>
+                    <p class="pos-ui-modal-subtitle">
+                      {{ $t("posInvoiceTabCloseMessage") || "هذه الفاتورة تحتوي أصنافاً. هل تريد إغلاقها وفقدان محتوياتها؟" }}
+                    </p>
                   </div>
+                  <button
+                    type="button"
+                    class="pos-ui-modal-close"
+                    :aria-label="$t('close') || 'إغلاق'"
+                    @click="closeModel('modal-close-invoice-tab')"
+                  >
+                    <b-icon icon="x-lg"></b-icon>
+                  </button>
+                </div>
+                <div class="pos-ui-modal-body-content">
+                  <div class="pos-ui-modal-note pos-ui-modal-note--danger">
+                    <b-icon icon="exclamation-triangle-fill" class="pos-ui-modal-note-icon" aria-hidden="true"></b-icon>
+                    <p class="pos-ui-modal-note-text">
+                      {{ $t("posInvoiceTabCloseHint") || "إغلاق الفاتورة سيفقد الأصناف غير المحفوظة فيها." }}
+                    </p>
+                  </div>
+                </div>
+                <div class="pos-ui-modal-actions">
+                  <button type="button" class="pos-ui-modal-btn pos-ui-modal-btn--secondary" @click="closeModel('modal-close-invoice-tab')">
+                    <b-icon icon="x-circle-fill"></b-icon>
+                    {{ $t("cancelButton") || "إلغاء" }}
+                  </button>
+                  <button type="button" class="pos-ui-modal-btn pos-ui-modal-btn--danger" @click="confirmCloseInvoiceTab">
+                    <b-icon icon="check-circle-fill"></b-icon>
+                    {{ $t("confirmButton") || "تأكيد" }}
+                  </button>
                 </div>
               </div>
             </b-modal>
 
             <b-modal
               id="modal-order-notes"
-              :title="$t('orderNotes') || 'ملاحظات الطلب'"
               hide-header
               hide-footer
               centered
               size="lg"
-              class="users-modal pos-order-modal"
+              modal-class="users-modal pos-ui-modal pos-ui-modal--lg"
+              content-class="pos-ui-modal-content"
+              body-class="pos-ui-modal-body"
             >
-              <div class="modal-content-wrapper">
-                <h2 class="modal-title">
-                  <b-icon icon="tag-fill"></b-icon>
-                  {{ $t("discountAndNotes") || "خصم وملاحظات" }}
-                </h2>
-                <form class="order-notes-content" @submit.prevent="applyOrderExtras">
-                  <div class="order-notes-input-wrapper">
-                    <label class="order-notes-label" for="pos-order-notes">{{ $t("notesLabel") || "الملاحظات (اختياري)" }}</label>
-                    <textarea
-                      id="pos-order-notes"
-                      v-model="orderForSend.notes"
-                      class="order-notes-textarea"
-                      :placeholder="$t('notesPlaceholder') || 'اكتب ملاحظاتك هنا...'"
-                      rows="3"
-                    ></textarea>
+              <div class="modal-content-wrapper pos-ui-modal-wrapper">
+                <div class="pos-ui-modal-hero">
+                  <div class="pos-ui-modal-hero-icon" aria-hidden="true">
+                    <b-icon icon="tag-fill"></b-icon>
                   </div>
-                  <div class="order-notes-input-wrapper order-discount-wrapper">
-                    <label class="order-notes-label">{{ $t("orderDiscount") || "خصم الطلب" }}</label>
-                    <div class="order-discount-type-toggle">
-                      <button
-                        type="button"
-                        class="order-discount-type-btn"
-                        :class="{ 'order-discount-type-btn-active': orderDiscountType === 'amount' }"
-                        @click="orderDiscountType = 'amount'"
-                      >
-                        {{ $t("discountByAmount") || "مبلغ" }}
-                      </button>
-                      <button
-                        type="button"
-                        class="order-discount-type-btn"
-                        :class="{ 'order-discount-type-btn-active': orderDiscountType === 'percentage' }"
-                        @click="orderDiscountType = 'percentage'"
-                      >
-                        {{ $t("discountByPercentage") || "نسبة" }}
-                      </button>
-                    </div>
-                    <div class="order-discount-input-row">
-                      <input
-                        v-model.number="orderDiscountValue"
-                        type="number"
-                        min="0"
-                        :max="orderDiscountType === 'percentage' ? 100 : null"
-                        class="order-notes-input"
-                        :placeholder="orderDiscountType === 'percentage' ? (($t('discountPercentPlaceholder') || 'ادخل النسبة %')) : (($t('discountAmountPlaceholder') || 'ادخل مبلغ الخصم'))"
-                      />
-                      <button type="button" class="order-discount-clear-btn" @click="clearOrderDiscount">
-                        {{ $t("clear") || "مسح" }}
-                      </button>
-                    </div>
-                    <div class="order-discount-presets">
-                      <button
-                        v-for="preset in orderDiscountPresets"
-                        :key="preset.id"
-                        type="button"
-                        class="order-discount-preset-btn"
-                        @click="applyOrderDiscountPreset(preset)"
-                      >
-                        {{ preset.label }} {{ preset.type === "amount" ? $t("currency") : "" }}
-                      </button>
-                    </div>
-                    <div class="order-discount-preview">
-                      <div class="order-discount-preview-row">
-                        <span>{{ $t("subtotal") || "المجموع قبل الخصم" }}</span>
-                        <strong>{{ formatPrice(totaPrice) }} {{ $t("currency") }}</strong>
+                  <div class="pos-ui-modal-hero-text">
+                    <h3 class="pos-ui-modal-title">{{ $t("discountAndNotes") || "خصم وملاحظات" }}</h3>
+                    <p class="pos-ui-modal-subtitle">
+                      {{ $t("discountAndNotesHint") || "أضف ملاحظات الطلب أو خصماً على الفاتورة الحالية" }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="pos-ui-modal-close"
+                    :aria-label="$t('close') || 'إغلاق'"
+                    @click="closeModel('modal-order-notes')"
+                  >
+                    <b-icon icon="x-lg"></b-icon>
+                  </button>
+                </div>
+                <form @submit.prevent="applyOrderExtras">
+                  <div class="pos-ui-modal-body-content">
+                    <div class="order-notes-content">
+                      <div class="order-notes-input-wrapper">
+                        <label class="order-notes-label" for="pos-order-notes">{{ $t("notesLabel") || "الملاحظات (اختياري)" }}</label>
+                        <textarea
+                          id="pos-order-notes"
+                          v-model="orderForSend.notes"
+                          class="order-notes-textarea"
+                          :placeholder="$t('notesPlaceholder') || 'اكتب ملاحظاتك هنا...'"
+                          rows="3"
+                        ></textarea>
                       </div>
-                      <div class="order-discount-preview-row">
-                        <span>{{ $t("discountLabel") || "الخصم" }} ({{ orderDiscountPreviewLabel }})</span>
-                        <strong>- {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}</strong>
-                      </div>
-                      <div class="order-discount-preview-row order-discount-preview-row-total">
-                        <span>{{ $t("totalLabel") || "الإجمالي" }}</span>
-                        <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
+                      <div class="order-notes-input-wrapper order-discount-wrapper">
+                        <label class="order-notes-label">{{ $t("orderDiscount") || "خصم الطلب" }}</label>
+                        <div class="order-discount-type-toggle">
+                          <button
+                            type="button"
+                            class="order-discount-type-btn"
+                            :class="{ 'order-discount-type-btn-active': orderDiscountType === 'amount' }"
+                            @click="orderDiscountType = 'amount'"
+                          >
+                            {{ $t("discountByAmount") || "مبلغ" }}
+                          </button>
+                          <button
+                            type="button"
+                            class="order-discount-type-btn"
+                            :class="{ 'order-discount-type-btn-active': orderDiscountType === 'percentage' }"
+                            @click="orderDiscountType = 'percentage'"
+                          >
+                            {{ $t("discountByPercentage") || "نسبة" }}
+                          </button>
+                        </div>
+                        <div class="order-discount-input-row">
+                          <input
+                            v-model.number="orderDiscountValue"
+                            type="number"
+                            min="0"
+                            :max="orderDiscountType === 'percentage' ? 100 : null"
+                            class="order-notes-input"
+                            :placeholder="orderDiscountType === 'percentage' ? (($t('discountPercentPlaceholder') || 'ادخل النسبة %')) : (($t('discountAmountPlaceholder') || 'ادخل مبلغ الخصم'))"
+                          />
+                          <button type="button" class="order-discount-clear-btn" @click="clearOrderDiscount">
+                            {{ $t("clear") || "مسح" }}
+                          </button>
+                        </div>
+                        <div class="order-discount-presets">
+                          <button
+                            v-for="preset in orderDiscountPresets"
+                            :key="preset.id"
+                            type="button"
+                            class="order-discount-preset-btn"
+                            @click="applyOrderDiscountPreset(preset)"
+                          >
+                            {{ preset.label }} {{ preset.type === "amount" ? $t("currency") : "" }}
+                          </button>
+                        </div>
+                        <div class="order-discount-preview">
+                          <div class="order-discount-preview-row">
+                            <span>{{ $t("subtotal") || "المجموع قبل الخصم" }}</span>
+                            <strong>{{ formatPrice(totaPrice) }} {{ $t("currency") }}</strong>
+                          </div>
+                          <div class="order-discount-preview-row">
+                            <span>{{ $t("discountLabel") || "الخصم" }} ({{ orderDiscountPreviewLabel }})</span>
+                            <strong>- {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}</strong>
+                          </div>
+                          <div class="order-discount-preview-row order-discount-preview-row-total">
+                            <span>{{ $t("totalLabel") || "الإجمالي" }}</span>
+                            <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div class="order-notes-actions">
-                    <button type="submit" class="order-notes-confirm-button">
-                      <b-icon icon="check-circle-fill"></b-icon>
-                      {{ $t("apply") || "تطبيق" }}
-                    </button>
-                    <button type="button" class="order-notes-cancel-button" @click="closeModel('modal-order-notes')">
+                  <div class="pos-ui-modal-actions">
+                    <button type="button" class="pos-ui-modal-btn pos-ui-modal-btn--secondary" @click="closeModel('modal-order-notes')">
                       <b-icon icon="x-circle-fill"></b-icon>
                       {{ $t("cancelButton") || "تراجع" }}
+                    </button>
+                    <button type="submit" class="pos-ui-modal-btn pos-ui-modal-btn--primary">
+                      <b-icon icon="check-circle-fill"></b-icon>
+                      {{ $t("apply") || "تطبيق" }}
                     </button>
                   </div>
                 </form>
@@ -669,51 +809,90 @@
               @close="onCardPaymentWaitClose"
             />
 
-            <b-modal id="modal-print-only-confirm" :title="$t('printOnly')" hide-header hide-footer class="users-modal">
-              <div class="modal-content-wrapper">
-                <div class="delete-confirmation-content">
-                  <div class="delete-icon-wrapper">
-                    <b-icon icon="printer-fill" class="delete-warning-icon"></b-icon>
+            <b-modal
+              id="modal-print-only-confirm"
+              hide-header
+              hide-footer
+              centered
+              size="md"
+              modal-class="users-modal pos-ui-modal pos-ui-modal--sm"
+              content-class="pos-ui-modal-content"
+              body-class="pos-ui-modal-body"
+            >
+              <div class="modal-content-wrapper pos-ui-modal-wrapper">
+                <div class="pos-ui-modal-hero pos-ui-modal-hero--print">
+                  <div class="pos-ui-modal-hero-icon" aria-hidden="true">
+                    <b-icon icon="printer-fill"></b-icon>
                   </div>
-                  <h3 class="delete-confirmation-title">{{ $t("printOnly") || "طباعة فقط" }}</h3>
-                  <p class="delete-confirmation-text">
-                    {{ $t("confirmPrintOnlyMessage") || "هل أنت متأكد من تنفيذ الطباعة فقط؟" }}
-                  </p>
-                  <div class="delete-confirmation-actions">
-                    <button class="delete-confirm-button" @click="confirmPrintCartOnly">
-                      <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                      {{ $t("confirm") }}
-                    </button>
-                    <button class="delete-cancel-button" @click="closeModel('modal-print-only-confirm')">
-                      <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-                      {{ $t("cancelButton") }}
-                    </button>
+                  <div class="pos-ui-modal-hero-text">
+                    <h3 class="pos-ui-modal-title">{{ $t("printOnly") || "طباعة فقط" }}</h3>
+                    <p class="pos-ui-modal-subtitle">
+                      {{ $t("confirmPrintOnlyMessage") || "هل أنت متأكد من تنفيذ الطباعة فقط؟" }}
+                    </p>
                   </div>
+                  <button
+                    type="button"
+                    class="pos-ui-modal-close"
+                    :aria-label="$t('close') || 'إغلاق'"
+                    @click="closeModel('modal-print-only-confirm')"
+                  >
+                    <b-icon icon="x-lg"></b-icon>
+                  </button>
+                </div>
+                <div class="pos-ui-modal-body-content">
+                  <div class="pos-ui-modal-note">
+                    <b-icon icon="info-circle-fill" class="pos-ui-modal-note-icon" aria-hidden="true"></b-icon>
+                    <p class="pos-ui-modal-note-text">
+                      {{ $t("confirmPrintOnlyHint") || "سيتم طباعة الفاتورة الحالية دون تسجيل عملية دفع." }}
+                    </p>
+                  </div>
+                </div>
+                <div class="pos-ui-modal-actions">
+                  <button type="button" class="pos-ui-modal-btn pos-ui-modal-btn--secondary" @click="closeModel('modal-print-only-confirm')">
+                    <b-icon icon="x-circle-fill"></b-icon>
+                    {{ $t("cancelButton") || "تراجع" }}
+                  </button>
+                  <button type="button" class="pos-ui-modal-btn pos-ui-modal-btn--primary" @click="confirmPrintCartOnly">
+                    <b-icon icon="printer-fill"></b-icon>
+                    {{ $t("confirm") || "تأكيد" }}
+                  </button>
                 </div>
               </div>
             </b-modal>
 
             <b-modal
               id="modal-credit-payment"
-              modal-class="users-modal"
               hide-header
               hide-footer
               centered
               size="lg"
+              modal-class="users-modal pos-ui-modal pos-ui-modal--lg"
+              content-class="pos-ui-modal-content"
+              body-class="pos-ui-modal-body"
             >
-              <div class="modal-content-wrapper">
-                <div class="pos-modal-custom-header">
-                  <h3 class="delete-confirmation-title mb-0">
-                    {{ $t("creditPaymentModalTitle") }}
-                  </h3>
-                  <button type="button" class="pos-modal-close-btn" @click="cancelCreditPaymentModal">
-                    <b-icon icon="x-lg" class="me-2"></b-icon>
-                    {{ $t("close") || "إغلاق" }}
+              <div class="modal-content-wrapper pos-ui-modal-wrapper">
+                <div class="pos-ui-modal-hero">
+                  <div class="pos-ui-modal-hero-icon" aria-hidden="true">
+                    <b-icon icon="wallet2"></b-icon>
+                  </div>
+                  <div class="pos-ui-modal-hero-text">
+                    <h3 class="pos-ui-modal-title">{{ $t("creditPaymentModalTitle") }}</h3>
+                    <p class="pos-ui-modal-subtitle">
+                      {{ $t("creditPaymentModalHint") || "اختر عميل الدفع الآجل لإتمام العملية" }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="pos-ui-modal-close"
+                    :aria-label="$t('close') || 'إغلاق'"
+                    @click="cancelCreditPaymentModal"
+                  >
+                    <b-icon icon="x-lg"></b-icon>
                   </button>
                 </div>
-                <div class="delivery-info-section">
-                  <form class="users-form" @submit.prevent="confirmCreditPaymentSelection">
-                    <div class="users-form-group">
+                <form @submit.prevent="confirmCreditPaymentSelection">
+                  <div class="pos-ui-modal-body-content">
+                    <div class="users-form-group mb-0">
                       <label class="users-form-label">
                         <b-icon icon="people-fill" class="form-label-icon"></b-icon>
                         {{ $t("selectCreditCustomer") }}
@@ -747,18 +926,18 @@
                         {{ $t("quickAddCreditCustomerHint") || "إذا لم يكن العميل مسجلاً، أضفه مباشرة من هنا" }}
                       </p>
                     </div>
-                    <div class="order-notes-actions mt-3">
-                      <button type="submit" class="order-notes-confirm-button">
-                        <b-icon icon="check-circle-fill" class="me-2"></b-icon>
-                        {{ $t("confirm") || "تأكيد" }}
-                      </button>
-                      <button type="button" class="order-notes-cancel-button" @click="cancelCreditPaymentModal">
-                        <b-icon icon="x-circle-fill" class="me-2"></b-icon>
-                        {{ $t("cancelButton") }}
-                      </button>
-                    </div>
-                  </form>
-                </div>
+                  </div>
+                  <div class="pos-ui-modal-actions">
+                    <button type="button" class="pos-ui-modal-btn pos-ui-modal-btn--secondary" @click="cancelCreditPaymentModal">
+                      <b-icon icon="x-circle-fill"></b-icon>
+                      {{ $t("cancelButton") }}
+                    </button>
+                    <button type="submit" class="pos-ui-modal-btn pos-ui-modal-btn--primary">
+                      <b-icon icon="check-circle-fill"></b-icon>
+                      {{ $t("confirm") || "تأكيد" }}
+                    </button>
+                  </div>
+                </form>
               </div>
             </b-modal>
 
@@ -766,79 +945,106 @@
               v-model="showAddCreditCustomerModal"
               hide-header
               hide-footer
-              class="users-modal"
               centered
               size="lg"
+              modal-class="users-modal pos-ui-modal pos-ui-modal--lg"
+              content-class="pos-ui-modal-content"
+              body-class="pos-ui-modal-body"
               @hidden="resetNewCreditCustomerForm"
             >
-              <div class="modal-content-wrapper">
-                <h2 class="modal-title">
-                  {{ $t("quickAddCreditCustomerModal") || "إضافة عميل للدفع الآجل" }}
-                </h2>
-                <form class="users-form" @submit.prevent="saveNewCreditCustomer">
-                  <div class="modal-form-grid">
-                    <div class="users-form-group">
-                      <label class="users-form-label">
-                        <b-icon icon="person-fill" class="form-label-icon"></b-icon>
-                        {{ $t("customerNameField") || "اسم العميل" }} <span class="required">*</span>
-                      </label>
-                      <input
-                        v-model="newCreditCustomerForm.name"
-                        type="text"
-                        class="users-form-input"
-                        :placeholder="$t('enterCustomerNamePlaceholder') || 'أدخل الاسم'"
-                        required
-                      />
+              <div class="modal-content-wrapper pos-ui-modal-wrapper">
+                <div class="pos-ui-modal-hero">
+                  <div class="pos-ui-modal-hero-icon" aria-hidden="true">
+                    <b-icon icon="person-plus-fill"></b-icon>
+                  </div>
+                  <div class="pos-ui-modal-hero-text">
+                    <h3 class="pos-ui-modal-title">
+                      {{ $t("quickAddCreditCustomerModal") || "إضافة عميل للدفع الآجل" }}
+                    </h3>
+                    <p class="pos-ui-modal-subtitle">
+                      {{ $t("quickAddCreditCustomerModalHint") || "أدخل بيانات العميل لإضافته واستخدامه مباشرة" }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="pos-ui-modal-close"
+                    :aria-label="$t('close') || 'إغلاق'"
+                    :disabled="savingCreditCustomer"
+                    @click="showAddCreditCustomerModal = false"
+                  >
+                    <b-icon icon="x-lg"></b-icon>
+                  </button>
+                </div>
+                <form @submit.prevent="saveNewCreditCustomer">
+                  <div class="pos-ui-modal-body-content">
+                    <div class="users-form">
+                      <div class="modal-form-grid">
+                        <div class="users-form-group">
+                          <label class="users-form-label">
+                            <b-icon icon="person-fill" class="form-label-icon"></b-icon>
+                            {{ $t("customerNameField") || "اسم العميل" }} <span class="required">*</span>
+                          </label>
+                          <input
+                            v-model="newCreditCustomerForm.name"
+                            type="text"
+                            class="users-form-input"
+                            :placeholder="$t('enterCustomerNamePlaceholder') || 'أدخل الاسم'"
+                            required
+                          />
+                        </div>
+                        <div class="users-form-group">
+                          <label class="users-form-label">
+                            <b-icon icon="telephone-fill" class="form-label-icon"></b-icon>
+                            {{ $t("phoneNumber") }} <span class="required">*</span>
+                          </label>
+                          <input
+                            v-model="newCreditCustomerForm.phoneNumber"
+                            type="text"
+                            class="users-form-input"
+                            :placeholder="$t('enterPhoneNumber') || 'أدخل رقم الهاتف'"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div class="users-form-group">
+                        <label class="users-form-label">
+                          <b-icon icon="geo-alt-fill" class="form-label-icon"></b-icon>
+                          {{ $t("address") }}
+                        </label>
+                        <input
+                          v-model="newCreditCustomerForm.address"
+                          type="text"
+                          class="users-form-input"
+                          :placeholder="$t('enterAddress') || 'العنوان (اختياري)'"
+                        />
+                      </div>
+                      <div class="users-form-group mb-0">
+                        <label class="users-form-label">
+                          <b-icon icon="chat-left-text-fill" class="form-label-icon"></b-icon>
+                          {{ $t("notes") }}
+                        </label>
+                        <textarea
+                          v-model="newCreditCustomerForm.notes"
+                          class="users-form-input"
+                          rows="2"
+                          :placeholder="$t('customerNotesPlaceholder') || ''"
+                        ></textarea>
+                      </div>
                     </div>
-                    <div class="users-form-group">
-                      <label class="users-form-label">
-                        <b-icon icon="telephone-fill" class="form-label-icon"></b-icon>
-                        {{ $t("phoneNumber") }} <span class="required">*</span>
-                      </label>
-                      <input
-                        v-model="newCreditCustomerForm.phoneNumber"
-                        type="text"
-                        class="users-form-input"
-                        :placeholder="$t('enterPhoneNumber') || 'أدخل رقم الهاتف'"
-                        required
-                      />
-                    </div>
                   </div>
-                  <div class="users-form-group">
-                    <label class="users-form-label">
-                      <b-icon icon="geo-alt-fill" class="form-label-icon"></b-icon>
-                      {{ $t("address") }}
-                    </label>
-                    <input
-                      v-model="newCreditCustomerForm.address"
-                      type="text"
-                      class="users-form-input"
-                      :placeholder="$t('enterAddress') || 'العنوان (اختياري)'"
-                    />
-                  </div>
-                  <div class="users-form-group">
-                    <label class="users-form-label">
-                      <b-icon icon="chat-left-text-fill" class="form-label-icon"></b-icon>
-                      {{ $t("notes") }}
-                    </label>
-                    <textarea
-                      v-model="newCreditCustomerForm.notes"
-                      class="users-form-input"
-                      rows="2"
-                      :placeholder="$t('customerNotesPlaceholder') || ''"
-                    ></textarea>
-                  </div>
-                  <div class="users-form-actions">
+                  <div class="pos-ui-modal-actions">
                     <button
                       type="button"
-                      class="users-form-cancel-button"
+                      class="pos-ui-modal-btn pos-ui-modal-btn--secondary"
                       :disabled="savingCreditCustomer"
                       @click="showAddCreditCustomerModal = false"
                     >
+                      <b-icon icon="x-circle-fill"></b-icon>
                       {{ $t("cancel") }}
                     </button>
-                    <button type="submit" class="users-form-submit-button" :disabled="savingCreditCustomer">
-                      <b-spinner v-if="savingCreditCustomer" small class="me-2"></b-spinner>
+                    <button type="submit" class="pos-ui-modal-btn pos-ui-modal-btn--primary" :disabled="savingCreditCustomer">
+                      <b-spinner v-if="savingCreditCustomer" small></b-spinner>
+                      <b-icon v-else icon="person-plus-fill"></b-icon>
                       {{ savingCreditCustomer ? ($t("adding") || "جاري الإضافة...") : ($t("add") || "إضافة") }}
                     </button>
                   </div>
@@ -1298,6 +1504,7 @@ export default {
   data() {
     return {
       showbarCode: false,
+      showShortcutsModal: false,
       show: false,
       totaPrice: 0,
       carditems: [],

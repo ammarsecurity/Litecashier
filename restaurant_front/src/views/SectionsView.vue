@@ -11,6 +11,8 @@
             </p>
           </div>
 
+          <AnnouncementsSlider :items="announcements" />
+
           <section v-if="flatHubItems.length" class="dashboard-modules-hub">
             <div class="hub-cards-grid">
               <router-link
@@ -41,12 +43,45 @@
 
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
+import AnnouncementsSlider from "@/components/AnnouncementsSlider.vue";
 import sectionsHubMixin from "@/mixins/sectionsHubMixin.js";
+import { HTTP } from "@/http/api.js";
+import { openDevicePausedGate } from "@/utils/devicePausedGateBus.js";
 
 export default {
   name: "SectionsView",
-  components: { AppHeader },
+  components: { AppHeader, AnnouncementsSlider },
   mixins: [sectionsHubMixin],
+  data() {
+    return {
+      announcements: [],
+    };
+  },
+  mounted() {
+    this.loadAnnouncements();
+    window.addEventListener("online", this.loadAnnouncements);
+  },
+  beforeDestroy() {
+    window.removeEventListener("online", this.loadAnnouncements);
+  },
+  methods: {
+    async loadAnnouncements() {
+      try {
+        await HTTP.post("License/device-sync");
+      } catch {
+        /* offline */
+      }
+      try {
+        const { data } = await HTTP.get("License/device-status");
+        this.announcements = Array.isArray(data?.announcements) ? data.announcements : [];
+        if (data?.isPaused) {
+          openDevicePausedGate({ deviceStatus: data, pauseReason: data.pauseReason });
+        }
+      } catch {
+        this.announcements = [];
+      }
+    },
+  },
 };
 </script>
 

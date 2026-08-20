@@ -4,17 +4,17 @@
     :visible="visible"
     hide-header
     hide-footer
-    class="users-modal"
+    centered
     :modal-class="modalRootClass"
-    content-class="cpw-modal-content"
-    body-class="cpw-modal-body"
+    content-class="pos-ui-modal-content"
+    body-class="pos-ui-modal-body"
     :no-close-on-backdrop="isWaiting"
     :no-close-on-esc="isWaiting"
     :hide-header-close="isWaiting"
     @change="onVisibilityChange"
   >
     <div
-      class="cpw-shell"
+      class="modal-content-wrapper pos-ui-modal-wrapper cpw-shell"
       :class="{
         'cpw-shell--light': theme === 'light',
         'cpw-shell--success': isSuccess,
@@ -22,107 +22,105 @@
         'cpw-shell--waiting': isWaiting,
       }"
     >
-      <div class="cpw-top">
-        <div class="cpw-icon-stage">
-          <div
-            class="cpw-icon-circle"
-            :class="{
-              'cpw-icon-circle--success': isSuccess,
-              'cpw-icon-circle--failed': isFailed,
-              'cpw-icon-circle--waiting': isWaiting,
-            }"
-          >
-            <b-spinner v-if="isWaiting" class="cpw-spinner" />
-            <b-icon
-              v-else-if="isSuccess"
-              icon="check-circle-fill"
-              class="cpw-result-icon cpw-result-icon--success"
-            />
-            <b-icon
-              v-else-if="isFailed"
-              icon="x-circle-fill"
-              class="cpw-result-icon cpw-result-icon--failed"
-            />
-            <b-icon v-else icon="credit-card-2-front-fill" class="cpw-card-icon" />
+      <div
+        class="pos-ui-modal-hero"
+        :class="{
+          'pos-ui-modal-hero--success': isSuccess,
+          'pos-ui-modal-hero--danger': isFailed,
+        }"
+      >
+        <div class="pos-ui-modal-hero-icon" aria-hidden="true">
+          <b-spinner v-if="isWaiting" small />
+          <b-icon v-else-if="isSuccess" icon="check-circle-fill" />
+          <b-icon v-else-if="isFailed" icon="x-circle-fill" />
+          <b-icon v-else icon="credit-card-2-front-fill" />
+        </div>
+        <div class="pos-ui-modal-hero-text">
+          <h3 class="pos-ui-modal-title">{{ modalTitle }}</h3>
+          <p class="pos-ui-modal-subtitle">{{ statusMessage }}</p>
+        </div>
+        <button
+          v-if="!isWaiting"
+          type="button"
+          class="pos-ui-modal-close"
+          :aria-label="$t('close') || 'إغلاق'"
+          @click="close"
+        >
+          <b-icon icon="x-lg"></b-icon>
+        </button>
+      </div>
+
+      <div class="pos-ui-modal-body-content">
+        <div class="cpw-amount-card">
+          <span class="cpw-amount-label">{{ $t("cardPaymentAmountLabel") }}</span>
+          <div class="cpw-amount-value">
+            <span class="cpw-amount-number">{{ formattedAmount }}</span>
+            <span class="cpw-amount-currency">{{ currencyLabel }}</span>
+          </div>
+          <div v-if="deviceName" class="cpw-device-chip">
+            <b-icon icon="hdd-network" class="cpw-device-icon" />
+            <span>{{ deviceName }}</span>
           </div>
         </div>
 
-        <div class="cpw-title-block">
-          <span class="cpw-badge">{{ $t("cardPaymentWaitTitle") }}</span>
-          <h3 class="cpw-title">{{ modalTitle }}</h3>
-          <p class="cpw-subtitle">{{ statusMessage }}</p>
+        <div v-if="isWaiting" class="cpw-steps-row">
+          <div
+            v-for="step in timelineSteps"
+            :key="step.id"
+            class="cpw-step-pill"
+            :class="`cpw-step-pill--${step.state}`"
+          >
+            <span class="cpw-step-pill-icon">
+              <b-icon v-if="step.state === 'done'" icon="check" />
+              <b-spinner v-else-if="step.state === 'active'" small />
+              <b-icon v-else :icon="step.icon" />
+            </span>
+            <span class="cpw-step-pill-label">{{ step.title }}</span>
+          </div>
+        </div>
+
+        <div v-if="isSuccess && (authCode || refNo)" class="cpw-result-details">
+          <div v-if="authCode" class="cpw-result-row">
+            <span>{{ $t("authCode") }}</span>
+            <strong>{{ authCode }}</strong>
+          </div>
+          <div v-if="refNo" class="cpw-result-row">
+            <span>{{ $t("refNo") }}</span>
+            <strong>{{ refNo }}</strong>
+          </div>
+        </div>
+
+        <div v-if="isFailed && errorMessage" class="pos-ui-modal-note pos-ui-modal-note--danger">
+          <b-icon icon="exclamation-triangle-fill" class="pos-ui-modal-note-icon" />
+          <p class="pos-ui-modal-note-text">{{ errorMessage }}</p>
+        </div>
+
+        <div v-else-if="isWaiting" class="pos-ui-modal-note">
+          <b-icon icon="info-circle-fill" class="pos-ui-modal-note-icon" />
+          <p class="pos-ui-modal-note-text">{{ $t("cardPaymentWaitHint") }}</p>
         </div>
       </div>
 
-      <div class="cpw-amount-card">
-        <span class="cpw-amount-label">{{ $t("cardPaymentAmountLabel") }}</span>
-        <div class="cpw-amount-value">
-          <span class="cpw-amount-number">{{ formattedAmount }}</span>
-          <span class="cpw-amount-currency">{{ currencyLabel }}</span>
-        </div>
-        <div v-if="deviceName" class="cpw-device-chip">
-          <b-icon icon="hdd-network" class="cpw-device-icon" />
-          <span>{{ deviceName }}</span>
-        </div>
-      </div>
-
-      <div v-if="isWaiting" class="cpw-steps-row">
-        <div
-          v-for="step in timelineSteps"
-          :key="step.id"
-          class="cpw-step-pill"
-          :class="`cpw-step-pill--${step.state}`"
-        >
-          <span class="cpw-step-pill-icon">
-            <b-icon v-if="step.state === 'done'" icon="check" />
-            <b-spinner v-else-if="step.state === 'active'" small />
-            <b-icon v-else :icon="step.icon" />
-          </span>
-          <span class="cpw-step-pill-label">{{ step.title }}</span>
-        </div>
-      </div>
-
-      <div v-if="isSuccess && (authCode || refNo)" class="cpw-result-details">
-        <div v-if="authCode" class="cpw-result-row">
-          <span>{{ $t("authCode") }}</span>
-          <strong>{{ authCode }}</strong>
-        </div>
-        <div v-if="refNo" class="cpw-result-row">
-          <span>{{ $t("refNo") }}</span>
-          <strong>{{ refNo }}</strong>
-        </div>
-      </div>
-
-      <div v-if="isFailed && errorMessage" class="cpw-error-box">
-        <b-icon icon="exclamation-triangle-fill" class="cpw-error-icon" />
-        <span>{{ errorMessage }}</span>
-      </div>
-
-      <p v-if="isWaiting" class="cpw-wait-hint">
-        <b-icon icon="info-circle" class="cpw-hint-icon" />
-        {{ $t("cardPaymentWaitHint") }}
-      </p>
-
-      <div class="cpw-actions">
+      <div class="pos-ui-modal-actions pos-ui-modal-actions--single">
         <button
           v-if="isWaiting && canCancel"
           type="button"
-          class="cpw-btn cpw-btn--ghost"
+          class="pos-ui-modal-btn pos-ui-modal-btn--secondary"
           :disabled="cancelling"
           @click="$emit('cancel')"
         >
-          <b-spinner v-if="cancelling" small class="cpw-btn-icon" />
-          <b-icon v-else icon="x-circle" class="cpw-btn-icon" />
+          <b-spinner v-if="cancelling" small />
+          <b-icon v-else icon="x-circle-fill" />
           {{ $t("cardPaymentCancel") }}
         </button>
         <button
           v-if="isTerminal"
           type="button"
-          class="cpw-btn"
-          :class="isSuccess ? 'cpw-btn--success' : 'cpw-btn--primary'"
+          class="pos-ui-modal-btn"
+          :class="isSuccess ? 'pos-ui-modal-btn--primary' : 'pos-ui-modal-btn--danger'"
           @click="close"
         >
-          <b-icon :icon="isSuccess ? 'check-circle-fill' : 'arrow-left-circle'" class="cpw-btn-icon" />
+          <b-icon :icon="isSuccess ? 'check-circle-fill' : 'arrow-left-circle'" />
           {{ $t("close") }}
         </button>
       </div>
@@ -153,7 +151,7 @@ export default {
   },
   computed: {
     modalRootClass() {
-      const base = "users-modal card-payment-wait-modal-root";
+      const base = "users-modal pos-ui-modal pos-ui-modal--sm card-payment-wait-modal-root";
       return this.theme === "light" ? `${base} card-payment-wait-modal-root--light` : base;
     },
     normalizedStatus() {

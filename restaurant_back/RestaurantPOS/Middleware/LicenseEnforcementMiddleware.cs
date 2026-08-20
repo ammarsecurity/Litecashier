@@ -70,7 +70,20 @@ public class LicenseEnforcementMiddleware
             return;
         }
 
+        if (licenseService.IsDevicePaused())
+        {
+            var device = licenseService.GetDeviceStatus();
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                message = "devicePaused",
+                pauseReason = device.PauseReason,
+                deviceStatus = device
+            });
+            return;
+        }
+
         await _next(context);
     }
 }
-
