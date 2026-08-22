@@ -78,6 +78,8 @@ public interface ILicenseService
     LicenseStatusDto GetStatus();
     DeviceStatusDto GetDeviceStatus();
     bool IsDevicePaused();
+    /// <summary>Local license file only — no network (for POS offline paths).</summary>
+    bool IsLicensedLocally();
     Task<LicenseStatusDto> ActivateAsync(string code, CancellationToken ct = default);
     Task<bool> EnsureLicensedAsync(CancellationToken ct = default);
     Task<DeviceStatusDto> SyncDeviceControlAsync(CancellationToken ct = default);
@@ -316,6 +318,12 @@ public class LicenseService : ILicenseService
         return LoadDeviceControl()?.IsPaused == true;
     }
 
+    public bool IsLicensedLocally()
+    {
+        if (!EnforcementEnabled) return true;
+        return IsLocallyActive(LoadState());
+    }
+
     public DeviceStatusDto GetDeviceStatus()
     {
         var local = LoadDeviceControl() ?? new LocalDeviceControlState();
@@ -445,19 +453,22 @@ public class LicenseService : ILicenseService
 
         if (!needsOnline && !needsDeviceSync) return true;
 
+        using var networkBudget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        networkBudget.CancelAfter(TimeSpan.FromSeconds(3));
+
         try
         {
             if (needsOnline)
             {
                 var client = _httpClientFactory.CreateClient("LicenseServer");
                 var payload = new { code = state.Code, machineId = GetMachineId(), product = _options.Product };
-                var response = await client.PostAsJsonAsync("api/validate", payload, JsonOpts, ct);
+                var response = await client.PostAsJsonAsync("api/validate", payload, JsonOpts, networkBudget.Token);
                 var body = await response.Content.ReadAsStringAsync(ct);
                 if (!response.IsSuccessStatusCode)
                 {
                     _logger.LogWarning("License validate HTTP {Status}", (int)response.StatusCode);
                     if (needsDeviceSync)
-                        await SyncDeviceControlAsync(ct);
+                        await SyncDeviceControlAsync(networkBudget.Token);
                     return IsLocallyActive(state);
                 }
 
@@ -490,7 +501,7 @@ public class LicenseService : ILicenseService
             }
 
             if (needsDeviceSync)
-                await SyncDeviceControlAsync(ct);
+                await SyncDeviceControlAsync(networkBudget.Token);
 
             return true;
         }

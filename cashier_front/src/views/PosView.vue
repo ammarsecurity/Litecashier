@@ -116,8 +116,9 @@
                           autocomplete="off"
                           spellcheck="false"
                           autofocus
-                          @keyup.enter="handleBarcodeSearch"
+                          @keydown="handleBarcodeKeydown"
                           @input="handleBarcodeInput"
+                          @paste="handleBarcodePaste"
                         />
                       </span>
                       <span class="pos-quick-barcode-actions">
@@ -1465,6 +1466,7 @@ import { resolveAbsoluteAssetUrl } from "@/utils/apiBase.js";
 import posOrderPersistMixin from "@/mixins/posOrderPersistMixin.js";
 import posCardPaymentMixin from "@/mixins/posCardPaymentMixin.js";
 import posPrintMixin from "@/mixins/posPrintMixin.js";
+import posBarcodeScanMixin from "@/mixins/posBarcodeScanMixin.js";
 import CardPaymentWaitModal from "@/components/CardPaymentWaitModal.vue";
 import {
   findCartLineIndex,
@@ -1493,7 +1495,12 @@ import {
 
 export default {
   name: "PosView",
-  mixins: [posOrderPersistMixin, posCardPaymentMixin, posPrintMixin],
+  mixins: [
+    posOrderPersistMixin,
+    posCardPaymentMixin,
+    posPrintMixin,
+    posBarcodeScanMixin,
+  ],
   components: {
     AppHeader,
     ClockVue,
@@ -1509,7 +1516,6 @@ export default {
       totaPrice: 0,
       carditems: [],
       isWholesale: false,
-      typingTimer: null,
       doneTypingInterval: 300,
       silentCartToasts: true,
       isSearching: false,
@@ -2765,144 +2771,6 @@ export default {
           this.show = false;
         });
     },
-    handleBarcodeSearch() {
-      // Immediate search when Enter is pressed (barcode scanner)
-      if (this.searchCode && this.searchCode.trim() !== "") {
-        clearTimeout(this.typingTimer);
-        // Cancel any pending debounced search
-        this.typingTimer = null;
-        this.SearchByCode();
-      }
-    },
-    handleBarcodeInput() {
-      // Cancel any pending search
-      clearTimeout(this.typingTimer);
-      
-      if (this.searchCode.trim() === "") {
-        return;
-      }
-      
-      // Use debounce for all searches to prevent multiple requests
-      // Barcode scanners send codes quickly, so we wait a bit to ensure complete code
-      this.typingTimer = setTimeout(() => {
-        // Only search if code is long enough (likely complete)
-        // Minimum 3 chars for manual typing, but prefer longer codes
-        if (this.searchCode.length >= 3) {
-          this.SearchByCode();
-        }
-      }, this.doneTypingInterval);
-    },
-    SearchByCode() {
-      // Prevent multiple simultaneous searches
-      if (this.isSearching) {
-        return;
-      }
-      
-      if (!this.searchCode || this.searchCode.trim() === "") {
-        return;
-      }
-      
-      // Cancel any previous request
-      if (this.searchAbortController) {
-        this.searchAbortController.abort();
-      }
-      
-      // Create new abort controller for this request
-      this.searchAbortController = new AbortController();
-      this.isSearching = true;
-      
-      const whQuery = this.selectedWarehouseId
-        ? `&warehouseId=${this.selectedWarehouseId}`
-        : "";
-      HTTP.get(`Admin/GetItemsByCode?code=${this.searchCode}${whQuery}`, {
-        signal: this.searchAbortController.signal
-      })
-        .then((response) => {
-          this.isSearching = false;
-          
-          if (response.data && response.data.data) {
-            this.SearchItems = response.data.data;
-            
-            // Check if item already exists in cart
-            const existingItemIndex = findCartLineIndex(this.carditems, this.SearchItems.id);
-            
-            if (existingItemIndex !== -1) {
-              this.carditems[existingItemIndex].quantity += 1;
-              this.carditems[existingItemIndex].isWholesale = this.isWholesale;
-              this.carditems[existingItemIndex].wholesalePrice =
-                Number(this.SearchItems.wholesalePrice) ||
-                this.carditems[existingItemIndex].wholesalePrice ||
-                0;
-              this.carditems[existingItemIndex].total = getCartLineTotal(
-                this.carditems[existingItemIndex],
-                this.isWholesale
-              );
-              promoteCartLineToFront(this.carditems, existingItemIndex);
-            } else {
-              // Check if item has available quantity
-              if (!this.SearchItems.quantity || this.SearchItems.quantity <= 0) {
-                const toastPosition = document.documentElement.dir === "rtl" ? "top-right" : "top-left";
-                this.$notify.error(
-                  this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر في المخزون",
-                  {
-                    position: toastPosition,
-                    timeout: 2000,
-                    maxToasts: 1,
-                    newestOnTop: true,
-                  }
-                );
-                this.searchCode = "";
-                if (this.$refs.codeNumber) {
-                  this.$refs.codeNumber.focus();
-                }
-                return;
-              }
-              
-              // New item, add to top of cart
-              const item = {
-                name: this.SearchItems.name,
-                quantity: 1,
-                price: Number(this.SearchItems.sellingPrice) || 0,
-                disCountPrice: Number(this.SearchItems.disCountPrice) || 0,
-                wholesalePrice: Number(this.SearchItems.wholesalePrice) || 0,
-                isWholesale: this.isWholesale,
-                id: this.SearchItems.id,
-              };
-              item.total = getCartLineTotal(item, this.isWholesale);
-              this.carditems.unshift(item);
-            }
-            
-            this.feedbackItemAdded(this.SearchItems.name);
-            
-            this.searchCode = "";
-            if (this.$refs.codeNumber) {
-              this.$refs.codeNumber.focus();
-            }
-          }
-        })
-        .catch((error) => {
-          this.isSearching = false;
-          
-          // Don't show error if request was aborted
-          if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
-            return;
-          }
-          
-          this.searchCode = "";
-          // Show error notification (only one at a time)
-          this.$notify.error(this.$i18n.t("itemNotFound") || "Item not found", {
-            position: "top-right",
-            timeout: 2000,
-            closeOnClick: true,
-            pauseOnFocusLoss: false,
-            pauseOnHover: false,
-            draggable: false,
-            hideProgressBar: false,
-            maxToasts: 1,
-            newestOnTop: true,
-          });
-        });
-    },
     feedbackItemAdded(itemName) {
       this.flashCart();
       if (this.silentCartToasts) return;
@@ -2984,10 +2852,9 @@ export default {
   align-items: center;
   gap: 0.55rem;
   margin: 0 0 0.55rem;
-  padding: 0.45rem 0.55rem;
-  border-radius: 0.65rem;
-  border: 1px solid color-mix(in srgb, var(--primary-color, #0f6e6e) 28%, transparent);
-  background: color-mix(in srgb, var(--primary-color, #0f6e6e) 10%, transparent);
+  padding: 0.25rem 0.65rem;
+  background: transparent;
+  border: none;
 }
 
 .pos-warehouse-bar__label {

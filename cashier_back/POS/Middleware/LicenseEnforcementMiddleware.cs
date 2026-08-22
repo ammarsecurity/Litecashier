@@ -12,7 +12,7 @@ public class LicenseEnforcementMiddleware
         "/Employees", "/Expenses", "/ExpenseCategories", "/CreditAccounts",
         "/PaymentDevices", "/CardPayments", "/PayrollRuns", "/Payroll",
         "/SalaryAdjustments", "/EmployeeAdvances", "/AuditLog", "/Users",
-        "/Items", "/Orders", "/Reports"
+        "/Items", "/Orders", "/Reports", "/Warehouses"
     ];
 
     private static readonly PathString[] ExemptPrefixes =
@@ -52,6 +52,39 @@ public class LicenseEnforcementMiddleware
             path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
         if (!isProtectedApi)
         {
+            await _next(context);
+            return;
+        }
+
+        // POS catalog + barcode + checkout: local license file only — never block on internet.
+        if (PosOfflineRoutes.IsLocalOnlyPath(path))
+        {
+            if (!licenseService.IsLicensedLocally())
+            {
+                context.Response.StatusCode = StatusCodes.Status402PaymentRequired;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    message = "licenseExpired",
+                    status = licenseService.GetStatus()
+                });
+                return;
+            }
+
+            if (licenseService.IsDevicePaused())
+            {
+                var device = licenseService.GetDeviceStatus();
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    message = "devicePaused",
+                    pauseReason = device.PauseReason,
+                    deviceStatus = device
+                });
+                return;
+            }
+
             await _next(context);
             return;
         }

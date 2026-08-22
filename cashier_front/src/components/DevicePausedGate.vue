@@ -38,7 +38,9 @@ export default {
   },
   mounted() {
     registerDevicePausedHandler((payload) => this.open(payload));
-    this.checkStatus();
+    if (!this.isPosRoute()) {
+      this.checkStatus();
+    }
     window.addEventListener("online", this.onOnline);
   },
   beforeDestroy() {
@@ -47,7 +49,12 @@ export default {
     this.clearPoll();
   },
   methods: {
+    isPosRoute() {
+      const path = this.$route?.path || "";
+      return path === "/pos" || path.startsWith("/pos/");
+    },
     onOnline() {
+      if (this.isPosRoute()) return;
       this.retrySync();
     },
     open(payload = {}) {

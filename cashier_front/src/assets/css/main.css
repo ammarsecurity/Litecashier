@@ -303,10 +303,24 @@ p {
   color: #ffffff !important;
 }
 
-.router-link-exact-active {
+.nav-link.router-link-active,
+.nav-link.router-link-exact-active {
   background: rgba(255, 255, 255, 0.25) !important;
   color: #ffffff !important;
   font-weight: 600;
+}
+
+.app-top-header-sections-link.router-link-active,
+.app-top-header-sections-link.router-link-exact-active {
+  background: color-mix(in srgb, var(--primary-color) 22%, var(--bg-primary)) !important;
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color)) !important;
+  color: var(--primary-color) !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+
+.app-top-header-sections-link.router-link-active .app-top-header-sections-icon,
+.app-top-header-sections-link.router-link-exact-active .app-top-header-sections-icon {
+  color: inherit !important;
 }
 
 /* ============================================
@@ -14038,9 +14052,10 @@ table .b-icon,
 
 :root.light-theme .app-top-header-sections-link.router-link-active,
 :root.light-theme .app-top-header-sections-link.router-link-exact-active {
-  background: color-mix(in srgb, var(--primary-color) 10%, #ffffff);
-  border-color: color-mix(in srgb, var(--primary-color) 35%, #e5e7eb);
-  color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 10%, #ffffff) !important;
+  border-color: color-mix(in srgb, var(--primary-color) 35%, #e5e7eb) !important;
+  color: var(--primary-color) !important;
+  box-shadow: 0 2px 6px rgba(8, 145, 178, 0.12);
 }
 
 :root.light-theme .app-top-header-sections-icon {
@@ -14064,6 +14079,13 @@ table .b-icon,
   background: #fff;
   border-color: #f97316;
   color: #ea580c;
+}
+
+:root.light-theme .pos-route .app-top-header-sections-link.router-link-active,
+:root.light-theme .pos-route .app-top-header-sections-link.router-link-exact-active {
+  background: color-mix(in srgb, #f97316 12%, #ffffff) !important;
+  border-color: #f97316 !important;
+  color: #ea580c !important;
 }
 
 :root.light-theme .pos-route .app-top-header {

@@ -109,7 +109,27 @@ installer/output/Litecashier-Setup.exe
 .\build-installer.ps1 -SkipInstallerCompile
 ```
 
-### ماذا يفعل المثبّت؟
+### تحديث آمن (بدون فقدان بيانات)
+
+عند التحديث فوق نسخة قديمة، المثبّت **لا يمس**:
+- `appsettings.Production.json` (اتصال MySQL)
+- صور المنتجات `wwwroot/Images`
+- بيانات MySQL (الجداول والكميات)
+- ملف الترخيص في `ProgramData`
+
+بعد التثبيت، الـ API يشغّل migrations تلقائياً (`ApplyMigrationsOnStartup: true`).
+
+**v1.0.28+** — إصلاح مخزون POS بعد التحديث: إذا المنتجات تظهر بكمية بصفحة المنتجات لكن POS يقول «غير متوفر»، migration `RepairWarehouseStockBackfill` ينقل الكميات إلى `ItemWarehouseStocks` تلقائياً عند أول تشغيل.
+
+إصلاح يدوي فوري (بدون انتظار مثبّت جديد):
+
+```powershell
+mysql -u root -p pos < "C:\Program Files\Litecashier\scripts\repair-warehouse-stock.sql"
+```
+
+(عدّل اسم المستخدم وقاعدة البيانات حسب إعداد الزبون.)
+
+---
 
 ```
 C:\Program Files\Litecashier\

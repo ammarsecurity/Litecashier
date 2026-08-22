@@ -111,12 +111,18 @@ export default {
       this.code = "";
       this.refreshStatus({ keepOpenForChange: this.changeMode });
     });
-    this.refreshStatus();
+    if (!this.isPosRoute()) {
+      this.refreshStatus();
+    }
   },
   beforeDestroy() {
     registerLicenseGateHandler(null);
   },
   methods: {
+    isPosRoute() {
+      const path = this.$route?.path || "";
+      return path === "/pos" || path.startsWith("/pos/");
+    },
     dismiss() {
       if (!this.canDismiss || this.busy) return;
       this.visible = false;
