@@ -136,6 +136,17 @@ builder.Services.AddSignalR();
 
 var app = builder.Build();
 
+// SPA fallback only allows GET. Rewrite collection POST so it never hits index.html (405).
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsPost(context.Request.Method)
+        && context.Request.Path.Equals("/ShortcutItems", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Request.Path = "/ShortcutItems/Add";
+    }
+    await next();
+});
+
 var applyMigrations = app.Configuration.GetValue("DatabaseSettings:ApplyMigrationsOnStartup", true);
 if (applyMigrations)
 {
@@ -197,11 +208,20 @@ app.MapHub<OrderHub>("/orderHub");
 if (Directory.Exists(spaRoot))
 {
     var spaFileProvider = new PhysicalFileProvider(spaRoot);
-    app.MapFallbackToFile("index.html", new StaticFileOptions
-    {
-        FileProvider = spaFileProvider,
-        RequestPath = ""
-    });
+    app.MapWhen(
+        ctx => HttpMethods.IsGet(ctx.Request.Method) || HttpMethods.IsHead(ctx.Request.Method),
+        spa =>
+        {
+            spa.UseRouting();
+            spa.UseEndpoints(endpoints =>
+            {
+                endpoints.MapFallbackToFile("index.html", new StaticFileOptions
+                {
+                    FileProvider = spaFileProvider,
+                    RequestPath = ""
+                });
+            });
+        });
 }
 
 app.Run();

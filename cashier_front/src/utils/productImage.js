@@ -9,9 +9,34 @@ function resolvePublicAsset(fileName) {
   return `${base}${fileName}`;
 }
 
+const DEFAULT_PRODUCT_IMAGE_KEY = "posDefaultProductImage";
+
+/** Built-in fallback used when the store has not uploaded a custom default. */
+export const BUILTIN_DEFAULT_PRODUCT_IMAGE = resolvePublicAsset("default-product.png");
+
 /** Brand logo used as fallback when a product has no (usable) image. */
-export const DEFAULT_PRODUCT_IMAGE = resolvePublicAsset("default-product.png");
+export const DEFAULT_PRODUCT_IMAGE = BUILTIN_DEFAULT_PRODUCT_IMAGE;
 export const BRAND_LOGO = resolvePublicAsset("logo.png");
+
+export function getDefaultProductImage() {
+  try {
+    const stored = localStorage.getItem(DEFAULT_PRODUCT_IMAGE_KEY);
+    if (stored && stored.trim()) return stored.trim();
+  } catch (_) {
+    /* ignore */
+  }
+  return BUILTIN_DEFAULT_PRODUCT_IMAGE;
+}
+
+export function applyDefaultProductImage(url) {
+  try {
+    const value = url == null ? "" : String(url).trim();
+    if (value) localStorage.setItem(DEFAULT_PRODUCT_IMAGE_KEY, value);
+    else localStorage.removeItem(DEFAULT_PRODUCT_IMAGE_KEY);
+  } catch (_) {
+    /* ignore */
+  }
+}
 
 export function hasRealProductImage(image) {
   const value = String(image || "").trim();
@@ -26,7 +51,7 @@ export function productImageSrc(image, imageError = false) {
   if (!imageError && hasRealProductImage(image)) {
     return String(image).trim();
   }
-  return DEFAULT_PRODUCT_IMAGE;
+  return getDefaultProductImage();
 }
 
 export function isProductImageFallback(image, imageError = false) {

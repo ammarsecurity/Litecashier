@@ -184,6 +184,142 @@
             </div>
           </div>
 
+          <div class="app-section-card settings-branding-zone">
+            <div class="app-section-header">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap settings-branding-zone__icon">
+                  <b-icon icon="palette-fill"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("settingsPosBrandingTitle") }}</h3>
+                  <p class="app-section-subtitle">{{ $t("settingsPosBrandingSubtitle") }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="app-section-body">
+              <p class="settings-branding-zone__intro">{{ $t("settingsPosBrandingHint") }}</p>
+              <div class="settings-branding-grid">
+                <div class="settings-branding-card">
+                  <div class="settings-branding-card__head">
+                    <strong>{{ $t("settingsCartWatermarkTitle") }}</strong>
+                    <span>{{ $t("settingsCartWatermarkHint") }}</span>
+                  </div>
+                  <div
+                    class="settings-watermark-preview"
+                    :style="{ '--pos-cart-watermark-opacity': String(cartWatermarkOpacity / 100) }"
+                  >
+                    <img
+                      v-if="watermarkPreviewSrc"
+                      :src="watermarkPreviewSrc"
+                      alt=""
+                    />
+                    <span v-else class="settings-branding-empty">
+                      {{ $t("settingsCartWatermarkEmpty") }}
+                    </span>
+                  </div>
+                  <label class="settings-opacity-field">
+                    <span>
+                      {{ $t("settingsCartWatermarkOpacity") }}
+                      <strong>{{ cartWatermarkOpacity }}%</strong>
+                    </span>
+                    <input
+                      v-model.number="cartWatermarkOpacity"
+                      type="range"
+                      min="20"
+                      max="100"
+                      step="1"
+                      :disabled="brandingLoading || brandingSaving"
+                    />
+                  </label>
+                  <div class="settings-branding-actions">
+                    <button
+                      type="button"
+                      class="logo-upload-btn"
+                      :disabled="brandingLoading || brandingSaving"
+                      @click="$refs.watermarkInput.click()"
+                    >
+                      <b-icon icon="cloud-upload-fill" class="me-2"></b-icon>
+                      {{ $t("settingsCartWatermarkUpload") }}
+                    </button>
+                    <button
+                      v-if="watermarkPreviewSrc"
+                      type="button"
+                      class="settings-branding-clear"
+                      :disabled="brandingLoading || brandingSaving"
+                      @click="clearWatermark"
+                    >
+                      <b-icon icon="trash"></b-icon>
+                      {{ $t("settingsCartWatermarkRemove") }}
+                    </button>
+                  </div>
+                  <input
+                    ref="watermarkInput"
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif"
+                    hidden
+                    @change="onWatermarkFileChange"
+                  />
+                </div>
+
+                <div class="settings-branding-card">
+                  <div class="settings-branding-card__head">
+                    <strong>{{ $t("settingsDefaultProductImageTitle") }}</strong>
+                    <span>{{ $t("settingsDefaultProductImageHint") }}</span>
+                  </div>
+                  <div class="settings-product-preview">
+                    <img :src="defaultProductPreviewSrc" alt="" />
+                  </div>
+                  <div class="settings-branding-actions">
+                    <button
+                      type="button"
+                      class="logo-upload-btn"
+                      :disabled="brandingLoading || brandingSaving"
+                      @click="$refs.defaultProductInput.click()"
+                    >
+                      <b-icon icon="cloud-upload-fill" class="me-2"></b-icon>
+                      {{ $t("settingsDefaultProductImageUpload") }}
+                    </button>
+                    <button
+                      v-if="hasCustomDefaultProduct"
+                      type="button"
+                      class="settings-branding-clear"
+                      :disabled="brandingLoading || brandingSaving"
+                      @click="clearDefaultProduct"
+                    >
+                      <b-icon icon="arrow-counterclockwise"></b-icon>
+                      {{ $t("settingsDefaultProductImageReset") }}
+                    </button>
+                  </div>
+                  <input
+                    ref="defaultProductInput"
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif"
+                    hidden
+                    @change="onDefaultProductFileChange"
+                  />
+                </div>
+              </div>
+              <div class="settings-danger-zone__actions">
+                <button
+                  type="button"
+                  class="users-add-button"
+                  :disabled="brandingLoading || brandingSaving || !brandingDirty"
+                  @click="savePosBranding"
+                >
+                  <b-spinner small v-if="brandingSaving" class="button-icon"></b-spinner>
+                  <b-icon v-else icon="check2-circle" class="button-icon"></b-icon>
+                  <span class="button-text">
+                    {{
+                      brandingSaving
+                        ? $t("settingsPosBrandingSaving")
+                        : $t("settingsPosBrandingSave")
+                    }}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div class="app-section-card settings-backup-zone">
             <div class="app-section-header">
               <div class="app-section-title-wrap">
@@ -339,6 +475,8 @@
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "@/http/api.js";
 import { openLicenseGate } from "@/utils/licenseGateBus.js";
+import { applyCommercialBranding, clampWatermarkOpacity } from "@/utils/posBranding.js";
+import { BUILTIN_DEFAULT_PRODUCT_IMAGE } from "@/utils/productImage.js";
 
 export default {
   name: "SettingsView",
@@ -353,6 +491,18 @@ export default {
       savedPrintInvoiceFormat: "Pos",
       printSettingsLoading: false,
       printSettingsSaving: false,
+      brandingLoading: false,
+      brandingSaving: false,
+      cartWatermarkOpacity: 18,
+      savedCartWatermarkOpacity: 18,
+      savedWatermarkLogo: null,
+      savedDefaultProductImage: null,
+      watermarkFile: null,
+      watermarkPreview: null,
+      defaultProductFile: null,
+      defaultProductPreview: null,
+      clearWatermarkPending: false,
+      clearDefaultProductPending: false,
       licenseStatus: null,
       licenseStatusLoading: false,
       licenseOnline: false,
@@ -363,9 +513,30 @@ export default {
     printFormatDirty() {
       return this.printInvoiceFormat !== this.savedPrintInvoiceFormat;
     },
+    watermarkPreviewSrc() {
+      if (this.clearWatermarkPending) return null;
+      return this.watermarkPreview || this.savedWatermarkLogo;
+    },
+    defaultProductPreviewSrc() {
+      if (this.clearDefaultProductPending) return BUILTIN_DEFAULT_PRODUCT_IMAGE;
+      return this.defaultProductPreview || this.savedDefaultProductImage || BUILTIN_DEFAULT_PRODUCT_IMAGE;
+    },
+    hasCustomDefaultProduct() {
+      return !!(this.defaultProductFile || (!this.clearDefaultProductPending && this.savedDefaultProductImage));
+    },
+    brandingDirty() {
+      return (
+        !!this.watermarkFile ||
+        !!this.defaultProductFile ||
+        this.clearWatermarkPending ||
+        this.clearDefaultProductPending ||
+        clampWatermarkOpacity(this.cartWatermarkOpacity) !== this.savedCartWatermarkOpacity
+      );
+    },
   },
   mounted() {
     this.loadPrintSettings();
+    this.loadPosBranding();
     this.loadLicenseStatus();
     this.checkLicenseConnectivity();
     window.addEventListener("online", this.onBrowserOnline);
@@ -374,6 +545,7 @@ export default {
   beforeDestroy() {
     window.removeEventListener("online", this.onBrowserOnline);
     window.removeEventListener("offline", this.onBrowserOffline);
+    this.revokeBrandingPreviews();
   },
   methods: {
     onBrowserOnline() {
@@ -479,6 +651,96 @@ export default {
         );
       } finally {
         this.printSettingsSaving = false;
+      }
+    },
+    applyBrandingPayload(d) {
+      const branding = applyCommercialBranding(d);
+      this.savedWatermarkLogo = branding.cartWatermarkLogo;
+      this.savedDefaultProductImage = branding.defaultProductImage;
+      this.cartWatermarkOpacity = branding.cartWatermarkOpacity;
+      this.savedCartWatermarkOpacity = branding.cartWatermarkOpacity;
+      this.clearWatermarkPending = false;
+      this.clearDefaultProductPending = false;
+      this.revokeBrandingPreviews();
+      this.watermarkFile = null;
+      this.watermarkPreview = null;
+      this.defaultProductFile = null;
+      this.defaultProductPreview = null;
+    },
+    revokeBrandingPreviews() {
+      if (this.watermarkPreview) URL.revokeObjectURL(this.watermarkPreview);
+      if (this.defaultProductPreview) URL.revokeObjectURL(this.defaultProductPreview);
+    },
+    async loadPosBranding() {
+      this.brandingLoading = true;
+      try {
+        const response = await HTTP.get("Admin/CommercialUserInfo");
+        this.applyBrandingPayload(response?.data?.data);
+      } catch (error) {
+        console.error("Error loading POS branding:", error);
+      } finally {
+        this.brandingLoading = false;
+      }
+    },
+    onWatermarkFileChange(event) {
+      const file = event?.target?.files?.[0];
+      if (this.$refs.watermarkInput) this.$refs.watermarkInput.value = "";
+      if (!file) return;
+      if (this.watermarkPreview) URL.revokeObjectURL(this.watermarkPreview);
+      this.watermarkFile = file;
+      this.watermarkPreview = URL.createObjectURL(file);
+      this.clearWatermarkPending = false;
+    },
+    clearWatermark() {
+      if (this.watermarkPreview) URL.revokeObjectURL(this.watermarkPreview);
+      this.watermarkFile = null;
+      this.watermarkPreview = null;
+      this.clearWatermarkPending = !!this.savedWatermarkLogo;
+    },
+    onDefaultProductFileChange(event) {
+      const file = event?.target?.files?.[0];
+      if (this.$refs.defaultProductInput) this.$refs.defaultProductInput.value = "";
+      if (!file) return;
+      if (this.defaultProductPreview) URL.revokeObjectURL(this.defaultProductPreview);
+      this.defaultProductFile = file;
+      this.defaultProductPreview = URL.createObjectURL(file);
+      this.clearDefaultProductPending = false;
+    },
+    clearDefaultProduct() {
+      if (this.defaultProductPreview) URL.revokeObjectURL(this.defaultProductPreview);
+      this.defaultProductFile = null;
+      this.defaultProductPreview = null;
+      this.clearDefaultProductPending = !!this.savedDefaultProductImage;
+    },
+    async savePosBranding() {
+      if (this.brandingSaving || !this.brandingDirty) return;
+      this.brandingSaving = true;
+      try {
+        const formData = new FormData();
+        formData.append("CartWatermarkOpacity", String(clampWatermarkOpacity(this.cartWatermarkOpacity)));
+        if (this.watermarkFile) formData.append("CartWatermarkLogo", this.watermarkFile);
+        if (this.clearWatermarkPending) formData.append("ClearCartWatermark", "true");
+        if (this.defaultProductFile) formData.append("DefaultProductImage", this.defaultProductFile);
+        if (this.clearDefaultProductPending) formData.append("ClearDefaultProductImage", "true");
+
+        const response = await HTTP.post("Admin/UpdatePosBranding", formData);
+        if (response?.data?.errorStatus) {
+          throw new Error(response.data.message || "saveFailed");
+        }
+        this.applyBrandingPayload(response?.data?.data);
+        this.$notify.success(this.$t("settingsPosBrandingSaveSuccess"), {
+          position: "top-right",
+          timeout: 3000,
+          maxToasts: 1,
+        });
+      } catch (error) {
+        const msg = error?.response?.data?.message || error?.message;
+        this.$notify.error(
+          msg && this.$te(msg) ? this.$t(msg) : this.$t("settingsPosBrandingSaveFailed"),
+          { position: "top-right", timeout: 4000, maxToasts: 1 }
+        );
+      } finally {
+        this.brandingSaving = false;
       }
     },
     async downloadDatabaseBackup() {
@@ -719,6 +981,141 @@ export default {
   color: var(--text-secondary, #94a3b8);
   font-size: 0.85rem;
   line-height: 1.45;
+}
+
+.settings-branding-zone {
+  margin-bottom: 1.25rem;
+}
+
+.settings-branding-zone__icon {
+  background: rgba(14, 116, 144, 0.16);
+  color: #0e7490;
+}
+
+.settings-branding-zone__intro {
+  margin: 0 0 1.25rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.6;
+}
+
+.settings-branding-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.settings-branding-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: rgba(15, 23, 42, 0.28);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.settings-branding-card__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.settings-branding-card__head strong {
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.98rem;
+}
+
+.settings-branding-card__head span {
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.settings-watermark-preview,
+.settings-product-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  border-radius: 0.85rem;
+  overflow: hidden;
+}
+
+.settings-watermark-preview {
+  background:
+    linear-gradient(180deg, #f8fafb 0%, #eef2f5 100%);
+}
+
+.settings-watermark-preview img {
+  max-width: 78%;
+  max-height: 180px;
+  object-fit: contain;
+  opacity: var(--pos-cart-watermark-opacity, 0.18);
+}
+
+.settings-product-preview {
+  background: #fff;
+}
+
+.settings-product-preview img {
+  width: 200px;
+  height: 140px;
+  object-fit: contain;
+}
+
+.settings-branding-empty {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.settings-opacity-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.88rem;
+}
+
+.settings-opacity-field strong {
+  color: var(--text-primary, #e2e8f0);
+  margin-inline-start: 0.35rem;
+}
+
+.settings-opacity-field input[type="range"] {
+  width: 100%;
+  accent-color: #0e7490;
+}
+
+.settings-branding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.settings-branding-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: none;
+  background: transparent;
+  color: #f87171;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.35rem 0;
+}
+
+.settings-branding-clear:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .settings-branding-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .settings-backup-zone {

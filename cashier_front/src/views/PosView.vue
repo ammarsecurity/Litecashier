@@ -9,18 +9,70 @@
     >
       <AppHeader>
         <template #pos-center>
-          <div class="pos-quick-search pos-quick-search--header">
-            <b-icon icon="search" class="pos-quick-search-icon" aria-hidden="true"></b-icon>
-            <input
-              v-model="quickSearch"
-              ref="posQuickSearchInput"
-              type="search"
-              :placeholder="$t('searchPlaceholder')"
-              class="pos-quick-search-input"
-              :title="`${$t('searchPlaceholder') || 'بحث'} (F3)`"
-              :aria-label="`${$t('searchPlaceholder') || 'بحث'} (F3)`"
-            />
-            <kbd class="pos-kbd pos-kbd--quick-search" title="F3">F3</kbd>
+          <div
+            class="pos-invoice-tabs pos-invoice-tabs--navbar"
+            role="tablist"
+            :aria-label="$t('posInvoiceTabs') || 'فواتير مفتوحة'"
+          >
+            <button
+              v-for="tab in invoiceTabs"
+              :key="tab.id"
+              type="button"
+              role="tab"
+              class="pos-invoice-tab"
+              :class="{
+                'pos-invoice-tab--active': tab.id === activeInvoiceTabId,
+                'pos-invoice-tab--renaming': invoiceTabRenamingId === tab.id,
+              }"
+              :aria-selected="tab.id === activeInvoiceTabId"
+              :title="$t('posInvoiceTabRenameHint') || 'نقرة مزدوجة لتعديل الاسم'"
+              @click="switchInvoiceTab(tab.id)"
+            >
+              <input
+                v-if="invoiceTabRenamingId === tab.id"
+                :ref="'invoiceTabRename_' + tab.id"
+                v-model="invoiceTabRenameDraft"
+                type="text"
+                class="pos-invoice-tab-rename-input"
+                maxlength="40"
+                :aria-label="$t('posInvoiceTabRename') || 'اسم الفاتورة'"
+                @click.stop
+                @mousedown.stop
+                @keydown.enter.prevent="commitRenameInvoiceTab"
+                @keydown.esc.prevent="cancelRenameInvoiceTab"
+                @blur="commitRenameInvoiceTab"
+              />
+              <span
+                v-else
+                class="pos-invoice-tab-label"
+                @dblclick.stop.prevent="startRenameInvoiceTab(tab, $event)"
+              >{{ invoiceTabLabel(tab) }}</span>
+              <span
+                v-if="invoiceTabCount(tab) > 0 && invoiceTabRenamingId !== tab.id"
+                class="pos-invoice-tab-count"
+              >{{ invoiceTabCount(tab) }}</span>
+              <span
+                class="pos-invoice-tab-close"
+                role="button"
+                tabindex="0"
+                :title="$t('posInvoiceTabClose') || 'إغلاق'"
+                @click="requestCloseInvoiceTab(tab.id, $event)"
+                @keydown.enter.prevent="requestCloseInvoiceTab(tab.id, $event)"
+              >
+                <b-icon icon="x"></b-icon>
+              </span>
+            </button>
+            <button
+              type="button"
+              class="pos-invoice-tab-add"
+              :disabled="!canAddInvoiceTab"
+              :title="`${$t('posInvoiceTabNew') || 'فاتورة جديدة'} (F9)`"
+              @click="addInvoiceTab"
+            >
+              <b-icon icon="plus-lg"></b-icon>
+              <span class="pos-invoice-tab-add-text">{{ $t("posInvoiceTabNew") || "جديدة" }}</span>
+              <kbd class="pos-kbd">F9</kbd>
+            </button>
           </div>
         </template>
       </AppHeader>
@@ -34,72 +86,10 @@
       >
         <b-container fluid class="pos-container-fluid">
           <div class="pos-page-container pos-page-container--v2">
-            <div class="pos-invoice-tabs" role="tablist" :aria-label="$t('posInvoiceTabs') || 'فواتير مفتوحة'">
-              <button
-                v-for="tab in invoiceTabs"
-                :key="tab.id"
-                type="button"
-                role="tab"
-                class="pos-invoice-tab"
-                :class="{
-                  'pos-invoice-tab--active': tab.id === activeInvoiceTabId,
-                  'pos-invoice-tab--renaming': invoiceTabRenamingId === tab.id,
-                }"
-                :aria-selected="tab.id === activeInvoiceTabId"
-                :title="$t('posInvoiceTabRenameHint') || 'نقرة مزدوجة لتعديل الاسم'"
-                @click="switchInvoiceTab(tab.id)"
-              >
-                <input
-                  v-if="invoiceTabRenamingId === tab.id"
-                  :ref="'invoiceTabRename_' + tab.id"
-                  v-model="invoiceTabRenameDraft"
-                  type="text"
-                  class="pos-invoice-tab-rename-input"
-                  maxlength="40"
-                  :aria-label="$t('posInvoiceTabRename') || 'اسم الفاتورة'"
-                  @click.stop
-                  @mousedown.stop
-                  @keydown.enter.prevent="commitRenameInvoiceTab"
-                  @keydown.esc.prevent="cancelRenameInvoiceTab"
-                  @blur="commitRenameInvoiceTab"
-                />
-                <span
-                  v-else
-                  class="pos-invoice-tab-label"
-                  @dblclick.stop.prevent="startRenameInvoiceTab(tab, $event)"
-                >{{ invoiceTabLabel(tab) }}</span>
-                <span
-                  v-if="invoiceTabCount(tab) > 0 && invoiceTabRenamingId !== tab.id"
-                  class="pos-invoice-tab-count"
-                >{{ invoiceTabCount(tab) }}</span>
-                <span
-                  class="pos-invoice-tab-close"
-                  role="button"
-                  tabindex="0"
-                  :title="$t('posInvoiceTabClose') || 'إغلاق'"
-                  @click="requestCloseInvoiceTab(tab.id, $event)"
-                  @keydown.enter.prevent="requestCloseInvoiceTab(tab.id, $event)"
-                >
-                  <b-icon icon="x"></b-icon>
-                </span>
-              </button>
-              <button
-                type="button"
-                class="pos-invoice-tab-add"
-                :disabled="!canAddInvoiceTab"
-                :title="`${$t('posInvoiceTabNew') || 'فاتورة جديدة'} (F9)`"
-                @click="addInvoiceTab"
-              >
-                <b-icon icon="plus-lg"></b-icon>
-                <span class="pos-invoice-tab-add-text">{{ $t("posInvoiceTabNew") || "جديدة" }}</span>
-                <kbd class="pos-kbd">F9</kbd>
-              </button>
-            </div>
-
             <div class="pos-workspace pos-workspace--v2">
               <main class="pos-workspace-main">
                 <div class="pos-main-section pos-main-section--v2">
-                  <div class="pos-quick-actions pos-quick-actions--barcode">
+                  <div class="pos-quick-actions pos-quick-actions--barcode pos-quick-actions--with-catalog">
                     <label class="pos-quick-barcode">
                       <span class="pos-quick-barcode-icon" aria-hidden="true">
                         <b-icon icon="upc-scan"></b-icon>
@@ -138,136 +128,46 @@
                         </span>
                       </span>
                     </label>
-                  </div>
-
-                  <div class="pos-categories-scroll pos-categories-scroll--pills">
-                    <div class="pos-categories-list pos-categories-list--pills">
-                      <button
-                        type="button"
-                        class="pos-category-btn pos-category-btn--pill pos-category-btn-accent"
-                        :class="{ 'pos-category-btn-active': activeCategory === '' }"
-                        @click="selectCategory('')"
-                      >
-                        <span class="pos-category-btn-icon" aria-hidden="true">
-                          <b-icon icon="grid-3x3-gap-fill"></b-icon>
-                        </span>
-                        <span class="pos-category-btn-label">{{ $t("all") }}</span>
+                    <button
+                      type="button"
+                      class="pos-catalog-open-btn pos-catalog-open-btn--compact"
+                      @click="openCatalogModal"
+                    >
+                      <b-icon icon="box-seam"></b-icon>
+                      <span class="pos-catalog-open-btn-label">
+                        {{ $t("posCatalogOpenButton") || "فتح كتالوج المنتجات" }}
+                      </span>
+                      <kbd class="pos-kbd">F3</kbd>
+                    </button>
+                    <p v-if="activeCategory || quickSearch" class="pos-scan-hub-filter pos-scan-hub-filter--inline">
+                      <b-icon icon="funnel-fill"></b-icon>
+                      <span v-if="activeCategory">{{ activeCategory }}</span>
+                      <span v-else>{{ quickSearch }}</span>
+                      <button type="button" class="pos-scan-hub-filter-clear" @click="clearCatalogFilters">
+                        {{ $t("clear") || "مسح" }}
                       </button>
-                      <button
-                        v-for="tag in tags"
-                        :key="tag.id"
-                        type="button"
-                        class="pos-category-btn pos-category-btn--pill"
-                        :class="{ 'pos-category-btn-active': activeCategory === tag.name }"
-                        @click="selectCategory(tag.name)"
-                      >
-                        <span class="pos-category-btn-icon" aria-hidden="true">
-                          <b-icon icon="tag-fill"></b-icon>
-                        </span>
-                        <span class="pos-category-btn-label">{{ tag.name }}</span>
-                      </button>
-                    </div>
+                    </p>
                   </div>
-
-                  <div ref="posProductsGridSection" class="pos-products-grid-section">
-                    <div class="pos-products-grid">
-                      <div
-                        class="pos-product-card"
-                        :class="{ 'pos-product-card-disabled': !item.quantity || item.quantity <= 0 }"
-                        v-for="item in Items"
+                  <div v-if="shortcutItems.length" class="pos-shortcut-strip">
+                    <span class="pos-shortcut-strip-label">
+                      <b-icon icon="lightning-charge-fill"></b-icon>
+                      {{ $t("posShortcutItems") }}
+                    </span>
+                    <div class="pos-shortcut-strip-list">
+                      <button
+                        v-for="item in shortcutItems"
                         :key="item.id"
-                        @click="item.quantity > 0 ? addToCartList(item) : null"
+                        type="button"
+                        class="pos-shortcut-chip"
+                        :title="item.description || item.name"
+                        @click="addShortcutToCart(item)"
                       >
-                        <div
-                          v-if="!isWholesale && item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
-                          class="pos-product-discount-badge"
-                        >
-                          <b-icon icon="tag-fill" class="me-1"></b-icon>
-                          {{ $t("discountLabel") }}
-                        </div>
-
-                        <div class="pos-product-media">
-                          <vue-barcode
-                            v-if="showbarCode"
-                            ref="BarImg"
-                            tag="img"
-                            class="pos-product-barcode"
-                            :value="item.code.toString()"
-                            :options="{
-                              displayValue: true,
-                              lineColor: '#2B2B2C',
-                              width: 1.5,
-                              height: 48,
-                            }"
-                          />
-                          <div v-else class="pos-product-image-container">
-                            <img
-                              :src="productImageSrc(item.image, item.imageError)"
-                              :alt="item.name"
-                              class="pos-product-image"
-                              :class="{
-                                'pos-product-image--brand-fallback': isProductImageFallback(
-                                  item.image,
-                                  item.imageError
-                                ),
-                              }"
-                              @error="onProductImageError(item)"
-                            />
-                          </div>
-                          <span
-                            v-if="!item.quantity || item.quantity <= 0"
-                            class="pos-product-stock-badge pos-product-stock-badge--out"
-                          >
-                            {{ $t("itemOutOfStock") || "غير متوفر" }}
-                          </span>
-                          <span
-                            v-else
-                            class="pos-product-stock-badge pos-product-stock-badge--qty"
-                          >
-                            {{ item.quantity }}
-                          </span>
-                        </div>
-
-                        <div class="pos-product-info">
-                          <h4 class="pos-product-name" :title="item.name">{{ item.name }}</h4>
-                          <div class="pos-product-footer">
-                            <div class="pos-product-price">
-                              <div
-                                v-if="!isWholesale && item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
-                                class="pos-product-price-discounted"
-                              >
-                                <span class="pos-product-price-current">
-                                  {{ formatPrice(item.disCountPrice) }} {{ $t("currency") }}
-                                </span>
-                                <span class="pos-product-price-old">
-                                  {{ formatPrice(item.sellingPrice) }} {{ $t("currency") }}
-                                </span>
-                              </div>
-                              <div v-else class="pos-product-price-regular">
-                                {{ formatPrice(displayCatalogUnitPrice(item)) }} {{ $t("currency") }}
-                              </div>
-                            </div>
-                            <span
-                              v-if="item.quantity && item.quantity > 0"
-                              class="pos-product-add-btn"
-                              aria-hidden="true"
-                            >
-                              <b-icon icon="plus-lg"></b-icon>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="pos-pagination-section">
-                      <b-pagination
-                        v-model="pageNumber"
-                        :total-rows="totalItems"
-                        :per-page="pageSize"
-                        aria-controls="pos-products"
-                        class="pos-pagination"
-                      >
-                      </b-pagination>
+                        <span class="pos-shortcut-chip-name">{{ item.name }}</span>
+                        <span class="pos-shortcut-chip-price">
+                          {{ formatPrice(shortcutUnitPrice(item)) }}
+                          {{ $t("currency") }}
+                        </span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -292,14 +192,20 @@
                   </header>
                   <div class="pos-cart-container" ref="posCartScrollArea">
                     <div class="pos-cart-items-section">
-                      <div class="pos-cart-header" ref="posCartHeader">
-                        <h3 class="pos-cart-title">
-                          <b-icon icon="cart-fill" class="me-2"></b-icon>
-                          {{ invoiceTabLabel(activeInvoiceTab) || ($t("cart") || "السلة") }}
-                          <span v-if="carditems.length > 0" class="pos-cart-count-badge pos-cart-count-badge--inline">
-                            {{ totalCardItems }}
-                          </span>
-                        </h3>
+                      <div class="pos-cart-header pos-cart-header--wide" ref="posCartHeader">
+                        <div class="pos-cart-header-identity">
+                          <div class="pos-cart-header-icon" aria-hidden="true">
+                            <b-icon icon="receipt"></b-icon>
+                          </div>
+                          <div class="pos-cart-header-copy">
+                            <h3 class="pos-cart-title">
+                              {{ invoiceTabLabel(activeInvoiceTab) || ($t("cart") || "السلة") }}
+                            </h3>
+                            <p class="pos-cart-header-hint">
+                              {{ $t("posCartHeaderHint") || "راجع المواد والكميات قبل الدفع" }}
+                            </p>
+                          </div>
+                        </div>
                         <div class="pos-cart-header-actions">
                           <div class="pos-price-mode-toggle" role="group" :aria-label="$t('wholesalePriceMode')">
                             <button
@@ -308,7 +214,8 @@
                               :class="{ 'pos-price-mode-btn-active': !isWholesale }"
                               @click="setPriceMode(false)"
                             >
-                              {{ $t("retailPriceMode") || "مفرد" }}
+                              <b-icon icon="person"></b-icon>
+                              <span>{{ $t("retailPriceMode") || "مفرد" }}</span>
                             </button>
                             <button
                               type="button"
@@ -316,7 +223,8 @@
                               :class="{ 'pos-price-mode-btn-active': isWholesale }"
                               @click="setPriceMode(true)"
                             >
-                              {{ $t("wholesalePriceMode") || "جملة" }}
+                              <b-icon icon="people"></b-icon>
+                              <span>{{ $t("wholesalePriceMode") || "جملة" }}</span>
                             </button>
                           </div>
                           <button
@@ -351,98 +259,123 @@
                           </option>
                         </select>
                       </div>
+                      <div class="pos-cart-stage">
+                        <div
+                          v-if="cartWatermarkSrc"
+                          class="pos-cart-watermark"
+                          :style="cartWatermarkStyle"
+                          aria-hidden="true"
+                        >
+                          <img :src="cartWatermarkSrc" alt="" />
+                        </div>
                       <div
                         class="pos-cart-items-list"
                         v-if="carditems.length > 0"
                         ref="posCartItemsList"
                       >
                         <div
-                          class="pos-cart-item pos-cart-item--v2"
+                          class="pos-cart-item pos-cart-item--v2 pos-cart-item--wide"
                           v-for="(item, index) in carditems"
                           :key="index"
                           @dblclick="increaseQuantity(index)"
                         >
-                          <div class="pos-cart-item-top">
-                            <div class="pos-cart-item-name-wrap">
-                              <h4 class="pos-cart-item-name">{{ item.name }}</h4>
-                            </div>
-                            <div class="pos-cart-item-line-total">
-                              {{ formatPrice(item.total) }} {{ $t("currency") }}
-                            </div>
+                          <div class="pos-cart-item-index" aria-hidden="true">
+                            {{ index + 1 }}
                           </div>
-                          <div class="pos-cart-item-bottom">
-                            <div class="pos-cart-item-unit-wrap">
+                          <div class="pos-cart-item-body">
+                            <h4 class="pos-cart-item-name" :title="item.name">{{ item.name }}</h4>
+                            <div class="pos-cart-item-meta">
                               <span class="pos-cart-item-unit-price">
-                                {{ formatPrice(cartLineUnitPrice(item)) }} × {{ item.quantity }}
+                                {{ formatPrice(cartLineUnitPrice(item)) }}
+                                <span class="pos-cart-currency">{{ $t("currency") }}</span>
+                                <span class="pos-cart-item-meta-sep">×</span>
+                                {{ item.quantity }}
                               </span>
                               <span v-if="cartLineHasDiscount(item)" class="pos-cart-item-discount-tag">
                                 {{ $t("discountLabel") }}
                               </span>
                             </div>
-                            <div class="pos-cart-item-controls">
-                              <div class="pos-cart-item-quantity">
-                                <button
-                                  type="button"
-                                  class="pos-quantity-btn pos-quantity-decrease"
-                                  @click.stop="decreaseQuantity(index)"
-                                  :title="$t('decrease') || 'تقليل'"
-                                >
-                                  <b-icon icon="dash-lg"></b-icon>
-                                </button>
-                                <input
-                                  type="number"
-                                  :value="item.quantity"
-                                  @input="updateQuantity(index, $event.target.value)"
-                                  @click.stop
-                                  class="pos-quantity-input"
-                                  min="1"
-                                />
-                                <button
-                                  type="button"
-                                  class="pos-quantity-btn pos-quantity-increase"
-                                  @click.stop="increaseQuantity(index)"
-                                  :title="$t('increase') || 'زيادة'"
-                                >
-                                  <b-icon icon="plus-lg"></b-icon>
-                                </button>
-                              </div>
+                          </div>
+                          <div class="pos-cart-item-end">
+                            <div class="pos-cart-item-qty-row" @click.stop>
                               <button
                                 type="button"
-                                class="pos-cart-item-delete"
-                                @click.stop="deleteItem(index, { silent: true })"
-                                :title="$t('delete') || 'حذف'"
+                                class="pos-quantity-btn pos-quantity-decrease"
+                                @click.stop="decreaseQuantity(index)"
+                                :title="$t('decrease') || 'تقليل'"
                               >
-                                <b-icon icon="x-lg"></b-icon>
+                                <b-icon icon="dash-lg"></b-icon>
+                              </button>
+                              <input
+                                type="number"
+                                :value="item.quantity"
+                                @input="updateQuantity(index, $event.target.value)"
+                                @click.stop
+                                class="pos-quantity-input"
+                                min="1"
+                              />
+                              <button
+                                type="button"
+                                class="pos-quantity-btn pos-quantity-increase"
+                                @click.stop="increaseQuantity(index)"
+                                :title="$t('increase') || 'زيادة'"
+                              >
+                                <b-icon icon="plus-lg"></b-icon>
                               </button>
                             </div>
+                            <div class="pos-cart-item-line-total">
+                              {{ formatPrice(item.total) }}
+                              <span class="pos-cart-currency">{{ $t("currency") }}</span>
+                            </div>
+                            <button
+                              type="button"
+                              class="pos-cart-item-delete"
+                              @click.stop="deleteItem(index, { silent: true })"
+                              :title="$t('delete') || 'حذف'"
+                            >
+                              <b-icon icon="x-lg"></b-icon>
+                            </button>
                           </div>
                         </div>
                       </div>
-                      <div
-                        class="pos-cart-empty"
-                        v-if="carditems.length === 0"
-                      >
-                        <div class="pos-cart-empty-inner">
-                          <b-icon icon="cart-x" class="pos-cart-empty-icon"></b-icon>
-                          <p class="pos-cart-empty-text">{{ $t("emptyCart") || "السلة فارغة" }}</p>
-                          <p class="pos-cart-empty-hint">{{ $t("emptyCartHint") || "اختر منتجات من القائمة لإضافتها" }}</p>
-                        </div>
                       </div>
-                      <div v-if="carditems.length > 0" class="pos-cart-total-strip">
-                        <div class="pos-cart-total-strip-row">
-                          <span class="pos-cart-total-strip-label">{{ $t("countLabel") }}</span>
-                          <strong>{{ totalCardItems }} {{ $t("itemLabel") }}</strong>
+                      <div v-if="carditems.length > 0" class="pos-cart-total-strip pos-cart-total-strip--v2">
+                        <div class="pos-cart-total-strip-meta">
+                          <div class="pos-cart-total-stat" :title="$t('countLabel')">
+                            <span class="pos-cart-total-stat-icon" aria-hidden="true">
+                              <b-icon icon="box-seam"></b-icon>
+                            </span>
+                            <div class="pos-cart-total-stat-copy">
+                              <span class="pos-cart-total-stat-label">{{ $t("countLabel") }}</span>
+                              <strong class="pos-cart-total-stat-value">
+                                {{ totalCardItems }}
+                                <span class="pos-cart-total-stat-unit">{{ $t("itemLabel") }}</span>
+                              </strong>
+                            </div>
+                          </div>
+                          <div
+                            v-if="orderDiscountAmount > 0"
+                            class="pos-cart-total-stat pos-cart-total-stat--discount"
+                            :title="$t('discountLabel')"
+                          >
+                            <span class="pos-cart-total-stat-icon" aria-hidden="true">
+                              <b-icon icon="tag-fill"></b-icon>
+                            </span>
+                            <div class="pos-cart-total-stat-copy">
+                              <span class="pos-cart-total-stat-label">{{ $t("discountLabel") }}</span>
+                              <strong class="pos-cart-total-stat-value">
+                                − {{ formatPrice(orderDiscountAmount) }}
+                                <span class="pos-cart-total-stat-unit">{{ $t("currency") }}</span>
+                              </strong>
+                            </div>
+                          </div>
                         </div>
-                        <div
-                          v-if="orderDiscountAmount > 0"
-                          class="pos-cart-total-strip-row pos-cart-total-strip-row--discount"
-                        >
-                          <span class="pos-cart-total-strip-label">{{ $t("discountLabel") }}</span>
-                          <strong>− {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}</strong>
-                        </div>
-                        <div class="pos-cart-total-strip-row pos-cart-total-strip-row--grand">
-                          <span class="pos-cart-total-strip-label">{{ $t("totalLabel") }}</span>
-                          <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
+                        <div class="pos-cart-total-strip-grand">
+                          <span class="pos-cart-total-strip-grand-label">{{ $t("totalLabel") }}</span>
+                          <strong class="pos-cart-total-strip-grand-amount">
+                            {{ formattedNumber }}
+                            <span class="pos-cart-total-strip-grand-currency">{{ $t("currency") }}</span>
+                          </strong>
                         </div>
                       </div>
                     </div>
@@ -450,6 +383,197 @@
                 </div>
               </aside>
             </div>
+
+            <b-modal
+              id="modal-pos-catalog"
+              :visible.sync="showCatalogModal"
+              hide-header
+              hide-footer
+              centered
+              size="xl"
+              no-enforce-focus
+              modal-class="users-modal pos-ui-modal pos-catalog-modal"
+              content-class="pos-ui-modal-content pos-catalog-modal-content"
+              body-class="pos-ui-modal-body pos-catalog-modal-body"
+              @hide="onCatalogModalHide"
+              @shown="onCatalogModalShown"
+              @hidden="onCatalogModalHidden"
+            >
+              <div class="modal-content-wrapper pos-ui-modal-wrapper pos-catalog-wrapper">
+                <div class="pos-catalog-hero">
+                  <div class="pos-catalog-hero-text">
+                    <h3 class="pos-catalog-title">
+                      <b-icon icon="box-seam" class="me-2"></b-icon>
+                      {{ $t("posCatalogModalTitle") || "كتالوج المنتجات" }}
+                    </h3>
+                    <p class="pos-catalog-subtitle">
+                      {{ $t("posCatalogModalSubtitle") || "ابحث بالاسم أو الكود، أو اختر قسماً ثم أضف للسلة" }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="pos-ui-modal-close"
+                    :aria-label="$t('close') || 'إغلاق'"
+                    @click="closeCatalogModal"
+                  >
+                    <b-icon icon="x-lg"></b-icon>
+                  </button>
+                </div>
+
+                <div class="pos-catalog-toolbar">
+                  <div class="pos-catalog-search">
+                    <b-icon icon="search" class="pos-catalog-search-icon" aria-hidden="true"></b-icon>
+                    <input
+                      ref="posCatalogSearchInput"
+                      v-model="quickSearch"
+                      type="search"
+                      class="pos-catalog-search-input"
+                      :placeholder="$t('posCatalogSearchPlaceholder') || 'ابحث عن منتج بالاسم أو الكود...'"
+                      :aria-label="$t('posCatalogSearchPlaceholder') || 'بحث المنتجات'"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                    <button
+                      v-if="quickSearch"
+                      type="button"
+                      class="pos-catalog-search-clear"
+                      :aria-label="$t('clear') || 'مسح'"
+                      @click="clearCatalogSearch"
+                    >
+                      <b-icon icon="x"></b-icon>
+                    </button>
+                  </div>
+                  <div class="pos-catalog-meta">
+                    <span class="pos-catalog-count">
+                      {{ totalItems }}
+                      {{ $t("posCatalogItemUnit") || "مادة" }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="pos-catalog-categories" role="tablist">
+                  <button
+                    type="button"
+                    class="pos-catalog-cat-chip"
+                    :class="{ 'pos-catalog-cat-chip--active': activeCategory === '' }"
+                    @click="selectCategory('')"
+                  >
+                    {{ $t("all") || "الكل" }}
+                  </button>
+                  <button
+                    v-for="tag in tags"
+                    :key="tag.id"
+                    type="button"
+                    class="pos-catalog-cat-chip"
+                    :class="{ 'pos-catalog-cat-chip--active': activeCategory === tag.name }"
+                    @click="selectCategory(tag.name)"
+                  >
+                    {{ tag.name }}
+                  </button>
+                </div>
+
+                <div class="pos-catalog-grid-wrap">
+                  <div v-if="catalogLoading && !Items.length" class="pos-catalog-loading">
+                    {{ $t("pleaseWait") || "جاري التحميل..." }}
+                  </div>
+                  <div v-else-if="!Items.length" class="pos-catalog-empty">
+                    <b-icon icon="inbox"></b-icon>
+                    <p>{{ $t("noItemsFound") || "لا توجد منتجات مطابقة" }}</p>
+                  </div>
+                  <div v-else class="pos-products-grid pos-catalog-products-grid">
+                    <div
+                      class="pos-product-card"
+                      :class="{ 'pos-product-card-disabled': !item.quantity || item.quantity <= 0 }"
+                      v-for="item in Items"
+                      :key="item.id"
+                      @click="item.quantity > 0 ? addToCartFromCatalog(item) : null"
+                    >
+                      <div
+                        v-if="!isWholesale && item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
+                        class="pos-product-discount-badge"
+                      >
+                        <b-icon icon="tag-fill" class="me-1"></b-icon>
+                        {{ $t("discountLabel") }}
+                      </div>
+                      <div class="pos-product-media">
+                        <div class="pos-product-image-container">
+                          <img
+                            :src="productImageSrc(item.image, item.imageError)"
+                            :alt="item.name"
+                            class="pos-product-image"
+                            :class="{
+                              'pos-product-image--brand-fallback': isProductImageFallback(
+                                item.image,
+                                item.imageError
+                              ),
+                            }"
+                            @error="onProductImageError(item)"
+                          />
+                        </div>
+                      </div>
+                      <div class="pos-product-info">
+                        <h4 class="pos-product-name" :title="item.name">{{ item.name }}</h4>
+                        <div class="pos-catalog-stock-row">
+                          <span
+                            v-if="!item.quantity || item.quantity <= 0"
+                            class="pos-catalog-stock-chip pos-catalog-stock-chip--out"
+                          >
+                            {{ $t("itemOutOfStock") || "غير متوفر" }}
+                          </span>
+                          <span v-else class="pos-catalog-stock-chip pos-catalog-stock-chip--qty">
+                            <b-icon icon="box-seam" aria-hidden="true"></b-icon>
+                            {{ item.quantity }}
+                          </span>
+                        </div>
+                        <div class="pos-product-footer">
+                          <div class="pos-product-price">
+                            <div
+                              v-if="!isWholesale && item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
+                              class="pos-product-price-discounted"
+                            >
+                              <span class="pos-product-price-current">
+                                {{ formatPrice(item.disCountPrice) }} {{ $t("currency") }}
+                              </span>
+                              <span class="pos-product-price-old">
+                                {{ formatPrice(item.sellingPrice) }} {{ $t("currency") }}
+                              </span>
+                            </div>
+                            <div v-else class="pos-product-price-regular">
+                              {{ formatPrice(displayCatalogUnitPrice(item)) }} {{ $t("currency") }}
+                            </div>
+                          </div>
+                          <span
+                            v-if="item.quantity && item.quantity > 0"
+                            class="pos-product-add-btn"
+                            aria-hidden="true"
+                          >
+                            <b-icon icon="plus-lg"></b-icon>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pos-catalog-footer">
+                  <b-pagination
+                    v-model="pageNumber"
+                    :total-rows="totalItems"
+                    :per-page="pageSize"
+                    aria-controls="pos-catalog-products"
+                    class="pos-pagination pos-catalog-pagination"
+                  />
+                  <button
+                    type="button"
+                    class="pos-ui-modal-btn pos-ui-modal-btn--primary"
+                    @click="closeCatalogModal"
+                  >
+                    <b-icon icon="check-lg"></b-icon>
+                    {{ $t("done") || $t("close") || "تم" }}
+                  </button>
+                </div>
+              </div>
+            </b-modal>
 
             <b-modal
               id="modal-pos-shortcuts"
@@ -527,7 +651,7 @@
                           <kbd class="pos-shortcuts-key">F2</kbd>
                         </li>
                         <li class="pos-shortcuts-row">
-                          <span class="pos-shortcuts-row-label">{{ $t("searchPlaceholder") || "بحث" }}</span>
+                          <span class="pos-shortcuts-row-label">{{ $t("posCatalogOpenButton") || "كتالوج المنتجات" }}</span>
                           <kbd class="pos-shortcuts-key">F3</kbd>
                         </li>
                         <li class="pos-shortcuts-row">
@@ -1482,6 +1606,12 @@ import {
   onProductImageError,
 } from "@/utils/productImage.js";
 import {
+  applyCommercialBranding,
+  clampWatermarkOpacity,
+  getStoredCartWatermark,
+  getStoredCartWatermarkOpacity,
+} from "@/utils/posBranding.js";
+import {
   POS_INVOICE_TABS_MAX,
   createEmptyInvoiceTab,
   snapshotFromPos,
@@ -1512,6 +1642,9 @@ export default {
     return {
       showbarCode: false,
       showShortcutsModal: false,
+      showCatalogModal: false,
+      catalogLoading: false,
+      shortcutItems: [],
       show: false,
       totaPrice: 0,
       carditems: [],
@@ -1542,6 +1675,9 @@ export default {
         printInvoiceFormat: 'Pos',
         footerCreditText: null,
         footerCreditPhone: null,
+        cartWatermarkLogo: null,
+        cartWatermarkOpacity: 18,
+        defaultProductImage: null,
       },
       orderForSend: {
         orderCode: "",
@@ -1606,6 +1742,18 @@ export default {
     },
     canAddInvoiceTab() {
       return (this.invoiceTabs || []).length < POS_INVOICE_TABS_MAX;
+    },
+    cartWatermarkSrc() {
+      return this.commercialUserInfo?.cartWatermarkLogo || getStoredCartWatermark();
+    },
+    cartWatermarkStyle() {
+      const opacity = Math.max(
+        80,
+        clampWatermarkOpacity(
+          this.commercialUserInfo?.cartWatermarkOpacity || getStoredCartWatermarkOpacity()
+        )
+      );
+      return { "--pos-cart-watermark-opacity": String(opacity / 100) };
     },
     orderDiscountAmount() {
       const rawValue = Number(this.orderDiscountValue) || 0;
@@ -1766,7 +1914,11 @@ export default {
       this.quickSearchTimer = setTimeout(() => {
         this.activeCategory = "";
         this.search.info = newVal;
-        this.GetAllItems();
+        if (this.pageNumber !== 1) {
+          this.pageNumber = 1;
+        } else {
+          this.GetAllItems();
+        }
       }, this.doneTypingInterval);
     },
     posMobileCartOpen(val) {
@@ -1781,6 +1933,7 @@ export default {
   mounted() {
     try {
       this.getTags();
+      this.loadShortcutItems();
       this.loadWarehouses().finally(() => {
         this.$nextTick(() => {
           if (this.$refs.codeNumber) {
@@ -1877,12 +2030,16 @@ export default {
               "A4"
                 ? "A4"
                 : "Pos";
+            const branding = applyCommercialBranding(d);
             this.commercialUserInfo = {
               storeName: d.storeName || d.StoreName || "LiteCashier",
               logo: resolveAbsoluteAssetUrl(d.logo || d.Logo) || null,
               printInvoiceFormat: format,
               footerCreditText: d.footerCreditText || d.FooterCreditText || null,
               footerCreditPhone: d.footerCreditPhone || d.FooterCreditPhone || null,
+              cartWatermarkLogo: branding.cartWatermarkLogo,
+              cartWatermarkOpacity: branding.cartWatermarkOpacity,
+              defaultProductImage: branding.defaultProductImage,
             };
             localStorage.setItem("printInvoiceFormat", format);
           }
@@ -1896,6 +2053,9 @@ export default {
               localStorage.getItem("printInvoiceFormat") === "A4" ? "A4" : "Pos",
             footerCreditText: null,
             footerCreditPhone: null,
+            cartWatermarkLogo: null,
+            cartWatermarkOpacity: 18,
+            defaultProductImage: null,
           };
         });
     },
@@ -1913,6 +2073,71 @@ export default {
       this.$nextTick(() => {
         this.posSuppressQuickSearchSync = false;
       });
+    },
+    openCatalogModal() {
+      const domOpen = !!document.querySelector(
+        ".pos-catalog-modal.show, #modal-pos-catalog.show"
+      );
+      if (this.showCatalogModal && domOpen) {
+        this.onCatalogModalShown();
+        return;
+      }
+
+      // Reset any Bootstrap-Vue visible desync, then open reliably
+      this.showCatalogModal = false;
+      this.$nextTick(() => {
+        this.showCatalogModal = true;
+        this.$bvModal.show("modal-pos-catalog");
+        this.GetAllItems();
+      });
+    },
+    closeCatalogModal() {
+      this.showCatalogModal = false;
+      this.$bvModal.hide("modal-pos-catalog");
+    },
+    onCatalogModalHide() {
+      this.showCatalogModal = false;
+    },
+    onCatalogModalShown() {
+      this.showCatalogModal = true;
+      this.$nextTick(() => {
+        const input = this.$refs.posCatalogSearchInput;
+        if (input) {
+          input.focus();
+          input.select?.();
+        }
+      });
+    },
+    onCatalogModalHidden() {
+      this.showCatalogModal = false;
+      this.$nextTick(() => {
+        if (!document.querySelector(".modal.show")) {
+          document
+            .querySelectorAll("body > .modal-backdrop")
+            .forEach((el) => el.remove());
+          document.body.classList.remove("modal-open");
+          document.body.style.removeProperty("padding-right");
+        }
+        this.focusPosBarcode();
+      });
+    },
+    clearCatalogSearch() {
+      this.quickSearch = "";
+      this.$nextTick(() => this.$refs.posCatalogSearchInput?.focus?.());
+    },
+    clearCatalogFilters() {
+      this.posSuppressQuickSearchSync = true;
+      this.quickSearch = "";
+      this.activeCategory = "";
+      this.search.info = "";
+      this.pageNumber = 1;
+      this.$nextTick(() => {
+        this.posSuppressQuickSearchSync = false;
+        this.GetAllItems();
+      });
+    },
+    addToCartFromCatalog(item) {
+      this.addToCartList(item);
     },
     updatePosPageSize(reload = true) {
       applyPosPageSize(this, reload);
@@ -2093,10 +2318,7 @@ export default {
       }
     },
     focusPosQuickSearch() {
-      const input = this.$refs.posQuickSearchInput;
-      if (!input) return;
-      input.focus();
-      input.select?.();
+      this.openCatalogModal();
     },
     flashCart() {
       const el = this.$refs.posCartHeader;
@@ -2110,7 +2332,7 @@ export default {
       if (el.classList?.contains("pos-quantity-input")) return true;
       if (el.tagName === "TEXTAREA") return true;
       if (el.tagName === "SELECT") return true;
-      if (el === this.$refs.posQuickSearchInput) return true;
+      if (el === this.$refs.posCatalogSearchInput) return true;
       return false;
     },
     handlePosKeyboard(e) {
@@ -2121,12 +2343,17 @@ export default {
 
       if (key === "F2") {
         e.preventDefault();
+        if (this.showCatalogModal) this.closeCatalogModal();
         this.focusPosBarcode();
         return;
       }
       if (key === "F3") {
         e.preventDefault();
-        this.focusPosQuickSearch();
+        if (this.showCatalogModal) {
+          this.onCatalogModalShown();
+        } else {
+          this.openCatalogModal();
+        }
         return;
       }
       if (key === "F9") {
@@ -2139,8 +2366,8 @@ export default {
 
       if (this.isPosShortcutBlocked()) {
         if (key === "Escape") {
-          if (document.activeElement === this.$refs.posQuickSearchInput) {
-            this.focusPosBarcode();
+          if (document.activeElement === this.$refs.posCatalogSearchInput) {
+            this.closeCatalogModal();
             return;
           }
           this.closeModel("modal-order-notes");
@@ -2181,6 +2408,7 @@ export default {
         this.closeModel("modal-order-notes");
         this.$bvModal.hide("modal-empty");
         this.$bvModal.hide("modal-print-only-confirm");
+        if (this.showCatalogModal) this.closeCatalogModal();
         if (this.posMobileCartOpen) this.closePosMobileCart();
         return;
       }
@@ -2283,6 +2511,30 @@ export default {
           this.$t("printError") || "تعذرت الطباعة — تحقق من خادم الطباعة أو استخدم نافذة المتصفح",
           { position: "top-right", timeout: 3500, maxToasts: 1 }
         );
+      }
+    },
+    shortcutUnitPrice(item) {
+      if (this.isWholesale && Number(item.wholesalePrice) > 0) {
+        return Number(item.wholesalePrice);
+      }
+      return Number(item.sellingPrice) || 0;
+    },
+    addShortcutToCart(item) {
+      this.addToCartList({
+        ...item,
+        isNonInventory: true,
+        quantity: 1,
+      });
+    },
+    async loadShortcutItems() {
+      try {
+        const response = await HTTP.get("ShortcutItems/ForPos");
+        if (response.data && !response.data.errorStatus) {
+          this.shortcutItems = response.data.data || [];
+        }
+      } catch (error) {
+        console.warn("loadShortcutItems failed:", error?.response?.status || error?.message);
+        this.shortcutItems = [];
       }
     },
     getTags() {
@@ -2627,8 +2879,7 @@ export default {
         const textDirection = bodyElement.getAttribute("dir");
         const toastPosition = textDirection === "rtl" ? "top-right" : "top-left";
         
-        // Check if item has available quantity
-        if (!item.quantity || item.quantity <= 0) {
+        if (!item.isNonInventory && (!item.quantity || item.quantity <= 0)) {
           this.$notify.error(
             this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر في المخزون",
             {
@@ -2659,6 +2910,7 @@ export default {
             disCountPrice: Number(item.disCountPrice) || 0,
             wholesalePrice: Number(item.wholesalePrice) || 0,
             isWholesale: this.isWholesale,
+            isNonInventory: !!item.isNonInventory,
             id: item.id,
           };
           cartItem.total = getCartLineTotal(cartItem, this.isWholesale);
@@ -2750,7 +3002,9 @@ export default {
       this.GetAllItems();
     },
     GetAllItems() {
-      this.show = true;
+      const useGlobalOverlay = !this.showCatalogModal;
+      if (useGlobalOverlay) this.show = true;
+      else this.catalogLoading = true;
       const wh = this.selectedWarehouseId
         ? `&warehouseId=${this.selectedWarehouseId}`
         : "";
@@ -2766,9 +3020,11 @@ export default {
           }));
           this.totalItems = response.data.data.totalItems;
           this.show = false;
+          this.catalogLoading = false;
         })
         .catch((error) => {
           this.show = false;
+          this.catalogLoading = false;
         });
     },
     feedbackItemAdded(itemName) {
@@ -2882,5 +3138,122 @@ export default {
   font-weight: 600;
   background: var(--bg-primary, #fff);
   color: var(--text-primary, #212529);
+}
+
+.pos-scan-hub {
+  display: none;
+}
+
+.pos-quick-actions--with-catalog {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.55rem;
+}
+
+.pos-quick-actions--with-catalog .pos-quick-barcode {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.pos-catalog-open-btn--compact {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  align-self: stretch;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.84rem;
+  border-radius: 0.75rem;
+  gap: 0.4rem;
+  box-shadow: 0 4px 12px rgba(0, 37, 54, 0.16);
+}
+
+.pos-catalog-open-btn--compact .pos-catalog-open-btn-label {
+  white-space: nowrap;
+}
+
+.pos-catalog-open-btn--compact .pos-kbd {
+  margin-inline-start: 0.15rem;
+}
+
+.pos-scan-hub-filter--inline {
+  flex: 1 1 100%;
+  margin: 0;
+  justify-content: flex-start;
+}
+
+@media (max-width: 700px) {
+  .pos-quick-actions--with-catalog {
+    flex-direction: column;
+  }
+
+  .pos-catalog-open-btn--compact {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pos-catalog-open-btn--compact .pos-kbd {
+    margin-inline-start: auto;
+  }
+}
+
+.pos-scan-hub-card {
+  display: none;
+}
+
+.pos-scan-hub-icon {
+  display: none;
+}
+
+.pos-scan-hub-title,
+.pos-scan-hub-text {
+  display: none;
+}
+
+.pos-catalog-open-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border: none;
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(145deg, #0e7490 0%, #002536 100%);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  box-shadow: 0 8px 20px rgba(0, 37, 54, 0.22);
+}
+
+.pos-catalog-open-btn:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.pos-catalog-open-btn .pos-kbd {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: transparent;
+  color: #fff;
+}
+
+.pos-scan-hub-filter {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #64748b);
+}
+
+.pos-scan-hub-filter-clear {
+  border: none;
+  background: transparent;
+  color: #ea580c;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 0.2rem;
 }
 </style>

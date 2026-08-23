@@ -75,23 +75,47 @@ namespace POS.Controllers
             if (string.IsNullOrWhiteSpace(fileName) || fileName == "not a valid image extension")
                 return null;
 
+            var name = fileName.TrimStart('/');
+            var host = HttpContext?.Request?.Host.Value;
+            if (!string.IsNullOrEmpty(host))
+            {
+                var scheme = HttpContext!.Request.Scheme;
+                return $"{scheme}://{host}/Images/{name}";
+            }
+
             var configured = _configuration["ApiSettings:ImageBaseUrl"] ?? "/Images/";
             if (configured.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
                 || configured.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             {
-                return configured.TrimEnd('/') + "/" + fileName.TrimStart('/');
+                return configured.TrimEnd('/') + "/" + name;
             }
 
             var path = configured.StartsWith('/') ? configured : "/" + configured;
             if (!path.EndsWith('/'))
                 path += "/";
 
-            var host = HttpContext?.Request?.Host;
-            if (host == null || host.Value == null)
-                return path + fileName.TrimStart('/');
+            return path + name;
+        }
 
-            var scheme = HttpContext.Request.Scheme;
-            return $"{scheme}://{host.Value}{path}{fileName.TrimStart('/')}";
+        private static int ClampWatermarkOpacity(int value) =>
+            Math.Clamp(value <= 0 ? 70 : value, 20, 100);
+
+        private CommercialUserInfoDto ToCommercialUserInfoDto(User user)
+        {
+            var format = string.Equals(user.PrintInvoiceFormat, "A4", StringComparison.OrdinalIgnoreCase)
+                ? "A4"
+                : "Pos";
+            return new CommercialUserInfoDto
+            {
+                StoreName = user.StoreName ?? user.Name,
+                Logo = BuildPublicImageUrl(user.Logo),
+                PrintInvoiceFormat = format,
+                FooterCreditText = user.FooterCreditText,
+                FooterCreditPhone = user.FooterCreditPhone,
+                CartWatermarkLogo = BuildPublicImageUrl(user.CartWatermarkLogo),
+                CartWatermarkOpacity = ClampWatermarkOpacity(user.CartWatermarkOpacity),
+                DefaultProductImage = BuildPublicImageUrl(user.DefaultProductImage),
+            };
         }
 
         private async Task<(bool Ok, string? ErrorKey)> TryVerifySensitiveCredentialAsync(int commercialUserId, string password)
@@ -1472,7 +1496,8 @@ namespace POS.Controllers
                 filterWarehouseId = wh.Id;
             }
 
-            var item = AccessibleItemsQuery(commercialUserId);
+            var item = AccessibleItemsQuery(commercialUserId)
+                .Where(x => !x.IsNonInventory);
 
             if (!string.IsNullOrWhiteSpace(info))
             {
@@ -1619,7 +1644,7 @@ namespace POS.Controllers
             var commercialUserId = GetCommercialUserId();
             var item = await FindItemByAnyCodeAsync(code, commercialUserId);
 
-            if (item == null)
+            if (item == null || item.IsNonInventory)
             {
                 return NotFound(new GlobalResponse<Object>
                 {
@@ -1932,19 +1957,25 @@ namespace POS.Controllers
                     var neededByItem = request.CustomerOrderItem
                         .GroupBy(x => x.ItemId)
                         .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
-                    var stockMap = await _warehouseStock.GetStocksForItemsAsync(neededByItem.Keys, warehouse.Id);
-                    foreach (var kv in neededByItem)
+                    var stockedNeeded = neededByItem
+                        .Where(kv => items.First(x => x.Id == kv.Key).IsNonInventory == false)
+                        .ToDictionary(kv => kv.Key, kv => kv.Value);
+                    if (stockedNeeded.Count > 0)
                     {
-                        var currentItem = items.First(x => x.Id == kv.Key);
-                        stockMap.TryGetValue(kv.Key, out var available);
-                        if (available < kv.Value)
+                        var stockMap = await _warehouseStock.GetStocksForItemsAsync(stockedNeeded.Keys, warehouse.Id);
+                        foreach (var kv in stockedNeeded)
                         {
-                            return BadRequest(new GlobalResponse<CustomerOrder>
+                            var currentItem = items.First(x => x.Id == kv.Key);
+                            stockMap.TryGetValue(kv.Key, out var available);
+                            if (available < kv.Value)
                             {
-                                Data = null,
-                                ErrorStatus = true,
-                                Message = $"insufficientInventory|{currentItem.Name}|{available}|{kv.Value}"
-                            });
+                                return BadRequest(new GlobalResponse<CustomerOrder>
+                                {
+                                    Data = null,
+                                    ErrorStatus = true,
+                                    Message = $"insufficientInventory|{currentItem.Name}|{available}|{kv.Value}"
+                                });
+                            }
                         }
                     }
                 }
@@ -2016,6 +2047,8 @@ namespace POS.Controllers
 
                     foreach (var group in insertItems.GroupBy(x => x.ItemId))
                     {
+                        var stockItem = items.FirstOrDefault(x => x.Id == group.Key);
+                        if (stockItem?.IsNonInventory == true) continue;
                         await _warehouseStock.DeductAsync(group.Key, warehouse.Id, group.Sum(x => x.Quantity));
                     }
 
@@ -2436,7 +2469,7 @@ namespace POS.Controllers
                         if (delta == 0) continue;
 
                         var stockItem = await _dbConfig.Items.FirstOrDefaultAsync(i => i.Id == itemId && !i.IsDeleted);
-                        if (stockItem == null) continue;
+                        if (stockItem == null || stockItem.IsNonInventory) continue;
 
                         if (delta > 0)
                         {
@@ -3448,6 +3481,7 @@ namespace POS.Controllers
                     join w in _dbConfig.Warehouses.AsNoTracking() on s.WarehouseId equals w.Id
                     where !s.IsDeleted
                           && !i.IsDeleted
+                          && !i.IsNonInventory
                           && !w.IsDeleted
                           && accessibleItemIds.Contains(i.Id)
                           && w.InsertByUserId == commercialUserId
@@ -3470,6 +3504,7 @@ namespace POS.Controllers
                 // Legacy fallback: item-level alert when no per-warehouse thresholds exist.
                 var legacyAlerts = AccessibleItemsQuery(commercialUserId)
                     .Where(x =>
+                        !x.IsNonInventory &&
                         x.LowStockAlertQuantity != null &&
                         x.Quantity <= x.LowStockAlertQuantity &&
                         !_dbConfig.ItemWarehouseStocks.Any(s =>
@@ -4088,22 +4123,9 @@ namespace POS.Controllers
                     });
                 }
 
-                var format = string.Equals(commercialUser.PrintInvoiceFormat, "A4", StringComparison.OrdinalIgnoreCase)
-                    ? "A4"
-                    : "Pos";
-
-                var userInfo = new CommercialUserInfoDto
-                {
-                    StoreName = commercialUser.StoreName ?? commercialUser.Name,
-                    Logo = BuildPublicImageUrl(commercialUser.Logo),
-                    PrintInvoiceFormat = format,
-                    FooterCreditText = commercialUser.FooterCreditText,
-                    FooterCreditPhone = commercialUser.FooterCreditPhone
-                };
-
                 return Ok(new GlobalResponse<CommercialUserInfoDto>
                 {
-                    Data = userInfo,
+                    Data = ToCommercialUserInfoDto(commercialUser),
                     ErrorStatus = false,
                     Message = "تم جلب المعلومات بنجاح"
                 });
@@ -4155,14 +4177,7 @@ namespace POS.Controllers
 
                 return Ok(new GlobalResponse<CommercialUserInfoDto>
                 {
-                    Data = new CommercialUserInfoDto
-                    {
-                        StoreName = commercialUser.StoreName ?? commercialUser.Name,
-                        Logo = BuildPublicImageUrl(commercialUser.Logo),
-                        PrintInvoiceFormat = format,
-                        FooterCreditText = commercialUser.FooterCreditText,
-                        FooterCreditPhone = commercialUser.FooterCreditPhone
-                    },
+                    Data = ToCommercialUserInfoDto(commercialUser),
                     ErrorStatus = false,
                     Message = "ok"
                 });
@@ -4170,6 +4185,110 @@ namespace POS.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating print settings");
+                return StatusCode(500, new GlobalResponse<CommercialUserInfoDto>
+                {
+                    ErrorStatus = true,
+                    Message = ex.Message
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial,Admin")]
+        [HttpPut("UpdatePosBranding")]
+        [HttpPost("UpdatePosBranding")]
+        [RequestSizeLimit(8 * 1024 * 1024)]
+        public async Task<ActionResult<GlobalResponse<CommercialUserInfoDto>>> UpdatePosBranding(
+            [FromForm] UpdatePosBrandingRequest request)
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var commercialUser = await _dbConfig.Users
+                    .FirstOrDefaultAsync(u => u.Id == commercialUserId && !u.IsDeleted);
+                if (commercialUser == null)
+                {
+                    return NotFound(new GlobalResponse<CommercialUserInfoDto>
+                    {
+                        ErrorStatus = true,
+                        Message = "المستخدم غير موجود"
+                    });
+                }
+
+                request ??= new UpdatePosBrandingRequest();
+
+                if (request.CartWatermarkOpacity.HasValue)
+                    commercialUser.CartWatermarkOpacity = ClampWatermarkOpacity(request.CartWatermarkOpacity.Value);
+
+                if (request.ClearCartWatermark && request.CartWatermarkLogo == null)
+                    commercialUser.CartWatermarkLogo = null;
+
+                if (request.CartWatermarkLogo != null && request.CartWatermarkLogo.Length > 0)
+                {
+                    try
+                    {
+                        var fileName = await UploadIamgesAsync(request.CartWatermarkLogo);
+                        if (fileName == "not a valid image extension")
+                        {
+                            return BadRequest(new GlobalResponse<CommercialUserInfoDto>
+                            {
+                                ErrorStatus = true,
+                                Message = "صيغة صورة شعار السلة غير مدعومة"
+                            });
+                        }
+                        commercialUser.CartWatermarkLogo = fileName;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error uploading cart watermark for user {UserId}", commercialUserId);
+                        return BadRequest(new GlobalResponse<CommercialUserInfoDto>
+                        {
+                            ErrorStatus = true,
+                            Message = $"خطأ في رفع شعار السلة: {ex.Message}"
+                        });
+                    }
+                }
+
+                if (request.ClearDefaultProductImage && request.DefaultProductImage == null)
+                    commercialUser.DefaultProductImage = null;
+
+                if (request.DefaultProductImage != null && request.DefaultProductImage.Length > 0)
+                {
+                    try
+                    {
+                        var fileName = await UploadIamgesAsync(request.DefaultProductImage);
+                        if (fileName == "not a valid image extension")
+                        {
+                            return BadRequest(new GlobalResponse<CommercialUserInfoDto>
+                            {
+                                ErrorStatus = true,
+                                Message = "صيغة صورة المنتج الافتراضية غير مدعومة"
+                            });
+                        }
+                        commercialUser.DefaultProductImage = fileName;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error uploading default product image for user {UserId}", commercialUserId);
+                        return BadRequest(new GlobalResponse<CommercialUserInfoDto>
+                        {
+                            ErrorStatus = true,
+                            Message = $"خطأ في رفع صورة المنتج الافتراضية: {ex.Message}"
+                        });
+                    }
+                }
+
+                await _dbConfig.SaveChangesAsync();
+
+                return Ok(new GlobalResponse<CommercialUserInfoDto>
+                {
+                    Data = ToCommercialUserInfoDto(commercialUser),
+                    ErrorStatus = false,
+                    Message = "تم حفظ مظهر نقطة البيع"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating POS branding");
                 return StatusCode(500, new GlobalResponse<CommercialUserInfoDto>
                 {
                     ErrorStatus = true,
@@ -4251,17 +4370,9 @@ namespace POS.Controllers
 
                 await _dbConfig.SaveChangesAsync();
 
-                var format = string.Equals(user.PrintInvoiceFormat, "A4", StringComparison.OrdinalIgnoreCase) ? "A4" : "Pos";
                 return Ok(new GlobalResponse<CommercialUserInfoDto>
                 {
-                    Data = new CommercialUserInfoDto
-                    {
-                        StoreName = user.StoreName ?? user.Name,
-                        Logo = BuildPublicImageUrl(user.Logo),
-                        PrintInvoiceFormat = format,
-                        FooterCreditText = user.FooterCreditText,
-                        FooterCreditPhone = user.FooterCreditPhone
-                    },
+                    Data = ToCommercialUserInfoDto(user),
                     ErrorStatus = false,
                     Message = "تم تحديث الملف الشخصي بنجاح"
                 });

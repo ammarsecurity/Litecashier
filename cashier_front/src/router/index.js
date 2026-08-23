@@ -3,6 +3,7 @@ import VueRouter from 'vue-router'
 import LoginView from '../views/Auth/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import ItemsView from '../views/ItemsView.vue'
+import ShortcutItemsView from '../views/ShortcutItemsView.vue'
 import UsersView from '../views/UsersView.vue'
 import CategoryView from '../views/CategoryView.vue'
 import ReporstView from '../views/ReporstView.vue'
@@ -87,6 +88,15 @@ const routes = [
     path: '/items',
     name: 'items',
     component: ItemsView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'POS']
+    }
+  },
+  {
+    path: '/shortcut-items',
+    name: 'shortcutItems',
+    component: ShortcutItemsView,
     meta: {
       requiresAuth: true,
       roles: ['Commercial', 'POS']
@@ -359,6 +369,7 @@ router.beforeEach((to, from, next) => {
           role === 'POS' &&
           to.path !== '/dashboard' &&
           to.path !== '/items' &&
+          to.path !== '/shortcut-items' &&
           to.path !== '/pos' &&
           to.path !== '/inventory' &&
           to.path !== '/stock-alerts' &&

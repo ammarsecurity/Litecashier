@@ -10,6 +10,9 @@ namespace POS.Models.Dtos
 
         public string? FooterCreditText { get; set; }
         public string? FooterCreditPhone { get; set; }
+        public string? CartWatermarkLogo { get; set; }
+        public int CartWatermarkOpacity { get; set; } = 18;
+        public string? DefaultProductImage { get; set; }
     }
 
     public class UpdatePrintSettingsRequest

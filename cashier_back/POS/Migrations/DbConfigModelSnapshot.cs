@@ -670,6 +670,9 @@ namespace POS.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("IsNonInventory")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<int?>("LowStockAlertQuantity")
                         .HasColumnType("int");
 
@@ -1275,8 +1278,17 @@ namespace POS.Migrations
                     b.Property<bool>("CanUseOwnLoginCodeForSensitiveActions")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<string>("CartWatermarkLogo")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("CartWatermarkOpacity")
+                        .HasColumnType("int");
+
                     b.Property<int?>("DefaultPrinterId")
                         .HasColumnType("int");
+
+                    b.Property<string>("DefaultProductImage")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("FooterCreditPhone")
                         .HasMaxLength(30)
@@ -1347,6 +1359,7 @@ namespace POS.Migrations
                         {
                             Id = 1,
                             CanUseOwnLoginCodeForSensitiveActions = false,
+                            CartWatermarkOpacity = 18,
                             InsertByUserId = 0,
                             InsertDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             IsDeleted = false,

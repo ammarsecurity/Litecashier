@@ -40,11 +40,21 @@ export function resolvePrintServerUrl() {
 export function resolveAbsoluteAssetUrl(url) {
   if (url == null || url === "") return null;
   const raw = String(url).trim();
-  if (
-    raw.startsWith("http://") ||
-    raw.startsWith("https://") ||
-    raw.startsWith("data:")
-  ) {
+  if (raw.startsWith("data:")) return raw;
+
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    try {
+      const parsed = new URL(raw);
+      const api = new URL(resolveApiBaseUrl());
+      const isLocal =
+        parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+      if (isLocal && parsed.port && parsed.port !== api.port.replace(/^$/, "80")) {
+        const fileName = parsed.pathname.split("/").filter(Boolean).pop();
+        if (fileName) return `${api.origin}/Images/${fileName}`;
+      }
+    } catch (_) {
+      /* keep original */
+    }
     return raw;
   }
   const base = resolveApiBaseUrl().replace(/\/$/, "");

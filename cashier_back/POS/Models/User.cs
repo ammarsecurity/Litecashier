@@ -43,6 +43,15 @@ namespace POS.Models
         [StringLength(30)]
         public string? FooterCreditPhone { get; set; }
 
+        /// <summary>Watermark logo shown in the center of the POS cart.</summary>
+        public string? CartWatermarkLogo { get; set; }
+
+        /// <summary>Watermark opacity percent (5-80). Default 18.</summary>
+        public int CartWatermarkOpacity { get; set; } = 18;
+
+        /// <summary>Fallback image used when a catalog product has no photo.</summary>
+        public string? DefaultProductImage { get; set; }
+
         [JsonIgnore]
         [ForeignKey(nameof(DefaultPrinterId))]
         public Printer? DefaultPrinter { get; set; }

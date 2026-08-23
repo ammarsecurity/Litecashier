@@ -32,6 +32,12 @@ export function buildNavItems(t) {
       icon: "inbox-fill",
     },
     {
+      name: "shortcutItems",
+      label: t("shortcutItemsTitle") || "العناصر المختصرة",
+      link: "/shortcut-items",
+      icon: "lightning-charge-fill",
+    },
+    {
       name: "priceReader",
       label: t("PriceReader"),
       link: "/priceReader",
@@ -173,6 +179,7 @@ export function filterNavByRole(role, items, allowedSections = []) {
       (item) =>
         item.name === "dashboard" ||
         item.name === "items" ||
+        item.name === "shortcutItems" ||
         item.name === "pos" ||
         item.name === "inventory" ||
         item.name === "stockAlerts" ||

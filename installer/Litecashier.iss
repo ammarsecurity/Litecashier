@@ -3,7 +3,7 @@
 ; Safe for upgrades: keeps DB connection, Images, ProgramData license; applies EF migrations only.
 
 #define MyAppName "Litecashier"
-#define MyAppVersion "1.0.29"
+#define MyAppVersion "1.0.31"
 #define MyAppPublisher "Litecashier"
 #define MyAppExeName "Litecashier.exe"
 
@@ -52,6 +52,8 @@ Source: "Stop-Litecashier.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "staging\POS\*"; DestDir: "{app}\POS"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "appsettings.Production.json,wwwroot\Images\*"
 Source: "staging\PrintServer\*"; DestDir: "{app}\PrintServer"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "scripts\repair-warehouse-stock.sql"; DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "scripts\add-item-is-non-inventory.sql"; DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "scripts\add-pos-branding-images.sql"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "deps\MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 Source: "deps\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 

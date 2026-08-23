@@ -22,6 +22,9 @@ internal static class PosOfflineRoutes
 
         var p = path.Value;
 
+        if (p.StartsWith("/ShortcutItems", StringComparison.OrdinalIgnoreCase))
+            return true;
+
         if (p.StartsWith("/Warehouses/ForPos", StringComparison.OrdinalIgnoreCase))
             return true;
 

@@ -37,6 +37,11 @@ namespace POS.Models
         [Required]
         public string? Code { get; set; }
 
+        /// <summary>
+        /// Quick-add service/fee line (e.g. installation). Sold on invoices and reports, no warehouse stock.
+        /// </summary>
+        public bool IsNonInventory { get; set; }
+
         [JsonIgnore]
         public List<CustomerOrderItem> CustomerOrderItems { get; set; } = new();
 
