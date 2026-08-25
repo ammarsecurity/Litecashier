@@ -10,7 +10,7 @@
 
 1. شغّل **MySQL** من لوحة XAMPP (أو أي MySQL).
 2. انسخ `LiteRestaurant-Setup.exe` وثبّته.
-3. أثناء التثبيت أدخل بيانات قاعدة البيانات (Host / Port / User / Password / Database) — الافتراضي: `localhost` / `3306` / `root` / بدون كلمة مرور / `pos`.
+3. أثناء التثبيت أدخل بيانات قاعدة البيانات (Host / Port / User / Password / Database) — الافتراضي: `localhost` / `3306` / `root` / بدون كلمة مرور / `restaurant_pos`.
 4. افتح أيقونة **LiteRestaurant** على سطح المكتب.
 5. سيفتح المتصفح على: `http://localhost:5189`
 
@@ -22,7 +22,7 @@
 |--------|--------|
 | Server | `localhost` |
 | Port | `3306` |
-| Database | `pos` |
+| Database | `restaurant_pos` |
 | User | `root` |
 | Password | *(فارغ — عدّله إن لزم)* |
 
@@ -38,10 +38,10 @@
 ### في حال وجود مشكلة
 
 - راجع مجلد السجلات: `C:\ProgramData\LiteRestaurant\Logs`
-- تأكد أن MySQL يعمل وأن قاعدة `pos` موجودة
+- تأكد أن MySQL يعمل وأن قاعدة `restaurant_pos` موجودة (أو اترك النظام ينشئها)
 - المنافذ: `3306` (MySQL)، `5189` (النظام)، `5000` (الطباعة)
 
-**ملاحظة:** الإصدار 1.0.3 — أثناء التثبيت تُطلب بيانات MySQL. النظام ينشئ القاعدة أو يحدّثها دون مسح البيانات.
+**ملاحظة:** الإصدار 1.0.4 — أثناء التثبيت تُطلب بيانات MySQL. النظام ينشئ القاعدة أو يحدّثها دون مسح البيانات.
 
 ### الوصول من حاسبة ثانية (نفس الراوتر)
 
@@ -122,7 +122,7 @@ C:\Program Files\LiteRestaurant\
 
 ### تدفق التشغيل
 
-1. شغّل MySQL يدوياً (XAMPP) وتأكد من وجود قاعدة `pos`
+1. شغّل MySQL يدوياً (XAMPP) وتأكد من وجود قاعدة `restaurant_pos` أو اترك النظام ينشئها
 2. **LiteRestaurant.exe** يشغّل PrintServer ثم RestaurantPOS
 3. يفتح المتصفح على الواجهة
 

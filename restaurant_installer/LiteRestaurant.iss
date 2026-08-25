@@ -2,7 +2,7 @@
 ; Build staging first: powershell -ExecutionPolicy Bypass -File build-installer.ps1
 
 #define MyAppName "LiteRestaurant"
-#define MyAppVersion "1.0.3"
+#define MyAppVersion "1.0.4"
 #define MyAppPublisher "LiteRestaurant"
 #define MyAppExeName "LiteRestaurant.exe"
 
@@ -167,7 +167,7 @@ begin
   DbPage.Values[1] := '3306';
   DbPage.Values[2] := 'root';
   DbPage.Values[3] := '';
-  DbPage.Values[4] := 'pos';
+  DbPage.Values[4] := 'restaurant_pos';
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;

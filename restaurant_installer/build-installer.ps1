@@ -10,7 +10,7 @@
     - Inno Setup 6 (ISCC.exe)
 
     MySQL/MariaDB is NOT bundled — configure XAMPP (or any MySQL) manually:
-    Server=localhost, Database=pos, User=root, Password=123Ammar123@
+    Server=localhost, Database=restaurant_pos, User=root, Password= (empty by default)
 #>
 param(
     [string]$Configuration = "Release",
