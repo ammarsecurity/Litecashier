@@ -5,6 +5,7 @@
       :class="{
         'system-sections-fab-root--open': modalVisible,
         'system-sections-fab-root--has-badge': publicOrderFabBadgeCount > 0,
+        'system-sections-fab-root--above-checkout': liftAboveCheckout,
       }"
     >
       <button
@@ -131,6 +132,10 @@ export default {
     fabAriaLabel() {
       return this.fabTitle;
     },
+    liftAboveCheckout() {
+      const path = (this.$route && this.$route.path) || "";
+      return path === "/pos" || path.startsWith("/pos/");
+    },
   },
   methods: {
     liftSectionsModalLayer() {
@@ -208,6 +213,10 @@ export default {
   pointer-events: none;
 }
 
+.system-sections-fab-root--above-checkout {
+  bottom: max(7rem, calc(6.5rem + env(safe-area-inset-bottom, 0px)));
+}
+
 .system-sections-fab {
   position: relative;
   width: 100%;
@@ -219,13 +228,11 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--primary-color) 32%, transparent);
-  border-radius: 0.85rem;
+  border: none;
+  border-radius: 14px;
   background: var(--bg-primary);
   color: var(--primary-color);
-  box-shadow:
-    0 6px 22px color-mix(in srgb, var(--primary-color) 20%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--primary-color) 8%, transparent);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
   cursor: pointer;
   overflow: hidden;
   transition:
@@ -241,38 +248,21 @@ export default {
 }
 
 .system-sections-fab-glow {
-  position: absolute;
-  inset: 4px;
-  border-radius: 0.7rem;
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--primary-color) 14%, transparent) 0%,
-    color-mix(in srgb, var(--primary-color) 6%, transparent) 48%,
-    transparent 100%
-  );
-  opacity: 0.65;
-  transition: opacity 0.22s ease, background 0.22s ease;
-  pointer-events: none;
+  display: none;
 }
 
 .system-sections-fab:hover:not(.system-sections-fab--open) {
-  background: linear-gradient(145deg, var(--primary-color) 0%, #7c83f6 52%, var(--primary-color) 100%);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: var(--primary-color);
   color: #ffffff;
-  box-shadow:
-    0 8px 22px color-mix(in srgb, var(--primary-color) 38%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--primary-color) 20%, transparent);
-  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  transform: none;
 }
 
 .system-sections-fab--open {
-  background: linear-gradient(145deg, var(--primary-color) 0%, var(--primary-color) 48%, var(--primary-color) 100%);
-  border-color: var(--primary-light);
+  background: var(--primary-color);
   color: #ffffff;
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--primary-color) 28%, transparent),
-    0 12px 30px color-mix(in srgb, var(--primary-color) 45%, transparent);
-  transform: scale(1.07);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  transform: none;
 }
 
 .system-sections-fab:hover:not(.system-sections-fab--open) .system-sections-fab-glow {
@@ -320,7 +310,7 @@ export default {
   height: 1.45rem;
   padding: 0 0.3rem;
   border-radius: 999px;
-  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+  background: var(--warning-color);
   color: #ffffff;
   border: 2px solid var(--bg-primary);
   font-size: 0.7rem;
@@ -360,6 +350,10 @@ export default {
     inset-inline-end: 0.9rem;
   }
 
+  .system-sections-fab-root--above-checkout {
+    bottom: max(8.5rem, calc(8rem + env(safe-area-inset-bottom, 0px)));
+  }
+
   .system-sections-fab-icon {
     font-size: 1.38rem;
   }
@@ -393,35 +387,25 @@ export default {
   gap: 0.55rem;
   padding: 0.9rem 0.55rem;
   background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 0.85rem;
+  border: none;
+  border-radius: 16px;
   text-decoration: none;
   color: var(--text-primary);
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease,
-    background 0.18s ease;
   min-height: 102px;
   text-align: center;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
 .hub-module-card:hover {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--primary-color) 12%, transparent);
+  transform: none;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
   color: var(--text-primary);
   text-decoration: none;
 }
 
 .hub-module-card--active {
-  border-color: color-mix(in srgb, var(--primary-color) 55%, transparent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--primary-color) 10%, transparent) 0%,
-    color-mix(in srgb, var(--primary-color) 4%, transparent) 100%
-  );
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--primary-color) 14%, transparent);
+  background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-primary));
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
 .hub-module-icon-wrap {
@@ -433,8 +417,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid color-mix(in srgb, var(--primary-color) 12%, transparent);
-  transition: background 0.18s ease, border-color 0.18s ease;
+  border: none;
 }
 
 .hub-module-card:hover .hub-module-icon-wrap,

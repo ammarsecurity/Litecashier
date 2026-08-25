@@ -4,12 +4,13 @@
     <div class="main-content-wrapper">
       <div class="sections-page-container">
         <div class="sections-page-content">
-          <div class="sections-page-header">
+          <header class="sections-page-header">
+            <p class="sections-page-eyebrow">{{ $t("app-name") }}</p>
             <h1 class="sections-page-title">{{ $t("systemModules") }}</h1>
             <p class="sections-page-subtitle">
               {{ $t("sectionsPageSubtitle") || "اختر القسم للانتقال السريع" }}
             </p>
-          </div>
+          </header>
 
           <AnnouncementsSlider :items="announcements" />
 
@@ -87,36 +88,43 @@ export default {
 
 <style scoped>
 .sections-page-container {
-  padding: 1.25rem 1rem 2rem;
+  padding: 24px 16px 40px;
   max-width: 1200px;
   margin: 0 auto;
 }
 
 .sections-page-header {
-  margin-bottom: 1.75rem;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-light, var(--border-color));
+}
+
+.sections-page-eyebrow {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-color);
 }
 
 .sections-page-title {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   color: var(--text-primary);
-  margin-bottom: 0.35rem;
+  margin: 0 0 8px;
 }
 
 .sections-page-subtitle {
-  font-size: 0.95rem;
+  font-size: 15px;
+  font-weight: 500;
   color: var(--text-secondary);
   margin: 0;
-}
-
-.dashboard-modules-hub {
-  margin-bottom: 1rem;
 }
 
 .hub-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
-  gap: 1rem;
+  gap: 16px;
 }
 
 .hub-module-card {
@@ -124,34 +132,33 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.65rem;
-  padding: 1.15rem 0.75rem;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
+  gap: 12px;
+  padding: 16px 12px;
+  background: var(--bg-primary);
+  border: none;
+  border-radius: 16px;
   text-decoration: none;
   color: var(--text-primary);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   min-height: 112px;
   text-align: center;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
 .hub-module-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--primary-color);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: none;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
 }
 
 .hub-module-icon-wrap {
   position: relative;
   width: 48px;
   height: 48px;
-  border-radius: 12px;
-  background: var(--bg-primary);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border-color);
+  border: none;
 }
 
 .hub-module-icon {

@@ -164,4 +164,44 @@ internal static class MigrationBootstrapSql
             DEALLOCATE PREPARE stmt;
             """;
     }
+
+    /// <summary>
+    /// Adds a nullable column when missing (MySQL). Use for longtext / varchar on existing databases.
+    /// </summary>
+    public static string EnsureNullableColumnSql(string table, string column, string mysqlType)
+    {
+        return $"""
+            SET @col_exists := (
+              SELECT COUNT(*) FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE()
+                AND LOWER(TABLE_NAME) = LOWER('{table}')
+                AND LOWER(COLUMN_NAME) = LOWER('{column}'));
+            SET @sql := IF(@col_exists = 0,
+              'ALTER TABLE `{table}` ADD COLUMN `{column}` {mysqlType} NULL',
+              'SELECT 1');
+            PREPARE stmt FROM @sql;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+            """;
+    }
+
+    /// <summary>
+    /// Copy cashier StoreName into RestaurantName when the restaurant column is empty.
+    /// </summary>
+    public static string CopyStoreNameToRestaurantNameSql()
+    {
+        return """
+            SET @store_exists := (
+              SELECT COUNT(*) FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE()
+                AND LOWER(TABLE_NAME) = 'users'
+                AND LOWER(COLUMN_NAME) = 'storename');
+            SET @sql := IF(@store_exists > 0,
+              'UPDATE `Users` SET `RestaurantName` = `StoreName` WHERE (`RestaurantName` IS NULL OR `RestaurantName` = '''') AND `StoreName` IS NOT NULL AND `StoreName` <> ''''',
+              'SELECT 1');
+            PREPARE stmt FROM @sql;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+            """;
+    }
 }

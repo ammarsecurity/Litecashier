@@ -189,73 +189,75 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 1.25rem;
-  background: rgba(0, 20, 30, 0.72);
-  backdrop-filter: blur(6px);
+  background: color-mix(in srgb, var(--bg-dark, #041015) 72%, transparent);
+  backdrop-filter: blur(16px);
 }
 
 .license-gate-card {
   position: relative;
-  width: min(440px, 100%);
-  background: var(--bg-secondary, #0f2430);
-  border: 1px solid color-mix(in srgb, var(--primary-color, #3db4d0) 35%, transparent);
-  border-radius: 1rem;
-  padding: 1.75rem 1.5rem;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-  color: var(--text-primary, #fff);
+  width: min(420px, 100%);
+  background: var(--bg-primary);
+  border: none;
+  border-radius: 16px;
+  padding: 32px 24px 24px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  color: var(--text-primary);
 }
 
 .license-gate-close {
   position: absolute;
   top: 0.75rem;
   inset-inline-end: 0.75rem;
-  width: 2rem;
-  height: 2rem;
+  width: 40px;
+  height: 40px;
   border: none;
-  border-radius: 0.5rem;
+  border-radius: 12px;
   display: grid;
   place-items: center;
-  background: transparent;
-  color: var(--text-secondary, #94a3b8);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
 .license-gate-close:hover {
-  background: rgba(148, 163, 184, 0.15);
-  color: var(--text-primary, #fff);
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  color: var(--primary-color);
 }
 
 .license-gate-icon {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.85rem;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
-  margin: 0 auto 1rem;
-  background: color-mix(in srgb, var(--primary-color, #3db4d0) 18%, transparent);
-  color: var(--primary-color, #3db4d0);
+  margin: 0 auto 16px;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  color: var(--primary-color);
   font-size: 1.35rem;
 }
 
 .license-gate-title {
-  margin: 0 0 0.4rem;
+  margin: 0 0 8px;
   text-align: center;
-  font-size: 1.35rem;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 .license-gate-subtitle {
-  margin: 0 0 1rem;
+  margin: 0 0 16px;
   text-align: center;
-  color: var(--text-secondary, #94a3b8);
-  font-size: 0.95rem;
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .license-gate-meta {
-  margin-bottom: 1rem;
-  padding: 0.75rem;
-  border-radius: 0.65rem;
-  background: color-mix(in srgb, var(--primary-color, #3db4d0) 8%, transparent);
-  font-size: 0.85rem;
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  font-size: 13px;
   text-align: center;
 }
 
@@ -266,7 +268,7 @@ export default {
 .license-gate-machine {
   margin-top: 0.35rem;
   word-break: break-all;
-  opacity: 0.85;
+  color: var(--text-muted);
 }
 
 .license-gate-machine code,
@@ -276,27 +278,29 @@ export default {
 
 .license-gate-label {
   display: block;
-  margin-bottom: 0.4rem;
+  margin-bottom: 8px;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.9375rem;
 }
 
 .license-gate-input {
   width: 100%;
+  min-height: 44px;
   padding: 0.75rem 0.9rem;
-  border-radius: 0.65rem;
-  border: 1px solid var(--border-color, #334155);
-  background: var(--bg-primary, #0b1a22);
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-tertiary);
   color: inherit;
   font-size: 1rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  box-shadow: none;
 }
 
 .license-gate-input:focus {
   outline: none;
-  border-color: var(--primary-color, #3db4d0);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #3db4d0) 22%, transparent);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 16%, transparent);
 }
 
 .license-gate-error {
@@ -307,14 +311,16 @@ export default {
 
 .license-gate-submit {
   width: 100%;
-  margin-top: 1rem;
+  margin-top: 16px;
+  min-height: 48px;
   padding: 0.85rem 1rem;
   border: none;
-  border-radius: 0.65rem;
-  background: var(--primary-color, #3db4d0);
+  border-radius: 12px;
+  background: var(--primary-color);
   color: #fff;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: none;
 }
 
 .license-gate-submit:disabled {

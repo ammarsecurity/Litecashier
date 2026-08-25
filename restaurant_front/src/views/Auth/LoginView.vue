@@ -132,6 +132,13 @@
                                 <span class="button-text-element">{{ $t('loginButton') }}</span>
                             </span>
                         </button>
+
+                        <div class="login-card-footer">
+                            <p>{{ $t('noAccountMessage') }}</p>
+                            <router-link to="/register" class="login-auth-text-link">
+                                {{ $t('registerLink') }}
+                            </router-link>
+                        </div>
                     </form>
                 </div>
             </main>
@@ -321,10 +328,134 @@ export default {
     position: sticky;
     top: 0;
     z-index: 2;
-    background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
-    border-bottom: 1px solid var(--border-color);
-    backdrop-filter: blur(8px);
-    box-shadow: var(--shadow-sm);
+    background: color-mix(in srgb, var(--bg-primary) 78%, transparent);
+    border-bottom: 1px solid var(--border-light);
+    backdrop-filter: blur(16px);
+    box-shadow: none;
+}
+
+.login-auth-icon-btn,
+.login-auth-lang-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    height: 40px;
+    min-width: 40px;
+    padding: 0 0.65rem;
+    border-radius: 12px;
+    border: none;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.login-auth-icon-btn:hover,
+.login-auth-lang-btn:hover {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+    color: var(--primary-color);
+    transform: none;
+}
+
+.login-page-main {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px 48px;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 420px;
+    padding: 32px 24px 24px;
+    background: var(--bg-primary);
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.login-card-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.login-card-icon-wrap {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 16px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+    border: none;
+}
+
+.login-card-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+}
+
+.login-card-subtitle {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.login-mode-toggle {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    padding: 4px;
+    background: var(--bg-tertiary);
+    border: none;
+    border-radius: 14px;
+}
+
+.login-mode-btn.active {
+    background: var(--bg-primary);
+    color: var(--primary-color);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.login-submit-button {
+    margin-top: 8px;
+    padding: 0;
+    min-height: 48px;
+    width: 100%;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    background: var(--primary-color);
+    box-shadow: none;
+}
+
+.login-submit-button:hover {
+    transform: none;
+    filter: brightness(1.05);
+    box-shadow: none;
+}
+
+.button-content-wrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 .login-auth-topbar-inner {
@@ -351,97 +482,9 @@ export default {
     gap: 0.5rem;
 }
 
-.login-auth-icon-btn,
-.login-auth-lang-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    height: 40px;
-    min-width: 40px;
-    padding: 0 0.65rem;
-    border-radius: 0.65rem;
-    border: 1px solid color-mix(in srgb, var(--primary-color) 30%, var(--border-color));
-    background: color-mix(in srgb, var(--primary-color) 12%, var(--bg-primary));
-    color: var(--primary-color);
-    font-size: 0.8125rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.login-auth-icon-btn:hover,
-.login-auth-lang-btn:hover {
-    border-color: var(--primary-color);
-    background: color-mix(in srgb, var(--primary-color) 20%, var(--bg-primary));
-    transform: translateY(-1px);
-}
-
-.login-page-main {
-    position: relative;
-    z-index: 1;
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1.5rem 1rem 2.5rem;
-}
-
-.login-card {
-    width: 100%;
-    max-width: 420px;
-    padding: 1.75rem 1.5rem 1.25rem;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 1rem;
-    box-shadow: var(--shadow-lg);
-}
-
-.login-card-header {
-    text-align: center;
-    margin-bottom: 1.5rem;
-}
-
-.login-card-icon-wrap {
-    width: 52px;
-    height: 52px;
-    margin: 0 auto 1rem;
-    border-radius: 0.85rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: color-mix(in srgb, var(--primary-color) 14%, var(--bg-tertiary));
-    border: 1px solid color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
-}
-
 .login-card-icon {
     font-size: 1.45rem;
     color: var(--primary-color);
-}
-
-.login-card-title {
-    font-size: 1.45rem;
-    font-weight: 800;
-    color: var(--text-primary);
-    margin: 0 0 0.4rem;
-    line-height: 1.25;
-}
-
-.login-card-subtitle {
-    margin: 0;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    line-height: 1.5;
-}
-
-.login-mode-toggle {
-    display: flex;
-    gap: 0.35rem;
-    margin-bottom: 1.25rem;
-    padding: 0.3rem;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-light);
-    border-radius: 0.75rem;
 }
 
 .login-mode-btn {
@@ -452,13 +495,12 @@ export default {
     gap: 0.35rem;
     border: none;
     padding: 0.6rem 0.5rem;
-    border-radius: 0.55rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
     cursor: pointer;
     background: transparent;
     color: var(--text-muted);
-    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .login-mode-btn-icon {
@@ -466,24 +508,18 @@ export default {
     flex-shrink: 0;
 }
 
-.login-mode-btn.active {
-    background: var(--bg-primary);
-    color: var(--primary-color);
-    box-shadow: var(--shadow-sm);
-}
-
 .login-form {
     margin-top: 0.25rem;
 }
 
 .login-form .form-field-group {
-    margin-bottom: 1.15rem;
+    margin-bottom: 16px;
 }
 
 .login-form-hint {
-    font-size: 0.78rem;
+    font-size: 13px;
     color: var(--text-muted);
-    margin: 0.4rem 0 0;
+    margin: 8px 0 0;
     line-height: 1.45;
 }
 
@@ -494,36 +530,28 @@ export default {
     font-size: 1.05rem;
 }
 
-.login-submit-button {
-    margin-top: 0.5rem;
-    padding: 0.95rem 1.5rem;
-    width: 100%;
-    border: none;
-    border-radius: 0.75rem;
-    font-size: 1.05rem;
+.login-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 20px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.login-card-footer p {
+    margin: 0;
+}
+
+.login-auth-text-link {
+    color: var(--primary-color);
     font-weight: 700;
-    color: #fff;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-    background: linear-gradient(
-        135deg,
-        var(--primary-color) 0%,
-        color-mix(in srgb, var(--primary-color) 72%, var(--accent-color)) 100%
-    );
-    box-shadow: 0 8px 16px color-mix(in srgb, var(--primary-color) 35%, transparent);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    text-decoration: none;
 }
 
-.login-submit-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 24px color-mix(in srgb, var(--primary-color) 45%, transparent);
-    filter: brightness(1.06);
-}
-
-.login-submit-button:active {
-    transform: translateY(0);
-    filter: brightness(0.98);
+.login-auth-text-link:hover {
+    text-decoration: underline;
 }
 
 @media (max-width: 480px) {

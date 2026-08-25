@@ -3,11 +3,25 @@
     <AppHeader />
     <div class="main-content-wrapper">
       <div class="users-page-container">
-        <div class="users-page-content">
-          <div class="users-header-section">
-            <div class="users-header-content">
-              <h1 class="users-page-title">{{ $t("tableFloorPlanTitle") }}</h1>
-              <div class="tables-header-actions">
+          <div class="users-page-content floor-plan-page">
+          <header class="fp-hero">
+            <div class="fp-hero-copy">
+              <p class="fp-eyebrow">{{ $t("floorPlanEyebrow") }}</p>
+              <h1 class="fp-title">{{ $t("tableFloorPlanTitle") }}</h1>
+              <p class="fp-subtitle">{{ $t("floorPlanSubtitle") }}</p>
+            </div>
+            <div class="fp-hero-aside">
+              <div class="fp-stats">
+                <div class="fp-stat">
+                  <strong>{{ placedTables.length }}</strong>
+                  <span>{{ $t("floorPlanPlacedCount") }}</span>
+                </div>
+                <div v-if="canEditFloorPlan" class="fp-stat">
+                  <strong>{{ unplacedTables.length }}</strong>
+                  <span>{{ $t("floorPlanUnplacedCount") }}</span>
+                </div>
+              </div>
+              <div class="fp-hero-actions">
                 <button
                   v-if="canEditFloorPlan"
                   type="button"
@@ -19,24 +33,24 @@
                   <b-icon v-else icon="check2-circle" class="button-icon" />
                   <span class="button-text">{{ $t("floorPlanSave") }}</span>
                 </button>
-                <router-link to="/restaurant/tables" class="users-add-button floor-plan-back-btn">
-                  <b-icon icon="arrow-right" class="button-icon" />
-                  <span class="button-text">{{ $t("floorPlanBackToTables") }}</span>
+                <router-link to="/restaurant/tables" class="fp-back-btn">
+                  <b-icon icon="arrow-right" />
+                  <span>{{ $t("floorPlanBackToTables") }}</span>
                 </router-link>
               </div>
             </div>
-          </div>
+          </header>
 
-          <div v-if="planKeysForTabs.length" class="floor-plan-tabs-card">
-            <div class="floor-plan-tabs-label">{{ $t("floorPlanFloorTabs") }}</div>
-            <div class="floor-plan-tabs" role="tablist">
+          <div v-if="planKeysForTabs.length" class="fp-floors" role="tablist" :aria-label="$t('floorPlanFloorTabs')">
+            <span class="fp-floors-label">{{ $t("floorPlanFloorTabs") }}</span>
+            <div class="fp-floors-tabs">
               <button
                 v-for="k in planKeysForTabs"
                 :key="'plan-tab-' + k"
                 type="button"
                 role="tab"
-                class="floor-plan-tab"
-                :class="{ 'floor-plan-tab--active': selectedPlanKey === k }"
+                class="fp-floor-tab"
+                :class="{ 'fp-floor-tab--active': selectedPlanKey === k }"
                 :aria-selected="selectedPlanKey === k ? 'true' : 'false'"
                 @click="selectPlanKey(k)"
               >
@@ -45,95 +59,48 @@
             </div>
           </div>
 
-          <div v-if="canEditFloorPlan" class="floor-plan-toolbar-section">
-            <div class="floor-plan-toolbar-card">
-              <div class="floor-plan-toolbar-header">
-                <b-icon icon="sliders" class="floor-plan-toolbar-header-icon" />
-                <span class="floor-plan-toolbar-header-text">{{ $t("floorPlanToolbarSettings") }}</span>
-              </div>
-              <div class="floor-plan-toolbar-grid">
-                <div class="floor-plan-toolbar-item">
-                  <label class="floor-plan-field-label">
-                    <b-icon icon="image" class="floor-plan-field-icon" />
-                    {{ $t("floorPlanUploadImage") }}
-                  </label>
-                  <input type="file" ref="fileInput" accept="image/*" class="d-none" @change="onFile" />
-                  <button type="button" class="floor-plan-tool-btn" @click="$refs.fileInput && $refs.fileInput.click()">
-                    <b-icon icon="cloud-upload" class="me-2" />
-                    {{ $t("floorPlanSelectFile") }}
-                  </button>
-                </div>
-                <div class="floor-plan-toolbar-item">
-                  <label class="floor-plan-field-label">
-                    <b-icon icon="aspect-ratio" class="floor-plan-field-icon" />
-                    {{ $t("floorPlanTableChipSize") }}
-                  </label>
-                  <div class="floor-plan-chip-size-row">
-                    <input
-                      v-model.number="tableChipSizePx"
-                      type="range"
-                      class="floor-plan-chip-size-range"
-                      min="32"
-                      max="96"
-                      step="2"
-                      @input="onTableChipSizeChange"
-                    />
-                    <span class="floor-plan-chip-size-value">{{ clampTableChipSize(tableChipSizePx) }}px</span>
-                  </div>
-                </div>
-                <div class="floor-plan-toolbar-item">
-                  <label class="floor-plan-field-label">
-                    <b-icon icon="palette" class="floor-plan-field-icon" />
-                    {{ $t("floorPlanBackgroundColor") }}
-                  </label>
-                  <div class="floor-plan-color-row">
-                    <input
-                      v-model="backgroundColor"
-                      type="color"
-                      class="floor-plan-color-swatch"
-                      :title="$t('floorPlanBackgroundColor')"
-                      @change="debouncedSaveSettings"
-                    />
-                    <span class="floor-plan-color-value">{{ backgroundColor }}</span>
-                  </div>
-                </div>
-                <div class="floor-plan-toolbar-item floor-plan-toolbar-item--switch">
-                  <label class="floor-plan-field-label">
-                    <b-icon icon="diagram-3" class="floor-plan-field-icon" />
-                    {{ $t("floorPlanEditZones") }}
-                  </label>
-                  <div class="floor-plan-switch-wrap">
-                    <b-form-checkbox v-model="editZonesMode" switch class="floor-plan-zone-switch mb-0" />
-                  </div>
-                </div>
-                <div v-if="editZonesMode && selectedZoneIndex != null" class="floor-plan-toolbar-item">
-                  <label class="floor-plan-field-label">
-                    <b-icon icon="trash-fill" class="floor-plan-field-icon" />
-                    {{ $t("floorPlanSelectedZone") }}
-                  </label>
-                  <button type="button" class="floor-plan-tool-btn floor-plan-tool-btn--danger" @click="deleteSelectedZone">
-                    <b-icon icon="trash" class="me-2" />
-                    {{ $t("floorPlanDeleteZone") }}
-                  </button>
-                </div>
-              </div>
-              <div
-                v-if="canEditFloorPlan && zonesForCurrentPlan.length"
-                class="floor-plan-zones-strip"
-              >
-                <span class="floor-plan-zones-strip-label">{{ $t("floorPlanZonesFromTables") }}</span>
-                <div class="floor-plan-zones-badges">
-                  <b-badge
-                    v-for="zn in zonesForCurrentPlan"
-                    :key="'zn-' + zn"
-                    pill
-                    variant="light"
-                    class="floor-plan-zone-badge"
-                  >
-                    {{ zn }}
-                  </b-badge>
-                </div>
-              </div>
+          <div v-if="canEditFloorPlan" class="fp-tools">
+            <input type="file" ref="fileInput" accept="image/*" class="d-none" @change="onFile" />
+            <button type="button" class="fp-tool-btn" @click="$refs.fileInput && $refs.fileInput.click()">
+              <b-icon icon="image" />
+              <span>{{ $t("floorPlanSelectFile") }}</span>
+            </button>
+            <label class="fp-tool-size">
+              <span>{{ $t("floorPlanTableChipSize") }}</span>
+              <input
+                v-model.number="tableChipSizePx"
+                type="range"
+                min="32"
+                max="96"
+                step="2"
+                @input="onTableChipSizeChange"
+              />
+              <em>{{ clampTableChipSize(tableChipSizePx) }}</em>
+            </label>
+            <label class="fp-tool-color" :title="$t('floorPlanBackgroundColor')">
+              <input
+                v-model="backgroundColor"
+                type="color"
+                @change="debouncedSaveSettings"
+              />
+              <span>{{ $t("floorPlanBackgroundColor") }}</span>
+            </label>
+            <label class="fp-tool-switch">
+              <b-form-checkbox v-model="editZonesMode" switch class="floor-plan-zone-switch mb-0" />
+              <span>{{ $t("floorPlanEditZones") }}</span>
+            </label>
+            <button
+              v-if="editZonesMode && selectedZoneIndex != null"
+              type="button"
+              class="fp-tool-btn fp-tool-btn--danger"
+              @click="deleteSelectedZone"
+            >
+              <b-icon icon="trash" />
+              <span>{{ $t("floorPlanDeleteZone") }}</span>
+            </button>
+            <div v-if="zonesForCurrentPlan.length" class="fp-zones">
+              <span>{{ $t("floorPlanZonesFromTables") }}</span>
+              <span v-for="zn in zonesForCurrentPlan" :key="'zn-' + zn" class="fp-zone-pill">{{ zn }}</span>
             </div>
           </div>
 
@@ -156,8 +123,11 @@
 
           <div class="floor-workspace" :class="{ 'floor-workspace--readonly': !canEditFloorPlan }">
             <aside v-if="canEditFloorPlan" class="floor-sidebar">
-              <h3 class="floor-sidebar-title">{{ $t("floorPlanUnplacedTables") }}</h3>
-              <p class="text-muted small">{{ $t("floorPlanUnplacedHint") }}</p>
+              <div class="fp-sidebar-head">
+                <h3 class="floor-sidebar-title">{{ $t("floorPlanUnplacedTables") }}</h3>
+                <span class="fp-sidebar-count">{{ unplacedTables.length }}</span>
+              </div>
+              <p class="fp-sidebar-hint">{{ $t("floorPlanUnplacedHint") }}</p>
               <div class="floor-sidebar-list">
                 <button
                   v-for="t in unplacedTables"
@@ -166,16 +136,20 @@
                   class="floor-sidebar-chip"
                   @click="addTableToCanvas(t)"
                 >
-                  <b-icon icon="table" class="me-2" />
-                  {{ t.tableNumber }}
-                  <span v-if="t.zone" class="floor-chip-zone">{{ t.zone }}</span>
+                  <span class="fp-sidebar-chip-num">{{ t.tableNumber }}</span>
+                  <span v-if="t.capacity" class="fp-sidebar-chip-cap">{{ t.capacity }}</span>
                 </button>
-                <p v-if="!unplacedTables.length" class="text-muted small mb-0">{{ $t("floorPlanAllPlaced") }}</p>
+                <p v-if="!unplacedTables.length" class="fp-sidebar-empty">{{ $t("floorPlanAllPlaced") }}</p>
               </div>
             </aside>
 
             <div class="floor-canvas-outer">
-              <div ref="canvasWrap" class="floor-canvas-wrap" dir="ltr">
+              <div
+                ref="canvasWrap"
+                class="floor-canvas-wrap"
+                :class="{ 'floor-canvas-wrap--grid': !hasFloorImage }"
+                dir="ltr"
+              >
                 <div
                   ref="floorCanvas"
                   class="floor-canvas"
@@ -218,13 +192,23 @@
                     class="floor-table-chip"
                     :class="[statusChipClass(t.status), { 'floor-table-chip--readonly': !canEditFloorPlan }]"
                     :style="chipStyle(tableId(t))"
+                    :title="String(t.tableNumber)"
                     @mousedown.stop.prevent="canEditFloorPlan ? startDrag(tableId(t), $event) : undefined"
                   >
                     {{ t.tableNumber }}
                   </button>
+                  <div v-if="!placedTables.length" class="fp-canvas-empty">
+                    {{ $t("floorPlanEmptyCanvas") }}
+                  </div>
+                </div>
+                <div class="fp-legend">
+                  <span class="fp-legend-item"><i class="chip-avail"></i>{{ $t("available") }}</span>
+                  <span class="fp-legend-item"><i class="chip-occ"></i>{{ $t("occupied") }}</span>
+                  <span class="fp-legend-item"><i class="chip-res"></i>{{ $t("reserved") }}</span>
+                  <span class="fp-legend-item"><i class="chip-out"></i>{{ $t("outOfService") }}</span>
                 </div>
               </div>
-              <p class="floor-hint text-muted small mt-2">
+              <p class="floor-hint">
                 {{ canEditFloorPlan ? $t("floorPlanCanvasHintEdit") : $t("floorPlanCanvasHint") }}
               </p>
             </div>
@@ -333,6 +317,9 @@ export default {
     },
     zonePickOptions() {
       return this.zonesForCurrentPlan.map((z) => ({ value: z, text: z }));
+    },
+    hasFloorImage() {
+      return !!(this.settings && (this.settings.floorPlanImageUrl || this.settings.FloorPlanImageUrl));
     },
   },
   watch: {
@@ -801,209 +788,250 @@ export default {
 </script>
 
 <style scoped>
-.tables-header-actions {
+.floor-plan-page {
+  max-width: 1440px;
+}
+
+.fp-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 16px;
+  padding: 8px 0 16px;
+  border-bottom: 1px solid var(--border-light, var(--border-color));
+}
+
+.fp-eyebrow {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--primary-color);
+}
+
+.fp-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.fp-subtitle {
+  margin: 8px 0 0;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.fp-hero-aside {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.fp-stats {
+  display: flex;
+  gap: 8px;
+}
+
+.fp-stat {
+  min-width: 88px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: var(--bg-primary);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  text-align: center;
+}
+
+.fp-stat strong {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.fp-stat span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.fp-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   align-items: center;
 }
 
-.floor-plan-back-btn {
+.fp-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 700;
   text-decoration: none;
-  background: var(--bg-primary) !important;
-  color: var(--text-primary) !important;
-  border: 2px solid var(--border-color) !important;
-  box-shadow: var(--shadow-sm) !important;
 }
 
-.floor-plan-back-btn:hover {
-  transform: translateY(-1px);
-  border-color: var(--primary-color) !important;
-  color: var(--primary-color) !important;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 20%, transparent) !important;
+.fp-back-btn:hover {
+  color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
 }
 
-.floor-plan-back-btn:active {
-  transform: translateY(0);
+.fp-floors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-.floor-plan-tabs-card {
-  margin-bottom: 1.25rem;
-  padding: 1rem 1.25rem;
+.fp-floors-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.fp-floors-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--bg-tertiary, #f1f5f9);
+}
+
+.fp-floor-tab {
+  min-height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fp-floor-tab:hover {
+  color: var(--text-primary);
+}
+
+.fp-floor-tab--active {
+  background: var(--bg-primary, #fff);
+  color: var(--primary-color);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.fp-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 16px;
   background: var(--bg-primary);
-  border-radius: 1rem;
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
-.floor-plan-tabs-label {
-  font-size: 0.875rem;
+.fp-tool-btn,
+.fp-tool-size,
+.fp-tool-color,
+.fp-tool-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 0;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-secondary);
-  margin-bottom: 0.75rem;
 }
 
-.floor-plan-tabs {
+.fp-tool-btn {
+  padding: 0 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--bg-tertiary, #f1f5f9);
+  cursor: pointer;
+}
+
+.fp-tool-btn:hover {
+  color: var(--primary-color);
+}
+
+.fp-tool-btn--danger {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.fp-tool-size input[type="range"] {
+  width: 112px;
+  accent-color: var(--primary-color);
+}
+
+.fp-tool-size em {
+  min-width: 2rem;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.fp-tool-color input[type="color"] {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.fp-zones {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.floor-plan-tab {
-  padding: 0.5rem 1rem;
-  border-radius: 0.75rem;
-  border: 2px solid var(--border-color);
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  font-weight: 600;
-  font-size: 0.9375rem;
-  cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.floor-plan-tab:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
-
-.floor-plan-tab--active {
-  border-color: var(--primary-color);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 18%, transparent) 0%, color-mix(in srgb, var(--primary-light) 14%, transparent) 100%);
-  color: var(--primary-color);
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--primary-color) 22%, transparent);
-}
-
-.floor-plan-toolbar-section {
-  margin-bottom: 1.5rem;
-}
-
-.floor-plan-toolbar-card {
-  background: var(--bg-primary);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-md);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.floor-plan-toolbar-card:hover {
-  border-color: var(--border-dark);
-  box-shadow: var(--shadow-lg);
-}
-
-.floor-plan-toolbar-header {
-  display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid var(--border-color);
-}
-
-.floor-plan-toolbar-header-icon {
-  font-size: 1.5rem;
-  color: var(--primary-color);
-}
-
-.floor-plan-toolbar-header-text {
-  font-size: 1.125rem;
+  gap: 8px;
+  margin-inline-start: auto;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--text-muted);
 }
 
-.floor-plan-toolbar-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.25rem;
-  align-items: end;
-}
-
-.floor-plan-toolbar-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.floor-plan-toolbar-item--switch {
-  align-self: end;
+.fp-zone-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+  color: var(--primary-color);
+  font-size: 12px;
 }
 
 .floor-plan-field-label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
-  font-size: 0.9375rem;
-  color: var(--text-secondary);
+  gap: 8px;
   margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
 }
 
 .floor-plan-field-icon {
-  font-size: 1rem;
   color: var(--primary-color);
-  flex-shrink: 0;
-}
-
-.floor-plan-tool-btn {
-  width: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.875rem 1rem;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
-  border: 2px solid var(--border-color);
-  border-radius: 0.75rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.floor-plan-tool-btn:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-  background: var(--bg-primary);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 12%, transparent);
-}
-
-.floor-plan-color-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 0.875rem;
-  background: var(--bg-tertiary);
-  border: 2px solid var(--border-color);
-  border-radius: 0.75rem;
-  min-height: 3rem;
-}
-
-.floor-plan-color-swatch {
-  width: 2.75rem;
-  height: 2.25rem;
-  padding: 0;
-  border: 2px solid var(--border-color);
-  border-radius: 0.5rem;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.floor-plan-color-value {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.floor-plan-switch-wrap {
-  display: flex;
-  align-items: center;
-  min-height: 3rem;
-  padding: 0 0.25rem;
-}
-
-.floor-plan-zone-switch >>> .custom-switch .custom-control-label::before {
-  border-color: var(--border-color);
 }
 
 .floor-plan-zone-switch >>> .custom-control-input:checked ~ .custom-control-label::before {
@@ -1011,217 +1039,234 @@ export default {
   border-color: var(--primary-color);
 }
 
-@media (max-width: 768px) {
-  .floor-plan-toolbar-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .floor-plan-toolbar-card {
-    padding: 1rem;
-  }
-}
-
-.floor-plan-zones-strip {
-  margin-top: 1.25rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
-}
-
-.floor-plan-zones-strip-label {
-  font-weight: 700;
-  font-size: 0.9375rem;
-  color: var(--text-secondary);
-}
-
-.floor-plan-zones-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.floor-plan-zone-badge {
-  font-weight: 600;
-  font-size: 0.8125rem;
-  border: 1px solid var(--border-color) !important;
-  color: var(--text-primary) !important;
-  padding: 0.35rem 0.75rem !important;
-}
-
-.floor-plan-zone-hidden-note {
-  margin-top: 0.75rem;
-  line-height: 1.55;
-}
-
 .floor-workspace {
   display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 1.25rem;
-  margin-top: 0;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 16px;
 }
+
 .floor-workspace--readonly {
   grid-template-columns: 1fr;
 }
+
 @media (max-width: 991px) {
+  .fp-hero,
+  .fp-hero-aside {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .floor-workspace {
     grid-template-columns: 1fr;
   }
 }
+
 .floor-sidebar {
   background: var(--bg-primary);
-  border-radius: 1rem;
-  padding: 1.25rem;
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-md);
-  max-height: 70vh;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  max-height: min(72vh, 720px);
   overflow: auto;
 }
-.floor-sidebar-title {
-  font-size: 1.0625rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 2px solid var(--border-color);
+
+.fp-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
 }
+
+.floor-sidebar-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.fp-sidebar-count {
+  min-width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  color: var(--primary-color);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.fp-sidebar-hint,
+.fp-sidebar-empty,
+.floor-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.fp-sidebar-hint {
+  margin-bottom: 16px;
+}
+
 .floor-sidebar-chip {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   width: 100%;
-  margin-bottom: 0.5rem;
-  padding: 0.625rem 0.75rem;
-  border: 2px solid var(--border-color);
-  border-radius: 0.75rem;
-  background: var(--bg-tertiary);
-  text-align: right;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--bg-tertiary, #f8fafc);
+  text-align: start;
   cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
   color: var(--text-primary);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
+
 .floor-sidebar-chip:hover {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 12%, transparent);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
 }
-.floor-chip-zone {
-  margin-right: auto;
-  font-size: 0.75rem;
+
+.fp-sidebar-chip-num {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.fp-sidebar-chip-cap {
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-muted);
 }
+
 .floor-canvas-outer {
   min-width: 0;
 }
+
 .floor-canvas-wrap {
   position: relative;
-  border-radius: 1rem;
+  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
   background: var(--bg-tertiary);
 }
+
+.floor-canvas-wrap--grid .floor-canvas {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--text-primary) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--text-primary) 6%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
 .floor-canvas {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  min-height: 280px;
+  aspect-ratio: 16 / 9;
+  min-height: 360px;
   overflow: hidden;
 }
+
+.fp-legend {
+  position: absolute;
+  inset-inline-start: 12px;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  pointer-events: none;
+}
+
+.fp-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.fp-legend-item i {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.fp-canvas-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.floor-hint {
+  margin-top: 12px;
+}
+
 .floor-zone-rect {
   position: absolute;
   border: 2px dashed;
-  border-radius: 4px;
+  border-radius: 12px;
   pointer-events: none;
   box-sizing: border-box;
   z-index: 1;
 }
+
 .floor-zone-rect--editable {
   pointer-events: auto;
   cursor: move;
 }
+
 .floor-zone-rect--selected {
   border-style: solid;
-  border-width: 2px;
   z-index: 3;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 35%, transparent);
 }
+
 .floor-zone-resize-handle {
   position: absolute;
   width: 10px;
   height: 10px;
-  background: #fff;
+  background: var(--bg-primary, #fff);
   border: 2px solid var(--primary-color);
   border-radius: 2px;
   box-sizing: border-box;
   z-index: 4;
 }
-.floor-zone-resize-handle--nw {
-  top: -6px;
-  left: -6px;
-  cursor: nwse-resize;
-}
-.floor-zone-resize-handle--ne {
-  top: -6px;
-  right: -6px;
-  cursor: nesw-resize;
-}
-.floor-zone-resize-handle--sw {
-  bottom: -6px;
-  left: -6px;
-  cursor: nesw-resize;
-}
-.floor-zone-resize-handle--se {
-  bottom: -6px;
-  right: -6px;
-  cursor: nwse-resize;
-}
-.floor-plan-tool-btn--danger {
-  border-color: rgba(239, 68, 68, 0.45) !important;
-  color: #dc2626 !important;
-}
-.floor-plan-tool-btn--danger:hover {
-  border-color: #dc2626 !important;
-  background: rgba(239, 68, 68, 0.08) !important;
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12) !important;
-}
+
+.floor-zone-resize-handle--nw { top: -6px; left: -6px; cursor: nwse-resize; }
+.floor-zone-resize-handle--ne { top: -6px; right: -6px; cursor: nesw-resize; }
+.floor-zone-resize-handle--sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+.floor-zone-resize-handle--se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+
 .floor-zone-label {
   position: absolute;
-  top: 2px;
-  left: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #374151;
-  text-shadow: 0 0 4px #fff;
+  top: 6px;
+  left: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
 }
+
 .floor-zone-draw-preview {
   position: absolute;
   border: 2px dashed var(--primary-color);
   background: color-mix(in srgb, var(--primary-color) 15%, transparent);
   pointer-events: none;
-  border-radius: 4px;
+  border-radius: 12px;
 }
-.floor-plan-chip-size-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-height: 2.75rem;
-}
-.floor-plan-chip-size-range {
-  flex: 1 1 auto;
-  min-width: 0;
-  accent-color: var(--primary-color);
-}
-.floor-plan-chip-size-value {
-  flex: 0 0 auto;
-  min-width: 3rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #374151;
-  text-align: end;
-}
+
 .floor-table-chip {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -1230,45 +1275,58 @@ export default {
   width: var(--floor-table-chip-size, 3.5rem);
   height: var(--floor-table-chip-size, 3.5rem);
   padding: 0;
-  border-radius: 0.5rem;
-  border: 2px solid #fff;
-  font-weight: 700;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  font-weight: 800;
   font-size: var(--floor-table-chip-font, 0.9375rem);
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: grab;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.16);
   z-index: 2;
 }
+
 .floor-table-chip:active {
   cursor: grabbing;
 }
+
 .floor-table-chip--readonly {
   cursor: default;
-  pointer-events: auto;
 }
+
 .floor-table-chip--readonly:active {
   cursor: default;
 }
+
 .chip-avail {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
+  background: #16a34a;
   color: #fff;
 }
+
 .chip-occ {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
+  background: #dc2626;
   color: #fff;
 }
+
 .chip-res {
-  background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+  background: var(--primary-color, #0e7490);
   color: #fff;
 }
+
 .chip-out {
-  background: #94a3b8;
+  background: #64748b;
   color: #fff;
 }
-.floor-hint {
-  margin-bottom: 0;
+
+@media (max-width: 600px) {
+  .fp-title {
+    font-size: 22px;
+  }
+
+  .floor-canvas {
+    min-height: 280px;
+  }
 }
 </style>

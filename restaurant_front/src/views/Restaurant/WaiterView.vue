@@ -4393,10 +4393,11 @@ export default {
 
 /* Tables: كارت واحد — صف موحّد (اختيار المخطط من أيقونة الهيدر) */
 .pos-tables-block {
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border: none;
   border-radius: 0.75rem;
   overflow: hidden;
   background: var(--bg-tertiary, #1e1e2e);
+  box-shadow: none;
 }
 
 .pos-tables-toolbar-unified {
@@ -5082,38 +5083,28 @@ export default {
 
 .pos-table-action-transfer {
   min-height: 2.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(30, 41, 59, 0.24);
+  border: none;
+  background: color-mix(in srgb, var(--primary-color) 14%, var(--bg-tertiary));
+  color: var(--text-primary);
+  box-shadow: none;
 }
 
 .pos-table-action-transfer:hover {
-  border-color: rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--primary-color) 22%, var(--bg-tertiary));
+  color: var(--primary-color);
+  transform: none;
 }
 
-.pos-table-action-transfer--item {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-}
-
-.pos-table-action-transfer--item:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-}
-
-.pos-table-action-transfer--full {
-  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
-}
-
-.pos-table-action-transfer--full:hover {
-  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
-}
-
+.pos-table-action-transfer--item,
+.pos-table-action-transfer--full,
 .pos-table-action-transfer--merge {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  background: color-mix(in srgb, var(--primary-color) 14%, var(--bg-tertiary));
 }
 
+.pos-table-action-transfer--item:hover,
+.pos-table-action-transfer--full:hover,
 .pos-table-action-transfer--merge:hover {
-  background: linear-gradient(135deg, var(--primary-dark) 0%, #6d28d9 100%);
+  background: color-mix(in srgb, var(--primary-color) 22%, var(--bg-tertiary));
 }
 
 .pos-table-action-transfer .b-icon {
@@ -5152,21 +5143,21 @@ export default {
 
 .pos-table-action-save {
   min-height: 2.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  background: var(--primary-color);
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  box-shadow: none;
   box-sizing: border-box;
   padding: 0.52rem 1.1rem;
   gap: 0.5rem;
-  border-radius: 0.55rem;
+  border-radius: 12px;
 }
 
 .pos-table-action-save:hover {
-  border-color: rgba(255, 255, 255, 0.3);
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  background: var(--primary-color);
+  filter: brightness(1.06);
+  transform: none;
+  box-shadow: none;
 }
 
 .pos-table-action-save .b-icon {
@@ -5181,21 +5172,21 @@ export default {
 
 .pos-table-action-save-print {
   min-height: 2.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  border: none;
+  background: var(--primary-color);
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+  box-shadow: none;
   box-sizing: border-box;
   padding: 0.52rem 1.1rem;
   gap: 0.5rem;
-  border-radius: 0.55rem;
+  border-radius: 12px;
 }
 
 .pos-table-action-save-print:hover {
-  border-color: rgba(255, 255, 255, 0.3);
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4);
+  background: var(--primary-color);
+  filter: brightness(1.06);
+  transform: none;
+  box-shadow: none;
 }
 
 .pos-table-action-save-print .b-icon {
@@ -6967,10 +6958,10 @@ export default {
 }
 
 .pos-tables-block {
-  border-radius: 1rem;
-  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  border: none;
   background: var(--bg-primary);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 .pos-categories-scroll {
@@ -7012,6 +7003,9 @@ export default {
 .pos-main-section--v2 .pos-browse-primary {
   font-size: clamp(0.86rem, 0.55vw + 0.76rem, 1rem);
   line-height: 1.22;
+  padding: 0;
+  margin-right: 10px;
+  margin-bottom: 10px;
 }
 
 .pos-main-section--v2 .pos-browse-secondary {
@@ -7876,8 +7870,8 @@ export default {
 
 :root.light-theme .pos-tables-block {
   background: var(--bg-primary);
-  border-color: var(--border-color);
-  box-shadow: var(--shadow-md);
+  border: none;
+  box-shadow: none;
 }
 
 :root.light-theme .pos-product-card {

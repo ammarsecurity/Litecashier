@@ -14,7 +14,7 @@
             <div class="users-header-content app-header-row">
               <div class="header-title-wrapper">
                 <div class="header-icon-wrapper">
-                  <b-icon icon="cup-hot-fill" class="header-icon"></b-icon>
+                  <b-icon icon="cup-straw" class="header-icon"></b-icon>
                 </div>
                 <div>
                   <h1 class="users-page-title">{{ $t("allItemsLabel") }}</h1>
@@ -45,7 +45,7 @@
           <div class="app-overview-grid">
             <div class="app-overview-stat">
               <span class="app-overview-stat-icon app-overview-stat-icon--primary">
-                <b-icon icon="box-seam-fill"></b-icon>
+                <b-icon icon="box-seam"></b-icon>
               </span>
               <div>
                 <div class="app-overview-stat-value">{{ totalItems }}</div>

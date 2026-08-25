@@ -268,10 +268,15 @@ using (var scope = app.Services.CreateScope())
               AND pl.`IsDeleted` = 0
               AND pl.`IsPaid` = 0;
             """);
+        db.Database.ExecuteSqlRaw(
+            MigrationBootstrapSql.EnsureNullableColumnSql("Users", "RestaurantName", "longtext"));
+        db.Database.ExecuteSqlRaw(
+            MigrationBootstrapSql.EnsureNullableColumnSql("Users", "Logo", "longtext"));
+        db.Database.ExecuteSqlRaw(MigrationBootstrapSql.CopyStoreNameToRestaurantNameSql());
     }
     catch (Exception ex)
     {
-        migrateLogger.LogWarning(ex, "تعذر التأكد من أعمدة Printers/PayrollLines الإضافية.");
+        migrateLogger.LogWarning(ex, "تعذر التأكد من أعمدة Printers/PayrollLines/Users الإضافية.");
     }
 }
 

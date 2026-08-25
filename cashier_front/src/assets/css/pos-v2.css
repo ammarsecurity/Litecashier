@@ -1529,8 +1529,8 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
   height: 100% !important;
   max-height: 100% !important;
   overflow: hidden;
-  gap: 0.45rem;
-  padding: 0.5rem 0.75rem 0.35rem;
+  gap: 0;
+  padding: 0.5rem 0.75rem 0;
   box-sizing: border-box;
 }
 
@@ -1717,6 +1717,18 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
 
 .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-checkout-bar {
   flex: 0 0 auto;
+  margin-top: 0;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2.pos-has-checkout-bar .pos-cart-panel.pos-cart-panel--v2 {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-bottom-width: 0 !important;
+}
+
+.main-content-wrapper.pos-route.pos-route--v2.pos-has-checkout-bar .pos-cart-checkout-bar {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 
 /* منع مودالات BV من التأثير على ارتفاع flex */
@@ -3109,8 +3121,8 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
   overflow: visible;
   background: var(--bg-primary);
   border-top: 1px solid var(--border-color);
-  border-radius: 0.75rem 0.75rem 0 0;
-  box-shadow: 0 -4px 18px rgba(15, 23, 42, 0.08);
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .pos-cart-checkout-bar {
@@ -3134,6 +3146,10 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
   max-width: 1440px;
   margin: 0 auto;
   padding: 0.55rem 1rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+}
+
+.main-content-wrapper.pos-route.pos-route--v2.pos-has-checkout-bar--with-discounts .pos-cart-checkout-bar-inner {
+  padding-top: 0.2rem;
 }
 
 .pos-cart-checkout-strip {
@@ -3455,6 +3471,10 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
     padding: 0.45rem 0.55rem calc(0.45rem + env(safe-area-inset-bottom, 0px));
   }
 
+  .main-content-wrapper.pos-route.pos-route--v2.pos-has-checkout-bar--with-discounts .pos-cart-checkout-bar-inner {
+    padding-top: 0.15rem;
+  }
+
   .pos-cart-checkout-segment {
     min-height: 60px;
     padding: 0.36rem 0.58rem;
@@ -3471,6 +3491,10 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
 @media (max-width: 767px) {
   .pos-cart-checkout-bar-inner {
     padding: 0.38rem 0.45rem calc(0.38rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .main-content-wrapper.pos-route.pos-route--v2.pos-has-checkout-bar--with-discounts .pos-cart-checkout-bar-inner {
+    padding-top: 0.12rem;
   }
 
   .pos-cart-checkout-summary-actions {
@@ -4253,6 +4277,9 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
   --pos-cart-surface-muted: #f4f7f8;
   --pos-cart-border: color-mix(in srgb, var(--primary-color, #0e7490) 14%, #dbe3e8);
   --pos-cart-accent: var(--primary-color, #0e7490);
+  --pos-cart-ink: #0f172a;
+  --pos-cart-ink-muted: #64748b;
+  --pos-cart-mix-base: #ffffff;
   background:
     linear-gradient(
       180deg,
@@ -4264,6 +4291,24 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
 }
 
+:root.dark-theme .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-panel--v2 {
+  --pos-cart-surface: #1a303c;
+  --pos-cart-surface-muted: #12252e;
+  --pos-cart-border: color-mix(in srgb, var(--primary-color, #3db4d0) 24%, #23404c);
+  --pos-cart-accent: var(--primary-color, #3db4d0);
+  --pos-cart-ink: #f1f5f9;
+  --pos-cart-ink-muted: #94a3b8;
+  --pos-cart-mix-base: #0f1c24;
+  color-scheme: dark;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary-color, #3db4d0) 14%, #0f1c24) 0%,
+      #08141b 100%
+    ) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35) !important;
+}
+
 .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-container {
   position: relative !important;
   display: flex !important;
@@ -4273,6 +4318,9 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
   min-height: 0 !important;
   max-height: none !important;
   overflow: hidden !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }
 
 .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-stage {
@@ -4318,6 +4366,9 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
   gap: 0;
   padding: 0;
   box-sizing: border-box;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-items-list {
@@ -5021,7 +5072,7 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
   min-height: 2.7rem;
   padding: 0.4rem var(--pos-cart-inset, 0.75rem) !important;
   border-bottom: 1px solid var(--pos-cart-border, #dbe3e8) !important;
-  background: color-mix(in srgb, var(--pos-cart-surface-muted, #f4f7f8) 80%, #ffffff) !important;
+  background: color-mix(in srgb, var(--pos-cart-surface-muted, #f4f7f8) 80%, var(--pos-cart-mix-base, #ffffff)) !important;
 }
 
 .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-identity {
@@ -5057,14 +5108,14 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
   gap: 0.4rem;
   font-size: 0.95rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--pos-cart-ink, #0f172a);
   line-height: 1.25;
 }
 
 .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header-hint {
   margin: 0.12rem 0 0;
   font-size: 0.72rem;
-  color: #64748b;
+  color: var(--pos-cart-ink-muted, #64748b);
   line-height: 1.35;
 }
 
@@ -5110,7 +5161,7 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
   height: calc(var(--pos-cart-control-h, 2.1rem) - 0.3rem);
   border: none;
   background: transparent;
-  color: #64748b;
+  color: var(--pos-cart-ink-muted, #64748b);
   border-radius: 0.4rem;
   padding: 0 0.7rem;
   font-size: 0.78rem;
@@ -5159,7 +5210,7 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
   margin: 0;
   font-size: 0.76rem;
   font-weight: 700;
-  color: #64748b;
+  color: var(--pos-cart-ink-muted, #64748b);
   white-space: nowrap;
 }
 
@@ -5176,7 +5227,7 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
   border-radius: 0.5rem !important;
   border: 1px solid var(--pos-cart-border, #dbe3e8) !important;
   background: var(--pos-cart-surface, #ffffff) !important;
-  color: #0f172a !important;
+  color: var(--pos-cart-ink, #0f172a) !important;
   font-weight: 700;
   font-size: 0.82rem;
   padding: 0 0.65rem !important;
@@ -5202,7 +5253,7 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
       var(--pos-cart-accent, #0e7490) 52%,
       #0f766e 100%
     ) !important;
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--pos-cart-accent, #0e7490) 22%, transparent);
+  box-shadow: none;
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: wrap;
@@ -5361,6 +5412,33 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
 .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-item.pos-cart-item--v2.pos-cart-item--wide:hover {
   border-color: color-mix(in srgb, var(--pos-cart-accent, #0e7490) 32%, var(--pos-cart-border, #dbe3e8)) !important;
   box-shadow: 0 2px 10px color-mix(in srgb, var(--pos-cart-accent, #0e7490) 10%, transparent) !important;
+}
+
+:root.dark-theme .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-header--wide .pos-cart-header-clear-btn {
+  background: color-mix(in srgb, #ef4444 16%, #1a303c);
+  border-color: color-mix(in srgb, #ef4444 42%, #334155);
+  color: #fda4af;
+}
+
+:root.dark-theme .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-item--wide .pos-quantity-input {
+  background: var(--bg-tertiary, #1a303c);
+  border-color: var(--pos-cart-border, #23404c);
+  color: var(--text-primary, #f1f5f9);
+}
+
+:root.dark-theme .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-item--wide .pos-cart-item-qty-row {
+  background: color-mix(in srgb, var(--primary-color, #3db4d0) 12%, #12252e);
+  border-color: color-mix(in srgb, var(--primary-color, #3db4d0) 28%, transparent);
+}
+
+:root.dark-theme .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-item--wide .pos-cart-item-delete {
+  background: color-mix(in srgb, #ef4444 18%, #1a303c) !important;
+  border-color: color-mix(in srgb, #ef4444 45%, #334155) !important;
+  color: #fda4af !important;
+}
+
+:root.dark-theme .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-item.pos-cart-item--v2.pos-cart-item--wide {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22) !important;
 }
 
 .main-content-wrapper.pos-route.pos-route--v2 .pos-cart-empty {

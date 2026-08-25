@@ -117,64 +117,70 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 1.25rem;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(4px);
+  background: color-mix(in srgb, var(--bg-dark, #041015) 72%, transparent);
+  backdrop-filter: blur(16px);
 }
 .device-paused-card {
-  width: min(440px, 100%);
-  background: #fff;
-  color: #0f172a;
+  width: min(420px, 100%);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: none;
   border-radius: 16px;
-  padding: 1.75rem 1.5rem;
+  padding: 32px 24px 24px;
   text-align: center;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
 }
 .device-paused-icon {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 1rem;
-  border-radius: 50%;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 16px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
-  background: #fef3c7;
-  color: #a16207;
-  font-size: 1.6rem;
+  background: color-mix(in srgb, var(--warning-color) 16%, transparent);
+  color: var(--warning-color);
+  font-size: 1.45rem;
 }
 .device-paused-title {
-  margin: 0 0 0.5rem;
-  font-size: 1.25rem;
+  margin: 0 0 8px;
+  font-size: 28px;
   font-weight: 800;
+  letter-spacing: -0.03em;
 }
 .device-paused-subtitle {
-  margin: 0 0 1rem;
-  color: #64748b;
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 500;
   line-height: 1.6;
 }
 .device-paused-machine {
-  margin: 0 0 1rem;
-  font-size: 0.85rem;
-  color: #64748b;
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-muted);
 }
 .device-paused-machine code {
   font-size: 0.8rem;
-  background: #f1f5f9;
+  background: var(--bg-tertiary);
   padding: 0.15rem 0.4rem;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 .device-paused-error {
-  color: #b91c1c;
-  margin: 0 0 0.75rem;
+  color: var(--danger-color);
+  margin: 0 0 12px;
   font-size: 0.9rem;
 }
 .device-paused-btn {
   width: 100%;
+  min-height: 48px;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 0.75rem 1rem;
-  background: #002536;
+  background: var(--primary-color);
   color: #fff;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: none;
 }
 .device-paused-btn:disabled {
   opacity: 0.6;
