@@ -146,8 +146,8 @@
   function updateDurationVisibility() {
     const lifetime = els.durationType.value === "Lifetime";
     els.durationValueWrap.hidden = lifetime;
-    if (lifetime) els.durationValue.value = "0";
-    else if (!Number(els.durationValue.value)) els.durationValue.value = "2";
+    els.durationValue.disabled = lifetime;
+    if (!lifetime && Number(els.durationValue.value) < 1) els.durationValue.value = "2";
   }
 
   function setTab(name) {
