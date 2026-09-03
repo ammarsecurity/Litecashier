@@ -60,6 +60,14 @@ const routes = [
     }
   },
   {
+    path: '/menu/:commercialUserId',
+    name: 'publicMenu',
+    component: () => import('../views/PublicMenuView.vue'),
+    meta: {
+      requiresAuth: false
+    }
+  },
+  {
     path: '/login',
     name: 'login',
     component: LoginView,
@@ -145,6 +153,15 @@ const routes = [
     meta: {
       requiresAuth: true,
       roles: ['Commercial', 'Admin']
+    }
+  },
+  {
+    path: '/public-orders',
+    name: 'publicOrders',
+    component: () => import('../views/PublicOrdersView.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'POS', 'Manager']
     }
   },
   {
@@ -375,6 +392,7 @@ router.beforeEach((to, from, next) => {
           to.path !== '/stock-alerts' &&
           to.path !== '/stock-returns' &&
           to.path !== '/print-server' &&
+          to.path !== '/public-orders' &&
           to.path !== '/logout' &&
           to.path !== '/sections'
         ) {

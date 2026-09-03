@@ -31,6 +31,7 @@ public static class SectionDefinitions
         "auditLog",
         "users",
         "dashboard",
+        "publicOrders",
     };
 
     private static readonly HashSet<string> AssignableSet =

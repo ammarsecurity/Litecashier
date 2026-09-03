@@ -44,6 +44,9 @@
                 >
                   <div class="hub-module-icon-wrap">
                     <b-icon :icon="item.icon" class="hub-module-icon"></b-icon>
+                    <span v-if="item.name === 'publicOrders' && pendingPublicOrders" class="hub-badge">
+                      {{ pendingPublicOrders }}
+                    </span>
                   </div>
                   <span class="hub-module-label">{{ item.label }}</span>
                 </router-link>
@@ -63,6 +66,8 @@ import { flatNavItemsForHub } from "@/navigation/navItems.js";
 import { getAllowedSections } from "@/navigation/sectionRegistry.js";
 import { HTTP } from "@/http/api.js";
 import { openDevicePausedGate } from "@/utils/devicePausedGateBus.js";
+import { resolveCommercialUserId } from "@/utils/publicMenu.js";
+import signalRService from "@/services/signalr.js";
 
 export default {
   name: "SectionsView",
@@ -70,6 +75,7 @@ export default {
   data() {
     return {
       announcements: [],
+      pendingPublicOrders: 0,
     };
   },
   computed: {
@@ -99,12 +105,44 @@ export default {
   },
   mounted() {
     this.loadAnnouncements();
+    this.loadPendingPublicOrders();
+    this.bindRealtime();
     window.addEventListener("online", this.loadAnnouncements);
   },
   beforeDestroy() {
+    this.unbindRealtime();
     window.removeEventListener("online", this.loadAnnouncements);
   },
   methods: {
+    async loadPendingPublicOrders() {
+      const id = resolveCommercialUserId();
+      if (!id) return;
+      try {
+        const res = await HTTP.get(`PublicMenu/${id}/pending-count`);
+        this.pendingPublicOrders = Number(res.data?.data?.count || 0);
+      } catch (_) {
+        this.pendingPublicOrders = 0;
+      }
+    },
+    onPublicOrderRealtime(payload) {
+      const id = Number(payload?.commercialUserId ?? payload?.CommercialUserId);
+      const mine = resolveCommercialUserId();
+      if (id && mine && id !== Number(mine)) return;
+      this.loadPendingPublicOrders();
+    },
+    async bindRealtime() {
+      try {
+        await signalRService.startConnection();
+        signalRService.on("PublicOrderAdded", this.onPublicOrderRealtime);
+        signalRService.on("PublicOrderUpdated", this.onPublicOrderRealtime);
+      } catch (_) {
+        /* ignore */
+      }
+    },
+    unbindRealtime() {
+      signalRService.off("PublicOrderAdded", this.onPublicOrderRealtime);
+      signalRService.off("PublicOrderUpdated", this.onPublicOrderRealtime);
+    },
     async loadAnnouncements() {
       try {
         await HTTP.post("License/device-sync");
@@ -156,6 +194,7 @@ export default {
 }
 
 .hub-module-icon-wrap {
+  position: relative;
   width: 48px;
   height: 48px;
   border-radius: 12px;
@@ -164,6 +203,23 @@ export default {
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border-color);
+}
+
+.hub-badge {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .hub-module-icon {

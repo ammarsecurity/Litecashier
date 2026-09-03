@@ -79,6 +79,7 @@ export default {
       navItems: [
         { name: "dashboard", label: this.$t("home"), link: "/dashboard", icon: "house-door-fill" },
         { name: "pos", label: this.$t("PointOfSale"), link: "/pos", icon: "cash-stack" },
+        { name: "publicOrders", label: this.$t("publicOrders") || "طلبات المنيو", link: "/public-orders", icon: "phone" },
         { name: "category", label: this.$t("itemTagsPlaceholder"), link: "/category", icon: "tags-fill" },
         { name: "items", label: this.$t("Items"), link: "/items", icon: "inbox-fill" },
         { name: "users", label: this.$t("Accounts"), link: "/users", icon: "people-fill" },
@@ -114,6 +115,7 @@ export default {
           item.name === 'inventory' ||
           item.name === 'stockAlerts' ||
           item.name === 'printServer' ||
+          item.name === 'publicOrders' ||
           item.name === 'logout'
         );
       }

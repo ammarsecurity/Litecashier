@@ -25,6 +25,7 @@ export const ASSIGNABLE_SECTION_KEYS = [
   "auditLog",
   "users",
   "dashboard",
+  "publicOrders",
 ];
 
 /** Route path → section key (first match wins). */
@@ -51,6 +52,7 @@ const ROUTE_SECTION_MAP = [
   { prefix: "/items", key: "items" },
   { prefix: "/users", key: "users" },
   { prefix: "/dashboard", key: "dashboard" },
+  { prefix: "/public-orders", key: "publicOrders" },
 ];
 
 const STORAGE_KEY = "allowedSections";
@@ -131,4 +133,5 @@ export const SECTION_I18N_KEYS = {
   auditLog: "auditLog",
   users: "Accounts",
   dashboard: "home",
+  publicOrders: "publicOrders",
 };

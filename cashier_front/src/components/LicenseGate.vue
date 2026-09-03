@@ -111,7 +111,7 @@ export default {
       this.code = "";
       this.refreshStatus({ keepOpenForChange: this.changeMode });
     });
-    if (!this.isPosRoute()) {
+    if (!this.isPosRoute() && !this.isPublicMenuRoute()) {
       this.refreshStatus();
     }
   },
@@ -122,6 +122,10 @@ export default {
     isPosRoute() {
       const path = this.$route?.path || "";
       return path === "/pos" || path.startsWith("/pos/");
+    },
+    isPublicMenuRoute() {
+      const path = this.$route?.path || "";
+      return this.$route?.name === "publicMenu" || path === "/menu" || path.startsWith("/menu/");
     },
     dismiss() {
       if (!this.canDismiss || this.busy) return;

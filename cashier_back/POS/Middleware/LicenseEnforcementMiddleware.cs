@@ -19,7 +19,8 @@ public class LicenseEnforcementMiddleware
     [
         "/Auth/Login",
         "/Auth/LoginByCode",
-        "/License"
+        "/License",
+        "/PublicMenu"
     ];
 
     public LicenseEnforcementMiddleware(RequestDelegate next)

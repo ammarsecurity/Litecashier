@@ -50,5 +50,22 @@ namespace POS.Models
         [JsonIgnore]
         [ForeignKey(nameof(WarehouseId))]
         public Warehouse? Warehouse { get; set; }
+
+        /// <summary>Pos | PublicMenu. Existing POS invoices stay Pos.</summary>
+        [MaxLength(20)]
+        public string OrderSource { get; set; } = "Pos";
+
+        /// <summary>Public menu only: Pending, Approved, Cancelled.</summary>
+        [MaxLength(20)]
+        public string? OrderStatus { get; set; }
+
+        [MaxLength(120)]
+        public string? CustomerName { get; set; }
+
+        [MaxLength(30)]
+        public string? CustomerPhone { get; set; }
+
+        [MaxLength(1000)]
+        public string? Notes { get; set; }
     }
 }

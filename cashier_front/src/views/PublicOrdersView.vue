@@ -1,0 +1,405 @@
+<template>
+  <div>
+    <AppHeader />
+    <div class="main-content-wrapper">
+      <div class="app-page-container">
+        <div class="app-page-content public-orders-page">
+          <div class="users-header-section">
+            <div class="users-header-content app-header-row">
+              <div class="header-title-wrapper">
+                <div class="header-icon-wrapper">
+                  <b-icon icon="phone" class="header-icon"></b-icon>
+                </div>
+                <div>
+                  <h1 class="users-page-title">{{ $t("publicOrders") || "طلبات المنيو" }}</h1>
+                  <p class="header-subtitle">{{ $t("publicOrdersHint") || "طلبات الزبائن من المنيو الإلكتروني" }}</p>
+                </div>
+              </div>
+              <div class="app-header-actions">
+                <button type="button" class="btn-refresh" @click="copyMenuLink">
+                  <b-icon icon="link-45deg" class="button-icon"></b-icon>
+                  <span class="button-text">{{ $t("copyLink") || "نسخ الرابط" }}</span>
+                </button>
+                <button type="button" class="btn-refresh" @click="loadOrders" :disabled="loading">
+                  <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: loading }"></b-icon>
+                  <span class="button-text">{{ $t("refresh") || "تحديث" }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="app-overview-grid">
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--warning">
+                <b-icon icon="hourglass-split"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ pendingCount }}</div>
+                <div class="app-overview-stat-label">{{ $t("pending") || "بانتظار الموافقة" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--success">
+                <b-icon icon="check-circle-fill"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ approvedCount }}</div>
+                <div class="app-overview-stat-label">{{ $t("approved") || "موافق عليها" }}</div>
+              </div>
+            </div>
+            <div class="app-overview-stat">
+              <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                <b-icon icon="receipt-cutoff"></b-icon>
+              </span>
+              <div>
+                <div class="app-overview-stat-value">{{ orders.length }}</div>
+                <div class="app-overview-stat-label">{{ $t("all") || "الكل" }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="app-section-card">
+            <div class="app-section-header app-section-header--toolbar">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap">
+                  <b-icon icon="list-ul"></b-icon>
+                </div>
+                <div>
+                  <h2 class="app-section-title">{{ $t("publicOrdersList") || "قائمة الطلبات" }}</h2>
+                  <p class="app-section-subtitle">{{ $t("publicOrdersListHint") || "الموافقة تحول الطلب إلى فاتورة وتطبعه" }}</p>
+                </div>
+              </div>
+              <select v-model="statusFilter" class="users-form-select" @change="loadOrders">
+                <option value="">{{ $t("all") || "الكل" }}</option>
+                <option value="Pending">{{ $t("pending") || "بانتظار" }}</option>
+                <option value="Approved">{{ $t("approved") || "موافق" }}</option>
+                <option value="Cancelled">{{ $t("cancelled") || "ملغي" }}</option>
+              </select>
+            </div>
+            <div class="app-section-body">
+              <div v-if="loading" class="empty-state">{{ $t("loading") || "جاري التحميل..." }}</div>
+              <div v-else-if="error" class="empty-state">{{ error }}</div>
+              <div v-else-if="!orders.length" class="empty-state">{{ $t("noPublicOrders") || "لا توجد طلبات بعد." }}</div>
+              <div v-else class="table-responsive">
+                <table class="table reports-table">
+                  <thead>
+                    <tr>
+                      <th>{{ $t("orderCode") || "الكود" }}</th>
+                      <th>{{ $t("customerName") || "الزبون" }}</th>
+                      <th>{{ $t("phoneNumber") || "الهاتف" }}</th>
+                      <th>{{ $t("total") || "المجموع" }}</th>
+                      <th>{{ $t("date") || "التاريخ" }}</th>
+                      <th>{{ $t("status") || "الحالة" }}</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="order in orders" :key="order.id">
+                      <td class="code-cell">{{ order.orderCode }}</td>
+                      <td>{{ order.customerName || "—" }}</td>
+                      <td dir="ltr">{{ order.customerPhone || "—" }}</td>
+                      <td>{{ formatPrice(order.orderTotalAfterDiscount) }} {{ $t("currency") }}</td>
+                      <td>{{ formatDate(order.insertDate) }}</td>
+                      <td>
+                        <span class="badge" :class="statusClass(order.orderStatus)">{{ statusLabel(order.orderStatus) }}</span>
+                      </td>
+                      <td>
+                        <div class="row-actions">
+                          <button type="button" class="btn btn-small" @click="openDetails(order)">
+                            {{ $t("details") || "التفاصيل" }}
+                          </button>
+                          <button
+                            v-if="order.orderStatus === 'Pending'"
+                            type="button"
+                            class="btn btn-small btn-primary"
+                            :disabled="busyId === order.id"
+                            @click="approve(order)"
+                          >
+                            {{ $t("approve") || "موافقة" }}
+                          </button>
+                          <button
+                            v-if="order.orderStatus === 'Pending'"
+                            type="button"
+                            class="btn btn-small btn-danger"
+                            :disabled="busyId === order.id"
+                            @click="cancel(order)"
+                          >
+                            {{ $t("reject") || "رفض" }}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <b-modal v-model="showDetails" hide-footer hide-header centered>
+      <div class="modal-content-wrapper" v-if="selected">
+        <h2 class="modal-title">{{ $t("orderDetails") || "تفاصيل الطلب" }} — {{ selected.orderCode }}</h2>
+        <p>{{ selected.customerName }} · <span dir="ltr">{{ selected.customerPhone }}</span></p>
+        <p v-if="selected.notes">{{ selected.notes }}</p>
+        <table class="invoice-items-table">
+          <thead>
+            <tr>
+              <th>{{ $t("itemName") || "الصنف" }}</th>
+              <th>{{ $t("quantity") || "الكمية" }}</th>
+              <th>{{ $t("total") || "المجموع" }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="line in selected.items || []" :key="line.id">
+              <td>{{ line.name }}</td>
+              <td>{{ line.quantity }}</td>
+              <td>{{ formatPrice(line.total) }} {{ $t("currency") }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="users-form-actions">
+          <button type="button" class="users-form-cancel-button" @click="showDetails = false">
+            {{ $t("close") || "إغلاق" }}
+          </button>
+        </div>
+      </div>
+    </b-modal>
+  </div>
+</template>
+
+<script>
+import AppHeader from "@/components/Layout/AppHeader.vue";
+import { HTTP } from "@/http/api.js";
+import signalRService from "@/services/signalr.js";
+import { formatBusinessDateTime } from "@/utils/formatBusinessDateTime.js";
+import { publicMenuUrl, resolveCommercialUserId } from "@/utils/publicMenu.js";
+import { printApprovedPublicOrder } from "@/utils/publicMenuPrint.js";
+
+export default {
+  name: "PublicOrdersView",
+  components: { AppHeader },
+  data() {
+    return {
+      loading: false,
+      error: "",
+      orders: [],
+      pendingCount: 0,
+      statusFilter: "Pending",
+      busyId: null,
+      showDetails: false,
+      selected: null,
+      commercialUserInfo: {},
+    };
+  },
+  computed: {
+    commercialUserId() {
+      return resolveCommercialUserId();
+    },
+    approvedCount() {
+      return this.orders.filter((o) => o.orderStatus === "Approved").length;
+    },
+  },
+  async mounted() {
+    await this.loadCommercialInfo();
+    await this.loadOrders();
+    this.bindRealtime();
+  },
+  beforeDestroy() {
+    this.unbindRealtime();
+  },
+  methods: {
+    formatPrice(value) {
+      return (Number(value) || 0).toLocaleString("en-US");
+    },
+    formatDate(iso) {
+      return formatBusinessDateTime(iso);
+    },
+    statusLabel(status) {
+      if (status === "Approved") return this.$t("approved") || "موافق";
+      if (status === "Cancelled") return this.$t("cancelled") || "ملغي";
+      return this.$t("pending") || "بانتظار";
+    },
+    statusClass(status) {
+      if (status === "Approved") return "badge-ok";
+      if (status === "Cancelled") return "badge-off";
+      return "badge-warn";
+    },
+    normalizeOrder(raw) {
+      return {
+        id: raw.id ?? raw.Id,
+        orderCode: raw.orderCode ?? raw.OrderCode,
+        orderStatus: raw.orderStatus ?? raw.OrderStatus,
+        paymentStatus: raw.paymentStatus ?? raw.PaymentStatus,
+        customerName: raw.customerName ?? raw.CustomerName,
+        customerPhone: raw.customerPhone ?? raw.CustomerPhone,
+        notes: raw.notes ?? raw.Notes,
+        orderTotalAfterDiscount: raw.orderTotalAfterDiscount ?? raw.OrderTotalAfterDiscount,
+        insertDate: raw.insertDate ?? raw.InsertDate,
+        items: (raw.items || raw.Items || []).map((line) => ({
+          id: line.id ?? line.Id,
+          name: line.name ?? line.Name,
+          quantity: line.quantity ?? line.Quantity,
+          sellingPrice: line.sellingPrice ?? line.SellingPrice,
+          total: line.total ?? line.Total,
+        })),
+      };
+    },
+    async loadCommercialInfo() {
+      try {
+        const res = await HTTP.get("Admin/CommercialUserInfo");
+        this.commercialUserInfo = res?.data?.data || {};
+      } catch (_) {
+        this.commercialUserInfo = {};
+      }
+    },
+    async loadOrders() {
+      if (!this.commercialUserId) {
+        this.error = this.$t("invalidCommercialId") || "تعذر تحديد الحساب";
+        return;
+      }
+      this.loading = true;
+      this.error = "";
+      try {
+        const params = new URLSearchParams();
+        if (this.statusFilter) params.set("status", this.statusFilter);
+        params.set("pageSize", "100");
+        const res = await HTTP.get(`PublicMenu/${this.commercialUserId}/orders?${params}`);
+        const data = res.data?.data || {};
+        this.orders = (data.items || []).map(this.normalizeOrder);
+        this.pendingCount = data.pendingCount ?? this.orders.filter((o) => o.orderStatus === "Pending").length;
+      } catch (err) {
+        this.error = this.$t("errorFetchingOrders") || "تعذر تحميل الطلبات";
+      } finally {
+        this.loading = false;
+      }
+    },
+    openDetails(order) {
+      this.selected = order;
+      this.showDetails = true;
+    },
+    async approve(order) {
+      if (!confirm(this.$t("confirmApprovePublicOrder") || "الموافقة تحول الطلب إلى فاتورة وتطبعه. متابعة؟")) {
+        return;
+      }
+      this.busyId = order.id;
+      try {
+        const res = await HTTP.put(`PublicMenu/${this.commercialUserId}/orders/${order.id}/approve`);
+        if (res.data?.errorStatus) throw new Error(res.data.message);
+        const updated = this.normalizeOrder(res.data.data || order);
+        try {
+          await printApprovedPublicOrder(updated, this.commercialUserInfo, (k) => this.$t(k));
+        } catch (_) {
+          this.$notify?.error?.(this.$t("printFailed") || "تمت الموافقة لكن فشلت الطباعة");
+        }
+        await this.loadOrders();
+      } catch (err) {
+        const msg = err?.response?.data?.message || err.message || "";
+        if (String(msg).startsWith("insufficientInventory|")) {
+          const parts = String(msg).split("|");
+          this.$notify?.error?.(`${this.$t("insufficientInventory") || "المخزون غير كافٍ"}: ${parts[1] || ""}`);
+        } else {
+          this.$notify?.error?.(this.$t("approveFailed") || "تعذر الموافقة على الطلب");
+        }
+      } finally {
+        this.busyId = null;
+      }
+    },
+    async cancel(order) {
+      if (!confirm(this.$t("confirmCancelPublicOrder") || "رفض هذا الطلب؟")) return;
+      this.busyId = order.id;
+      try {
+        const res = await HTTP.put(`PublicMenu/${this.commercialUserId}/orders/${order.id}/cancel`);
+        if (res.data?.errorStatus) throw new Error(res.data.message);
+        await this.loadOrders();
+      } catch (_) {
+        this.$notify?.error?.(this.$t("cancelFailed") || "تعذر رفض الطلب");
+      } finally {
+        this.busyId = null;
+      }
+    },
+    async copyMenuLink() {
+      const url = publicMenuUrl(this.commercialUserId);
+      try {
+        await navigator.clipboard.writeText(url);
+        this.$notify?.success?.(this.$t("linkCopied") || "تم نسخ الرابط");
+      } catch (_) {
+        window.prompt(this.$t("copyLink") || "نسخ الرابط", url);
+      }
+    },
+    onRealtime(payload) {
+      const id = Number(payload?.commercialUserId ?? payload?.CommercialUserId);
+      if (id && this.commercialUserId && id !== Number(this.commercialUserId)) return;
+      this.loadOrders();
+    },
+    async bindRealtime() {
+      try {
+        await signalRService.startConnection();
+        signalRService.on("PublicOrderAdded", this.onRealtime);
+        signalRService.on("PublicOrderUpdated", this.onRealtime);
+      } catch (_) {
+        /* ignore */
+      }
+    },
+    unbindRealtime() {
+      signalRService.off("PublicOrderAdded", this.onRealtime);
+      signalRService.off("PublicOrderUpdated", this.onRealtime);
+    },
+  },
+};
+</script>
+
+<style scoped>
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+}
+.btn {
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-weight: 600;
+  background: #e2e8f0;
+  color: #0f172a;
+}
+.btn-primary {
+  background: #2563eb;
+  color: #fff;
+}
+.btn-danger {
+  background: #ef4444;
+  color: #fff;
+}
+.badge {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.badge-warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge-ok {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge-off {
+  background: #e2e8f0;
+  color: #475569;
+}
+.code-cell {
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+}
+.empty-state {
+  text-align: center;
+  padding: 32px 16px;
+  color: #64748b;
+}
+</style>

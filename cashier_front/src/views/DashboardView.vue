@@ -75,6 +75,37 @@
               </div>
             </div>
 
+            <div v-if="publicMenuLink" class="app-section-card dashboard-menu-card">
+              <div class="app-section-header">
+                <div class="app-section-title-wrap">
+                  <div class="app-section-icon-wrap">
+                    <b-icon icon="phone"></b-icon>
+                  </div>
+                  <div>
+                    <h3 class="app-section-title">{{ $t("publicMenu") || "المنيو الإلكتروني" }}</h3>
+                    <p class="app-section-subtitle">{{ $t("publicMenuDescription") }}</p>
+                  </div>
+                </div>
+              </div>
+              <div class="app-section-body dashboard-menu-body">
+                <code class="dashboard-menu-url">{{ publicMenuLink }}</code>
+                <div class="app-header-actions">
+                  <button type="button" class="btn-refresh" @click="copyPublicMenuLink">
+                    <b-icon icon="clipboard" class="button-icon"></b-icon>
+                    <span class="button-text">{{ $t("copyLink") || "نسخ الرابط" }}</span>
+                  </button>
+                  <a :href="publicMenuLink" target="_blank" rel="noopener" class="users-add-button">
+                    <b-icon icon="box-arrow-up-left" class="button-icon"></b-icon>
+                    <span class="button-text">{{ $t("open") || "فتح" }}</span>
+                  </a>
+                  <router-link to="/public-orders" class="users-add-button">
+                    <b-icon icon="list-ul" class="button-icon"></b-icon>
+                    <span class="button-text">{{ $t("publicOrders") || "طلبات المنيو" }}</span>
+                  </router-link>
+                </div>
+              </div>
+            </div>
+
             <!-- Invoice Statistics Section -->
             <section class="dashboard-section">
               <div class="section-header">
@@ -494,6 +525,7 @@ import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "../http/api.js";
 import StatCard from "@/components/StatCard.vue";
 import { formatBusinessDateTime } from "@/utils/formatBusinessDateTime.js";
+import { publicMenuUrl, resolveCommercialUserId } from "@/utils/publicMenu.js";
 
 export default {
   name: "DashboardView",
@@ -556,6 +588,10 @@ export default {
     role() {
       return localStorage.getItem("role");
     },
+    publicMenuLink() {
+      const id = resolveCommercialUserId();
+      return id ? publicMenuUrl(id) : "";
+    },
     totalInvoicePages() {
       return Math.max(1, Math.ceil(this.totalInvoices / this.invoicePageSize));
     },
@@ -577,6 +613,15 @@ export default {
   methods: {
     refreshPage() {
       this.getDashboardStats();
+    },
+    async copyPublicMenuLink() {
+      if (!this.publicMenuLink) return;
+      try {
+        await navigator.clipboard.writeText(this.publicMenuLink);
+        this.$notify?.success?.(this.$t("linkCopied") || "تم نسخ الرابط");
+      } catch (_) {
+        window.prompt(this.$t("copyLink") || "نسخ الرابط", this.publicMenuLink);
+      }
     },
     formattedNumber(info) {
       if (typeof info === 'number') {
@@ -689,6 +734,21 @@ export default {
 <style scoped>
 .dashboard-invoices-body {
   padding-top: 0.5rem;
+}
+
+.dashboard-menu-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dashboard-menu-url {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--bg-secondary, #f1f5f9);
+  font-size: 13px;
 }
 
 .invoice-filters-section {

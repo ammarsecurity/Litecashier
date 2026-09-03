@@ -38,7 +38,7 @@ export default {
   },
   mounted() {
     registerDevicePausedHandler((payload) => this.open(payload));
-    if (!this.isPosRoute()) {
+    if (!this.isPosRoute() && !this.isPublicMenuRoute()) {
       this.checkStatus();
     }
     window.addEventListener("online", this.onOnline);
@@ -53,8 +53,12 @@ export default {
       const path = this.$route?.path || "";
       return path === "/pos" || path.startsWith("/pos/");
     },
+    isPublicMenuRoute() {
+      const path = this.$route?.path || "";
+      return this.$route?.name === "publicMenu" || path === "/menu" || path.startsWith("/menu/");
+    },
     onOnline() {
-      if (this.isPosRoute()) return;
+      if (this.isPosRoute() || this.isPublicMenuRoute()) return;
       this.retrySync();
     },
     open(payload = {}) {

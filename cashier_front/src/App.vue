@@ -1,8 +1,8 @@
 <template>
   <div id="app">
     <router-view />
-    <LicenseGate />
-    <DevicePausedGate />
+    <LicenseGate v-if="!isPublicMenu" />
+    <DevicePausedGate v-if="!isPublicMenu" />
   </div>
 </template>
 
@@ -16,6 +16,12 @@ import { applyCommercialBranding } from '@/utils/posBranding.js';
 export default {
   name: 'App',
   components: { LicenseGate, DevicePausedGate },
+  computed: {
+    isPublicMenu() {
+      const path = this.$route?.path || '';
+      return this.$route?.name === 'publicMenu' || path === '/menu' || path.startsWith('/menu/');
+    },
+  },
   watch: {
     '$i18n.locale'(locale) {
       syncNotifyLocale(locale);
@@ -31,7 +37,7 @@ export default {
   },
   methods: {
     async syncPosBranding() {
-      if (!localStorage.getItem('token')) return;
+      if (this.isPublicMenu || !localStorage.getItem('token')) return;
       try {
         const res = await HTTP.get('Admin/CommercialUserInfo');
         applyCommercialBranding(res?.data?.data);

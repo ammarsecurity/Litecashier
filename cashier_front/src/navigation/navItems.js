@@ -20,6 +20,12 @@ export function buildNavItems(t) {
       icon: "cash-stack",
     },
     {
+      name: "publicOrders",
+      label: t("publicOrders") || "طلبات المنيو",
+      link: "/public-orders",
+      icon: "phone",
+    },
+    {
       name: "category",
       label: t("itemTagsPlaceholder"),
       link: "/category",
@@ -185,6 +191,7 @@ export function filterNavByRole(role, items, allowedSections = []) {
         item.name === "stockAlerts" ||
         item.name === "stockReturns" ||
         item.name === "printServer" ||
+        item.name === "publicOrders" ||
         item.name === "logout"
     );
   }

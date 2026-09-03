@@ -359,6 +359,7 @@ namespace POS.Controllers
                 .Where(x => !x.IsDeleted &&
                             x.CustomerOrder != null &&
                             !x.CustomerOrder.IsDeleted &&
+                            (x.CustomerOrder.OrderSource != "PublicMenu" || x.CustomerOrder.OrderStatus == "Approved") &&
                             (x.InsertByUserId == userId ||
                              x.User!.Id == userInsertByUserId ||
                              x.User!.InsertByUserId == userId));
@@ -368,6 +369,7 @@ namespace POS.Controllers
         {
             return _dbConfig.CustomerOrders
                 .Where(x => !x.IsDeleted &&
+                            (x.OrderSource != "PublicMenu" || x.OrderStatus == "Approved") &&
                             (x.InsertByUserId == userId || x.User!.InsertByUserId == userId));
         }
 
@@ -2139,7 +2141,9 @@ namespace POS.Controllers
 
             var userInsertByUserId = user.InsertByUserId;
             var items = _dbConfig.CustomerOrders
-                    .Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId))
+                    .Where(x => x.IsDeleted == false
+                        && (x.OrderSource != "PublicMenu" || x.OrderStatus == "Approved")
+                        && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId))
                     .Include(x => x.CustomerOrderItem)
                     .ThenInclude(x => x.Item)
                     .Include(x => x.User)
@@ -2292,7 +2296,9 @@ namespace POS.Controllers
 
             var userInsertByUserId = user.InsertByUserId;
             var items = _dbConfig.CustomerOrders
-                .Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId))
+                .Where(x => x.IsDeleted == false
+                    && (x.OrderSource != "PublicMenu" || x.OrderStatus == "Approved")
+                    && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId))
                 .Include(x => x.CustomerOrderItem)
                 .AsQueryable();
 
@@ -2676,7 +2682,9 @@ namespace POS.Controllers
             var today = DateTime.Today;
 
             var customerOrdersQuery = _dbConfig.CustomerOrders
-                .Where(x => x.IsDeleted == false && (x.InsertByUserId == userId ||  x.User.InsertByUserId == userId));
+                .Where(x => x.IsDeleted == false
+                    && (x.OrderSource != "PublicMenu" || x.OrderStatus == "Approved")
+                    && (x.InsertByUserId == userId ||  x.User.InsertByUserId == userId));
 
             var orderItemsQuery = _dbConfig.CustomerOrderItems
                 .Where(x => x.CustomerOrder!.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
