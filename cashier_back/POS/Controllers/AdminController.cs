@@ -2124,7 +2124,7 @@ namespace POS.Controllers
 
         [Authorize(Roles = "Commercial,POS")]
         [HttpGet("GetOrders")]
-        public ActionResult<GlobalResponse<OrdersPagedResult>> GetOrders(int pageNumber, int pageSize, string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod)
+        public ActionResult<GlobalResponse<OrdersPagedResult>> GetOrders(int pageNumber, int pageSize, string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod, string? orderSource)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
             var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
@@ -2162,6 +2162,14 @@ namespace POS.Controllers
             if (!string.IsNullOrEmpty(paymentMethod))
             {
                 items = items.Where(x => x.PaymentMethod == paymentMethod);
+            }
+
+            if (!string.IsNullOrWhiteSpace(orderSource))
+            {
+                if (string.Equals(orderSource, "PublicMenu", StringComparison.OrdinalIgnoreCase))
+                    items = items.Where(x => x.OrderSource == "PublicMenu");
+                else if (string.Equals(orderSource, "Pos", StringComparison.OrdinalIgnoreCase))
+                    items = items.Where(x => x.OrderSource != "PublicMenu");
             }
 
             var totalItems = items.Count();
@@ -2262,6 +2270,7 @@ namespace POS.Controllers
                         ItemsCount = displayLines.Count,
                         InsertDate = x.InsertDate,
                         PaymentMethod = x.PaymentMethod,
+                        OrderSource = string.IsNullOrWhiteSpace(x.OrderSource) ? "Pos" : x.OrderSource,
                         IsWholesale = x.IsWholesale,
                         CreatedByUserId = x.User != null ? x.User.Id : null,
                         CreatedByUsername = x.User != null ? x.User.Username : null,
@@ -2287,7 +2296,7 @@ namespace POS.Controllers
 
         [Authorize(Roles = "Commercial,POS")]
         [HttpGet("ExportOrders")]
-        public ActionResult ExportOrders(string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod)
+        public ActionResult ExportOrders(string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod, string? orderSource)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
             var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
@@ -2308,6 +2317,13 @@ namespace POS.Controllers
                 items = items.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
             if (!string.IsNullOrEmpty(paymentMethod))
                 items = items.Where(x => x.PaymentMethod == paymentMethod);
+            if (!string.IsNullOrWhiteSpace(orderSource))
+            {
+                if (string.Equals(orderSource, "PublicMenu", StringComparison.OrdinalIgnoreCase))
+                    items = items.Where(x => x.OrderSource == "PublicMenu");
+                else if (string.Equals(orderSource, "Pos", StringComparison.OrdinalIgnoreCase))
+                    items = items.Where(x => x.OrderSource != "PublicMenu");
+            }
 
             var ordersList = items
                 .OrderByDescending(x => x.InsertDate)
@@ -2320,6 +2336,7 @@ namespace POS.Controllers
                         OrderCode = x.OrderCode ?? "",
                         InsertDate = x.InsertDate,
                         PaymentMethod = x.PaymentMethod ?? "",
+                        OrderSource = string.IsNullOrWhiteSpace(x.OrderSource) ? "Pos" : x.OrderSource,
                         OrderPrice = activeOrderItems.Sum(item => item.SellingPrice * item.Quantity),
                         DiscountAmount = x.DiscountAmount ?? 0,
                         OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
@@ -2329,12 +2346,12 @@ namespace POS.Controllers
                 .ToList();
 
             var csv = new StringBuilder();
-            csv.AppendLine("OrderCode,InsertDate,PaymentMethod,OrderPrice,DiscountAmount,FinalTotal,ItemsCount");
+            csv.AppendLine("OrderCode,InsertDate,PaymentMethod,OrderSource,OrderPrice,DiscountAmount,FinalTotal,ItemsCount");
             foreach (var o in ordersList)
             {
-                var dateStr = o.InsertDate.ToString("yyyy-MM-dd HH:mm");
+                var dateStr = o.InsertDate.ToString("yyyy-MM-dd hh:mm tt");
                 var finalTotal = o.OrderTotalAfterDiscount ?? o.OrderPrice;
-                csv.AppendLine($"\"{EscapeCsv(o.OrderCode)}\",\"{dateStr}\",\"{EscapeCsv(o.PaymentMethod)}\",{o.OrderPrice},{o.DiscountAmount},{finalTotal},{o.ItemsCount}");
+                csv.AppendLine($"\"{EscapeCsv(o.OrderCode)}\",\"{dateStr}\",\"{EscapeCsv(o.PaymentMethod)}\",\"{EscapeCsv(o.OrderSource)}\",{o.OrderPrice},{o.DiscountAmount},{finalTotal},{o.ItemsCount}");
             }
 
             var csvContent = csv.ToString();

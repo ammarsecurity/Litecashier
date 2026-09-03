@@ -416,20 +416,6 @@
                     </option>
                   </select>
                 </div>
-                <div class="users-form-group">
-                  <label class="users-form-label" for="inputCode">
-                    <b-icon icon="upc-scan" class="form-label-icon"></b-icon>
-                    {{ $t("codePlaceholder") }}
-                  </label>
-                  <input
-                    id="inputCode"
-                    v-model="addForm.code"
-                    type="text"
-                    :placeholder="$t('codePlaceholder')"
-                    required
-                    class="users-form-input"
-                  />
-                </div>
               </div>
             </div>
 
@@ -590,17 +576,43 @@
             </div>
 
             <div class="item-form-section">
+              <div class="item-form-section__head">
+                <b-icon icon="file-text"></b-icon>
+                <span>{{ $t("descriptionPlaceholder") }}</span>
+              </div>
               <div class="users-form-group item-form-group--flush">
-                <label class="users-form-label" for="inputDescription">
-                  <b-icon icon="file-text" class="form-label-icon"></b-icon>
-                  {{ $t("descriptionPlaceholder") }}
-                </label>
-                <input
+                <textarea
                   id="inputDescription"
                   v-model="addForm.description"
-                  type="text"
+                  rows="3"
                   :placeholder="$t('descriptionPlaceholder')"
-                  class="users-form-input"
+                  class="users-form-input item-form-textarea"
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="item-form-section item-form-section--code">
+              <div class="item-form-section__head">
+                <b-icon icon="upc-scan"></b-icon>
+                <span>{{ $t("itemCodeSection") || $t("codePlaceholder") }}</span>
+              </div>
+              <p class="item-form-section__hint">
+                {{ $t("itemCodeSectionHint") || "يُستخدم للبحث والمسح في نقطة البيع" }}
+              </p>
+              <div class="users-form-group item-form-group--flush">
+                <label class="users-form-label" for="inputCode">
+                  <b-icon icon="upc-scan" class="form-label-icon"></b-icon>
+                  {{ $t("codePlaceholder") }}
+                </label>
+                <input
+                  id="inputCode"
+                  v-model="addForm.code"
+                  type="text"
+                  dir="ltr"
+                  inputmode="numeric"
+                  :placeholder="$t('codePlaceholder')"
+                  required
+                  class="users-form-input item-form-code-input"
                 />
               </div>
               <div v-if="addForm.code && addForm.code.toString()" class="item-form-barcode">
@@ -608,8 +620,11 @@
                   ref="BarImg"
                   tag="img"
                   :value="addForm.code.toString()"
-                  :options="{ displayValue: true, lineColor: '#2B2B2C', width: 2, height: 52 }"
+                  :options="{ displayValue: true, lineColor: '#0F172A', width: 2, height: 56 }"
                 />
+              </div>
+              <div v-else class="item-form-barcode item-form-barcode--empty">
+                {{ $t("itemCodeBarcodeEmpty") || "سيظهر الباركود هنا بعد إدخال الكود" }}
               </div>
             </div>
 
@@ -692,20 +707,6 @@
                       {{ item.name }}
                     </option>
                   </select>
-                </div>
-                <div class="users-form-group">
-                  <label class="users-form-label" for="editInputCode">
-                    <b-icon icon="upc-scan" class="form-label-icon"></b-icon>
-                    {{ $t("codePlaceholder") }}
-                  </label>
-                  <input
-                    id="editInputCode"
-                    v-model="editForm.code"
-                    type="text"
-                    :placeholder="$t('codePlaceholder')"
-                    required
-                    class="users-form-input"
-                  />
                 </div>
               </div>
             </div>
@@ -868,17 +869,43 @@
             </div>
 
             <div class="item-form-section">
+              <div class="item-form-section__head">
+                <b-icon icon="file-text"></b-icon>
+                <span>{{ $t("descriptionPlaceholder") }}</span>
+              </div>
               <div class="users-form-group item-form-group--flush">
-                <label class="users-form-label" for="editInputDescription">
-                  <b-icon icon="file-text" class="form-label-icon"></b-icon>
-                  {{ $t("descriptionPlaceholder") }}
-                </label>
-                <input
+                <textarea
                   id="editInputDescription"
                   v-model="editForm.description"
-                  type="text"
+                  rows="3"
                   :placeholder="$t('descriptionPlaceholder')"
-                  class="users-form-input"
+                  class="users-form-input item-form-textarea"
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="item-form-section item-form-section--code">
+              <div class="item-form-section__head">
+                <b-icon icon="upc-scan"></b-icon>
+                <span>{{ $t("itemCodeSection") || $t("codePlaceholder") }}</span>
+              </div>
+              <p class="item-form-section__hint">
+                {{ $t("itemCodeSectionHint") || "يُستخدم للبحث والمسح في نقطة البيع" }}
+              </p>
+              <div class="users-form-group item-form-group--flush">
+                <label class="users-form-label" for="editInputCode">
+                  <b-icon icon="upc-scan" class="form-label-icon"></b-icon>
+                  {{ $t("codePlaceholder") }}
+                </label>
+                <input
+                  id="editInputCode"
+                  v-model="editForm.code"
+                  type="text"
+                  dir="ltr"
+                  inputmode="numeric"
+                  :placeholder="$t('codePlaceholder')"
+                  required
+                  class="users-form-input item-form-code-input"
                 />
               </div>
               <div v-if="editForm.code && editForm.code.toString()" class="item-form-barcode">
@@ -886,8 +913,11 @@
                   ref="BarImgEdit"
                   tag="img"
                   :value="editForm.code.toString()"
-                  :options="{ displayValue: true, lineColor: '#2B2B2C', width: 2, height: 52 }"
+                  :options="{ displayValue: true, lineColor: '#0F172A', width: 2, height: 56 }"
                 />
+              </div>
+              <div v-else class="item-form-barcode item-form-barcode--empty">
+                {{ $t("itemCodeBarcodeEmpty") || "سيظهر الباركود هنا بعد إدخال الكود" }}
               </div>
             </div>
 
@@ -2087,18 +2117,45 @@ export default {
   margin-bottom: 0;
 }
 
+.item-form-textarea {
+  min-height: 88px;
+  resize: vertical;
+  line-height: 1.6;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.item-form-section--code {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.item-form-code-input {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
 .item-form-barcode {
   display: flex;
   justify-content: center;
-  margin-top: 0.85rem;
-  padding: 0.75rem;
+  align-items: center;
+  margin-top: 16px;
+  min-height: 88px;
+  padding: 16px;
   border-radius: 12px;
-  background: #fff;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.item-form-barcode--empty {
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
 }
 
 .item-form-barcode img {
-  max-width: 220px;
+  max-width: 240px;
   height: auto;
 }
 

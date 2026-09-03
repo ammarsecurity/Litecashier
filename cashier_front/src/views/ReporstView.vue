@@ -184,6 +184,17 @@
                                         </select>
                                     </div>
                                 </label>
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('orderSource') || 'طريقة الطلب' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="bag-check" class="search-icon"></b-icon>
+                                        <select v-model="search.orderSource" class="users-search-input reports-filter-select">
+                                            <option value="">{{ $t('allOrderSources') || 'كل الطرق' }}</option>
+                                            <option value="Pos">{{ $t('orderSourcePos') || 'كاشير مباشر' }}</option>
+                                            <option value="PublicMenu">{{ $t('orderSourcePublicMenu') || 'المنيو الإلكتروني' }}</option>
+                                        </select>
+                                    </div>
+                                </label>
                             </template>
 
                             <!-- Low stock -->
@@ -363,8 +374,13 @@
                                       {{ row.item.isWholesale ? ($t("wholesalePriceMode") || "جملة") : ($t("retailPriceMode") || "مفرد") }}
                                     </span>
                                 </template>
-                                <template #cell(orderType)="row">
-                                    <span>{{ getOrderTypeText(row.item.orderType) }}</span>
+                                <template #cell(orderSource)="row">
+                                    <span
+                                      class="report-price-mode-badge"
+                                      :class="isPublicMenuOrder(row.item) ? 'report-order-source--menu' : 'report-order-source--pos'"
+                                    >
+                                      {{ getOrderSourceText(row.item.orderSource) }}
+                                    </span>
                                 </template>
                                 <template #cell(itemsCount)="row">
                                     <span class="quantity-badge">{{ row.item.itemsCount || 0 }}</span>
@@ -879,9 +895,9 @@
                                     <span class="bill-info-label">{{ $t('priceModeLabel') || 'نوع السعر' }}:</span>
                                     <span class="bill-info-value">{{ order.isWholesale ? ($t('wholesalePriceMode') || 'جملة') : ($t('retailPriceMode') || 'مفرد') }}</span>
                                 </div>
-                                <div class="bill-info-row" v-if="order && order.orderType">
-                                    <span class="bill-info-label">{{ $t('orderType') }}:</span>
-                                    <span class="bill-info-value">{{ getOrderTypeText(order.orderType) }}</span>
+                                <div class="bill-info-row" v-if="order">
+                                    <span class="bill-info-label">{{ $t('orderSource') || 'طريقة الطلب' }}:</span>
+                                    <span class="bill-info-value">{{ getOrderSourceText(order.orderSource) }}</span>
                                 </div>
                                 <div class="bill-info-row">
                                     <span class="bill-info-label">{{ $t('employeeLabel') }}:</span>
@@ -1197,6 +1213,7 @@ export default {
                 startDate: "",
                 endDate: "",
                 paymentMethod: "",
+                orderSource: "",
             },
             reportFilters: {
                 startDate: "",
@@ -1264,7 +1281,7 @@ export default {
                 { key: "insertDate", label: this.$t("date") || "التاريخ", sortable: true },
                 { key: "paymentMethod", label: this.$t("paymentMethod") || "طريقة الدفع", sortable: true },
                 { key: "priceMode", label: this.$t("priceModeLabel") || "نوع السعر", sortable: false },
-                { key: "orderType", label: this.$t("orderType") || "نوع الطلب", sortable: true },
+                { key: "orderSource", label: this.$t("orderSource") || "طريقة الطلب", sortable: true },
                 { key: "itemsCount", label: this.$t("items_count") || "عدد العناصر", sortable: true },
                 { key: "discountAmount", label: this.$t("discountLabel") || "الخصم", sortable: true },
                 { key: "totalAmount", label: this.$t("invoice_amount") || "مبلغ الفاتورة", sortable: true },
@@ -1277,7 +1294,8 @@ export default {
                 this.search.info ||
                 this.search.startDate ||
                 this.search.endDate ||
-                this.search.paymentMethod
+                this.search.paymentMethod ||
+                this.search.orderSource
             );
         },
         hasAdvancedFilters() {
@@ -1454,6 +1472,7 @@ export default {
                 startDate: "",
                 endDate: "",
                 paymentMethod: "",
+                orderSource: "",
             };
             this.pageNumber = 1;
             this.GetAllOrders();
@@ -1557,6 +1576,16 @@ export default {
                 'Delivery': this.$t('delivery') || 'توصيل'
             };
             return types[type] || type;
+        },
+        isPublicMenuOrder(order) {
+            const source = order?.orderSource ?? order?.OrderSource;
+            return String(source || "").toLowerCase() === "publicmenu";
+        },
+        getOrderSourceText(source) {
+            if (String(source || "").toLowerCase() === "publicmenu") {
+                return this.$t("orderSourcePublicMenu") || "المنيو الإلكتروني";
+            }
+            return this.$t("orderSourcePos") || "كاشير مباشر";
         },
         getOrderTypeIcon(type) {
             if (!type) return 'house-door';
@@ -1734,6 +1763,7 @@ export default {
             if (this.search.startDate) params.append('startDate', this.search.startDate);
             if (this.search.endDate) params.append('endDate', this.search.endDate);
             if (this.search.paymentMethod) params.append('paymentMethod', this.search.paymentMethod);
+            if (this.search.orderSource) params.append('orderSource', this.search.orderSource);
             HTTP.get(`Admin/GetOrders?${params.toString()}`)
                 .then((response) => {
                     this.Orders = response.data.data.items;
@@ -1864,6 +1894,7 @@ export default {
                     if (this.search.startDate) params.append('startDate', this.search.startDate);
                     if (this.search.endDate) params.append('endDate', this.search.endDate);
                     if (this.search.paymentMethod) params.append('paymentMethod', this.search.paymentMethod);
+                    if (this.search.orderSource) params.append('orderSource', this.search.orderSource);
                     const response = await HTTP.get(`Admin/ExportOrders?${params.toString()}`, { responseType: 'blob' });
                     const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
                     const link = document.createElement('a');

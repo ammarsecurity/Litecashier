@@ -545,6 +545,7 @@ namespace POS.Controllers
                     OrderStatus = order.OrderStatus,
                     PaymentStatus = order.PaymentStatus,
                     CustomerName = order.CustomerName,
+                    CustomerPhone = order.CustomerPhone,
                     InsertDate = order.InsertDate
                 });
             }

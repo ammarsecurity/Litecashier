@@ -50,6 +50,7 @@
           @click="activeCategory = ''"
         >
           {{ $t("allCategories") || "جميع الأقسام" }}
+          <span class="pm-chip-count">{{ items.length }}</span>
         </button>
         <button
           v-for="cat in categories"
@@ -60,60 +61,69 @@
           @click="activeCategory = cat"
         >
           {{ cat }}
+          <span class="pm-chip-count">{{ categoryCount(cat) }}</span>
         </button>
       </nav>
 
-      <main class="pm-grid">
-        <article
-          v-for="item in visibleItems"
-          :key="item.id"
-          class="pm-card"
-          :class="{ 'pm-card--off': !item.isAvailable }"
-        >
-          <div class="pm-card-media">
-            <img
-              :src="itemImage(item)"
-              :alt="item.name"
-              loading="lazy"
-              @error="onProductImageError(item)"
-            />
-            <span v-if="!item.isAvailable" class="pm-soldout">
-              {{ $t("soldOut") || "نفد" }}
-            </span>
+      <main>
+        <section v-for="group in groupedItems" :key="group.name" class="pm-group">
+          <div v-if="groupedItems.length > 1" class="pm-group-head">
+            <h2>{{ group.name }}</h2>
+            <span>{{ group.items.length }}</span>
           </div>
-          <div class="pm-card-body">
-            <h2 class="pm-card-name">{{ item.name }}</h2>
-            <p v-if="item.description" class="pm-card-desc">{{ item.description }}</p>
-            <div class="pm-card-row">
-              <div class="pm-price">
-                <strong>{{ formatMenuPrice(itemUnitPrice(item)) }}</strong>
-                <span>{{ $t("currency") }}</span>
-                <s v-if="item.discountPrice">{{ formatMenuPrice(item.sellingPrice) }}</s>
+          <div class="pm-list">
+            <article
+              v-for="item in group.items"
+              :key="item.id"
+              class="pm-card"
+              :class="{ 'pm-card--off': !item.isAvailable }"
+            >
+              <div class="pm-card-media">
+                <img
+                  :src="itemImage(item)"
+                  :alt="item.name"
+                  loading="lazy"
+                  @error="onProductImageError(item)"
+                />
+                <span v-if="!item.isAvailable" class="pm-soldout">
+                  {{ $t("soldOut") || "نفد" }}
+                </span>
               </div>
-              <div v-if="qtyInCart(item.id)" class="pm-stepper">
-                <button type="button" class="pm-stepper-btn" @click="changeQty(item, -1)">−</button>
-                <span>{{ qtyInCart(item.id) }}</span>
+              <div class="pm-card-body">
+                <h3 class="pm-card-name">{{ item.name }}</h3>
+                <p v-if="item.description" class="pm-card-desc">{{ item.description }}</p>
+                <div class="pm-price">
+                  <strong>{{ formatMenuPrice(itemUnitPrice(item)) }}</strong>
+                  <span>{{ $t("currency") }}</span>
+                  <s v-if="item.discountPrice">{{ formatMenuPrice(item.sellingPrice) }}</s>
+                </div>
+              </div>
+              <div class="pm-card-action">
+                <div v-if="qtyInCart(item.id)" class="pm-stepper">
+                  <button type="button" class="pm-stepper-btn" @click="changeQty(item, -1)">−</button>
+                  <span>{{ qtyInCart(item.id) }}</span>
+                  <button
+                    type="button"
+                    class="pm-stepper-btn"
+                    :disabled="!item.isAvailable"
+                    @click="changeQty(item, 1)"
+                  >
+                    +
+                  </button>
+                </div>
                 <button
+                  v-else
                   type="button"
-                  class="pm-stepper-btn"
+                  class="pm-add"
                   :disabled="!item.isAvailable"
                   @click="changeQty(item, 1)"
                 >
-                  +
+                  {{ $t("add") || "إضافة" }}
                 </button>
               </div>
-              <button
-                v-else
-                type="button"
-                class="pm-add"
-                :disabled="!item.isAvailable"
-                @click="changeQty(item, 1)"
-              >
-                {{ $t("add") || "إضافة" }}
-              </button>
-            </div>
+            </article>
           </div>
-        </article>
+        </section>
       </main>
 
       <p v-if="!visibleItems.length" class="pm-state pm-state--inline">
@@ -246,6 +256,19 @@ export default {
         return `${item.name} ${item.description || ""}`.toLowerCase().includes(q);
       });
     },
+    groupedItems() {
+      const other = this.$t("other") || "أخرى";
+      if (this.activeCategory || this.search) {
+        return this.visibleItems.length ? [{ name: this.activeCategory || other, items: this.visibleItems }] : [];
+      }
+      const map = new Map();
+      this.visibleItems.forEach((item) => {
+        const key = item.tags || other;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(item);
+      });
+      return Array.from(map.entries()).map(([name, items]) => ({ name, items }));
+    },
     cartCount() {
       return this.cart.reduce((sum, line) => sum + line.quantity, 0);
     },
@@ -272,6 +295,9 @@ export default {
     },
     qtyInCart(id) {
       return this.cart.find((l) => l.id === id)?.quantity || 0;
+    },
+    categoryCount(cat) {
+      return this.items.filter((item) => item.tags === cat).length;
     },
     async loadAll() {
       if (!this.commercialUserId) {
@@ -396,7 +422,7 @@ body.public-menu-page #app {
 <style scoped>
 .pm {
   min-height: 100vh;
-  padding: 16px 16px 96px;
+  padding: 12px 16px 96px;
   max-width: 720px;
   margin: 0 auto;
   font-family: Cairo, "IBM Plex Sans Arabic", system-ui, sans-serif;
@@ -407,21 +433,22 @@ body.public-menu-page #app {
   top: 0;
   z-index: 20;
   background: #f8fafc;
-  padding-bottom: 12px;
+  padding: 4px 0 12px;
 }
 .pm-brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .pm-logo {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  object-fit: cover;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  object-fit: contain;
   background: #fff;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  flex: 0 0 auto;
 }
 .pm-logo--fallback {
   display: flex;
@@ -430,11 +457,11 @@ body.public-menu-page #app {
   background: #2563eb;
   color: #fff;
   font-weight: 800;
-  font-size: 22px;
+  font-size: 20px;
 }
 .pm-title {
   margin: 0;
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1.3;
   font-weight: 800;
 }
@@ -456,25 +483,32 @@ body.public-menu-page #app {
 .pm-search {
   width: 100%;
   height: 48px;
-  border: 0;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
   background: #fff;
   padding: 0 40px 0 16px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
   font-size: 16px;
+}
+.pm-search:focus {
+  outline: 2px solid #93c5fd;
+  border-color: #2563eb;
 }
 .pm-cats {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 4px 0 16px;
+  padding: 0 0 16px;
   -webkit-overflow-scrolling: touch;
 }
 .pm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   flex: 0 0 auto;
   height: 40px;
-  padding: 0 16px;
-  border: 0;
+  padding: 0 14px;
+  border: 1px solid #e2e8f0;
   border-radius: 999px;
   background: #fff;
   color: #475569;
@@ -482,98 +516,147 @@ body.public-menu-page #app {
 }
 .pm-chip--on {
   background: #2563eb;
+  border-color: #2563eb;
   color: #fff;
 }
-.pm-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
+.pm-chip-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-@media (min-width: 600px) {
-  .pm-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-  .pm-title {
-    font-size: 26px;
-  }
+.pm-chip--on .pm-chip-count {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+.pm-group {
+  margin-bottom: 20px;
+}
+.pm-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.pm-group-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+.pm-group-head span {
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 700;
+}
+.pm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .pm-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
   background: #fff;
   border-radius: 16px;
-  overflow: hidden;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 .pm-card--off {
-  opacity: 0.7;
+  opacity: 0.65;
 }
 .pm-card-media {
   position: relative;
-  aspect-ratio: 4 / 3;
-  background: #f1f5f9;
+  width: 76px;
+  height: 76px;
+  flex: 0 0 76px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8fafc;
 }
 .pm-card-media img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 .pm-soldout {
   position: absolute;
-  inset-inline-start: 12px;
-  top: 12px;
+  inset: auto 6px 6px auto;
   background: #ef4444;
   color: #fff;
   border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
   font-weight: 700;
 }
 .pm-card-body {
-  padding: 16px;
+  min-width: 0;
+  flex: 1;
 }
 .pm-card-name {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .pm-card-desc {
-  margin: 6px 0 0;
-  color: #475569;
+  margin: 4px 0 0;
+  color: #64748b;
   font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.pm-card-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 16px;
+.pm-card-action {
+  flex: 0 0 auto;
 }
 .pm-price {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 4px;
+  margin-top: 8px;
   font-size: 13px;
   color: #475569;
 }
 .pm-price strong {
-  font-size: 18px;
-  color: #0f172a;
+  font-size: 16px;
+  color: #2563eb;
 }
 .pm-price s {
   color: #94a3b8;
 }
 .pm-add,
 .pm-btn {
-  height: 44px;
+  height: 40px;
+  min-width: 72px;
   border: 0;
   border-radius: 12px;
-  padding: 0 16px;
+  padding: 0 14px;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 14px;
   background: #2563eb;
   color: #fff;
 }
 .pm-add:disabled {
   background: #94a3b8;
+}
+.pm-add:focus,
+.pm-stepper-btn:focus,
+.pm-chip:focus,
+.pm-search:focus {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
 }
 .pm-btn--primary {
   background: #2563eb;
@@ -586,6 +669,11 @@ body.public-menu-page #app {
   align-items: center;
   gap: 8px;
 }
+.pm-stepper span {
+  min-width: 18px;
+  text-align: center;
+  font-weight: 800;
+}
 .pm-stepper-btn {
   width: 36px;
   height: 36px;
@@ -595,6 +683,19 @@ body.public-menu-page #app {
   color: #1d4ed8;
   font-size: 18px;
   font-weight: 700;
+}
+@media (min-width: 600px) {
+  .pm-title {
+    font-size: 24px;
+  }
+  .pm-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .pm-skel {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 .pm-cartbar {
   position: fixed;
@@ -729,10 +830,10 @@ body.public-menu-page #app {
 .pm-skel {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
+  gap: 12px;
 }
 .pm-skel-card {
-  height: 220px;
+  height: 100px;
   border-radius: 16px;
   background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
   background-size: 200% 100%;

@@ -19,7 +19,7 @@ export function formatBusinessDateTime(dateTime) {
     return (s.split(" ")[0] || s).trim();
   }
 
-  const parts = new Intl.DateTimeFormat("en-CA", {
+  const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: BUSINESS_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
@@ -27,9 +27,9 @@ export function formatBusinessDateTime(dateTime) {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: false,
+    hour12: true,
   }).formatToParts(d);
 
   const get = (type) => parts.find((p) => p.type === type)?.value || "";
-  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")} ${get("dayPeriod")}`;
 }

@@ -14284,6 +14284,16 @@ table .b-icon,
   background: rgba(8, 145, 178, 0.14);
 }
 
+.report-order-source--pos {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.report-order-source--menu {
+  color: #0f766e;
+  background: rgba(20, 184, 166, 0.14);
+}
+
 .order-discount-type-btn {
   border: 1px solid var(--border-color); background: var(--bg-primary);
   color: var(--text-primary); border-radius: 0.65rem; padding: 0.55rem 0.75rem;

@@ -34,7 +34,10 @@
                 <b-icon icon="hourglass-split"></b-icon>
               </span>
               <div>
-                <div class="app-overview-stat-value">{{ pendingCount }}</div>
+                <div class="app-overview-stat-value">
+                  <b-spinner small v-if="loading && !orders.length"></b-spinner>
+                  <template v-else>{{ pendingCount }}</template>
+                </div>
                 <div class="app-overview-stat-label">{{ $t("pending") || "بانتظار الموافقة" }}</div>
               </div>
             </div>
@@ -69,68 +72,116 @@
                   <p class="app-section-subtitle">{{ $t("publicOrdersListHint") || "الموافقة تحول الطلب إلى فاتورة وتطبعه" }}</p>
                 </div>
               </div>
-              <select v-model="statusFilter" class="users-form-select" @change="loadOrders">
-                <option value="">{{ $t("all") || "الكل" }}</option>
-                <option value="Pending">{{ $t("pending") || "بانتظار" }}</option>
-                <option value="Approved">{{ $t("approved") || "موافق" }}</option>
-                <option value="Cancelled">{{ $t("cancelled") || "ملغي" }}</option>
-              </select>
             </div>
-            <div class="app-section-body">
-              <div v-if="loading" class="empty-state">{{ $t("loading") || "جاري التحميل..." }}</div>
-              <div v-else-if="error" class="empty-state">{{ error }}</div>
-              <div v-else-if="!orders.length" class="empty-state">{{ $t("noPublicOrders") || "لا توجد طلبات بعد." }}</div>
-              <div v-else class="table-responsive">
-                <table class="table reports-table">
-                  <thead>
-                    <tr>
-                      <th>{{ $t("orderCode") || "الكود" }}</th>
-                      <th>{{ $t("customerName") || "الزبون" }}</th>
-                      <th>{{ $t("phoneNumber") || "الهاتف" }}</th>
-                      <th>{{ $t("total") || "المجموع" }}</th>
-                      <th>{{ $t("date") || "التاريخ" }}</th>
-                      <th>{{ $t("status") || "الحالة" }}</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="order in orders" :key="order.id">
-                      <td class="code-cell">{{ order.orderCode }}</td>
-                      <td>{{ order.customerName || "—" }}</td>
-                      <td dir="ltr">{{ order.customerPhone || "—" }}</td>
-                      <td>{{ formatPrice(order.orderTotalAfterDiscount) }} {{ $t("currency") }}</td>
-                      <td>{{ formatDate(order.insertDate) }}</td>
-                      <td>
-                        <span class="badge" :class="statusClass(order.orderStatus)">{{ statusLabel(order.orderStatus) }}</span>
-                      </td>
-                      <td>
-                        <div class="row-actions">
-                          <button type="button" class="btn btn-small" @click="openDetails(order)">
-                            {{ $t("details") || "التفاصيل" }}
-                          </button>
-                          <button
-                            v-if="order.orderStatus === 'Pending'"
-                            type="button"
-                            class="btn btn-small btn-primary"
-                            :disabled="busyId === order.id"
-                            @click="approve(order)"
+
+            <div class="app-filters-panel app-filters-panel--inset">
+              <div class="app-filters-panel-head">
+                <div class="app-filters-panel-title">
+                  <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
+                  <div>
+                    <h3>{{ $t("filters") || "الفلاتر" }}</h3>
+                    <p>{{ $t("publicOrdersListHint") }}</p>
+                  </div>
+                </div>
+              </div>
+              <div class="app-filters-fields app-filters-fields--2">
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("status") || "الحالة" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="filter" class="search-icon"></b-icon>
+                    <select v-model="statusFilter" class="users-search-input reports-filter-select" @change="loadOrders">
+                      <option value="">{{ $t("all") || "الكل" }}</option>
+                      <option value="Pending">{{ $t("pending") || "بانتظار" }}</option>
+                      <option value="Approved">{{ $t("approved") || "موافق" }}</option>
+                      <option value="Cancelled">{{ $t("cancelled") || "ملغي" }}</option>
+                    </select>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div class="app-section-body app-section-body--no-padding">
+              <div v-if="loading" class="loading-state-full">
+                <b-spinner variant="primary"></b-spinner>
+                <span>{{ $t("loading") || "جاري التحميل..." }}</span>
+              </div>
+              <div v-else-if="error" class="empty-state">
+                <b-icon icon="exclamation-triangle-fill" class="empty-icon"></b-icon>
+                <p>{{ error }}</p>
+              </div>
+              <div v-else-if="!orders.length" class="empty-state">
+                <b-icon icon="phone" class="empty-icon"></b-icon>
+                <p>{{ $t("noPublicOrders") || "لا توجد طلبات بعد." }}</p>
+              </div>
+              <div v-else class="report-table-container">
+                <div class="table-responsive">
+                  <table class="table reports-table users-table">
+                    <thead>
+                      <tr>
+                        <th>{{ $t("orderCode") || "الكود" }}</th>
+                        <th>{{ $t("customerName") || "الزبون" }}</th>
+                        <th>{{ $t("phoneNumber") || "الهاتف" }}</th>
+                        <th>{{ $t("total") || "المجموع" }}</th>
+                        <th>{{ $t("date") || "التاريخ" }}</th>
+                        <th>{{ $t("status") || "الحالة" }}</th>
+                        <th>{{ $t("actions") || "العمليات" }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="order in orders" :key="order.id">
+                        <td class="public-order-code">{{ order.orderCode }}</td>
+                        <td>{{ order.customerName || "—" }}</td>
+                        <td dir="ltr">{{ order.customerPhone || "—" }}</td>
+                        <td>{{ formatPrice(order.orderTotalAfterDiscount) }} {{ $t("currency") }}</td>
+                        <td>{{ formatDate(order.insertDate) }}</td>
+                        <td>
+                          <span
+                            class="public-order-pill"
+                            :class="statusPillClass(order.orderStatus)"
                           >
-                            {{ $t("approve") || "موافقة" }}
-                          </button>
-                          <button
-                            v-if="order.orderStatus === 'Pending'"
-                            type="button"
-                            class="btn btn-small btn-danger"
-                            :disabled="busyId === order.id"
-                            @click="cancel(order)"
-                          >
-                            {{ $t("reject") || "رفض" }}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                            <b-icon :icon="statusIcon(order.orderStatus)"></b-icon>
+                            {{ statusLabel(order.orderStatus) }}
+                          </span>
+                        </td>
+                        <td>
+                          <div class="actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
+                            <button
+                              type="button"
+                              class="action-btn action-btn--icon action-btn--view"
+                              :title="$t('details') || 'التفاصيل'"
+                              :aria-label="$t('details') || 'التفاصيل'"
+                              @click="openDetails(order)"
+                            >
+                              <b-icon icon="eye-fill" class="action-icon"></b-icon>
+                            </button>
+                            <button
+                              v-if="order.orderStatus === 'Pending'"
+                              type="button"
+                              class="action-btn action-btn--icon action-btn--success"
+                              :disabled="busyId === order.id"
+                              :title="$t('approve') || 'موافقة'"
+                              :aria-label="$t('approve') || 'موافقة'"
+                              @click="approve(order)"
+                            >
+                              <b-icon icon="check-circle-fill" class="action-icon"></b-icon>
+                            </button>
+                            <button
+                              v-if="order.orderStatus === 'Pending'"
+                              type="button"
+                              class="action-btn action-btn--icon action-btn--delete"
+                              :disabled="busyId === order.id"
+                              :title="$t('reject') || 'رفض'"
+                              :aria-label="$t('reject') || 'رفض'"
+                              @click="cancel(order)"
+                            >
+                              <b-icon icon="x-circle-fill" class="action-icon"></b-icon>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
@@ -138,28 +189,91 @@
       </div>
     </div>
 
-    <b-modal v-model="showDetails" hide-footer hide-header centered>
+    <b-modal
+      v-model="showDetails"
+      :title="$t('orderDetails') || 'تفاصيل الطلب'"
+      hide-header
+      hide-footer
+      class="users-modal"
+      centered
+      size="lg"
+      @hidden="selected = null"
+    >
       <div class="modal-content-wrapper" v-if="selected">
         <h2 class="modal-title">{{ $t("orderDetails") || "تفاصيل الطلب" }} — {{ selected.orderCode }}</h2>
-        <p>{{ selected.customerName }} · <span dir="ltr">{{ selected.customerPhone }}</span></p>
-        <p v-if="selected.notes">{{ selected.notes }}</p>
-        <table class="invoice-items-table">
-          <thead>
-            <tr>
-              <th>{{ $t("itemName") || "الصنف" }}</th>
-              <th>{{ $t("quantity") || "الكمية" }}</th>
-              <th>{{ $t("total") || "المجموع" }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="line in selected.items || []" :key="line.id">
-              <td>{{ line.name }}</td>
-              <td>{{ line.quantity }}</td>
-              <td>{{ formatPrice(line.total) }} {{ $t("currency") }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="invoice-details-content">
+          <div class="invoice-details-grid">
+            <div class="invoice-detail-item">
+              <label class="invoice-detail-label">{{ $t("customerName") || "الزبون" }}</label>
+              <span class="invoice-detail-value">{{ selected.customerName || "—" }}</span>
+            </div>
+            <div class="invoice-detail-item">
+              <label class="invoice-detail-label">{{ $t("phoneNumber") || "الهاتف" }}</label>
+              <span class="invoice-detail-value" dir="ltr">{{ selected.customerPhone || "—" }}</span>
+            </div>
+            <div class="invoice-detail-item">
+              <label class="invoice-detail-label">{{ $t("date") || "التاريخ" }}</label>
+              <span class="invoice-detail-value">{{ formatDate(selected.insertDate) }}</span>
+            </div>
+            <div class="invoice-detail-item">
+              <label class="invoice-detail-label">{{ $t("status") || "الحالة" }}</label>
+              <span class="invoice-detail-value">{{ statusLabel(selected.orderStatus) }}</span>
+            </div>
+            <div class="invoice-detail-item">
+              <label class="invoice-detail-label">{{ $t("total") || "المجموع" }}</label>
+              <span class="invoice-detail-value invoice-total">
+                {{ formatPrice(selected.orderTotalAfterDiscount) }} {{ $t("currency") }}
+              </span>
+            </div>
+            <div class="invoice-detail-item" v-if="selected.notes">
+              <label class="invoice-detail-label">{{ $t("notes") || "ملاحظات" }}</label>
+              <span class="invoice-detail-value">{{ selected.notes }}</span>
+            </div>
+          </div>
+
+          <div v-if="selected.items && selected.items.length" class="invoice-items-section">
+            <h3 class="invoice-items-title">{{ $t("orderItems") || "عناصر الطلب" }}</h3>
+            <table class="invoice-items-table">
+              <thead>
+                <tr>
+                  <th>{{ $t("itemName") || "المنتج" }}</th>
+                  <th>{{ $t("quantity") || "الكمية" }}</th>
+                  <th>{{ $t("price") || "السعر" }}</th>
+                  <th>{{ $t("total") || "المجموع" }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="line in selected.items" :key="line.id">
+                  <td>{{ line.name }}</td>
+                  <td>{{ line.quantity }}</td>
+                  <td>{{ formatPrice(line.sellingPrice) }} {{ $t("currency") }}</td>
+                  <td>{{ formatPrice(line.total) }} {{ $t("currency") }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
         <div class="users-form-actions">
+          <button
+            v-if="selected.orderStatus === 'Pending'"
+            type="button"
+            class="users-form-submit-button"
+            :disabled="busyId === selected.id"
+            @click="approve(selected)"
+          >
+            <b-icon icon="check-circle-fill" class="me-2"></b-icon>
+            {{ $t("approve") || "موافقة" }}
+          </button>
+          <button
+            v-if="selected.orderStatus === 'Pending'"
+            type="button"
+            class="users-form-cancel-button"
+            :disabled="busyId === selected.id"
+            @click="cancel(selected)"
+          >
+            <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+            {{ $t("reject") || "رفض" }}
+          </button>
           <button type="button" class="users-form-cancel-button" @click="showDetails = false">
             {{ $t("close") || "إغلاق" }}
           </button>
@@ -221,10 +335,15 @@ export default {
       if (status === "Cancelled") return this.$t("cancelled") || "ملغي";
       return this.$t("pending") || "بانتظار";
     },
-    statusClass(status) {
-      if (status === "Approved") return "badge-ok";
-      if (status === "Cancelled") return "badge-off";
-      return "badge-warn";
+    statusIcon(status) {
+      if (status === "Approved") return "check-circle-fill";
+      if (status === "Cancelled") return "x-circle-fill";
+      return "hourglass-split";
+    },
+    statusPillClass(status) {
+      if (status === "Approved") return "public-order-pill--ok";
+      if (status === "Cancelled") return "public-order-pill--off";
+      return "public-order-pill--pending";
     },
     normalizeOrder(raw) {
       return {
@@ -280,14 +399,20 @@ export default {
       this.showDetails = true;
     },
     async approve(order) {
-      if (!confirm(this.$t("confirmApprovePublicOrder") || "الموافقة تحول الطلب إلى فاتورة وتطبعه. متابعة؟")) {
-        return;
-      }
+      const ok = await this.$confirm({
+        title: this.$t("approve") || "موافقة",
+        message: this.$t("confirmApprovePublicOrder") || "الموافقة تحول الطلب إلى فاتورة وتطبعه. متابعة؟",
+        variant: "warning",
+        icon: "check-circle-fill",
+        confirmText: this.$t("approve") || "موافقة",
+      });
+      if (!ok) return;
       this.busyId = order.id;
       try {
         const res = await HTTP.put(`PublicMenu/${this.commercialUserId}/orders/${order.id}/approve`);
         if (res.data?.errorStatus) throw new Error(res.data.message);
         const updated = this.normalizeOrder(res.data.data || order);
+        this.showDetails = false;
         try {
           await printApprovedPublicOrder(updated, this.commercialUserInfo, (k) => this.$t(k));
         } catch (_) {
@@ -307,11 +432,18 @@ export default {
       }
     },
     async cancel(order) {
-      if (!confirm(this.$t("confirmCancelPublicOrder") || "رفض هذا الطلب؟")) return;
+      const ok = await this.$confirm({
+        title: this.$t("reject") || "رفض",
+        message: this.$t("confirmCancelPublicOrder") || "رفض هذا الطلب؟",
+        variant: "danger",
+        confirmText: this.$t("reject") || "رفض",
+      });
+      if (!ok) return;
       this.busyId = order.id;
       try {
         const res = await HTTP.put(`PublicMenu/${this.commercialUserId}/orders/${order.id}/cancel`);
         if (res.data?.errorStatus) throw new Error(res.data.message);
+        this.showDetails = false;
         await this.loadOrders();
       } catch (_) {
         this.$notify?.error?.(this.$t("cancelFailed") || "تعذر رفض الطلب");
@@ -351,55 +483,84 @@ export default {
 </script>
 
 <style scoped>
-.row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-start;
+.public-order-code {
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
 }
-.btn {
-  height: 36px;
-  border: 0;
-  border-radius: 10px;
-  padding: 0 12px;
-  font-weight: 600;
-  background: #e2e8f0;
-  color: #0f172a;
-}
-.btn-primary {
-  background: #2563eb;
-  color: #fff;
-}
-.btn-danger {
-  background: #ef4444;
-  color: #fff;
-}
-.badge {
+
+.public-order-pill {
   display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
 }
-.badge-warn {
-  background: #fef3c7;
-  color: #92400e;
+
+.public-order-pill--pending {
+  background: rgba(245, 158, 11, 0.16);
+  color: #d97706;
 }
-.badge-ok {
-  background: #dcfce7;
-  color: #166534;
+
+.public-order-pill--ok {
+  background: rgba(34, 197, 94, 0.16);
+  color: #16a34a;
 }
-.badge-off {
-  background: #e2e8f0;
-  color: #475569;
+
+.public-order-pill--off {
+  background: var(--bg-secondary, rgba(148, 163, 184, 0.2));
+  color: var(--text-secondary, #64748b);
 }
-.code-cell {
-  font-family: ui-monospace, monospace;
+
+.invoice-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.invoice-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.invoice-detail-label {
+  font-size: 13px;
+  color: var(--text-secondary, #64748b);
+  margin: 0;
+}
+
+.invoice-detail-value {
   font-weight: 700;
+  color: var(--text-primary, #0f172a);
 }
-.empty-state {
-  text-align: center;
-  padding: 32px 16px;
-  color: #64748b;
+
+.invoice-total {
+  color: var(--primary, #2563eb);
+}
+
+.invoice-items-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+}
+
+.invoice-items-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.invoice-items-table th,
+.invoice-items-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  text-align: start;
+}
+
+.invoice-items-table th {
+  background: var(--bg-secondary, #f1f5f9);
+  font-weight: 700;
 }
 </style>
