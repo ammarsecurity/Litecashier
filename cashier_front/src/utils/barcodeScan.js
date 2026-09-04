@@ -37,5 +37,6 @@ export function normalizeScannedItem(item, fallbackCode) {
     sellingPrice: Number(item.sellingPrice ?? item.SellingPrice) || 0,
     disCountPrice: Number(item.disCountPrice ?? item.DisCountPrice) || 0,
     wholesalePrice: Number(item.wholesalePrice ?? item.WholesalePrice) || 0,
+    isNonInventory: !!(item.isNonInventory ?? item.IsNonInventory),
   };
 }

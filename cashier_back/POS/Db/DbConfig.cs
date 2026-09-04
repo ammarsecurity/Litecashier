@@ -122,6 +122,12 @@ namespace POS.Db
             modelBuilder.Entity<Supplier>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<Customer>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<CustomerOrder>().HasOne(r => r.CreditCustomer).WithMany().HasForeignKey(x => x.CreditCustomerId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<CustomerOrder>()
+                .Property(o => o.ClientOrderId)
+                .HasColumnType("char(36)");
+            modelBuilder.Entity<CustomerOrder>()
+                .HasIndex(o => o.ClientOrderId)
+                .IsUnique();
 
             modelBuilder.Entity<Warehouse>()
                 .HasOne(w => w.User)
@@ -208,8 +214,12 @@ namespace POS.Db
             {
                 if (entity.State == EntityState.Added)
                 {
-                    ((BaseEntity)entity.Entity).InsertDate = DateTime.UtcNow;
-                    ((BaseEntity)entity.Entity).IsDeleted = false;
+                    var baseEntity = (BaseEntity)entity.Entity;
+                    if (baseEntity.InsertDate == default)
+                    {
+                        baseEntity.InsertDate = DateTime.UtcNow;
+                    }
+                    baseEntity.IsDeleted = false;
                 }
                 else
                 {

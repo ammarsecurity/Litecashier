@@ -385,6 +385,57 @@
             </div>
           </div>
 
+          <div class="app-section-card settings-menu-min-zone">
+            <div class="app-section-header">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap settings-menu-min-zone__icon">
+                  <b-icon icon="bag-check-fill"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("settingsPublicMenuTitle") }}</h3>
+                  <p class="app-section-subtitle">{{ $t("settingsPublicMenuSubtitle") }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="app-section-body">
+              <p class="settings-menu-min-zone__intro">{{ $t("settingsPublicMenuHint") }}</p>
+              <label class="settings-menu-min-field">
+                <span>{{ $t("settingsPublicMenuMinLabel") }}</span>
+                <div class="settings-menu-min-input">
+                  <input
+                    v-model="publicMenuMinOrderAmount"
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputmode="decimal"
+                    dir="ltr"
+                    :disabled="publicMenuSettingsLoading || publicMenuSettingsSaving"
+                    :aria-label="$t('settingsPublicMenuMinLabel')"
+                  />
+                  <span class="settings-menu-min-currency">{{ $t("currency") }}</span>
+                </div>
+              </label>
+              <div class="settings-danger-zone__actions">
+                <button
+                  type="button"
+                  class="users-add-button"
+                  :disabled="publicMenuSettingsLoading || publicMenuSettingsSaving || !publicMenuMinDirty"
+                  @click="savePublicMenuSettings"
+                >
+                  <b-spinner small v-if="publicMenuSettingsSaving" class="button-icon"></b-spinner>
+                  <b-icon v-else icon="check2-circle" class="button-icon"></b-icon>
+                  <span class="button-text">
+                    {{
+                      publicMenuSettingsSaving
+                        ? $t("settingsPublicMenuSaving")
+                        : $t("settingsPublicMenuSave")
+                    }}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div id="menu-ads" class="app-section-card settings-ads-zone">
             <div class="app-section-header">
               <div class="app-section-title-wrap">
@@ -630,6 +681,10 @@ export default {
       savedPrintInvoiceFormat: "Pos",
       printSettingsLoading: false,
       printSettingsSaving: false,
+      publicMenuMinOrderAmount: 0,
+      savedPublicMenuMinOrderAmount: 0,
+      publicMenuSettingsLoading: false,
+      publicMenuSettingsSaving: false,
       savingLogo: false,
       currentLogo: null,
       logoFile: null,
@@ -663,6 +718,10 @@ export default {
     },
     printFormatDirty() {
       return this.printInvoiceFormat !== this.savedPrintInvoiceFormat;
+    },
+    publicMenuMinDirty() {
+      return this.normalizeMinOrderAmount(this.publicMenuMinOrderAmount)
+        !== this.savedPublicMenuMinOrderAmount;
     },
     watermarkPreviewSrc() {
       if (this.clearWatermarkPending) return null;
@@ -754,6 +813,7 @@ export default {
     },
     async loadPrintSettings() {
       this.printSettingsLoading = true;
+      this.publicMenuSettingsLoading = true;
       try {
         const response = await HTTP.get("Admin/CommercialUserInfo");
         const d = response?.data?.data;
@@ -767,6 +827,13 @@ export default {
           this.savedPrintInvoiceFormat = format;
           localStorage.setItem("printInvoiceFormat", format);
           this.currentLogo = resolveAbsoluteAssetUrl(d.logo || d.Logo) || null;
+          const minOrder = this.normalizeMinOrderAmount(
+            d.publicMenuMinOrderAmount != null
+              ? d.publicMenuMinOrderAmount
+              : d.PublicMenuMinOrderAmount
+          );
+          this.publicMenuMinOrderAmount = minOrder;
+          this.savedPublicMenuMinOrderAmount = minOrder;
         }
       } catch (error) {
         console.error("Error loading print settings:", error);
@@ -775,6 +842,7 @@ export default {
         this.savedPrintInvoiceFormat = cached;
       } finally {
         this.printSettingsLoading = false;
+        this.publicMenuSettingsLoading = false;
       }
     },
     async savePrintSettings() {
@@ -809,6 +877,39 @@ export default {
         );
       } finally {
         this.printSettingsSaving = false;
+      }
+    },
+    normalizeMinOrderAmount(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 0) return 0;
+      return Math.round(n);
+    },
+    async savePublicMenuSettings() {
+      if (this.publicMenuSettingsSaving || !this.publicMenuMinDirty) return;
+      this.publicMenuSettingsSaving = true;
+      try {
+        const amount = this.normalizeMinOrderAmount(this.publicMenuMinOrderAmount);
+        const response = await HTTP.post("Admin/UpdatePublicMenuSettings", {
+          publicMenuMinOrderAmount: amount,
+        });
+        if (response?.data?.errorStatus) {
+          throw new Error(response.data.message || "saveFailed");
+        }
+        this.publicMenuMinOrderAmount = amount;
+        this.savedPublicMenuMinOrderAmount = amount;
+        this.$notify.success(this.$t("settingsPublicMenuSaveSuccess"), {
+          position: "top-right",
+          timeout: 3000,
+          maxToasts: 1,
+        });
+      } catch (error) {
+        const msg = error?.response?.data?.message || error?.message;
+        this.$notify.error(
+          msg && this.$te(msg) ? this.$t(msg) : this.$t("settingsPublicMenuSaveFailed"),
+          { position: "top-right", timeout: 4000, maxToasts: 1 }
+        );
+      } finally {
+        this.publicMenuSettingsSaving = false;
       }
     },
     handleLogoChange(event) {
@@ -1302,6 +1403,66 @@ export default {
 
 .settings-logo-zone {
   margin-bottom: 1.25rem;
+}
+
+.settings-menu-min-zone {
+  margin-bottom: 1.25rem;
+}
+
+.settings-menu-min-zone__icon {
+  background: rgba(61, 180, 208, 0.22);
+  color: #3db4d0;
+}
+
+.settings-menu-min-zone__intro {
+  margin: 0 0 1rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.6;
+}
+
+.settings-menu-min-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 1.25rem;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.85rem;
+}
+
+.settings-menu-min-input {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 280px;
+}
+
+.settings-menu-min-input input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  border-radius: 14px;
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.35));
+  background: rgba(15, 23, 42, 0.35);
+  color: var(--text-primary, #e2e8f0);
+  padding: 0 14px;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-menu-min-input input:focus {
+  outline: none;
+  border-color: #3db4d0;
+  box-shadow: 0 0 0 4px rgba(61, 180, 208, 0.18);
+}
+
+.settings-menu-min-input input:disabled {
+  opacity: 0.65;
+}
+
+.settings-menu-min-currency {
+  flex-shrink: 0;
+  color: var(--text-primary, #e2e8f0);
+  font-weight: 600;
 }
 
 .settings-logo-zone__icon {

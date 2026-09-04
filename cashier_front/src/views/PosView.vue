@@ -75,6 +75,19 @@
             </button>
           </div>
         </template>
+        <template #pos-actions>
+          <button
+            type="button"
+            class="pos-sync-chip"
+            :class="'pos-sync-chip--' + posSyncChipKind"
+            :title="posSyncChipTitle"
+            :aria-label="posSyncChipTitle"
+            @click="retryPosSync"
+          >
+            <span class="pos-sync-chip-dot" aria-hidden="true"></span>
+            <span class="pos-sync-chip-label">{{ posSyncChipLabel }}</span>
+          </button>
+        </template>
       </AppHeader>
       <div
         class="main-content-wrapper pos-route pos-route--v2"
@@ -1598,6 +1611,23 @@ import {
   tabItemCount,
   tabHasItems,
 } from "@/utils/posInvoiceTabs.js";
+import { resolveCommercialUserId } from "@/utils/publicMenu.js";
+import { queryPosItems, hasPosCatalog, getItemAvailableQty } from "@/utils/posCatalogQuery.js";
+import {
+  cacheCommercialInfo,
+  cacheCustomers,
+  cachePrinters,
+  loadCachedCommercialInfo,
+  loadCachedCustomers,
+  loadCachedPrinters,
+  loadCachedShortcuts,
+  loadCachedTags,
+  loadCachedWarehouses,
+  retryFailedOrders,
+  startPosSyncRuntime,
+  subscribePosSync,
+  syncPosNow,
+} from "@/utils/posSync.js";
 
 export default {
   name: "PosView",
@@ -1699,6 +1729,14 @@ export default {
       invoiceTabRenameDraft: "",
       _invoiceTabsHydrating: false,
       _invoiceTabsSaveTimer: null,
+      _posSyncUnsubscribe: null,
+      posSyncState: {
+        online: true,
+        syncing: false,
+        pendingCount: 0,
+        failedCount: 0,
+        lastError: null,
+      },
     };
   },
 
@@ -1828,6 +1866,37 @@ export default {
         },
       ];
     },
+    posSyncChipKind() {
+      const state = this.posSyncState || {};
+      if (state.failedCount > 0) return "failed";
+      if (state.syncing) return "syncing";
+      if (state.pendingCount > 0) return "pending";
+      if (!state.online) return "offline";
+      return "online";
+    },
+    posSyncChipLabel() {
+      const state = this.posSyncState || {};
+      const kind = this.posSyncChipKind;
+      if (kind === "failed") {
+        return this.$t("posSyncFailed") || "فشل المزامنة";
+      }
+      if (kind === "syncing") {
+        return this.$t("posSyncSyncing") || "جاري المزامنة";
+      }
+      if (kind === "pending") {
+        const n = Number(state.pendingCount) || 0;
+        return this.$t("posSyncPending", { n }) || `${n} بانتظار الإرسال`;
+      }
+      if (kind === "offline") {
+        return this.$t("offline") || "غير متصل";
+      }
+      return this.$t("online") || "متصل";
+    },
+    posSyncChipTitle() {
+      const state = this.posSyncState || {};
+      if (state.lastError) return String(state.lastError);
+      return this.posSyncChipLabel;
+    },
   },
   watch: {
     carditems: {
@@ -1898,15 +1967,41 @@ export default {
 
   mounted() {
     try {
+      startPosSyncRuntime();
+      this._posSyncUnsubscribe = subscribePosSync((next) => {
+        const prevPending = this.posSyncState ? this.posSyncState.pendingCount : null;
+        const prevFailed = this.posSyncState ? this.posSyncState.failedCount : null;
+        this.posSyncState = next;
+        if (
+          prevPending !== next.pendingCount ||
+          prevFailed !== next.failedCount
+        ) {
+          clearTimeout(this._posStockRefreshTimer);
+          this._posStockRefreshTimer = setTimeout(() => {
+            if (!this._isDestroyed && typeof this.GetAllItems === "function") {
+              this.GetAllItems();
+            }
+          }, 80);
+        }
+      });
+
+      const userInfoStr = localStorage.getItem("info");
+      if (userInfoStr) {
+        this.userInfo = JSON.parse(userInfoStr);
+      }
+
       this.getTags();
       this.loadShortcutItems();
-      this.loadWarehouses().finally(() => {
-        this.$nextTick(() => {
-          if (this.$refs.codeNumber) {
-            this.$refs.codeNumber.focus();
-          }
-          applyPosPageSize(this, false);
-          this.GetAllItems();
+      this.hydratePosCaches().finally(() => {
+        this.loadWarehouses().finally(() => {
+          this.$nextTick(() => {
+            if (this.$refs.codeNumber) {
+              this.$refs.codeNumber.focus();
+            }
+            applyPosPageSize(this, false);
+            this.GetAllItems();
+            this.syncPosBackground();
+          });
         });
       });
       this._posResizeHandler = () => {
@@ -1917,15 +2012,8 @@ export default {
         }, 150);
       };
       window.addEventListener("resize", this._posResizeHandler);
-      
-      const userInfoStr = localStorage.getItem("info");
-      if (userInfoStr) {
-        this.userInfo = JSON.parse(userInfoStr);
-      }
 
-      // Load commercial user info for printing
       this.loadCommercialUserInfo();
-
       this.loadManagedPrinters();
 
       const savedPayment = localStorage.getItem("posPaymentMethod");
@@ -1957,6 +2045,7 @@ export default {
     clearTimeout(this.quickSearchTimer);
     clearTimeout(this._posResizeTimer);
     clearTimeout(this._invoiceTabsSaveTimer);
+    clearTimeout(this._posStockRefreshTimer);
     this.syncActiveInvoiceTabSnapshot(true);
     if (this._posResizeHandler) {
       window.removeEventListener("resize", this._posResizeHandler);
@@ -1970,38 +2059,130 @@ export default {
     if (this.posKeyboardHandler) {
       window.removeEventListener("keydown", this.posKeyboardHandler);
     }
+    if (typeof this._posSyncUnsubscribe === "function") {
+      this._posSyncUnsubscribe();
+      this._posSyncUnsubscribe = null;
+    }
   },
 
   methods: {
     productImageSrc,
     isProductImageFallback,
     onProductImageError,
+    applyCommercialUserPayload(d) {
+      if (!d) return;
+      const format =
+        String(d.printInvoiceFormat || d.PrintInvoiceFormat || "Pos").toUpperCase() ===
+        "A4"
+          ? "A4"
+          : "Pos";
+      const branding = applyCommercialBranding(d);
+      this.commercialUserInfo = {
+        storeName: d.storeName || d.StoreName || "LiteCashier",
+        logo: resolveAbsoluteAssetUrl(d.logo || d.Logo) || null,
+        printInvoiceFormat: format,
+        footerCreditText: d.footerCreditText || d.FooterCreditText || null,
+        footerCreditPhone: d.footerCreditPhone || d.FooterCreditPhone || null,
+        cartWatermarkLogo: branding.cartWatermarkLogo,
+        cartWatermarkOpacity: branding.cartWatermarkOpacity,
+        defaultProductImage: branding.defaultProductImage,
+      };
+      localStorage.setItem("printInvoiceFormat", format);
+    },
+    applyWarehouseList(raw) {
+      this.warehouses = (Array.isArray(raw) ? raw : []).map((w) => ({
+        id: w.id ?? w.Id,
+        name: w.name ?? w.Name ?? "—",
+        isDefault: !!(w.isDefault ?? w.IsDefault),
+      }));
+      const current = this.selectedWarehouseId;
+      if (
+        current &&
+        this.warehouses.some((w) => Number(w.id) === Number(current))
+      ) {
+        this.orderForSend.warehouseId = current;
+        return;
+      }
+      const userId = this.userInfo?.id || localStorage.getItem("userId") || "anon";
+      const key = `posWarehouseId_${userId}`;
+      const saved = Number(localStorage.getItem(key));
+      const match = this.warehouses.find((w) => w.id === saved);
+      const def = this.warehouses.find((w) => w.isDefault) || this.warehouses[0];
+      this.selectedWarehouseId = match?.id || def?.id || null;
+      this.orderForSend.warehouseId = this.selectedWarehouseId;
+    },
+    async hydratePosCaches() {
+      const cid = resolveCommercialUserId();
+      try {
+        const [
+          warehouses,
+          tags,
+          shortcuts,
+          info,
+          printers,
+          customers,
+        ] = await Promise.all([
+          loadCachedWarehouses(cid),
+          loadCachedTags(cid),
+          loadCachedShortcuts(cid),
+          loadCachedCommercialInfo(cid),
+          loadCachedPrinters(cid),
+          loadCachedCustomers(cid),
+        ]);
+        if (warehouses.length) this.applyWarehouseList(warehouses);
+        if (tags.length) this.tags = tags;
+        if (shortcuts.length) this.shortcutItems = shortcuts;
+        if (info) this.applyCommercialUserPayload(info);
+        if (printers.length) this.managedPrinters = printers;
+        if (customers.length) this.creditCustomers = customers;
+      } catch (err) {
+        console.warn("hydratePosCaches failed", err);
+      }
+    },
+    async syncPosBackground() {
+      try {
+        const cid = resolveCommercialUserId();
+        const wid = this.selectedWarehouseId;
+        let hasCache = false;
+        try {
+          hasCache = await hasPosCatalog(cid, wid);
+        } catch (err) {
+          hasCache = false;
+        }
+        if (!hasCache && !this.orderPersisting) this.show = true;
+        await syncPosNow(this.selectedWarehouseId);
+        await this.hydratePosCaches();
+        await this.GetAllItems();
+      } catch (err) {
+        console.warn("syncPosBackground failed", err);
+      } finally {
+        if (!this.orderPersisting) {
+          this.show = false;
+        }
+        this.catalogLoading = false;
+      }
+    },
+    async retryPosSync() {
+      if (this.posSyncState && this.posSyncState.failedCount > 0) {
+        await retryFailedOrders();
+      }
+      await this.syncPosBackground();
+    },
     loadCommercialUserInfo() {
+      loadCachedCommercialInfo().then((cached) => {
+        if (cached) this.applyCommercialUserPayload(cached);
+      });
       HTTP.get("Admin/CommercialUserInfo")
         .then((response) => {
           if (response.data && response.data.data) {
             const d = response.data.data;
-            const format =
-              String(d.printInvoiceFormat || d.PrintInvoiceFormat || "Pos").toUpperCase() ===
-              "A4"
-                ? "A4"
-                : "Pos";
-            const branding = applyCommercialBranding(d);
-            this.commercialUserInfo = {
-              storeName: d.storeName || d.StoreName || "LiteCashier",
-              logo: resolveAbsoluteAssetUrl(d.logo || d.Logo) || null,
-              printInvoiceFormat: format,
-              footerCreditText: d.footerCreditText || d.FooterCreditText || null,
-              footerCreditPhone: d.footerCreditPhone || d.FooterCreditPhone || null,
-              cartWatermarkLogo: branding.cartWatermarkLogo,
-              cartWatermarkOpacity: branding.cartWatermarkOpacity,
-              defaultProductImage: branding.defaultProductImage,
-            };
-            localStorage.setItem("printInvoiceFormat", format);
+            this.applyCommercialUserPayload(d);
+            cacheCommercialInfo(resolveCommercialUserId(), d);
           }
         })
         .catch((error) => {
           console.error("Error loading commercial user info:", error);
+          if (this.commercialUserInfo && this.commercialUserInfo.storeName) return;
           this.commercialUserInfo = {
             storeName: "LiteCashier",
             logo: null,
@@ -2113,15 +2294,18 @@ export default {
     async loadCreditCustomers() {
       try {
         this.loadingCreditCustomers = true;
+        const cached = await loadCachedCustomers();
+        if (cached.length) this.creditCustomers = cached;
         const response = await HTTP.get("Customers");
         if (response.data && !response.data.errorStatus) {
           this.creditCustomers = response.data.data || [];
-        } else {
+          cacheCustomers(resolveCommercialUserId(), this.creditCustomers);
+        } else if (!cached.length) {
           this.creditCustomers = [];
         }
       } catch (error) {
         console.error("Error loading customers:", error);
-        this.creditCustomers = [];
+        if (!this.creditCustomers.length) this.creditCustomers = [];
       } finally {
         this.loadingCreditCustomers = false;
       }
@@ -2469,27 +2653,32 @@ export default {
     },
     async loadShortcutItems() {
       try {
+        const cached = await loadCachedShortcuts();
+        if (cached.length) this.shortcutItems = cached;
         const response = await HTTP.get("ShortcutItems/ForPos");
         if (response.data && !response.data.errorStatus) {
           this.shortcutItems = response.data.data || [];
         }
       } catch (error) {
         console.warn("loadShortcutItems failed:", error?.response?.status || error?.message);
-        this.shortcutItems = [];
+        if (!this.shortcutItems.length) this.shortcutItems = [];
       }
     },
-    getTags() {
-      HTTP.get(`Admin/GetTags?pageNumber=0&pageSize=10000`)
-        .then((response) => {
-          this.tags = response.data.data.items;
-        })
-        .catch((error) => {
+    async getTags() {
+      try {
+        const cached = await loadCachedTags();
+        if (cached.length) this.tags = cached;
+        const response = await HTTP.get(`Admin/GetTags?pageNumber=0&pageSize=10000`);
+        this.tags = response.data.data.items;
+      } catch (error) {
+        if (!this.tags.length) {
           this.$notify.error(this.$i18n.t("error"), {
             position: "top-right",
             timeout: 2000,
             maxToasts: 1,
           });
-        });
+        }
+      }
     },
     formatPrice(price) {
       const n = Number(price);
@@ -2819,17 +3008,23 @@ export default {
         const bodyElement = document.querySelector("body");
         const textDirection = bodyElement.getAttribute("dir");
         const toastPosition = textDirection === "rtl" ? "top-right" : "top-left";
-        
-        if (!item.isNonInventory && (!item.quantity || item.quantity <= 0)) {
-          this.$notify.error(
-            this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر في المخزون",
-            {
-              position: toastPosition,
-              timeout: 2000,
-              maxToasts: 1,
-            }
-          );
-          return;
+
+        if (!item.isNonInventory) {
+          const inCart = this.cartQuantityForItem
+            ? this.cartQuantityForItem(item.id)
+            : 0;
+          const available = Number(item.quantity);
+          if (!Number.isFinite(available) || inCart + 1 > available) {
+            this.$notify.error(
+              this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر في المخزون",
+              {
+                position: toastPosition,
+                timeout: 2000,
+                maxToasts: 1,
+              }
+            );
+            return;
+          }
         }
         
         // Check if item already exists in cart
@@ -2885,25 +3080,60 @@ export default {
       }
       this.focusPosBarcode();
     },
-    increaseQuantity(index) {
-      if (this.carditems[index]) {
-        this.carditems[index].quantity += 1;
+    async increaseQuantity(index) {
+      const line = this.carditems[index];
+      if (!line) return;
+      if (line.isNonInventory) {
+        line.quantity += 1;
         this.updateItemTotal(index);
         this.flashCart();
+        return;
       }
+      const available = await getItemAvailableQty(
+        resolveCommercialUserId(),
+        this.selectedWarehouseId,
+        line.id
+      );
+      const inCart = this.cartQuantityForItem(line.id);
+      if (available != null && inCart + 1 > available) {
+        this.$notify.error(
+          this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر في المخزون",
+          { position: "top-right", timeout: 2000, maxToasts: 1 }
+        );
+        return;
+      }
+      line.quantity += 1;
+      this.updateItemTotal(index);
+      this.flashCart();
+    },
+    async updateQuantity(index, value) {
+      const line = this.carditems[index];
+      if (!line) return;
+      let quantity = parseInt(value, 10) || 1;
+      if (quantity < 1) quantity = 1;
+      if (!line.isNonInventory) {
+        const available = await getItemAvailableQty(
+          resolveCommercialUserId(),
+          this.selectedWarehouseId,
+          line.id
+        );
+        const others = this.cartQuantityForItem(line.id) - (Number(line.quantity) || 0);
+        if (available != null && others + quantity > available) {
+          quantity = Math.max(1, available - others);
+          this.$notify.error(
+            this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر في المخزون",
+            { position: "top-right", timeout: 2000, maxToasts: 1 }
+          );
+        }
+      }
+      line.quantity = quantity;
+      this.updateItemTotal(index);
     },
     decreaseQuantity(index) {
       if (this.carditems[index] && this.carditems[index].quantity > 1) {
         this.carditems[index].quantity -= 1;
         this.updateItemTotal(index);
         this.flashCart();
-      }
-    },
-    updateQuantity(index, value) {
-      const quantity = parseInt(value) || 1;
-      if (quantity > 0 && this.carditems[index]) {
-          this.carditems[index].quantity = quantity;
-        this.updateItemTotal(index);
       }
     },
     updateItemTotal(index) {
@@ -2917,23 +3147,14 @@ export default {
     },
     async loadWarehouses() {
       try {
+        const cached = await loadCachedWarehouses();
+        if (cached.length) this.applyWarehouseList(cached);
         const res = await HTTP.get("Warehouses/ForPos");
         const raw = res.data?.data || res.data?.Data || [];
-        this.warehouses = (Array.isArray(raw) ? raw : []).map((w) => ({
-          id: w.id ?? w.Id,
-          name: w.name ?? w.Name ?? "—",
-          isDefault: !!(w.isDefault ?? w.IsDefault),
-        }));
-        const userId = this.userInfo?.id || localStorage.getItem("userId") || "anon";
-        const key = `posWarehouseId_${userId}`;
-        const saved = Number(localStorage.getItem(key));
-        const match = this.warehouses.find((w) => w.id === saved);
-        const def = this.warehouses.find((w) => w.isDefault) || this.warehouses[0];
-        this.selectedWarehouseId = match?.id || def?.id || null;
-        this.orderForSend.warehouseId = this.selectedWarehouseId;
+        this.applyWarehouseList(raw);
       } catch (error) {
         console.warn("loadWarehouses failed:", error?.response?.status || error?.message);
-        this.warehouses = [];
+        if (!this.warehouses.length) this.warehouses = [];
       }
     },
     onWarehouseChanged() {
@@ -2941,32 +3162,34 @@ export default {
       localStorage.setItem(`posWarehouseId_${userId}`, String(this.selectedWarehouseId || ""));
       this.orderForSend.warehouseId = this.selectedWarehouseId;
       this.GetAllItems();
+      this.syncPosBackground();
     },
-    GetAllItems() {
-      const useGlobalOverlay = !this.showCatalogModal;
-      if (useGlobalOverlay) this.show = true;
-      else this.catalogLoading = true;
-      const wh = this.selectedWarehouseId
-        ? `&warehouseId=${this.selectedWarehouseId}`
-        : "";
-      HTTP.get(
-        `Admin/GetItems?pageNumber=${this.pageNumber - 1}&pageSize=${
-          this.pageSize
-        }&info=${this.search.info || ""}${wh}`
-      )
-        .then((response) => {
-          this.Items = response.data.data.items.map(item => ({
-            ...item,
-            imageError: false
-          }));
-          this.totalItems = response.data.data.totalItems;
-          this.show = false;
-          this.catalogLoading = false;
-        })
-        .catch((error) => {
-          this.show = false;
-          this.catalogLoading = false;
+    async GetAllItems() {
+      const cid = resolveCommercialUserId();
+      const wid = this.selectedWarehouseId;
+      let hasCache = false;
+      try {
+        hasCache = await hasPosCatalog(cid, wid);
+      } catch (err) {
+        hasCache = false;
+      }
+      if (!hasCache && this.showCatalogModal) this.catalogLoading = true;
+      try {
+        const result = await queryPosItems({
+          commercialUserId: cid,
+          warehouseId: wid,
+          search: this.activeCategory ? "" : this.search.info,
+          category: this.activeCategory,
+          pageNumber: this.pageNumber,
+          pageSize: this.pageSize,
         });
+        this.Items = result.items;
+        this.totalItems = result.totalItems;
+      } catch (error) {
+        console.warn("GetAllItems local query failed", error);
+      } finally {
+        this.catalogLoading = false;
+      }
     },
     feedbackItemAdded(itemName) {
       this.flashCart();

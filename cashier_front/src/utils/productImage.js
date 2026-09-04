@@ -44,6 +44,7 @@ export function hasRealProductImage(image) {
   if (value === "-" || value === "null" || value === "undefined") return false;
   // Legacy cashier placeholder path from older builds
   if (/JSGOWBame/i.test(value)) return false;
+  if (/default-product(?:b)?\.png(?:\?|$)/i.test(value)) return false;
   return true;
 }
 

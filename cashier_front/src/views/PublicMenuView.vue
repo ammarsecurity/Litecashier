@@ -319,7 +319,12 @@
               <span>{{ $t("cartTotal") || "المجموع الكلي" }}</span>
               <strong>{{ formatMenuPrice(cartTotal) }} {{ $t("currency") }}</strong>
             </div>
-            <button type="submit" class="pm-btn pm-btn--primary pm-btn--block" :disabled="submitting">
+            <p v-if="belowMinOrder" class="pm-min-order-hint">{{ minOrderHint }}</p>
+            <button
+              type="submit"
+              class="pm-btn pm-btn--primary pm-btn--block"
+              :disabled="submitting || belowMinOrder"
+            >
               {{ submitting ? ($t("sending") || "جاري الإرسال...") : ($t("placeOrder") || "إرسال الطلب") }}
             </button>
           </div>
@@ -408,6 +413,7 @@ export default {
       successOrder: null,
       codeCopied: false,
       defaultProductImage: "",
+      minOrderAmount: 0,
     };
   },
   computed: {
@@ -442,6 +448,12 @@ export default {
         (sum, line) => sum + (Number(line.unitPrice) || 0) * (Number(line.quantity) || 0),
         0
       );
+    },
+    belowMinOrder() {
+      return this.minOrderAmount > 0 && this.cartTotal < this.minOrderAmount;
+    },
+    minOrderHint() {
+      return this.formatMinOrderMessage(this.minOrderAmount, this.cartTotal);
     },
   },
   watch: {
@@ -532,6 +544,10 @@ export default {
         this.storeName = menu.storeName || menu.StoreName || "";
         this.logo = menu.logo || menu.Logo || "";
         this.defaultProductImage = menu.defaultProductImage || menu.DefaultProductImage || "";
+        const minRaw =
+          menu.minOrderAmount != null ? menu.minOrderAmount : menu.MinOrderAmount;
+        const minOrder = Number(minRaw);
+        this.minOrderAmount = Number.isFinite(minOrder) && minOrder > 0 ? minOrder : 0;
         this.items = (menu.items || menu.Items || []).map((item) => ({
           id: item.id ?? item.Id,
           name: item.name ?? item.Name,
@@ -580,9 +596,30 @@ export default {
         this.cart = this.cart.filter((l) => l.id !== id);
       }
     },
+    formatMinOrderMessage(min, total) {
+      const minAmt = Number(min) || 0;
+      const totalAmt = Number(total) || 0;
+      const remaining = Math.max(0, minAmt - totalAmt);
+      const currency = this.$t("currency");
+      if (remaining > 0) {
+        return this.$t("publicMenuMinOrderRemaining", {
+          remaining: formatMenuPrice(remaining),
+          min: formatMenuPrice(minAmt),
+          currency,
+        });
+      }
+      return this.$t("publicMenuMinOrderBlocked", {
+        min: formatMenuPrice(minAmt),
+        currency,
+      });
+    },
     async submitOrder() {
       this.submitError = "";
       if (!this.cart.length) return;
+      if (this.belowMinOrder) {
+        this.submitError = this.minOrderHint;
+        return;
+      }
       if (!this.validateOrderFields()) return;
       this.submitting = true;
       try {
@@ -632,6 +669,18 @@ export default {
         return this.$t("publicMenuNotesRequired") || "أدخل الملاحظات أو العنوان";
       }
       if (msg === "orderMustContainItems") return this.$t("emptyCart") || "السلة فارغة";
+      if (String(msg).indexOf("publicMenuMinOrder|") === 0) {
+        const parts = String(msg).split("|");
+        const min = Number(parts[1]);
+        const total = Number(parts[2]);
+        if (Number.isFinite(min) && min > 0) {
+          return this.formatMinOrderMessage(min, total);
+        }
+        return this.$t("publicMenuMinOrderBlocked", {
+          min: formatMenuPrice(this.minOrderAmount),
+          currency: this.$t("currency"),
+        });
+      }
       return this.$t("orderSendFailed") || "تعذر إرسال الطلب";
     },
     onPhoneInput(event) {
@@ -1192,6 +1241,10 @@ html.public-menu-page h6 {
 .pm-btn--block {
   width: 100%;
 }
+.pm-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .pm-stepper {
   display: flex;
   align-items: center;
@@ -1382,6 +1435,19 @@ html.public-menu-page h6 {
 .pm-cart-summary strong {
   font-size: 20px;
   color: #c2410c;
+  font-variant-numeric: tabular-nums;
+}
+.pm-min-order-hint {
+  margin: -4px 0 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: start;
   font-variant-numeric: tabular-nums;
 }
 .pm-form label {

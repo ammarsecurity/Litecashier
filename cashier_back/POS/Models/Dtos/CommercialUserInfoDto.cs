@@ -13,6 +13,14 @@ namespace POS.Models.Dtos
         public string? CartWatermarkLogo { get; set; }
         public int CartWatermarkOpacity { get; set; } = 18;
         public string? DefaultProductImage { get; set; }
+
+        /// <summary>Minimum public-menu order total. 0 means no minimum.</summary>
+        public decimal PublicMenuMinOrderAmount { get; set; }
+    }
+
+    public class UpdatePublicMenuSettingsRequest
+    {
+        public decimal PublicMenuMinOrderAmount { get; set; }
     }
 
     public class UpdatePrintSettingsRequest

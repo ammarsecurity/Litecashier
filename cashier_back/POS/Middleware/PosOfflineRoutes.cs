@@ -8,6 +8,7 @@ internal static class PosOfflineRoutes
     private static readonly HashSet<string> AdminActions = new(StringComparer.OrdinalIgnoreCase)
     {
         "GetItems",
+        "GetItemsForPos",
         "GetItemsByCode",
         "GetTags",
         "AddOrder",

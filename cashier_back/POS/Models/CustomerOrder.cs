@@ -51,6 +51,9 @@ namespace POS.Models
         [ForeignKey(nameof(WarehouseId))]
         public Warehouse? Warehouse { get; set; }
 
+        /// <summary>Client-generated UUID so offline POS retries do not duplicate the sale.</summary>
+        public Guid? ClientOrderId { get; set; }
+
         /// <summary>Pos | PublicMenu. Existing POS invoices stay Pos.</summary>
         [MaxLength(20)]
         public string OrderSource { get; set; } = "Pos";

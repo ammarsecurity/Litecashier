@@ -7,6 +7,8 @@ import {
   ensurePrintOrderCodeInHtml,
 } from "@/utils/receiptPrint.js";
 import { buildA4InvoicePrintDocument } from "@/utils/a4InvoicePrint.js";
+import { cachePrinters, loadCachedPrinters } from "@/utils/posSync.js";
+import { resolveCommercialUserId } from "@/utils/publicMenu.js";
 
 export default {
   data() {
@@ -92,18 +94,24 @@ export default {
     async loadManagedPrinters() {
       this.loadingManagedPrinters = true;
       try {
+        const cached = await loadCachedPrinters();
+        if (cached.length) {
+          this.managedPrinters = cached;
+          this.syncSelectedManagedPrinter();
+        }
         const [printersResponse] = await Promise.all([
           HTTP.get("Printers"),
           this.loadAccountDefaultPrinter(),
         ]);
         if (printersResponse.data && !printersResponse.data.errorStatus) {
           this.managedPrinters = printersResponse.data.data || [];
-        } else {
+          cachePrinters(resolveCommercialUserId(), this.managedPrinters);
+        } else if (!cached.length) {
           this.managedPrinters = [];
         }
       } catch (error) {
         console.error("Error loading managed printers:", error);
-        this.managedPrinters = [];
+        if (!this.managedPrinters.length) this.managedPrinters = [];
       } finally {
         this.loadingManagedPrinters = false;
         this.printerManuallyOverridden = false;

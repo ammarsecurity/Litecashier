@@ -98,6 +98,7 @@ namespace POS.Controllers
                     StoreName = string.IsNullOrWhiteSpace(store.StoreName) ? store.Name : store.StoreName,
                     Logo = BuildAssetUrl(store.Logo),
                     DefaultProductImage = BuildAssetUrl(store.DefaultProductImage),
+                    MinOrderAmount = store.PublicMenuMinOrderAmount < 0 ? 0 : store.PublicMenuMinOrderAmount,
                     Items = menuItems,
                     Ads = ads.Select(MapAdDto).ToList()
                 },
@@ -392,6 +393,17 @@ namespace POS.Controllers
             }
 
             var subTotal = lines.Sum(l => ResolvePublicPrice(l.Item) * l.Qty);
+            var minOrder = store.PublicMenuMinOrderAmount < 0 ? 0 : store.PublicMenuMinOrderAmount;
+            if (minOrder > 0 && subTotal < minOrder)
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"publicMenuMinOrder|{minOrder.ToString(System.Globalization.CultureInfo.InvariantCulture)}|{subTotal.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+                });
+            }
+
             var order = new CustomerOrder
             {
                 OrderCode = GenerateOrderCode(),
@@ -806,6 +818,7 @@ namespace POS.Controllers
             {
                 storeName = string.IsNullOrWhiteSpace(store.StoreName) ? store.Name : store.StoreName,
                 logo = BuildAssetUrl(store.Logo),
+                defaultProductImage = BuildAssetUrl(store.DefaultProductImage),
                 order = mapped
             };
         }
@@ -963,6 +976,7 @@ namespace POS.Controllers
         public string StoreName { get; set; } = "";
         public string? Logo { get; set; }
         public string? DefaultProductImage { get; set; }
+        public decimal MinOrderAmount { get; set; }
         public List<PublicMenuItemDto> Items { get; set; } = new();
         public List<PublicMenuAdDto> Ads { get; set; } = new();
     }

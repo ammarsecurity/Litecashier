@@ -115,6 +115,7 @@ namespace POS.Controllers
                 CartWatermarkLogo = BuildPublicImageUrl(user.CartWatermarkLogo),
                 CartWatermarkOpacity = ClampWatermarkOpacity(user.CartWatermarkOpacity),
                 DefaultProductImage = BuildPublicImageUrl(user.DefaultProductImage),
+                PublicMenuMinOrderAmount = user.PublicMenuMinOrderAmount < 0 ? 0 : user.PublicMenuMinOrderAmount,
             };
         }
 
@@ -1626,6 +1627,107 @@ namespace POS.Controllers
             return response;
         }
 
+        [Authorize(Roles = "Commercial,POS")]
+        [HttpGet("GetItemsForPos")]
+        public async Task<ActionResult<GlobalResponse<PosCatalogDto>>> GetItemsForPos(int? warehouseId = null)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+            var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+            if (user == null)
+            {
+                return BadRequest(new GlobalResponse<PosCatalogDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "User not found"
+                });
+            }
+
+            var commercialUserId = GetCommercialUserId();
+            var defaultWh = await _warehouseStock.EnsureDefaultWarehouseAsync(commercialUserId);
+            var resolvedWarehouseId = warehouseId ?? defaultWh.Id;
+            var warehouse = await _warehouseStock.GetActiveWarehouseAsync(commercialUserId, resolvedWarehouseId);
+            if (warehouse == null)
+            {
+                return BadRequest(new GlobalResponse<PosCatalogDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "invalidWarehouse"
+                });
+            }
+
+            var items = await AccessibleItemsQuery(commercialUserId)
+                .AsNoTracking()
+                .Where(x => !x.IsNonInventory)
+                .OrderByDescending(x => x.Id)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.Name,
+                    x.Description,
+                    x.Image,
+                    x.Code,
+                    x.SellingPrice,
+                    x.DisCountPrice,
+                    x.WholesalePrice,
+                    x.Tags,
+                    x.IsNonInventory
+                })
+                .ToListAsync();
+
+            var itemIds = items.Select(x => x.Id).ToList();
+            var extraCodeRows = await _dbConfig.ItemCodes
+                .AsNoTracking()
+                .Where(c => !c.IsDeleted && itemIds.Contains(c.ItemId))
+                .Select(c => new { c.ItemId, c.Code })
+                .ToListAsync();
+
+            var codesByItem = extraCodeRows
+                .GroupBy(c => c.ItemId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(x => x.Code).Where(code => !string.IsNullOrWhiteSpace(code)).Distinct().ToList());
+
+            var stockMap = itemIds.Count == 0
+                ? new Dictionary<int, int>()
+                : await _warehouseStock.GetStocksForItemsAsync(itemIds, warehouse.Id);
+
+            var imageBaseUrl = _configuration["ApiSettings:ImageBaseUrl"] ?? "/Images/";
+
+            var catalogItems = items.Select(n =>
+            {
+                stockMap.TryGetValue(n.Id, out var qty);
+                codesByItem.TryGetValue(n.Id, out var extras);
+                return new PosCatalogItemDto
+                {
+                    Id = n.Id,
+                    Name = n.Name,
+                    Description = n.Description,
+                    Image = string.IsNullOrEmpty(n.Image) ? n.Image : imageBaseUrl + n.Image,
+                    Code = n.Code,
+                    ExtraCodes = extras ?? new List<string>(),
+                    SellingPrice = n.SellingPrice,
+                    DisCountPrice = n.DisCountPrice,
+                    WholesalePrice = n.WholesalePrice,
+                    Quantity = qty,
+                    Tags = n.Tags,
+                    IsNonInventory = n.IsNonInventory
+                };
+            }).ToList();
+
+            return Ok(new GlobalResponse<PosCatalogDto>
+            {
+                Data = new PosCatalogDto
+                {
+                    WarehouseId = warehouse.Id,
+                    Items = catalogItems
+                },
+                ErrorStatus = false,
+                Message = "Success"
+            });
+        }
+
         [Authorize(Roles = "Commercial,POS,Reader")]
         [HttpGet("GetItemsByCode")]
         public async Task<ActionResult<GlobalResponse<Object>>> GetItemsByCode(string code)
@@ -1887,6 +1989,21 @@ namespace POS.Controllers
                 }
                 
                 var commercialUserId = GetCommercialUserId();
+                var clientOrderId = NormalizeClientOrderId(request.ClientOrderId);
+                if (clientOrderId.HasValue)
+                {
+                    var existingByClientId = await FindOrderByClientOrderIdAsync(clientOrderId.Value, commercialUserId);
+                    if (existingByClientId != null)
+                    {
+                        return Ok(new GlobalResponse<CustomerOrder>
+                        {
+                            Data = existingByClientId,
+                            ErrorStatus = false,
+                            Message = "Order added successfully"
+                        });
+                    }
+                }
+
                 var items = AccessibleItemsQuery(commercialUserId).ToList();
 
                 var defaultWh = await _warehouseStock.EnsureDefaultWarehouseAsync(commercialUserId);
@@ -1997,6 +2114,8 @@ namespace POS.Controllers
                     PaymentStatus = paymentStatus,
                     IsWholesale = request.IsWholesale,
                     WarehouseId = warehouse.Id,
+                    ClientOrderId = clientOrderId,
+                    InsertDate = ResolveSoldAtUtc(request.SoldAt) ?? default,
                 };
                 _dbConfig.CustomerOrders.Add(newOrder);
                 await _dbConfig.SaveChangesAsync();
@@ -2078,6 +2197,29 @@ namespace POS.Controllers
                     Data = newOrder,
                     ErrorStatus = false,
                     Message = "Order added successfully"
+                });
+            }
+            catch (DbUpdateException ex) when (IsDuplicateClientOrder(ex) && NormalizeClientOrderId(request.ClientOrderId).HasValue)
+            {
+                var existing = await FindOrderByClientOrderIdAsync(
+                    NormalizeClientOrderId(request.ClientOrderId)!.Value,
+                    GetCommercialUserId());
+                if (existing != null)
+                {
+                    return Ok(new GlobalResponse<CustomerOrder>
+                    {
+                        Data = existing,
+                        ErrorStatus = false,
+                        Message = "Order added successfully"
+                    });
+                }
+
+                _logger.LogError(ex, "Duplicate ClientOrderId without matching order");
+                return StatusCode(500, new GlobalResponse<CustomerOrder>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "An error occurred while creating the order"
                 });
             }
             catch (Exception ex)
@@ -2582,6 +2724,53 @@ namespace POS.Controllers
             return item.DisCountPrice > 0 && item.DisCountPrice < item.SellingPrice
                 ? item.DisCountPrice
                 : item.SellingPrice;
+        }
+
+        private static Guid? NormalizeClientOrderId(Guid? clientOrderId)
+        {
+            if (!clientOrderId.HasValue || clientOrderId.Value == Guid.Empty)
+                return null;
+            return clientOrderId.Value;
+        }
+
+        private static DateTime? ResolveSoldAtUtc(DateTime? soldAt)
+        {
+            if (!soldAt.HasValue)
+                return null;
+
+            var utc = soldAt.Value.Kind == DateTimeKind.Local
+                ? soldAt.Value.ToUniversalTime()
+                : DateTime.SpecifyKind(soldAt.Value, DateTimeKind.Utc);
+
+            var now = DateTime.UtcNow;
+            if (utc > now.AddMinutes(2))
+                return now;
+            if (utc < now.AddDays(-30))
+                return now.AddDays(-30);
+            return utc;
+        }
+
+        private Task<CustomerOrder?> FindOrderByClientOrderIdAsync(Guid clientOrderId, int commercialUserId)
+        {
+            return _dbConfig.CustomerOrders
+                .AsNoTracking()
+                .FirstOrDefaultAsync(o =>
+                    o.ClientOrderId == clientOrderId
+                    && !o.IsDeleted
+                    && (
+                        o.InsertByUserId == commercialUserId
+                        || _dbConfig.Users.Any(u =>
+                            u.Id == o.InsertByUserId
+                            && !u.IsDeleted
+                            && (u.Id == commercialUserId || u.InsertByUserId == commercialUserId))
+                    ));
+        }
+
+        private static bool IsDuplicateClientOrder(DbUpdateException ex)
+        {
+            var message = ex.InnerException?.Message ?? ex.Message;
+            return message.Contains("IX_CustomerOrders_ClientOrderId", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("ClientOrderId", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -4210,6 +4399,57 @@ namespace POS.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating print settings");
+                return StatusCode(500, new GlobalResponse<CommercialUserInfoDto>
+                {
+                    ErrorStatus = true,
+                    Message = ex.Message
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial,Admin")]
+        [HttpPut("UpdatePublicMenuSettings")]
+        [HttpPost("UpdatePublicMenuSettings")]
+        public async Task<ActionResult<GlobalResponse<CommercialUserInfoDto>>> UpdatePublicMenuSettings(
+            [FromBody] UpdatePublicMenuSettingsRequest request)
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var commercialUser = await _dbConfig.Users
+                    .FirstOrDefaultAsync(u => u.Id == commercialUserId && !u.IsDeleted);
+                if (commercialUser == null)
+                {
+                    return NotFound(new GlobalResponse<CommercialUserInfoDto>
+                    {
+                        ErrorStatus = true,
+                        Message = "المستخدم غير موجود"
+                    });
+                }
+
+                var amount = request?.PublicMenuMinOrderAmount ?? 0;
+                if (amount < 0)
+                {
+                    return BadRequest(new GlobalResponse<CommercialUserInfoDto>
+                    {
+                        ErrorStatus = true,
+                        Message = "invalidMinOrderAmount"
+                    });
+                }
+
+                commercialUser.PublicMenuMinOrderAmount = amount;
+                await _dbConfig.SaveChangesAsync();
+
+                return Ok(new GlobalResponse<CommercialUserInfoDto>
+                {
+                    Data = ToCommercialUserInfoDto(commercialUser),
+                    ErrorStatus = false,
+                    Message = "ok"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating public menu settings");
                 return StatusCode(500, new GlobalResponse<CommercialUserInfoDto>
                 {
                     ErrorStatus = true,

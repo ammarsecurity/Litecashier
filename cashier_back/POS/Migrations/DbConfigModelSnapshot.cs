@@ -322,6 +322,9 @@ namespace POS.Migrations
                     b.Property<int?>("CreditCustomerId")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("ClientOrderId")
+                        .HasColumnType("char(36)");
+
                     b.Property<decimal?>("DiscountAmount")
                         .HasColumnType("decimal(65,30)");
 
@@ -399,6 +402,9 @@ namespace POS.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ClientOrderId")
+                        .IsUnique();
 
                     b.HasIndex("CreditCustomerId");
 
@@ -1352,6 +1358,9 @@ namespace POS.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("varchar(10)");
 
+                    b.Property<decimal>("PublicMenuMinOrderAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -1388,6 +1397,7 @@ namespace POS.Migrations
                             Password = "$2a$11$7SBTLUns2M8qHvo8kz3L7ujqU2dd/BlfMOggeU/.ipSVRWGC4AH.2",
                             PhoneNumber = "07830200030",
                             PrintInvoiceFormat = "Pos",
+                            PublicMenuMinOrderAmount = 0m,
                             Role = "Admin",
                             UpdateDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Username = "admin"

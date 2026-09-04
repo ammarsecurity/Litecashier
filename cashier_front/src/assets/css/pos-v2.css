@@ -1706,6 +1706,74 @@ html:has(.main-content-wrapper.pos-route--v2) #app > div {
   }
 }
 
+.app-top-header-pos-slot {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pos-sync-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--primary-bright, #3db4d0) 35%, var(--border-color));
+  background: color-mix(in srgb, var(--primary-color, #002536) 8%, var(--bg-primary, #fff));
+  color: var(--text-primary, #002536);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pos-sync-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+.pos-sync-chip--syncing .pos-sync-chip-dot {
+  background: var(--primary-bright, #3db4d0);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-bright, #3db4d0) 22%, transparent);
+}
+
+.pos-sync-chip--pending .pos-sync-chip-dot,
+.pos-sync-chip--failed .pos-sync-chip-dot {
+  background: #f59e0b;
+}
+
+.pos-sync-chip--offline .pos-sync-chip-dot {
+  background: #94a3b8;
+}
+
+.pos-sync-chip--failed {
+  border-color: color-mix(in srgb, #ef4444 40%, var(--border-color));
+  color: #b91c1c;
+}
+
+.pos-sync-chip-label {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+@media (max-width: 900px) {
+  .pos-sync-chip {
+    min-height: 36px;
+    padding: 8px 10px;
+  }
+
+  .pos-sync-chip-label {
+    max-width: 7.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 .main-content-wrapper.pos-route.pos-route--v2 .pos-workspace--v2 {
   flex: 1 1 0% !important;
   min-height: 0 !important;

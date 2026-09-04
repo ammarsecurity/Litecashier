@@ -52,6 +52,10 @@ namespace POS.Models
         /// <summary>Fallback image used when a catalog product has no photo.</summary>
         public string? DefaultProductImage { get; set; }
 
+        /// <summary>Minimum public-menu order total. 0 means no minimum.</summary>
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal PublicMenuMinOrderAmount { get; set; }
+
         [JsonIgnore]
         [ForeignKey(nameof(DefaultPrinterId))]
         public Printer? DefaultPrinter { get; set; }

@@ -12,6 +12,8 @@ import {
   BARCODE_SCANNER_TAIL_MS,
   BARCODE_MANUAL_DEBOUNCE_MS,
 } from "@/utils/barcodeScan.js";
+import { findPosItemByCode } from "@/utils/posCatalogQuery.js";
+import { resolveCommercialUserId } from "@/utils/publicMenu.js";
 
 /**
  * POS barcode field: instant on Enter, ~35ms tail for wedge scanners, no isSearching deadlocks.
@@ -95,6 +97,13 @@ export default {
       this.searchCode = code;
       this.SearchByCode(code);
     },
+    applyLocalBarcodeItem(item, query) {
+      const normalized = normalizeScannedItem(item, query);
+      if (!normalized) return false;
+      this.applyBarcodeItemToCart(normalized);
+      this.resetBarcodeField();
+      return true;
+    },
     SearchByCode(code) {
       const query = normalizeBarcodeCode(code ?? this.searchCode);
       if (!query) return;
@@ -110,29 +119,39 @@ export default {
       const generation = ++this.barcodeSearchGeneration;
       this.isSearching = true;
 
-      const url = buildGetItemsByCodeUrl(query, this.selectedWarehouseId);
-      if (!url) {
-        this.isSearching = false;
-        return;
-      }
-
-      HTTP.get(url, { signal: controller.signal })
-        .then((response) => {
-          if (generation !== this.barcodeSearchGeneration) return;
-
-          const item = normalizeScannedItem(
-            response?.data?.data || response?.data?.Data,
-            query
-          );
-
-          if (!item) {
+      const commercialUserId = resolveCommercialUserId();
+      findPosItemByCode(commercialUserId, this.selectedWarehouseId, query)
+        .catch(() => null)
+        .then((localItem) => {
+          if (generation !== this.barcodeSearchGeneration) return true;
+          if (localItem && this.applyLocalBarcodeItem(localItem, query)) {
+            return true;
+          }
+          return false;
+        })
+        .then((handled) => {
+          if (handled || generation !== this.barcodeSearchGeneration) return null;
+          if (typeof navigator !== "undefined" && !navigator.onLine) {
             this.notifyBarcodeNotFound();
             this.resetBarcodeField();
-            return;
+            return null;
           }
-
-          this.applyBarcodeItemToCart(item);
-          this.resetBarcodeField();
+          const url = buildGetItemsByCodeUrl(query, this.selectedWarehouseId);
+          if (!url) return null;
+          return HTTP.get(url, { signal: controller.signal, timeout: 4000 }).then((response) => {
+            if (generation !== this.barcodeSearchGeneration) return;
+            const item = normalizeScannedItem(
+              response?.data?.data || response?.data?.Data,
+              query
+            );
+            if (!item) {
+              this.notifyBarcodeNotFound();
+              this.resetBarcodeField();
+              return;
+            }
+            this.applyBarcodeItemToCart(item);
+            this.resetBarcodeField();
+          });
         })
         .catch((error) => {
           if (
@@ -174,19 +193,25 @@ export default {
       });
     },
     applyBarcodeItemToCart(item) {
-      if (!item.quantity || item.quantity <= 0) {
-        const toastPosition =
-          document.documentElement.dir === "rtl" ? "top-right" : "top-left";
-        this.$notify.error(
-          this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر في المخزون",
-          {
-            position: toastPosition,
-            timeout: 2000,
-            maxToasts: 1,
-            newestOnTop: true,
-          }
-        );
-        return;
+      if (!item.isNonInventory) {
+        const inCart = this.cartQuantityForItem
+          ? this.cartQuantityForItem(item.id)
+          : 0;
+        const available = Number(item.quantity);
+        if (!Number.isFinite(available) || inCart + 1 > available) {
+          const toastPosition =
+            document.documentElement.dir === "rtl" ? "top-right" : "top-left";
+          this.$notify.error(
+            this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر في المخزون",
+            {
+              position: toastPosition,
+              timeout: 2000,
+              maxToasts: 1,
+              newestOnTop: true,
+            }
+          );
+          return;
+        }
       }
 
       this.SearchItems = item;

@@ -150,7 +150,7 @@
 
 <script>
 import { publicHttp } from "@/http/publicHttp.js";
-import { BUILTIN_DEFAULT_PRODUCT_IMAGE } from "@/utils/productImage.js";
+import { BUILTIN_DEFAULT_PRODUCT_IMAGE, hasRealProductImage } from "@/utils/productImage.js";
 import {
   formatMenuPrice,
   normalizeIraqiPhone,
@@ -169,6 +169,7 @@ export default {
       storeName: "",
       logo: "",
       logoError: false,
+      defaultProductImage: "",
       formCode: "",
       formPhone: "",
       order: null,
@@ -208,6 +209,7 @@ export default {
     document.documentElement.classList.add("public-menu-page");
     document.body.classList.add("public-menu-page");
     this.prefillFromRoute();
+    this.loadStore();
     if (this.formCode && isValidIraqiPhone(this.formPhone)) {
       this.lookup();
     }
@@ -219,6 +221,20 @@ export default {
   },
   methods: {
     formatMenuPrice,
+    async loadStore() {
+      if (!this.commercialUserId) return;
+      try {
+        const res = await publicHttp.get(`PublicMenu/${this.commercialUserId}`);
+        const menu = (res.data && res.data.data) || {};
+        if (res.data && res.data.errorStatus) return;
+        this.storeName = menu.storeName || menu.StoreName || this.storeName;
+        if (!this.logo) this.logo = menu.logo || menu.Logo || "";
+        this.defaultProductImage =
+          menu.defaultProductImage || menu.DefaultProductImage || this.defaultProductImage;
+      } catch (_) {
+        /* keep lookup working even if menu branding fails */
+      }
+    },
     prefillFromRoute() {
       const saved = loadLastPublicOrder(this.commercialUserId) || {};
       this.formCode = String(this.$route.params.orderCode || saved.orderCode || "");
@@ -231,8 +247,8 @@ export default {
       this.error = "";
     },
     itemImage(item) {
-      if (item.image && !item.imageError) return item.image;
-      return BUILTIN_DEFAULT_PRODUCT_IMAGE;
+      if (!item.imageError && hasRealProductImage(item.image)) return item.image;
+      return this.defaultProductImage || BUILTIN_DEFAULT_PRODUCT_IMAGE;
     },
     onItemImageError(item) {
       this.$set(item, "imageError", true);
@@ -281,6 +297,8 @@ export default {
         this.storeName = data.storeName || data.StoreName || this.storeName;
         this.logo = data.logo || data.Logo || "";
         this.logoError = false;
+        this.defaultProductImage =
+          data.defaultProductImage || data.DefaultProductImage || this.defaultProductImage;
         this.order = this.mapOrder(data.order || data.Order);
         saveLastPublicOrder({
           commercialUserId: this.commercialUserId,

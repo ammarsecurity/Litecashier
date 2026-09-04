@@ -25,5 +25,11 @@
 
         /// <summary>Warehouse to deduct stock from for this order.</summary>
         public int? WarehouseId { get; set; }
+
+        /// <summary>Client UUID used to make AddOrder idempotent for offline sync.</summary>
+        public Guid? ClientOrderId { get; set; }
+
+        /// <summary>Original sale time on the cashier device. Mapped to InsertDate when valid.</summary>
+        public DateTime? SoldAt { get; set; }
     }
 }
