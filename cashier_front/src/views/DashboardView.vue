@@ -102,6 +102,10 @@
                     <b-icon icon="list-ul" class="button-icon"></b-icon>
                     <span class="button-text">{{ $t("publicOrders") || "طلبات المنيو" }}</span>
                   </router-link>
+                  <router-link to="/settings#menu-ads" class="btn-refresh">
+                    <b-icon icon="image-fill" class="button-icon"></b-icon>
+                    <span class="button-text">{{ $t("menuAdsManage") || "إعلانات المنيو" }}</span>
+                  </router-link>
                 </div>
               </div>
             </div>
@@ -736,10 +740,29 @@ export default {
   padding-top: 0.5rem;
 }
 
+.dashboard-section .section-title {
+  color: var(--text-primary);
+  -webkit-text-fill-color: currentColor;
+  background: none;
+  animation: none;
+}
+
+.dashboard-section .section-title-icon {
+  color: var(--primary-color);
+  -webkit-text-fill-color: var(--primary-color);
+}
+
 .dashboard-menu-body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.dashboard-menu-body .app-header-actions a,
+.dashboard-menu-body .app-header-actions a:hover,
+.dashboard-menu-body .app-header-actions a:focus,
+.dashboard-menu-body .app-header-actions a:visited {
+  text-decoration: none;
 }
 
 .dashboard-menu-url {

@@ -184,6 +184,71 @@
             </div>
           </div>
 
+          <div class="app-section-card settings-logo-zone">
+            <div class="app-section-header">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap settings-logo-zone__icon">
+                  <b-icon icon="image-fill"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("logo") || "الشعار" }}</h3>
+                  <p class="app-section-subtitle">{{ $t("logoSubtitle") || "شعار المتجر يظهر في الفواتير" }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="app-section-body">
+              <div class="logo-upload-section">
+                <div v-if="logoPreview || currentLogo" class="logo-preview">
+                  <img
+                    :src="logoPreview || currentLogo"
+                    alt=""
+                    class="logo-preview-img"
+                  />
+                  <button
+                    type="button"
+                    class="logo-remove-btn"
+                    :disabled="savingLogo"
+                    :aria-label="$t('removeLogo') || 'إزالة الشعار'"
+                    :title="$t('removeLogo') || 'إزالة الشعار'"
+                    @click.stop.prevent="removeLogo"
+                  >
+                    <b-icon icon="x-circle-fill"></b-icon>
+                  </button>
+                </div>
+                <button
+                  v-else
+                  type="button"
+                  class="logo-upload-btn"
+                  :disabled="savingLogo"
+                  @click="$refs.logoInput.click()"
+                >
+                  <b-icon icon="cloud-upload-fill" class="me-2"></b-icon>
+                  {{ $t("uploadLogo") || "رفع شعار" }}
+                </button>
+                <input
+                  ref="logoInput"
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif"
+                  hidden
+                  @change="handleLogoChange"
+                />
+                <button
+                  v-if="logoFile"
+                  type="button"
+                  class="users-add-button mt-3"
+                  :disabled="savingLogo"
+                  @click="saveLogo"
+                >
+                  <b-spinner small v-if="savingLogo" class="button-icon"></b-spinner>
+                  <b-icon v-else icon="check2-circle" class="button-icon"></b-icon>
+                  <span class="button-text">
+                    {{ savingLogo ? ($t("saving") || "جاري الحفظ...") : ($t("saveLogo") || "حفظ الشعار") }}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div class="app-section-card settings-branding-zone">
             <div class="app-section-header">
               <div class="app-section-title-wrap">
@@ -316,6 +381,78 @@
                     }}
                   </span>
                 </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="menu-ads" class="app-section-card settings-ads-zone">
+            <div class="app-section-header">
+              <div class="app-section-title-wrap">
+                <div class="app-section-icon-wrap settings-ads-zone__icon">
+                  <b-icon icon="image-fill"></b-icon>
+                </div>
+                <div>
+                  <h3 class="app-section-title">{{ $t("menuAdsTitle") }}</h3>
+                  <p class="app-section-subtitle">{{ $t("menuAdsSubtitle") }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="app-section-body">
+              <p class="settings-ads-zone__intro">{{ $t("menuAdsHint") }}</p>
+              <div v-if="menuAdsLoading" class="settings-ads-empty">
+                <b-spinner small></b-spinner>
+              </div>
+              <div v-else-if="!menuAds.length" class="settings-ads-empty">
+                {{ $t("menuAdsEmpty") }}
+              </div>
+              <div v-else class="settings-ads-grid">
+                <article v-for="ad in menuAds" :key="ad.id" class="settings-ad-card">
+                  <img :src="ad.image" alt="" />
+                  <p v-if="ad.title" class="settings-ad-card__title">{{ ad.title }}</p>
+                  <button
+                    type="button"
+                    class="settings-branding-clear"
+                    :disabled="menuAdsUploading || menuAdsDeletingId === ad.id"
+                    @click="deleteMenuAd(ad)"
+                  >
+                    <b-spinner small v-if="menuAdsDeletingId === ad.id"></b-spinner>
+                    <b-icon v-else icon="trash"></b-icon>
+                    {{ $t("menuAdsRemove") }}
+                  </button>
+                </article>
+              </div>
+              <div class="settings-ads-upload">
+                <label class="settings-ads-title-field">
+                  <span>{{ $t("menuAdsTitleOptional") }}</span>
+                  <input
+                    v-model.trim="menuAdTitle"
+                    type="text"
+                    maxlength="120"
+                    :placeholder="$t('menuAdsTitlePlaceholder')"
+                    :disabled="menuAdsUploading || menuAds.length >= 8"
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="logo-upload-btn"
+                  :disabled="menuAdsUploading || menuAds.length >= 8 || !commercialUserId"
+                  @click="$refs.menuAdInput.click()"
+                >
+                  <b-spinner small v-if="menuAdsUploading" class="me-2"></b-spinner>
+                  <b-icon v-else icon="cloud-upload-fill" class="me-2"></b-icon>
+                  {{
+                    menuAds.length >= 8
+                      ? $t("menuAdsLimitReached")
+                      : $t("menuAdsUpload")
+                  }}
+                </button>
+                <input
+                  ref="menuAdInput"
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  hidden
+                  @change="onMenuAdFileChange"
+                />
               </div>
             </div>
           </div>
@@ -475,8 +612,10 @@
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "@/http/api.js";
 import { openLicenseGate } from "@/utils/licenseGateBus.js";
+import { resolveAbsoluteAssetUrl } from "@/utils/apiBase.js";
 import { applyCommercialBranding, clampWatermarkOpacity } from "@/utils/posBranding.js";
 import { BUILTIN_DEFAULT_PRODUCT_IMAGE } from "@/utils/productImage.js";
+import { resolveCommercialUserId } from "@/utils/publicMenu.js";
 
 export default {
   name: "SettingsView",
@@ -491,6 +630,10 @@ export default {
       savedPrintInvoiceFormat: "Pos",
       printSettingsLoading: false,
       printSettingsSaving: false,
+      savingLogo: false,
+      currentLogo: null,
+      logoFile: null,
+      logoPreview: null,
       brandingLoading: false,
       brandingSaving: false,
       cartWatermarkOpacity: 18,
@@ -507,9 +650,17 @@ export default {
       licenseStatusLoading: false,
       licenseOnline: false,
       licenseConnectivityLoading: false,
+      menuAds: [],
+      menuAdsLoading: false,
+      menuAdsUploading: false,
+      menuAdsDeletingId: null,
+      menuAdTitle: "",
     };
   },
   computed: {
+    commercialUserId() {
+      return resolveCommercialUserId();
+    },
     printFormatDirty() {
       return this.printInvoiceFormat !== this.savedPrintInvoiceFormat;
     },
@@ -539,6 +690,12 @@ export default {
     this.loadPosBranding();
     this.loadLicenseStatus();
     this.checkLicenseConnectivity();
+    this.loadMenuAds();
+    this.$nextTick(() => {
+      if (this.$route.hash === "#menu-ads") {
+        document.getElementById("menu-ads")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
     window.addEventListener("online", this.onBrowserOnline);
     window.addEventListener("offline", this.onBrowserOffline);
   },
@@ -609,6 +766,7 @@ export default {
           this.printInvoiceFormat = format;
           this.savedPrintInvoiceFormat = format;
           localStorage.setItem("printInvoiceFormat", format);
+          this.currentLogo = resolveAbsoluteAssetUrl(d.logo || d.Logo) || null;
         }
       } catch (error) {
         console.error("Error loading print settings:", error);
@@ -651,6 +809,86 @@ export default {
         );
       } finally {
         this.printSettingsSaving = false;
+      }
+    },
+    handleLogoChange(event) {
+      const file = event?.target?.files?.[0];
+      if (this.$refs.logoInput) this.$refs.logoInput.value = "";
+      if (!file) return;
+      this.logoFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.logoPreview = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    },
+    async removeLogo() {
+      if (this.savingLogo) return;
+      const hadSavedLogo = !!this.currentLogo;
+      const previousLogo = this.currentLogo;
+      this.logoFile = null;
+      this.logoPreview = null;
+      this.currentLogo = null;
+      if (this.$refs.logoInput) this.$refs.logoInput.value = "";
+      if (!hadSavedLogo) return;
+
+      this.savingLogo = true;
+      try {
+        const formData = new FormData();
+        formData.append("ClearLogo", "true");
+        const res = await HTTP.post("Admin/UpdateMyProfile", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        if (res?.data?.errorStatus) {
+          throw new Error(res.data.message || "saveFailed");
+        }
+        this.$notify.success(this.$t("logoRemoveSuccess") || "تم إزالة الشعار", {
+          position: "top-right",
+          timeout: 2500,
+          maxToasts: 1,
+        });
+      } catch (err) {
+        this.currentLogo = previousLogo;
+        const msg = err?.response?.data?.message || err?.message;
+        this.$notify.error(
+          msg || this.$t("logoRemoveFailed") || "تعذر إزالة الشعار",
+          { position: "top-right", timeout: 4000, maxToasts: 1 }
+        );
+      } finally {
+        this.savingLogo = false;
+      }
+    },
+    async saveLogo() {
+      if (!this.logoFile || this.savingLogo) return;
+      this.savingLogo = true;
+      try {
+        const formData = new FormData();
+        formData.append("logo", this.logoFile);
+        const res = await HTTP.post("Admin/UpdateMyProfile", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        if (res?.data?.errorStatus) {
+          throw new Error(res.data.message || "saveFailed");
+        }
+        const d = res?.data?.data;
+        if (d?.logo || d?.Logo) {
+          this.currentLogo = resolveAbsoluteAssetUrl(d.logo || d.Logo);
+        }
+        this.logoFile = null;
+        this.logoPreview = null;
+        this.$notify.success(this.$t("logoSaveSuccess") || "تم حفظ الشعار بنجاح", {
+          position: "top-right",
+          timeout: 3000,
+          maxToasts: 1,
+        });
+      } catch (err) {
+        const msg = err?.response?.data?.message || err?.message;
+        this.$notify.error(
+          msg || this.$t("saveFailed") || "حدث خطأ أثناء رفع الشعار",
+          { position: "top-right", timeout: 4000, maxToasts: 1 }
+        );
+      } finally {
+        this.savingLogo = false;
       }
     },
     applyBrandingPayload(d) {
@@ -741,6 +979,85 @@ export default {
         );
       } finally {
         this.brandingSaving = false;
+      }
+    },
+    mapMenuAd(ad) {
+      return {
+        id: ad.id ?? ad.Id,
+        image: ad.image ?? ad.Image,
+        title: (ad.title ?? ad.Title) || "",
+      };
+    },
+    async loadMenuAds() {
+      if (!this.commercialUserId) return;
+      this.menuAdsLoading = true;
+      try {
+        const response = await HTTP.get(`PublicMenu/${this.commercialUserId}/ads`);
+        if (response?.data?.errorStatus) throw new Error(response.data.message);
+        this.menuAds = (response?.data?.data || []).map(this.mapMenuAd);
+      } catch {
+        this.menuAds = [];
+      } finally {
+        this.menuAdsLoading = false;
+      }
+    },
+    async onMenuAdFileChange(event) {
+      const file = event?.target?.files?.[0];
+      if (this.$refs.menuAdInput) this.$refs.menuAdInput.value = "";
+      if (!file || !this.commercialUserId || this.menuAdsUploading) return;
+      this.menuAdsUploading = true;
+      try {
+        const formData = new FormData();
+        formData.append("image", file);
+        if (this.menuAdTitle) formData.append("title", this.menuAdTitle);
+        const response = await HTTP.post(`PublicMenu/${this.commercialUserId}/ads`, formData);
+        if (response?.data?.errorStatus) throw new Error(response.data.message);
+        const created = response?.data?.data;
+        if (created) this.menuAds.push(this.mapMenuAd(created));
+        this.menuAdTitle = "";
+        this.$notify.success(this.$t("menuAdsUploadSuccess"), {
+          position: "top-right",
+          timeout: 3000,
+          maxToasts: 1,
+        });
+      } catch (error) {
+        const msg = error?.response?.data?.message || error?.message;
+        this.$notify.error(
+          msg && this.$te(msg) ? this.$t(msg) : this.$t("menuAdsUploadFailed"),
+          { position: "top-right", timeout: 4000, maxToasts: 1 }
+        );
+      } finally {
+        this.menuAdsUploading = false;
+      }
+    },
+    async deleteMenuAd(ad) {
+      if (!ad?.id || !this.commercialUserId) return;
+      const ok = await this.$confirm({
+        title: this.$t("menuAdsRemove"),
+        message: this.$t("menuAdsRemoveConfirm"),
+        variant: "danger",
+        icon: "trash",
+        confirmText: this.$t("menuAdsRemove"),
+      });
+      if (!ok) return;
+      this.menuAdsDeletingId = ad.id;
+      try {
+        const response = await HTTP.delete(`PublicMenu/${this.commercialUserId}/ads/${ad.id}`);
+        if (response?.data?.errorStatus) throw new Error(response.data.message);
+        this.menuAds = this.menuAds.filter((row) => row.id !== ad.id);
+        this.$notify.success(this.$t("menuAdsRemoveSuccess"), {
+          position: "top-right",
+          timeout: 3000,
+          maxToasts: 1,
+        });
+      } catch {
+        this.$notify.error(this.$t("menuAdsRemoveFailed"), {
+          position: "top-right",
+          timeout: 4000,
+          maxToasts: 1,
+        });
+      } finally {
+        this.menuAdsDeletingId = null;
       }
     },
     async downloadDatabaseBackup() {
@@ -983,6 +1300,22 @@ export default {
   line-height: 1.45;
 }
 
+.settings-logo-zone {
+  margin-bottom: 1.25rem;
+}
+
+.settings-logo-zone__icon {
+  background: rgba(99, 102, 241, 0.15);
+  color: #6366f1;
+}
+
+.settings-logo-zone .logo-upload-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
 .settings-branding-zone {
   margin-bottom: 1.25rem;
 }
@@ -1116,6 +1449,84 @@ export default {
   .settings-branding-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.settings-ads-zone {
+  margin-bottom: 1.25rem;
+}
+
+.settings-ads-zone__icon {
+  background: rgba(255, 159, 28, 0.18);
+  color: #ea580c;
+}
+
+.settings-ads-zone__intro {
+  margin: 0 0 1rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.6;
+}
+
+.settings-ads-empty {
+  margin: 0 0 1rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.settings-ads-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.15rem;
+}
+
+.settings-ad-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.7rem;
+  border-radius: 1rem;
+  background: rgba(15, 23, 42, 0.28);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.settings-ad-card img {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.settings-ad-card__title {
+  margin: 0;
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.settings-ads-upload {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.settings-ads-title-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 180px;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.85rem;
+}
+
+.settings-ads-title-field input {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.35));
+  background: rgba(15, 23, 42, 0.35);
+  color: var(--text-primary, #e2e8f0);
+  padding: 0 12px;
 }
 
 .settings-backup-zone {

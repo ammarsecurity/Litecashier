@@ -67,6 +67,7 @@ namespace POS.Db
         public DbSet<CardPaymentTransaction> CardPaymentTransactions { get; set; }
         public DbSet<Warehouse> Warehouses { get; set; }
         public DbSet<ItemWarehouseStock> ItemWarehouseStocks { get; set; }
+        public DbSet<PublicMenuAd> PublicMenuAds { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -129,6 +130,14 @@ namespace POS.Db
                 .OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<Warehouse>()
                 .HasIndex(w => new { w.InsertByUserId, w.Name });
+
+            modelBuilder.Entity<PublicMenuAd>()
+                .HasOne(a => a.CommercialUser)
+                .WithMany()
+                .HasForeignKey(a => a.CommercialUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<PublicMenuAd>()
+                .HasIndex(a => new { a.CommercialUserId, a.SortOrder });
 
             modelBuilder.Entity<ItemWarehouseStock>()
                 .HasOne(s => s.Item)

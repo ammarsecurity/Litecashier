@@ -23,16 +23,18 @@
             :style="{ backgroundImage: `url(${item.imageUrl})` }"
             aria-hidden="true"
           />
-          <div class="ann-slide-shade" aria-hidden="true" />
-          <div class="ann-slide-content">
-            <span class="ann-slide-badge">{{ $t("announcementBadge") || "إعلان" }}</span>
-            <h3 class="ann-slide-title">{{ item.title }}</h3>
-            <p v-if="item.body" class="ann-slide-text">{{ item.body }}</p>
-            <span v-if="item.linkUrl" class="ann-slide-cta">
-              {{ $t("announcementLearnMore") || "اعرف المزيد" }}
-              <b-icon icon="arrow-left" class="ann-slide-cta-ico"></b-icon>
-            </span>
-          </div>
+          <template v-if="!item.imageUrl">
+            <div class="ann-slide-shade" aria-hidden="true" />
+            <div class="ann-slide-content">
+              <span class="ann-slide-badge">{{ $t("announcementBadge") || "إعلان" }}</span>
+              <h3 class="ann-slide-title">{{ item.title }}</h3>
+              <p v-if="item.body" class="ann-slide-text">{{ item.body }}</p>
+              <span v-if="item.linkUrl" class="ann-slide-cta">
+                {{ $t("announcementLearnMore") || "اعرف المزيد" }}
+                <b-icon icon="arrow-left" class="ann-slide-cta-ico"></b-icon>
+              </span>
+            </div>
+          </template>
         </article>
       </div>
 
@@ -159,9 +161,6 @@ export default {
   overflow: hidden;
   border-radius: 18px;
   background: #002536;
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 12px 32px rgba(0, 37, 54, 0.12);
   min-height: 200px;
 }
 
@@ -199,14 +198,10 @@ export default {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background-size: cover;
+  background-size: contain;
+  background-repeat: no-repeat;
   background-position: center;
-  transform: scale(1.02);
-  transition: transform 6s ease;
-}
-
-.ann-slide--clickable:hover .ann-slide-media {
-  transform: scale(1.06);
+  background-color: #002536;
 }
 
 .ann-slide-shade {
@@ -363,15 +358,6 @@ export default {
   .ann-slide-content {
     width: 100%;
     padding: 1.15rem 1.1rem 1.25rem;
-  }
-
-  .ann-slide-shade {
-    background: linear-gradient(
-      180deg,
-      rgba(0, 20, 30, 0.25) 0%,
-      rgba(0, 37, 54, 0.55) 45%,
-      rgba(0, 20, 30, 0.9) 100%
-    );
   }
 
   .ann-nav {

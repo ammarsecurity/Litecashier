@@ -4376,6 +4376,9 @@ namespace POS.Controllers
                 if (!string.IsNullOrWhiteSpace(request.StoreName))
                     user.StoreName = request.StoreName.Trim();
 
+                if (request.ClearLogo && (request.Logo == null || request.Logo.Length == 0))
+                    user.Logo = null;
+
                 if (request.Logo != null && request.Logo.Length > 0)
                 {
                     try

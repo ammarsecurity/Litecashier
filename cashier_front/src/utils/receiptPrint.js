@@ -108,6 +108,15 @@ export const RECEIPT_PRINT_STYLES_HTML = `
         line-height: 1.35;
       }
 
+      .bill-notes {
+        margin-top: 6px;
+        font-size: 10px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
       .bill-barcode-section {
         text-align: center;
         margin: 8px 0;

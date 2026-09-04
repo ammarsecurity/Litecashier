@@ -46,6 +46,7 @@ export function buildPublicOrderReceiptHtml(order, commercialUserInfo = {}, t = 
   const code = order.orderCode || order.OrderCode || "";
   const customerName = order.customerName || order.CustomerName || "";
   const customerPhone = order.customerPhone || order.CustomerPhone || "";
+  const notes = String(order.notes || order.Notes || "").trim();
   const when = order.insertDate || order.InsertDate || "";
   const dateText = when
     ? new Date(when).toLocaleString("en-GB", {
@@ -81,6 +82,13 @@ export function buildPublicOrderReceiptHtml(order, commercialUserInfo = {}, t = 
         <div>${escapeHtml(dateText)}</div>
         ${customerName ? `<div>${escapeHtml(t("customerName") || "الزبون")}: ${escapeHtml(customerName)}</div>` : ""}
         ${customerPhone ? `<div>${escapeHtml(t("phone") || "الهاتف")}: ${escapeHtml(customerPhone)}</div>` : ""}
+        ${
+          notes
+            ? `<div class="bill-notes"><strong>${escapeHtml(
+                t("publicMenuNotes") || "الملاحظات والعنوان"
+              )}:</strong><div>${escapeHtml(notes)}</div></div>`
+            : ""
+        }
       </section>
       <table class="bill-items-table">
         <thead>

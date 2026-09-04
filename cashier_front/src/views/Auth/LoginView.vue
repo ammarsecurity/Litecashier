@@ -1,26 +1,49 @@
 <template>
-  <b-overlay :show="show" spinner-variant="primary" spinner-type="grow" spinner-large rounded="sm">
-    <div class="login-page-wrapper login-page-wrapper--v2">
-      <div class="login-background-decoration"></div>
+  <b-overlay :show="show" spinner-variant="primary" spinner-type="border" rounded="sm">
+    <div class="login-shell">
+      <aside class="login-brand">
+        <img src="../../assets/logo.png" alt="" class="login-brand-logo" />
+        <p class="login-brand-kicker">{{ $t("app-name") || "نظام الكاشير" }}</p>
+        <h1 class="login-brand-title">{{ $t("welcomeMessage") }}</h1>
+        <p class="login-brand-text">{{ $t("loginSubtitle") }}</p>
+        <ul class="login-brand-list">
+          <li>
+            <span class="login-brand-icon"><b-icon icon="cart-check-fill"></b-icon></span>
+            <span>{{ $t("loginFeaturePos") }}</span>
+          </li>
+          <li>
+            <span class="login-brand-icon"><b-icon icon="graph-up"></b-icon></span>
+            <span>{{ $t("loginFeatureReports") }}</span>
+          </li>
+          <li>
+            <span class="login-brand-icon"><b-icon icon="box-seam"></b-icon></span>
+            <span>{{ $t("loginFeatureInventory") }}</span>
+          </li>
+        </ul>
+      </aside>
 
-      <div class="login-top-bar">
-        <select
-          v-model="$i18n.locale"
-          @change="onLanguageChange"
-          class="login-lang-select"
-          :aria-label="$t('language') || 'اللغة'"
-        >
-          <option value="ar">عربي</option>
-          <option value="en">English</option>
-        </select>
-      </div>
+      <main class="login-main">
+        <div class="login-toolbar">
+          <label class="login-lang">
+            <b-icon icon="translate"></b-icon>
+            <select
+              v-model="$i18n.locale"
+              :aria-label="$t('language') || 'اللغة'"
+              @change="onLanguageChange"
+            >
+              <option value="ar">عربي</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+        </div>
 
-      <div class="login-center-stage">
-        <div class="login-card">
-          <div class="login-card-brand">
-            <img src="../../assets/logo.png" alt="LiteCashier" class="login-card-logo" />
-            <h1 class="login-card-title">{{ $t("loginTitle") }}</h1>
-            <p class="login-card-subtitle">{{ $t("loginWelcomeSubtitle") }}</p>
+        <div class="login-panel">
+          <div class="login-panel-head">
+            <img src="../../assets/logo.png" alt="LiteCashier" class="login-panel-logo" />
+            <div>
+              <h2 class="login-panel-title">{{ $t("loginTitle") }}</h2>
+              <p class="login-panel-subtitle">{{ $t("loginWelcomeSubtitle") }}</p>
+            </div>
           </div>
 
           <div
@@ -48,7 +71,7 @@
             </button>
           </div>
 
-          <form v-if="loginMode === 'phone'" @submit.prevent="login" class="login-form-element">
+          <form v-if="loginMode === 'phone'" class="login-form-element" @submit.prevent="login">
             <div class="form-field-group">
               <label class="form-field-label" for="inputNumber">
                 <b-icon icon="telephone-fill" class="form-field-icon"></b-icon>
@@ -58,6 +81,7 @@
                 id="inputNumber"
                 v-model="form.phoneNumber"
                 type="tel"
+                dir="ltr"
                 :placeholder="$t('phoneNumberPlaceholder')"
                 required
                 autofocus
@@ -89,7 +113,7 @@
             </button>
           </form>
 
-          <form v-else @submit.prevent="loginByCode" class="login-form-element">
+          <form v-else class="login-form-element" @submit.prevent="loginByCode">
             <div class="form-field-group">
               <label class="form-field-label" for="inputLoginCode">
                 <b-icon icon="key-fill" class="form-field-icon"></b-icon>
@@ -104,6 +128,7 @@
                 maxlength="12"
                 minlength="4"
                 pattern="[0-9]*"
+                dir="ltr"
                 :placeholder="$t('accountLoginCodePlaceholder') || 'مثال: 45443'"
                 required
                 autofocus
@@ -120,22 +145,7 @@
             </button>
           </form>
         </div>
-
-        <div class="login-feature-chips" aria-hidden="true">
-          <div class="login-feature-chip">
-            <b-icon icon="cart-check-fill"></b-icon>
-            <span>{{ $t("loginFeaturePos") }}</span>
-          </div>
-          <div class="login-feature-chip">
-            <b-icon icon="graph-up"></b-icon>
-            <span>{{ $t("loginFeatureReports") }}</span>
-          </div>
-          <div class="login-feature-chip">
-            <b-icon icon="box-seam"></b-icon>
-            <span>{{ $t("loginFeatureInventory") }}</span>
-          </div>
-        </div>
-      </div>
+      </main>
     </div>
   </b-overlay>
 </template>
@@ -158,6 +168,14 @@ export default {
         loginCode: "",
       },
     };
+  },
+  mounted() {
+    document.documentElement.classList.add("login-page");
+    document.body.classList.add("login-page");
+  },
+  beforeDestroy() {
+    document.documentElement.classList.remove("login-page");
+    document.body.classList.remove("login-page");
   },
   methods: {
     onLanguageChange(event) {
@@ -240,3 +258,274 @@ export default {
   },
 };
 </script>
+
+<style>
+html.login-page,
+html.login-page.dark-theme,
+html.login-page.light-theme,
+body.login-page {
+  background: var(--bg-secondary) !important;
+  min-height: 100%;
+  height: 100%;
+}
+body.login-page #app {
+  background: var(--bg-secondary);
+  min-height: 100%;
+  min-height: 100dvh;
+}
+</style>
+
+<style scoped>
+.login-shell {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(280px, 1.05fr) minmax(320px, 0.95fr);
+  font-family: Cairo, "IBM Plex Sans Arabic", system-ui, sans-serif;
+}
+
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px 40px;
+  background: var(--primary-gradient);
+  color: #fff;
+}
+
+.login-brand-logo {
+  width: 72px;
+  height: auto;
+  margin-bottom: 24px;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2));
+}
+
+.login-brand-kicker {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.login-brand-title {
+  margin: 0 0 12px;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.35;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  background: none !important;
+}
+
+.login-brand-text {
+  margin: 0 0 32px;
+  max-width: 420px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.login-brand-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-brand-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.login-brand-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(61, 180, 208, 0.22);
+  color: #7ad4e8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.login-main {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  padding: 24px 32px 40px;
+}
+
+.login-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 24px;
+}
+
+.login-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-xs);
+}
+
+.login-lang select {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  min-height: 44px;
+}
+
+.login-lang select:focus {
+  outline: 2px solid color-mix(in srgb, var(--primary-color) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.login-panel {
+  width: 100%;
+  max-width: 440px;
+  margin: auto;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  padding: 32px 24px;
+}
+
+.login-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.login-panel-logo {
+  width: 56px;
+  height: auto;
+  flex: 0 0 auto;
+}
+
+.login-panel-title {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  background: none !important;
+}
+
+.login-panel-subtitle {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.login-form-element {
+  margin-top: 0;
+}
+
+.login-panel .form-field-group {
+  margin-bottom: 16px;
+}
+
+.login-panel .form-input-field {
+  min-height: 48px;
+  background: var(--bg-secondary);
+}
+
+.login-panel .form-input-field:focus {
+  transform: none;
+}
+
+.login-panel .login-submit-button {
+  margin-top: 8px;
+  min-height: 48px;
+}
+
+.login-panel .login-submit-button:hover {
+  transform: none;
+}
+
+.login-panel .login-mode-btn:focus,
+.login-panel .login-submit-button:focus,
+.login-panel .form-input-field:focus {
+  outline: 2px solid color-mix(in srgb, var(--primary-color) 45%, transparent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .login-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .login-brand {
+    padding: 32px 20px 24px;
+    padding-top: max(32px, env(safe-area-inset-top));
+  }
+
+  .login-brand-title {
+    font-size: 22px;
+  }
+
+  .login-brand-text {
+    margin-bottom: 16px;
+  }
+
+  .login-brand-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .login-brand-list li {
+    flex: 1 1 140px;
+    font-size: 13px;
+  }
+
+  .login-main {
+    padding: 16px 16px max(24px, env(safe-area-inset-bottom));
+  }
+
+  .login-toolbar {
+    margin-bottom: 16px;
+  }
+
+  .login-panel {
+    margin: 0 auto;
+    padding: 24px 16px;
+  }
+
+  .login-panel-head {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+@media (max-width: 600px) {
+  .login-brand-list {
+    display: none;
+  }
+
+  .login-brand-logo {
+    width: 56px;
+    margin-bottom: 16px;
+  }
+}
+</style>

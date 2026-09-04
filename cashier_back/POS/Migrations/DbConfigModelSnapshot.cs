@@ -1394,6 +1394,47 @@ namespace POS.Migrations
                         });
                 });
 
+            modelBuilder.Entity("POS.Models.PublicMenuAd", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CommercialUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Image")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("InsertDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CommercialUserId", "SortOrder");
+
+                    b.ToTable("PublicMenuAds");
+                });
+
             modelBuilder.Entity("POS.Models.Warehouse", b =>
                 {
                     b.Property<int>("Id")
@@ -1739,6 +1780,17 @@ namespace POS.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("POS.Models.PublicMenuAd", b =>
+                {
+                    b.HasOne("POS.Models.User", "CommercialUser")
+                        .WithMany()
+                        .HasForeignKey("CommercialUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CommercialUser");
                 });
 
             modelBuilder.Entity("POS.Models.Printer", b =>

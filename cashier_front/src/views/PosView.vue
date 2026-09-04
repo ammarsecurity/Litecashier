@@ -175,21 +175,9 @@
 
               <aside
                 class="pos-cart-shell"
-                :class="{ 'pos-cart-shell--open': posMobileCartOpen }"
                 :aria-label="$t('cart')"
               >
-                <div
-                  class="pos-cart-backdrop d-lg-none"
-                  aria-hidden="true"
-                  @click="closePosMobileCart"
-                />
                 <div class="pos-cart-panel pos-cart-panel--v2">
-                  <header class="pos-cart-panel-head d-lg-none">
-                    <span class="pos-cart-panel-brand">{{ $t("cart") }}</span>
-                    <button type="button" class="pos-cart-panel-dismiss" @click="closePosMobileCart">
-                      <b-icon icon="x-lg" />
-                    </button>
-                  </header>
                   <div class="pos-cart-container" ref="posCartScrollArea">
                     <div class="pos-cart-items-section">
                       <div class="pos-cart-header pos-cart-header--wide" ref="posCartHeader">
@@ -268,11 +256,11 @@
                         >
                           <img :src="cartWatermarkSrc" alt="" />
                         </div>
-                      <div
-                        class="pos-cart-items-list"
-                        v-if="carditems.length > 0"
-                        ref="posCartItemsList"
-                      >
+                        <div
+                          class="pos-cart-items-list"
+                          v-if="carditems.length > 0"
+                          ref="posCartItemsList"
+                        >
                         <div
                           class="pos-cart-item pos-cart-item--v2 pos-cart-item--wide"
                           v-for="(item, index) in carditems"
@@ -1294,58 +1282,58 @@
                       <div class="pos-cart-checkout-btn-row pos-cart-checkout-summary-actions">
                         <button
                           type="button"
-                          class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn"
+                          class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn pos-cart-checkout-action-btn--pay"
                           @click="quickPay(false)"
                           :disabled="totalCardItems <= 0 || orderPersisting"
                           :title="`${$t('payNow') || 'دفع'} (F4)`"
                         >
-                          <b-icon icon="check-circle-fill" class="me-1"></b-icon>
-                          {{ $t("payNow") || "دفع" }}
+                          <b-icon icon="check-circle-fill"></b-icon>
+                          <span>{{ $t("payNow") || "دفع" }}</span>
                           <kbd class="pos-kbd">F4</kbd>
                         </button>
                         <button
                           type="button"
-                          class="pos-action-btn pos-action-btn-success pos-cart-checkout-action-btn"
+                          class="pos-action-btn pos-action-btn-success pos-cart-checkout-action-btn pos-cart-checkout-action-btn--pay-print"
                           @click="quickPay(true)"
                           :disabled="totalCardItems <= 0 || orderPersisting"
                           :title="`${$t('payAndPrint') || 'دفع وطباعة'} (F5)`"
                         >
-                          <b-icon icon="receipt-cutoff" class="me-1"></b-icon>
-                          {{ $t("payAndPrint") || "دفع وطباعة" }}
+                          <b-icon icon="receipt-cutoff"></b-icon>
+                          <span>{{ $t("payAndPrint") || "دفع وطباعة" }}</span>
                           <kbd class="pos-kbd">F5</kbd>
                         </button>
                         <button
                           type="button"
-                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
+                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn pos-cart-checkout-action-btn--tool"
                           @click="openPrintOnlyConfirm"
                           :disabled="totalCardItems <= 0"
                           :title="`${$t('printOnly') || 'طباعة فقط'} (F6)`"
                         >
-                          <b-icon icon="printer-fill" class="me-1"></b-icon>
-                          {{ $t("printOnly") || "طباعة فقط" }}
+                          <b-icon icon="printer-fill"></b-icon>
+                          <span>{{ $t("printOnly") || "طباعة فقط" }}</span>
                           <kbd class="pos-kbd">F6</kbd>
                         </button>
                         <button
                           type="button"
-                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
+                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn pos-cart-checkout-action-btn--tool"
                           :class="{ 'pos-cart-checkout-action-btn--active': changeCalcOpen }"
                           @click="toggleChangeCalculator"
                           :disabled="totalCardItems <= 0"
                           :title="`${$t('changeCalculator') || 'حاسبة الباقي'} (F7)`"
                         >
-                          <b-icon icon="calculator-fill" class="me-1"></b-icon>
-                          {{ $t("changeCalculator") }}
+                          <b-icon icon="calculator-fill"></b-icon>
+                          <span>{{ $t("changeCalculator") }}</span>
                           <kbd class="pos-kbd">F7</kbd>
                         </button>
                         <button
                           type="button"
-                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn"
+                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn pos-cart-checkout-action-btn--tool"
                           @click="openOrderExtrasModal"
                           :disabled="totalCardItems <= 0"
                           :title="`${$t('discountAndNotes') || 'خصم وملاحظات'} (F8)`"
                         >
-                          <b-icon icon="tag-fill" class="me-1"></b-icon>
-                          {{ $t("discountAndNotes") || "خصم وملاحظات" }}
+                          <b-icon icon="tag-fill"></b-icon>
+                          <span>{{ $t("discountAndNotes") || "خصم وملاحظات" }}</span>
                           <kbd class="pos-kbd">F8</kbd>
                         </button>
                       </div>
@@ -1413,18 +1401,6 @@
             </div>
           </div>
         </b-container>
-
-        <button
-          v-show="!posMobileCartOpen"
-          type="button"
-          class="pos-mobile-cart-fab d-lg-none"
-          @click="openPosMobileCart"
-          :aria-label="$t('posOpenCart')"
-          :title="$t('posOpenCart')"
-        >
-          <b-icon icon="cart-fill" class="pos-mobile-cart-fab-icon"></b-icon>
-          <span v-if="carditems.length > 0" class="pos-mobile-cart-fab-badge">{{ carditems.length }}</span>
-        </button>
       </div>
       <b-sidebar id="sidebar-right" title="Sidebar" no-header right shadow>
         <div class="px-3 py-2">
@@ -1690,7 +1666,6 @@ export default {
       },
       warehouses: [],
       selectedWarehouseId: null,
-      posMobileCartOpen: false,
       quickSearch: "",
       quickSearchTimer: null,
       posSuppressQuickSearchSync: false,
@@ -1747,13 +1722,11 @@ export default {
       return this.commercialUserInfo?.cartWatermarkLogo || getStoredCartWatermark();
     },
     cartWatermarkStyle() {
-      const opacity = Math.max(
-        80,
+      const opacity =
         clampWatermarkOpacity(
-          this.commercialUserInfo?.cartWatermarkOpacity || getStoredCartWatermarkOpacity()
-        )
-      );
-      return { "--pos-cart-watermark-opacity": String(opacity / 100) };
+          this.commercialUserInfo?.cartWatermarkOpacity ?? getStoredCartWatermarkOpacity()
+        ) / 100;
+      return { "--pos-cart-watermark-opacity": String(opacity) };
     },
     orderDiscountAmount() {
       const rawValue = Number(this.orderDiscountValue) || 0;
@@ -1921,13 +1894,6 @@ export default {
         }
       }, this.doneTypingInterval);
     },
-    posMobileCartOpen(val) {
-      if (typeof document === "undefined") return;
-      const isNarrowViewport =
-        typeof window !== "undefined" &&
-        window.matchMedia("(max-width: 1200px)").matches;
-      document.body.style.overflow = val && isNarrowViewport ? "hidden" : "";
-    },
   },
 
   mounted() {
@@ -1978,13 +1944,6 @@ export default {
 
       this.posKeyboardHandler = (e) => this.handlePosKeyboard(e);
       window.addEventListener("keydown", this.posKeyboardHandler);
-
-      this.posMobileCartEscape = (e) => {
-        if (e.key === "Escape" && this.posMobileCartOpen) {
-          this.closePosMobileCart();
-        }
-      };
-      window.addEventListener("keydown", this.posMobileCartEscape);
     } catch (error) {
       this.$notify.error(this.$i18n.t("error") || "An error occurred", {
         position: "top-right",
@@ -2007,9 +1966,6 @@ export default {
     }
     if (this.handleKeyup) {
       window.removeEventListener("keyup", this.handleKeyup);
-    }
-    if (this.posMobileCartEscape) {
-      window.removeEventListener("keydown", this.posMobileCartEscape);
     }
     if (this.posKeyboardHandler) {
       window.removeEventListener("keydown", this.posKeyboardHandler);
@@ -2409,7 +2365,6 @@ export default {
         this.$bvModal.hide("modal-empty");
         this.$bvModal.hide("modal-print-only-confirm");
         if (this.showCatalogModal) this.closeCatalogModal();
-        if (this.posMobileCartOpen) this.closePosMobileCart();
         return;
       }
       if ((key === "+" || key === "=") && this.carditems.length > 0) {
@@ -2456,20 +2411,6 @@ export default {
     applyOrderExtras() {
       this.$bvModal.hide("modal-order-notes");
       this.focusPosBarcode();
-    },
-    openPosMobileCart() {
-      this.posMobileCartOpen = true;
-      this.$nextTick(() => {
-        requestAnimationFrame(() => {
-          const sc = this.$refs.posCartScrollArea;
-          if (sc) {
-            sc.scrollTop = 0;
-          }
-        });
-      });
-    },
-    closePosMobileCart() {
-      this.posMobileCartOpen = false;
     },
     openPrintOnlyConfirm() {
       if (this.carditems.length <= 0) {

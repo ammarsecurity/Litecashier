@@ -11,6 +11,7 @@ namespace POS.Models.Requests
         public string? Password { get; set; }
         public string? StoreName { get; set; }
         public IFormFile? Logo { get; set; }
+        public bool ClearLogo { get; set; }
     }
 
     public class UserRequest

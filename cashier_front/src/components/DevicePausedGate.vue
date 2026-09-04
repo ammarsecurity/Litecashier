@@ -55,7 +55,7 @@ export default {
     },
     isPublicMenuRoute() {
       const path = this.$route?.path || "";
-      return this.$route?.name === "publicMenu" || path === "/menu" || path.startsWith("/menu/");
+      return this.$route?.name === "publicMenu" || this.$route?.name === "publicMenuTrack" || path === "/menu" || path.startsWith("/menu/");
     },
     onOnline() {
       if (this.isPosRoute() || this.isPublicMenuRoute()) return;

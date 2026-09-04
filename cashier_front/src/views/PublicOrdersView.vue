@@ -226,7 +226,7 @@
               </span>
             </div>
             <div class="invoice-detail-item" v-if="selected.notes">
-              <label class="invoice-detail-label">{{ $t("notes") || "ملاحظات" }}</label>
+              <label class="invoice-detail-label">{{ $t("publicMenuNotes") || "الملاحظات والعنوان" }}</label>
               <span class="invoice-detail-value">{{ selected.notes }}</span>
             </div>
           </div>

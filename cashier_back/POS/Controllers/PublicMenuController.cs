@@ -84,6 +84,13 @@ namespace POS.Controllers
                 };
             }).ToList();
 
+            var ads = await _db.PublicMenuAds
+                .AsNoTracking()
+                .Where(a => a.CommercialUserId == commercialUserId && a.IsActive && !a.IsDeleted)
+                .OrderBy(a => a.SortOrder)
+                .ThenBy(a => a.Id)
+                .ToListAsync();
+
             return Ok(new GlobalResponse<PublicMenuDto>
             {
                 Data = new PublicMenuDto
@@ -91,7 +98,8 @@ namespace POS.Controllers
                     StoreName = string.IsNullOrWhiteSpace(store.StoreName) ? store.Name : store.StoreName,
                     Logo = BuildAssetUrl(store.Logo),
                     DefaultProductImage = BuildAssetUrl(store.DefaultProductImage),
-                    Items = menuItems
+                    Items = menuItems,
+                    Ads = ads.Select(MapAdDto).ToList()
                 },
                 ErrorStatus = false,
                 Message = "ok"
@@ -128,6 +136,148 @@ namespace POS.Controllers
             });
         }
 
+        private const int MaxPublicMenuAds = 8;
+
+        [AuthorizeSection("publicOrders", Roles = "Commercial,Admin")]
+        [HttpGet("{commercialUserId:int}/ads")]
+        public async Task<ActionResult<GlobalResponse<List<PublicMenuAdDto>>>> GetMenuAds(int commercialUserId)
+        {
+            if (!await StaffCanAccessAsync(commercialUserId))
+                return Forbid();
+
+            var ads = await _db.PublicMenuAds
+                .AsNoTracking()
+                .Where(a => a.CommercialUserId == commercialUserId && !a.IsDeleted)
+                .OrderBy(a => a.SortOrder)
+                .ThenBy(a => a.Id)
+                .ToListAsync();
+
+            return Ok(new GlobalResponse<List<PublicMenuAdDto>>
+            {
+                Data = ads.Select(MapAdDto).ToList(),
+                ErrorStatus = false,
+                Message = "ok"
+            });
+        }
+
+        [AuthorizeSection("publicOrders", Roles = "Commercial,Admin")]
+        [HttpPost("{commercialUserId:int}/ads")]
+        [RequestSizeLimit(8 * 1024 * 1024)]
+        public async Task<ActionResult<GlobalResponse<PublicMenuAdDto>>> UploadMenuAd(
+            int commercialUserId,
+            [FromForm] IFormFile? image,
+            [FromForm] string? title)
+        {
+            if (!await StaffCanAccessAsync(commercialUserId))
+                return Forbid();
+
+            var store = await FindCommercialAsync(commercialUserId);
+            if (store == null)
+            {
+                return NotFound(new GlobalResponse<PublicMenuAdDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "storeNotFound"
+                });
+            }
+
+            if (image == null || image.Length == 0)
+            {
+                return BadRequest(new GlobalResponse<PublicMenuAdDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "imageRequired"
+                });
+            }
+
+            var count = await _db.PublicMenuAds.CountAsync(a =>
+                a.CommercialUserId == commercialUserId && !a.IsDeleted);
+            if (count >= MaxPublicMenuAds)
+            {
+                return BadRequest(new GlobalResponse<PublicMenuAdDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "menuAdsLimitReached"
+                });
+            }
+
+            var fileName = await UploadImageAsync(image);
+            if (fileName == "not a valid image extension")
+            {
+                return BadRequest(new GlobalResponse<PublicMenuAdDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "invalidImage"
+                });
+            }
+
+            var maxSort = await _db.PublicMenuAds
+                .Where(a => a.CommercialUserId == commercialUserId && !a.IsDeleted)
+                .Select(a => (int?)a.SortOrder)
+                .MaxAsync() ?? -1;
+
+            var now = DateTime.UtcNow;
+            var ad = new PublicMenuAd
+            {
+                CommercialUserId = commercialUserId,
+                Image = fileName,
+                Title = string.IsNullOrWhiteSpace(title) ? null : title.Trim(),
+                SortOrder = maxSort + 1,
+                IsActive = true,
+                InsertDate = now,
+                UpdateDate = now,
+                IsDeleted = false
+            };
+            _db.PublicMenuAds.Add(ad);
+            await _db.SaveChangesAsync();
+
+            return Ok(new GlobalResponse<PublicMenuAdDto>
+            {
+                Data = MapAdDto(ad),
+                ErrorStatus = false,
+                Message = "ok"
+            });
+        }
+
+        [AuthorizeSection("publicOrders", Roles = "Commercial,Admin")]
+        [HttpDelete("{commercialUserId:int}/ads/{adId:int}")]
+        public async Task<ActionResult<GlobalResponse<object>>> DeleteMenuAd(int commercialUserId, int adId)
+        {
+            if (!await StaffCanAccessAsync(commercialUserId))
+                return Forbid();
+
+            var ad = await _db.PublicMenuAds.FirstOrDefaultAsync(a =>
+                a.Id == adId
+                && a.CommercialUserId == commercialUserId
+                && !a.IsDeleted);
+
+            if (ad == null)
+            {
+                return NotFound(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "adNotFound"
+                });
+            }
+
+            ad.IsDeleted = true;
+            ad.IsActive = false;
+            ad.UpdateDate = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return Ok(new GlobalResponse<object>
+            {
+                Data = new { ad.Id },
+                ErrorStatus = false,
+                Message = "ok"
+            });
+        }
+
         [AllowAnonymous]
         [HttpPost("{commercialUserId:int}/order")]
         public async Task<ActionResult<GlobalResponse<object>>> CreatePublicOrder(
@@ -145,9 +295,9 @@ namespace POS.Controllers
                 });
             }
 
-            var customerName = (request.CustomerName ?? "").Trim();
-            var customerPhone = NormalizePhone(request.CustomerPhone);
-            if (customerName.Length < 2)
+            var customerName = NormalizeCustomerName(request.CustomerName);
+            var customerPhone = NormalizeIraqiPhone(request.CustomerPhone);
+            if (string.IsNullOrEmpty(customerName) || customerName.Length < 2)
             {
                 return BadRequest(new GlobalResponse<object>
                 {
@@ -157,13 +307,49 @@ namespace POS.Controllers
                 });
             }
 
-            if (string.IsNullOrWhiteSpace(customerPhone) || customerPhone.Length < 8)
+            if (!IsValidCustomerName(customerName))
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "customerNameInvalid"
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(customerPhone))
             {
                 return BadRequest(new GlobalResponse<object>
                 {
                     Data = null,
                     ErrorStatus = true,
                     Message = "customerPhoneRequired"
+                });
+            }
+
+            var notes = (request.Notes ?? "").Trim();
+            if (notes.Length < 2)
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "orderNotesRequired"
+                });
+            }
+
+            if (notes.Length > 1000)
+            {
+                notes = notes.Substring(0, 1000);
+            }
+
+            if (!IsValidIraqiPhone(customerPhone))
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "customerPhoneInvalid"
                 });
             }
 
@@ -216,7 +402,7 @@ namespace POS.Controllers
                 InsertByUserId = commercialUserId,
                 CustomerName = customerName,
                 CustomerPhone = customerPhone,
-                Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
+                Notes = notes,
                 OrderSubTotal = subTotal,
                 OrderTotalAfterDiscount = subTotal
             };
@@ -260,6 +446,64 @@ namespace POS.Controllers
                 },
                 ErrorStatus = false,
                 Message = "orderCreated"
+            });
+        }
+
+        [AllowAnonymous]
+        [HttpGet("{commercialUserId:int}/track")]
+        public async Task<ActionResult<GlobalResponse<object>>> TrackPublicOrder(
+            int commercialUserId,
+            [FromQuery] string? code,
+            [FromQuery] string? phone)
+        {
+            var store = await FindCommercialAsync(commercialUserId);
+            if (store == null)
+            {
+                return NotFound(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "storeNotFound"
+                });
+            }
+
+            var orderCode = (code ?? "").Trim();
+            var customerPhone = NormalizeIraqiPhone(phone);
+            if (string.IsNullOrWhiteSpace(orderCode) || !IsValidIraqiPhone(customerPhone))
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "orderTrackRequired"
+                });
+            }
+
+            var order = await _db.CustomerOrders
+                .AsNoTracking()
+                .Include(o => o.CustomerOrderItem)!
+                    .ThenInclude(i => i.Item)
+                .FirstOrDefaultAsync(o =>
+                    !o.IsDeleted
+                    && o.InsertByUserId == commercialUserId
+                    && o.OrderSource == "PublicMenu"
+                    && o.OrderCode == orderCode);
+
+            if (order == null || NormalizeIraqiPhone(order.CustomerPhone) != customerPhone)
+            {
+                return NotFound(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "orderNotFound"
+                });
+            }
+
+            return Ok(new GlobalResponse<object>
+            {
+                Data = MapPublicTrackDto(order, store),
+                ErrorStatus = false,
+                Message = "ok"
             });
         }
 
@@ -555,6 +799,17 @@ namespace POS.Controllers
             }
         }
 
+        private object MapPublicTrackDto(CustomerOrder order, User store)
+        {
+            var mapped = MapOrderDto(order);
+            return new
+            {
+                storeName = string.IsNullOrWhiteSpace(store.StoreName) ? store.Name : store.StoreName,
+                logo = BuildAssetUrl(store.Logo),
+                order = mapped
+            };
+        }
+
         private object MapOrderDto(CustomerOrder order)
         {
             var lines = (order.CustomerOrderItem ?? [])
@@ -588,6 +843,39 @@ namespace POS.Controllers
             };
         }
 
+        private PublicMenuAdDto MapAdDto(PublicMenuAd ad)
+        {
+            return new PublicMenuAdDto
+            {
+                Id = ad.Id,
+                Image = BuildAssetUrl(ad.Image),
+                Title = ad.Title,
+                SortOrder = ad.SortOrder,
+                IsActive = ad.IsActive
+            };
+        }
+
+        private async Task<string> UploadImageAsync(IFormFile imageFile)
+        {
+            var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Images");
+            if (!Directory.Exists(path))
+                Directory.CreateDirectory(path);
+
+            var validImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+            var fileExtension = Path.GetExtension(imageFile.FileName);
+            if (!validImageExtensions.Contains(fileExtension.ToLowerInvariant()))
+                return "not a valid image extension";
+
+            var fileName = Guid.NewGuid().ToString() + fileExtension;
+            var filePath = Path.Combine(path, fileName);
+            await using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await imageFile.CopyToAsync(stream);
+            }
+
+            return fileName;
+        }
+
         private string? BuildAssetUrl(string? file)
         {
             if (string.IsNullOrWhiteSpace(file) || file == "-" || file == "null")
@@ -613,10 +901,52 @@ namespace POS.Controllers
             return item.SellingPrice;
         }
 
-        private static string NormalizePhone(string? raw)
+        private static string NormalizeCustomerName(string? raw)
+        {
+            var trimmed = (raw ?? "").Trim();
+            if (trimmed.Length == 0) return "";
+            var parts = trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            return string.Join(" ", parts);
+        }
+
+        private static bool IsValidCustomerName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.Length < 2 || name.Length > 120)
+                return false;
+            if (name.Any(char.IsDigit))
+                return false;
+            return name.Count(char.IsLetter) >= 2;
+        }
+
+        private static readonly HashSet<string> IraqiMobilePrefixes = new(StringComparer.Ordinal)
+        {
+            "074", "075", "077", "078"
+        };
+
+        private static string NormalizeIraqiPhone(string? raw)
         {
             var digits = new string((raw ?? "").Where(char.IsDigit).ToArray());
+            if (digits.StartsWith("9640", StringComparison.Ordinal))
+                digits = digits[3..];
+            else if (digits.StartsWith("964", StringComparison.Ordinal))
+            {
+                digits = digits[3..];
+                if (digits.Length == 10 && digits[0] == '7')
+                    digits = "0" + digits;
+            }
+            else if (digits.Length == 10 && digits.StartsWith("7", StringComparison.Ordinal))
+            {
+                digits = "0" + digits;
+            }
+
             return digits;
+        }
+
+        private static bool IsValidIraqiPhone(string phone)
+        {
+            return phone.Length == 11
+                && IraqiMobilePrefixes.Contains(phone[..3])
+                && phone.All(char.IsDigit);
         }
 
         private static string GenerateOrderCode()
@@ -634,6 +964,16 @@ namespace POS.Controllers
         public string? Logo { get; set; }
         public string? DefaultProductImage { get; set; }
         public List<PublicMenuItemDto> Items { get; set; } = new();
+        public List<PublicMenuAdDto> Ads { get; set; } = new();
+    }
+
+    public class PublicMenuAdDto
+    {
+        public int Id { get; set; }
+        public string? Image { get; set; }
+        public string? Title { get; set; }
+        public int SortOrder { get; set; }
+        public bool IsActive { get; set; }
     }
 
     public class PublicMenuItemDto

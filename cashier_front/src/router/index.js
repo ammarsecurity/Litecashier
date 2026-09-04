@@ -60,6 +60,14 @@ const routes = [
     }
   },
   {
+    path: '/menu/:commercialUserId/track/:orderCode?',
+    name: 'publicMenuTrack',
+    component: () => import('../views/PublicMenuTrackView.vue'),
+    meta: {
+      requiresAuth: false
+    }
+  },
+  {
     path: '/menu/:commercialUserId',
     name: 'publicMenu',
     component: () => import('../views/PublicMenuView.vue'),

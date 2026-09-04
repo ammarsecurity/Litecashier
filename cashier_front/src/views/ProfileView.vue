@@ -111,63 +111,6 @@
               </div>
             </div>
 
-            <!-- Logo -->
-            <div class="app-section-card profile-logo-zone">
-              <div class="app-section-header">
-                <div class="app-section-title-wrap">
-                  <div class="app-section-icon-wrap profile-logo-zone__icon">
-                    <b-icon icon="image-fill"></b-icon>
-                  </div>
-                  <div>
-                    <h3 class="app-section-title">{{ $t('logo') || 'الشعار' }}</h3>
-                    <p class="app-section-subtitle">{{ $t('logoSubtitle') || 'شعار المتجر يظهر في الفواتير' }}</p>
-                  </div>
-                </div>
-              </div>
-              <div class="app-section-body">
-                <div class="logo-upload-section">
-                  <div v-if="logoPreview || currentLogo" class="logo-preview">
-                    <img
-                      :src="logoPreview || currentLogo"
-                      alt="logo"
-                      class="logo-preview-img"
-                    />
-                    <button
-                      type="button"
-                      class="logo-remove-btn"
-                      @click="removeLogo"
-                    >
-                      <b-icon icon="x-circle-fill"></b-icon>
-                    </button>
-                  </div>
-                  <div v-else class="logo-upload-btn" @click="$refs.logoInput.click()">
-                    <b-icon icon="cloud-upload-fill" class="me-2"></b-icon>
-                    {{ $t('uploadLogo') || 'رفع شعار' }}
-                  </div>
-                  <input
-                    ref="logoInput"
-                    type="file"
-                    accept="image/*"
-                    style="display:none"
-                    @change="handleLogoChange"
-                  />
-                  <button
-                    v-if="logoFile"
-                    type="button"
-                    class="users-add-button mt-3"
-                    :disabled="savingLogo"
-                    @click="saveLogo"
-                  >
-                    <b-spinner small v-if="savingLogo" class="button-icon"></b-spinner>
-                    <b-icon v-else icon="check2-circle" class="button-icon"></b-icon>
-                    <span class="button-text">
-                      {{ savingLogo ? ($t('saving') || 'جاري الحفظ...') : ($t('saveLogo') || 'حفظ الشعار') }}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
             <!-- Change Password -->
             <div class="app-section-card profile-password-zone">
               <div class="app-section-header">
@@ -238,7 +181,6 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "@/http/api.js";
-import { resolveAbsoluteAssetUrl } from "@/utils/apiBase.js";
 
 export default {
   name: "ProfileView",
@@ -247,11 +189,7 @@ export default {
     return {
       loading: true,
       saving: false,
-      savingLogo: false,
       savingPassword: false,
-      currentLogo: null,
-      logoFile: null,
-      logoPreview: null,
       form: {
         name: "",
         phoneNumber: "",
@@ -276,7 +214,6 @@ export default {
         if (d) {
           this.form.name = d.storeName || d.StoreName || "";
           this.form.storeName = d.storeName || d.StoreName || "";
-          this.currentLogo = resolveAbsoluteAssetUrl(d.logo || d.Logo) || null;
         }
         // Also fetch user's own info from localStorage
         try {
@@ -331,59 +268,6 @@ export default {
         );
       } finally {
         this.saving = false;
-      }
-    },
-    handleLogoChange(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      this.logoFile = file;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.logoPreview = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    },
-    removeLogo() {
-      this.logoFile = null;
-      this.logoPreview = null;
-      if (this.$refs.logoInput) this.$refs.logoInput.value = "";
-    },
-    async saveLogo() {
-      if (!this.logoFile || this.savingLogo) return;
-      this.savingLogo = true;
-      try {
-        const formData = new FormData();
-        formData.append("logo", this.logoFile);
-
-        const res = await HTTP.post("Admin/UpdateMyProfile", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-
-        if (res?.data?.errorStatus) {
-          throw new Error(res.data.message || "saveFailed");
-        }
-
-        const d = res?.data?.data;
-        if (d?.logo || d?.Logo) {
-          this.currentLogo = resolveAbsoluteAssetUrl(d.logo || d.Logo);
-        }
-        this.logoFile = null;
-        this.logoPreview = null;
-        if (this.$refs.logoInput) this.$refs.logoInput.value = "";
-
-        this.$notify.success(this.$t("logoSaveSuccess") || "تم حفظ الشعار بنجاح", {
-          position: "top-right",
-          timeout: 3000,
-          maxToasts: 1,
-        });
-      } catch (err) {
-        const msg = err?.response?.data?.message || err?.message;
-        this.$notify.error(
-          msg || this.$t("saveFailed") || "حدث خطأ أثناء رفع الشعار",
-          { position: "top-right", timeout: 4000, maxToasts: 1 }
-        );
-      } finally {
-        this.savingLogo = false;
       }
     },
     async savePassword() {
@@ -444,15 +328,6 @@ export default {
 .profile-info-zone__icon {
   background: rgba(15, 110, 110, 0.15);
   color: #0f6e6e;
-}
-
-.profile-logo-zone {
-  margin-bottom: 1.25rem;
-}
-
-.profile-logo-zone__icon {
-  background: rgba(99, 102, 241, 0.15);
-  color: #6366f1;
 }
 
 .profile-password-zone {
