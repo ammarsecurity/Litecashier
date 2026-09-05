@@ -16,6 +16,32 @@
                                 </div>
                             </div>
                             <div class="app-header-actions">
+                                <button
+                                    v-if="secretDeleteMode"
+                                    type="button"
+                                    class="users-add-button reports-secret-delete-btn"
+                                    :disabled="deletingOrders || selectedOrderIds.length === 0"
+                                    @click="deleteSelectedOrders"
+                                >
+                                    <b-spinner small v-if="deletingOrders" class="button-icon"></b-spinner>
+                                    <b-icon v-else icon="trash-fill" class="button-icon"></b-icon>
+                                    <span class="button-text">
+                                        {{ $t('deleteSelectedInvoices') || 'مسح الفواتير المحددة' }}
+                                        <template v-if="selectedOrderIds.length">
+                                            ({{ selectedOrderIds.length }})
+                                        </template>
+                                    </span>
+                                </button>
+                                <button
+                                    v-if="secretDeleteMode"
+                                    type="button"
+                                    class="btn-refresh"
+                                    :disabled="deletingOrders"
+                                    @click="exitSecretDeleteMode"
+                                >
+                                    <b-icon icon="eye-slash" class="button-icon"></b-icon>
+                                    <span class="button-text">{{ $t('hideSecretDeleteMode') || 'إخفاء المسح' }}</span>
+                                </button>
                                 <button type="button" class="btn-refresh" @click="refreshReports" :disabled="show">
                                     <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: show }"></b-icon>
                                     <span class="button-text">{{ $t('refresh') || 'تحديث' }}</span>
@@ -280,6 +306,14 @@
                     </div>
 
                     <div v-if="activeTab === 'orders'">
+                        <div
+                            v-if="secretDeleteMode"
+                            class="reports-secret-banner"
+                            role="status"
+                        >
+                            <b-icon icon="shield-lock-fill"></b-icon>
+                            <span>{{ $t('secretDeleteModeHint') || 'وضع مسح الفواتير مفعّل. اختر فاتورة أو أكثر ثم اضغط مسح.' }}</span>
+                        </div>
                         <div class="app-overview-grid reports-orders-summary">
                             <div class="app-overview-stat">
                                 <span class="app-overview-stat-icon app-overview-stat-icon--primary"><b-icon icon="receipt-cutoff"></b-icon></span>
@@ -357,6 +391,25 @@
                                 class="reports-table"
                                 :empty-text="$t('noInvoicesFound') || 'لا توجد فواتير'"
                             >
+                                <template #cell(select)="row">
+                                    <input
+                                        type="checkbox"
+                                        class="reports-order-select"
+                                        :checked="isOrderSelected(row.item.id)"
+                                        :aria-label="$t('selectInvoice') || 'تحديد الفاتورة'"
+                                        @change="toggleOrderSelection(row.item.id, $event.target.checked)"
+                                    />
+                                </template>
+                                <template #head(select)>
+                                    <input
+                                        type="checkbox"
+                                        class="reports-order-select"
+                                        :checked="allPageOrdersSelected"
+                                        :indeterminate.prop="somePageOrdersSelected && !allPageOrdersSelected"
+                                        :aria-label="$t('selectAllInvoices') || 'تحديد الكل'"
+                                        @change="toggleSelectAllPage($event.target.checked)"
+                                    />
+                                </template>
                                 <template #cell(orderCode)="row">
                                     <span class="report-item-name">{{ row.item.orderCode }}</span>
                                 </template>
@@ -428,6 +481,17 @@
                                             :aria-label="$t('editOrder')"
                                         >
                                             <b-icon icon="pencil-square" class="action-icon"></b-icon>
+                                        </button>
+                                        <button
+                                            v-if="secretDeleteMode"
+                                            type="button"
+                                            class="action-btn action-btn--icon action-btn--delete"
+                                            :disabled="deletingOrders"
+                                            @click="deleteSingleOrder(row.item)"
+                                            :title="$t('deleteInvoice') || 'مسح الفاتورة'"
+                                            :aria-label="$t('deleteInvoice') || 'مسح الفاتورة'"
+                                        >
+                                            <b-icon icon="trash" class="action-icon"></b-icon>
                                         </button>
                                     </div>
                                 </template>
@@ -1269,14 +1333,38 @@ export default {
             
             // Search debounce timer
             searchTimer: null,
+            secretDeleteMode: false,
+            secretKeyBuffer: "",
+            selectedOrderIds: [],
+            deletingOrders: false,
         };
     },
     computed: {
+        canSecretDeleteOrders() {
+            const role = String(localStorage.getItem("role") || "");
+            return role === "Commercial" || role === "Admin";
+        },
+        allPageOrdersSelected() {
+            if (!this.Orders.length) return false;
+            return this.Orders.every((o) => this.selectedOrderIds.includes(o.id));
+        },
+        somePageOrdersSelected() {
+            return this.Orders.some((o) => this.selectedOrderIds.includes(o.id));
+        },
         ordersReportPeriodColumn() {
             return this.formatReportPeriod(this.search.startDate, this.search.endDate);
         },
         ordersTableFields() {
-            return [
+            const fields = [];
+            if (this.secretDeleteMode) {
+                fields.push({
+                    key: "select",
+                    label: "",
+                    sortable: false,
+                    class: "reports-select-col text-center",
+                });
+            }
+            fields.push(
                 { key: "orderCode", label: this.$t("invoice_number") || "رقم الفاتورة", sortable: true },
                 { key: "insertDate", label: this.$t("date") || "التاريخ", sortable: true },
                 { key: "paymentMethod", label: this.$t("paymentMethod") || "طريقة الدفع", sortable: true },
@@ -1287,7 +1375,8 @@ export default {
                 { key: "totalAmount", label: this.$t("invoice_amount") || "مبلغ الفاتورة", sortable: true },
                 { key: "createdByUsername", label: this.$t("employeeLabel") || "الحساب", sortable: true },
                 { key: "actions", label: this.$t("actions") || "الإجراءات", class: "text-center" },
-            ];
+            );
+            return fields;
         },
         hasActiveFilters() {
             return !!(
@@ -1434,6 +1523,11 @@ export default {
         pageNumber() {
             this.GetAllOrders();
         },
+        activeTab(tab) {
+            if (tab !== "orders" && this.secretDeleteMode) {
+                this.exitSecretDeleteMode();
+            }
+        },
     },
 
     mounted() {
@@ -1441,6 +1535,7 @@ export default {
         this.userInfo = JSON.parse(localStorage.getItem('info'));
         this.loadCommercialUserInfo();
         this.loadManagedPrinters();
+        window.addEventListener("keydown", this.onSecretDeleteKeydown);
     },
     
     beforeDestroy() {
@@ -1448,9 +1543,125 @@ export default {
         if (this.searchTimer) {
             clearTimeout(this.searchTimer);
         }
+        window.removeEventListener("keydown", this.onSecretDeleteKeydown);
     },
 
     methods: {
+        onSecretDeleteKeydown(event) {
+            if (!this.canSecretDeleteOrders) return;
+            if (this.activeTab !== "orders") return;
+            const tag = String(event?.target?.tagName || "").toLowerCase();
+            if (tag === "input" || tag === "textarea" || tag === "select" || event?.target?.isContentEditable) {
+                return;
+            }
+            if (event.key === "Escape" && this.secretDeleteMode) {
+                this.exitSecretDeleteMode();
+                return;
+            }
+            if (!/^[0-9]$/.test(event.key)) {
+                this.secretKeyBuffer = "";
+                return;
+            }
+            const next = (this.secretKeyBuffer + event.key).slice(-6);
+            this.secretKeyBuffer = next;
+            if (next === "123321") {
+                this.secretKeyBuffer = "";
+                this.enterSecretDeleteMode();
+            }
+        },
+        enterSecretDeleteMode() {
+            if (this.secretDeleteMode) return;
+            this.secretDeleteMode = true;
+            this.selectedOrderIds = [];
+            this.$notify?.info?.(this.$t("secretDeleteModeOn") || "تم تفعيل وضع مسح الفواتير", {
+                position: "top-right",
+                timeout: 2500,
+                maxToasts: 1,
+            });
+        },
+        exitSecretDeleteMode() {
+            this.secretDeleteMode = false;
+            this.selectedOrderIds = [];
+            this.secretKeyBuffer = "";
+        },
+        isOrderSelected(id) {
+            return this.selectedOrderIds.includes(id);
+        },
+        toggleOrderSelection(id, checked) {
+            if (checked) {
+                if (!this.selectedOrderIds.includes(id)) {
+                    this.selectedOrderIds = this.selectedOrderIds.concat([id]);
+                }
+                return;
+            }
+            this.selectedOrderIds = this.selectedOrderIds.filter((x) => x !== id);
+        },
+        toggleSelectAllPage(checked) {
+            const pageIds = this.Orders.map((o) => o.id);
+            if (checked) {
+                const set = new Set(this.selectedOrderIds.concat(pageIds));
+                this.selectedOrderIds = Array.from(set);
+                return;
+            }
+            this.selectedOrderIds = this.selectedOrderIds.filter((id) => !pageIds.includes(id));
+        },
+        async deleteSingleOrder(order) {
+            if (!order?.id || this.deletingOrders) return;
+            const ok = await this.$confirm({
+                title: this.$t("confirmDelete") || "تأكيد الحذف",
+                message:
+                    this.$t("confirmDeleteInvoice", { code: order.orderCode || order.id }) ||
+                    `هل تريد مسح الفاتورة ${order.orderCode || order.id}؟ سيتم إرجاع الكميات للمخزون.`,
+                confirmText: this.$t("delete") || "مسح",
+                cancelText: this.$t("cancel") || "إلغاء",
+                variant: "danger",
+            });
+            if (!ok) return;
+            await this.runDeleteOrders([order.id]);
+        },
+        async deleteSelectedOrders() {
+            if (!this.selectedOrderIds.length || this.deletingOrders) return;
+            const count = this.selectedOrderIds.length;
+            const ok = await this.$confirm({
+                title: this.$t("confirmDelete") || "تأكيد الحذف",
+                message:
+                    this.$t("confirmDeleteInvoices", { count }) ||
+                    `هل تريد مسح ${count} فاتورة؟ سيتم إرجاع الكميات للمخزون.`,
+                confirmText: this.$t("delete") || "مسح",
+                cancelText: this.$t("cancel") || "إلغاء",
+                variant: "danger",
+            });
+            if (!ok) return;
+            await this.runDeleteOrders(this.selectedOrderIds.slice());
+        },
+        async runDeleteOrders(ids) {
+            if (!ids?.length || this.deletingOrders) return;
+            this.deletingOrders = true;
+            try {
+                const response = await HTTP.post("Admin/DeleteOrders", { ids });
+                if (response?.data?.errorStatus) {
+                    throw new Error(response.data.message || "orderDeleteFailed");
+                }
+                const deletedCount = response?.data?.data?.deletedCount ?? ids.length;
+                this.$notify.success(
+                    this.$t("invoicesDeleted", { count: deletedCount }) ||
+                        `تم مسح ${deletedCount} فاتورة`,
+                    { position: "top-right", timeout: 3000, maxToasts: 1 }
+                );
+                this.selectedOrderIds = [];
+                this.GetAllOrders();
+            } catch (error) {
+                const msg = error?.response?.data?.message || error?.message;
+                this.$notify.error(
+                    (msg && this.$te(msg) ? this.$t(msg) : null) ||
+                        this.$t("orderDeleteFailed") ||
+                        "فشل مسح الفواتير",
+                    { position: "top-right", timeout: 4000, maxToasts: 1 }
+                );
+            } finally {
+                this.deletingOrders = false;
+            }
+        },
         formatReportPeriod(start, end) {
             if (start && end) return `${start} — ${end}`;
             if (start) return `${this.$t("from_date")}: ${start}`;

@@ -2234,34 +2234,210 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial")]
+        [Authorize(Roles = "Commercial,Admin")]
         [HttpDelete("DeleteOrder")]
-        public async Task<ActionResult<GlobalResponse<int>>> DeleteOrder(int id)
+        public async Task<ActionResult<GlobalResponse<object>>> DeleteOrder(int id)
         {
-
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
-
-            var item = await _dbConfig.CustomerOrders.FirstOrDefaultAsync(x => x.Id == id && x.IsDeleted == false && x.InsertByUserId == userId);
-            if (item == null)
+            var result = await SoftDeleteOrdersAsync(new[] { id });
+            if (result.ErrorStatus == true)
             {
-                return BadRequest(new GlobalResponse<CustomerOrder>
+                return BadRequest(result);
+            }
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Secret reports wipe: soft-delete one or more invoices and restore net unsold stock.
+        /// </summary>
+        [Authorize(Roles = "Commercial,Admin")]
+        [HttpPost("DeleteOrders")]
+        public async Task<ActionResult<GlobalResponse<object>>> DeleteOrders([FromBody] DeleteOrdersRequest request)
+        {
+            var ids = request?.Ids?
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList() ?? new List<int>();
+
+            if (ids.Count == 0)
+            {
+                return BadRequest(new GlobalResponse<object>
                 {
                     Data = null,
                     ErrorStatus = true,
-                    Message = "Order not found"
+                    Message = "orderIdsRequired"
                 });
             }
 
-            item!.IsDeleted = true;
-            _dbConfig.CustomerOrders.Update(item);
-            await _dbConfig.SaveChangesAsync();
-
-            return Ok(new GlobalResponse<CustomerOrder>
+            if (ids.Count > 200)
             {
-                Data = item,
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "tooManyOrders"
+                });
+            }
+
+            var result = await SoftDeleteOrdersAsync(ids);
+            if (result.ErrorStatus == true)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
+        }
+
+        private async Task<GlobalResponse<object>> SoftDeleteOrdersAsync(IEnumerable<int> orderIds)
+        {
+            var ids = orderIds?.Where(id => id > 0).Distinct().ToList() ?? new List<int>();
+            if (ids.Count == 0)
+            {
+                return new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "orderIdsRequired"
+                };
+            }
+
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+            var user = await _dbConfig.Users.FirstOrDefaultAsync(x => x.Id == userId && !x.IsDeleted);
+            if (user == null)
+            {
+                return new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "User not found"
+                };
+            }
+
+            var userInsertByUserId = user.InsertByUserId;
+            var commercialUserId = GetCommercialUserId();
+            var orders = await _dbConfig.CustomerOrders
+                .Include(x => x.CustomerOrderItem)!
+                    .ThenInclude(i => i.Item)
+                .Include(x => x.User)
+                .Where(x => ids.Contains(x.Id)
+                    && !x.IsDeleted
+                    && (x.InsertByUserId == userId
+                        || (x.User != null && x.User.Id == userInsertByUserId)
+                        || (x.User != null && x.User.InsertByUserId == userId)))
+                .ToListAsync();
+
+            if (orders.Count == 0)
+            {
+                return new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "orderNotFound"
+                };
+            }
+
+            var defaultWh = await _warehouseStock.EnsureDefaultWarehouseAsync(commercialUserId);
+            var now = DateTime.UtcNow;
+            var deletedIds = new List<int>();
+            var deletedCodes = new List<string>();
+
+            await using var tx = await _dbConfig.Database.BeginTransactionAsync();
+            try
+            {
+                foreach (var order in orders)
+                {
+                    var activeLines = (order.CustomerOrderItem ?? new List<CustomerOrderItem>())
+                        .Where(i => i != null && !i.IsDeleted)
+                        .ToList();
+
+                    var shouldRestoreStock =
+                        !string.Equals(order.OrderSource, "PublicMenu", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(order.OrderStatus, "Approved", StringComparison.OrdinalIgnoreCase);
+
+                    if (shouldRestoreStock && activeLines.Count > 0)
+                    {
+                        var soldByItem = activeLines
+                            .GroupBy(i => i.ItemId)
+                            .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+                        var alreadyReturned = await _dbConfig.CatalogStockReturns
+                            .AsNoTracking()
+                            .Where(r => !r.IsDeleted
+                                && r.ReturnType == "Order"
+                                && r.CustomerOrderId == order.Id)
+                            .GroupBy(r => r.ItemId)
+                            .Select(g => new { ItemId = g.Key, Qty = g.Sum(x => x.Quantity) })
+                            .ToDictionaryAsync(x => x.ItemId, x => x.Qty);
+
+                        var warehouseId = order.WarehouseId ?? defaultWh.Id;
+                        var warehouse = await _warehouseStock.GetActiveWarehouseAsync(commercialUserId, warehouseId)
+                            ?? defaultWh;
+
+                        foreach (var kv in soldByItem)
+                        {
+                            alreadyReturned.TryGetValue(kv.Key, out var returnedQty);
+                            var restoreQty = kv.Value - returnedQty;
+                            if (restoreQty <= 0) continue;
+
+                            var stockItem = activeLines.FirstOrDefault(i => i.ItemId == kv.Key)?.Item
+                                ?? await _dbConfig.Items.AsNoTracking()
+                                    .FirstOrDefaultAsync(i => i.Id == kv.Key && !i.IsDeleted);
+                            if (stockItem == null || stockItem.IsNonInventory) continue;
+
+                            await _warehouseStock.AddAsync(kv.Key, warehouse.Id, restoreQty);
+                        }
+                    }
+
+                    foreach (var line in activeLines)
+                    {
+                        line.IsDeleted = true;
+                        line.UpdateDate = now;
+                    }
+
+                    var relatedReturns = await _dbConfig.CatalogStockReturns
+                        .Where(r => !r.IsDeleted
+                            && r.ReturnType == "Order"
+                            && r.CustomerOrderId == order.Id)
+                        .ToListAsync();
+                    foreach (var ret in relatedReturns)
+                    {
+                        ret.IsDeleted = true;
+                        ret.UpdateDate = now;
+                    }
+
+                    order.IsDeleted = true;
+                    order.UpdateDate = now;
+                    deletedIds.Add(order.Id);
+                    deletedCodes.Add(order.OrderCode);
+                }
+
+                await _dbConfig.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await tx.RollbackAsync();
+                _logger.LogError(ex, "Error soft-deleting orders {OrderIds}", string.Join(",", ids));
+                return new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "orderDeleteFailed"
+                };
+            }
+
+            return new GlobalResponse<object>
+            {
+                Data = new
+                {
+                    deletedCount = deletedIds.Count,
+                    deletedIds,
+                    deletedCodes,
+                    missingCount = Math.Max(0, ids.Count - deletedIds.Count)
+                },
                 ErrorStatus = false,
-                Message = "done"
-            });
+                Message = "ordersDeleted"
+            };
         }
 
         [Authorize(Roles = "Commercial,POS")]
