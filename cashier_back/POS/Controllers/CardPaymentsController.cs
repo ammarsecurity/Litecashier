@@ -60,7 +60,7 @@ namespace POS.Controllers
                 .FirstOrDefaultAsync();
         }
 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("pos", "cardPayments", Roles = "Commercial,POS")]
         [HttpPost("sale/start")]
         public async Task<ActionResult<GlobalResponse<object>>> StartSale([FromBody] CardPaymentSaleRequest request)
         {
@@ -118,7 +118,7 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("pos", "cardPayments", Roles = "Commercial,POS")]
         [HttpGet("{id}/status")]
         public async Task<ActionResult<GlobalResponse<CardPaymentStatusDto>>> GetStatus(int id)
         {
@@ -161,7 +161,7 @@ namespace POS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("pos", "cardPayments", Roles = "Commercial,POS")]
         [HttpPost("{id}/cancel")]
         public async Task<ActionResult<GlobalResponse<CardPaymentStatusDto>>> CancelSale(int id)
         {
@@ -193,7 +193,7 @@ namespace POS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("pos", "cardPayments", Roles = "Commercial,POS")]
         [HttpPost("sale")]
         public async Task<ActionResult<GlobalResponse<object>>> Sale([FromBody] CardPaymentSaleRequest request)
         {
@@ -312,7 +312,7 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("pos", "cardPayments", Roles = "Commercial,POS")]
         [HttpGet("verify/{id}")]
         public async Task<ActionResult<GlobalResponse<object>>> VerifySale(int id)
         {
@@ -382,7 +382,7 @@ namespace POS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("pos", "cardPayments", Roles = "Commercial,POS")]
         [HttpGet("recover")]
         public async Task<ActionResult<GlobalResponse<object>>> RecoverRecentSale(
             [FromQuery] decimal amount,

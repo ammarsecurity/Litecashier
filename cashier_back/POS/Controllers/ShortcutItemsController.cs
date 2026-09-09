@@ -94,7 +94,7 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("pos", Roles = "Commercial,POS")]
         [HttpGet("ForPos")]
         public async Task<ActionResult<GlobalResponse<List<Item>>>> GetShortcutItemsForPos()
         {

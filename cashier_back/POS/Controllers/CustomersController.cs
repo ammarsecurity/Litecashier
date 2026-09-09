@@ -43,7 +43,7 @@ namespace POS.Controllers
             return commercialId;
         }
 
-        [AuthorizeSection("customers", Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("customers", "pos", Roles = "Commercial,Admin,POS")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<List<Customer>>>> GetCustomers([FromQuery] string? search = null)
         {
@@ -125,7 +125,7 @@ namespace POS.Controllers
             }
         }
 
-        [AuthorizeSection("customers", Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("customers", "pos", Roles = "Commercial,Admin,POS")]
         [HttpPost]
         public async Task<ActionResult<GlobalResponse<Customer>>> AddCustomer([FromBody] CustomerRequest request)
         {

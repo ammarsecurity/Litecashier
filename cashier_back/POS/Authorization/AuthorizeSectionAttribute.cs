@@ -28,7 +28,10 @@ public class AuthorizeSectionAttribute : Attribute, IAsyncAuthorizationFilter
             return;
         }
 
-        var idClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var idClaim =
+            user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? user.FindFirst("sub")?.Value
+            ?? user.FindFirst("nameid")?.Value;
         if (!int.TryParse(idClaim, out var userId))
         {
             context.Result = new ForbidResult();

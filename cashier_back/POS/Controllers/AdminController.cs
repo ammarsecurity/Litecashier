@@ -1058,7 +1058,7 @@ namespace POS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("pos", "category", "items", "reports", Roles = "Commercial,POS")]
         [HttpGet("GetTags")]
         public ActionResult<GlobalResponse<PagedList<Tag>>> GetTags(int pageNumber, int pageSize, string? info)
         {
@@ -1457,7 +1457,7 @@ namespace POS.Controllers
         }
 
 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("pos", "items", "reports", Roles = "Commercial,POS")]
         [HttpGet("GetItems")]
         public async Task<ActionResult<GlobalResponse<PagedList<Item>>>> GetItems(
             int pageNumber,
@@ -1627,7 +1627,7 @@ namespace POS.Controllers
             return response;
         }
 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("pos", Roles = "Commercial,POS")]
         [HttpGet("GetItemsForPos")]
         public async Task<ActionResult<GlobalResponse<PosCatalogDto>>> GetItemsForPos(int? warehouseId = null)
         {
@@ -1728,7 +1728,7 @@ namespace POS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial,POS,Reader")]
+        [AuthorizeSection("pos", "priceReader", Roles = "Commercial,POS,Reader")]
         [HttpGet("GetItemsByCode")]
         public async Task<ActionResult<GlobalResponse<Object>>> GetItemsByCode(string code)
         {
@@ -1957,7 +1957,8 @@ namespace POS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial,POS")]
+        [Authorize]
+        [AuthorizeSection("pos", Roles = "Commercial,POS")]
         [HttpPost("AddOrder")]
         public async Task<ActionResult<GlobalResponse<CustomerOrder>>> AddOrder(CustomerOrderRequest request)
         {
@@ -2440,7 +2441,7 @@ namespace POS.Controllers
             };
         }
 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("reports", Roles = "Commercial,POS")]
         [HttpGet("GetOrders")]
         public ActionResult<GlobalResponse<OrdersPagedResult>> GetOrders(int pageNumber, int pageSize, string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod, string? orderSource)
         {
@@ -2457,11 +2458,17 @@ namespace POS.Controllers
                 });
             }
 
+            var commercialUserId = GetCommercialUserId();
             var userInsertByUserId = user.InsertByUserId;
             var items = _dbConfig.CustomerOrders
                     .Where(x => x.IsDeleted == false
                         && (x.OrderSource != "PublicMenu" || x.OrderStatus == "Approved")
-                        && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId))
+                        && (x.InsertByUserId == commercialUserId
+                            || x.InsertByUserId == userId
+                            || x.User.Id == commercialUserId
+                            || x.User.Id == userInsertByUserId
+                            || x.User.InsertByUserId == commercialUserId
+                            || x.User.InsertByUserId == userId))
                     .Include(x => x.CustomerOrderItem)
                     .ThenInclude(x => x.Item)
                     .Include(x => x.User)
@@ -2612,7 +2619,7 @@ namespace POS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial,POS")]
+        [AuthorizeSection("reports", Roles = "Commercial,POS")]
         [HttpGet("ExportOrders")]
         public ActionResult ExportOrders(string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod, string? orderSource)
         {
@@ -2621,11 +2628,17 @@ namespace POS.Controllers
             if (user == null)
                 return BadRequest();
 
+            var commercialUserId = GetCommercialUserId();
             var userInsertByUserId = user.InsertByUserId;
             var items = _dbConfig.CustomerOrders
                 .Where(x => x.IsDeleted == false
                     && (x.OrderSource != "PublicMenu" || x.OrderStatus == "Approved")
-                    && (x.InsertByUserId == userId || x.User.Id == userInsertByUserId || x.User.InsertByUserId == userId))
+                    && (x.InsertByUserId == commercialUserId
+                        || x.InsertByUserId == userId
+                        || x.User.Id == commercialUserId
+                        || x.User.Id == userInsertByUserId
+                        || x.User.InsertByUserId == commercialUserId
+                        || x.User.InsertByUserId == userId))
                 .Include(x => x.CustomerOrderItem)
                 .AsQueryable();
 
@@ -2682,7 +2695,7 @@ namespace POS.Controllers
             return File(bytes, "text/csv", fileName);
         }
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpPut("UpdateOrder/{id}")]
         public async Task<ActionResult<GlobalResponse<CustomerOrder>>> UpdateOrder(int id, CustomerOrderRequest request)
         {
@@ -3167,7 +3180,7 @@ namespace POS.Controllers
         }
 
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("dashboard", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetDashboardStats")]
         public ActionResult<GlobalResponse<object>> GetDashboardStats()
         {
@@ -3177,17 +3190,18 @@ namespace POS.Controllers
                 var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
                 var today = DateTime.Today;
+                var commercialUserId = GetCommercialUserId();
 
-                var customerOrdersQuery = QueryActiveOrdersForCommercial(userId);
-                var orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId);
+                var customerOrdersQuery = QueryActiveOrdersForCommercial(commercialUserId);
+                var orderItemsQuery = QueryActiveOrderItemsForCommercial(commercialUserId, user!.InsertByUserId);
 
                 // Items Statistics
                 var itemsQuery = _dbConfig.Items
-                    .Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
+                    .Where(x => x.IsDeleted == false && (x.InsertByUserId == commercialUserId || x.User.Id == commercialUserId || x.User.InsertByUserId == commercialUserId));
 
                 // Users Statistics
                 var usersQuery = _dbConfig.Users
-                    .Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.Id == user.InsertByUserId || x.InsertByUserId == userId));
+                    .Where(x => x.IsDeleted == false && (x.InsertByUserId == commercialUserId || x.Id == commercialUserId || x.InsertByUserId == commercialUserId));
 
                 // Categories Statistics
                 var tagsQuery = _dbConfig.Tags
@@ -3270,16 +3284,16 @@ namespace POS.Controllers
 
         // Advanced Reports Endpoints
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetProfitReport")]
         public ActionResult<GlobalResponse<object>> GetProfitReport(DateTime? startDate, DateTime? endDate)
         {
             try
             {
-                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
-                var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+                var commercialUserId = GetCommercialUserId();
+                var user = _dbConfig.Users.FirstOrDefault(x => x.Id == commercialUserId);
 
-                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId)
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(commercialUserId, user!.InsertByUserId)
                     .Include(x => x.Item)
                     .Include(x => x.CustomerOrder);
 
@@ -3352,16 +3366,16 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetTopSellingItems")]
         public ActionResult<GlobalResponse<object>> GetTopSellingItems(int topCount = 10, DateTime? startDate = null, DateTime? endDate = null)
         {
             try
             {
-                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
-                var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+                var commercialUserId = GetCommercialUserId();
+                var user = _dbConfig.Users.FirstOrDefault(x => x.Id == commercialUserId);
 
-                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId)
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(commercialUserId, user!.InsertByUserId)
                     .Include(x => x.Item)
                     .Include(x => x.CustomerOrder);
 
@@ -3437,7 +3451,7 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetProductSalesReport")]
         public ActionResult<GlobalResponse<object>> GetProductSalesReport(
             DateTime? startDate = null,
@@ -3494,7 +3508,7 @@ namespace POS.Controllers
                             c.Code == search));
                 }
 
-                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user.InsertByUserId)
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(commercialUserId, user.InsertByUserId)
                     .Include(x => x.Item)
                     .Include(x => x.CustomerOrder);
 
@@ -3599,16 +3613,16 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetSalesByCategory")]
         public ActionResult<GlobalResponse<object>> GetSalesByCategory(DateTime? startDate = null, DateTime? endDate = null)
         {
             try
             {
-                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
-                var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+                var commercialUserId = GetCommercialUserId();
+                var user = _dbConfig.Users.FirstOrDefault(x => x.Id == commercialUserId);
 
-                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId)
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(commercialUserId, user!.InsertByUserId)
                     .Include(x => x.Item)
                     .Include(x => x.CustomerOrder);
 
@@ -3688,16 +3702,15 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetSalesByEmployee")]
         public ActionResult<GlobalResponse<object>> GetSalesByEmployee(DateTime? startDate = null, DateTime? endDate = null)
         {
             try
             {
-                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
-                var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+                var commercialUserId = GetCommercialUserId();
 
-                IQueryable<CustomerOrder> ordersQuery = QueryActiveOrdersForCommercial(userId)
+                IQueryable<CustomerOrder> ordersQuery = QueryActiveOrdersForCommercial(commercialUserId)
                     .Include(x => x.User)
                     .Include(x => x.CustomerOrderItem);
 
@@ -3741,15 +3754,15 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetSalesByWarehouse")]
         public ActionResult<GlobalResponse<object>> GetSalesByWarehouse(DateTime? startDate = null, DateTime? endDate = null)
         {
             try
             {
-                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var commercialUserId = GetCommercialUserId();
 
-                IQueryable<CustomerOrder> ordersQuery = QueryActiveOrdersForCommercial(userId)
+                IQueryable<CustomerOrder> ordersQuery = QueryActiveOrdersForCommercial(commercialUserId)
                     .Include(x => x.Warehouse)
                     .Include(x => x.CustomerOrderItem);
 
@@ -3799,7 +3812,7 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,Admin,POS")]
+        [AuthorizeSection("stockAlerts", "reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetLowStockItems")]
         public ActionResult<GlobalResponse<object>> GetLowStockItems(int threshold = 10)
         {
@@ -3844,7 +3857,7 @@ namespace POS.Controllers
             }
         }
 
-        [Authorize(Roles = "Commercial,POS,Admin")]
+        [AuthorizeSection("stockAlerts", Roles = "Commercial,POS,Admin")]
         [HttpGet("GetStockAlerts")]
         public ActionResult<GlobalResponse<object>> GetStockAlerts()
         {
@@ -4493,7 +4506,7 @@ namespace POS.Controllers
             });
         }
 
-        [Authorize(Roles = "Commercial,POS,Admin")]
+        [AuthorizeSection("pos", "dashboard", "publicOrders", "reports", "stockAlerts", "stockReturns", "endOfDayReport", "deferredPayments", "cardPayments", "printServer", "warehouses", "inventory", Roles = "Commercial,POS,Admin")]
         [HttpGet("CommercialUserInfo")]
         public async Task<ActionResult<GlobalResponse<CommercialUserInfoDto>>> GetCommercialUserInfo()
         {
