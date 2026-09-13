@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
@@ -100,6 +100,9 @@ namespace POS.Controllers
         private static int ClampWatermarkOpacity(int value) =>
             Math.Clamp(value <= 0 ? 70 : value, 20, 100);
 
+        private static string NormalizePosLayout(string? raw) =>
+            string.Equals(raw, "Split", StringComparison.OrdinalIgnoreCase) ? "Split" : "Classic";
+
         private CommercialUserInfoDto ToCommercialUserInfoDto(User user)
         {
             var format = string.Equals(user.PrintInvoiceFormat, "A4", StringComparison.OrdinalIgnoreCase)
@@ -115,6 +118,7 @@ namespace POS.Controllers
                 CartWatermarkLogo = BuildPublicImageUrl(user.CartWatermarkLogo),
                 CartWatermarkOpacity = ClampWatermarkOpacity(user.CartWatermarkOpacity),
                 DefaultProductImage = BuildPublicImageUrl(user.DefaultProductImage),
+                PosLayout = NormalizePosLayout(user.PosLayout),
                 PublicMenuMinOrderAmount = user.PublicMenuMinOrderAmount < 0 ? 0 : user.PublicMenuMinOrderAmount,
             };
         }
@@ -4669,6 +4673,9 @@ namespace POS.Controllers
                 }
 
                 request ??= new UpdatePosBrandingRequest();
+
+                if (!string.IsNullOrWhiteSpace(request.PosLayout))
+                    commercialUser.PosLayout = NormalizePosLayout(request.PosLayout);
 
                 if (request.CartWatermarkOpacity.HasValue)
                     commercialUser.CartWatermarkOpacity = ClampWatermarkOpacity(request.CartWatermarkOpacity.Value);

@@ -1,21 +1,21 @@
 /* ============================================
-   Cashier System Color Palette — Brand #002536
+   Cashier System Color Palette — Brand #0056f3 / #02265b
    ============================================ */
 :root {
-  /* Primary Colors — Deep Teal Navy (#002536) + tints */
-  --primary-color: #002536;
-  --primary-dark: #001820;
-  --primary-light: #0a5a73;
-  --primary-hover: #001c28;
-  --primary-soft: #003a4f;
-  --primary-bright: #3db4d0;
-  --primary-gradient: linear-gradient(135deg, #001820 0%, #002536 48%, #0a5a73 100%);
-  --primary-gradient-soft: linear-gradient(160deg, #002536 0%, #0a5a73 100%);
+  /* Primary Colors — Blue (#0056f3) + deep navy (#02265b) */
+  --primary-color: #0056f3;
+  --primary-dark: #02265b;
+  --primary-light: #3d7fff;
+  --primary-hover: #0046d4;
+  --primary-soft: #033a8c;
+  --primary-bright: #5b9aff;
+  --primary-gradient: linear-gradient(135deg, #02265b 0%, #0056f3 52%, #3d7fff 100%);
+  --primary-gradient-soft: linear-gradient(160deg, #02265b 0%, #0056f3 100%);
   
   /* Secondary Colors */
-  --secondary-color: #0a5a73;
-  --secondary-dark: #002536;
-  --secondary-light: #1a7a96;
+  --secondary-color: #0046d4;
+  --secondary-dark: #02265b;
+  --secondary-light: #3d7fff;
   
   /* Accent Colors */
   --accent-color: #10b981;
@@ -29,28 +29,28 @@
   --danger-light: rgba(239, 68, 68, 0.15);
   --warning-color: #f59e0b;
   --warning-light: rgba(245, 158, 11, 0.15);
-  --info-color: #0a5a73;
-  --info-light: rgba(0, 37, 54, 0.12);
+  --info-color: #0056f3;
+  --info-light: rgba(0, 86, 243, 0.12);
   
   /* Neutral Colors - Light Theme */
   --bg-primary: #ffffff;
-  --bg-secondary: #f4f8fa;
-  --bg-tertiary: #e8f0f3;
-  --bg-dark: #d5e3e9;
+  --bg-secondary: #f4f7fc;
+  --bg-tertiary: #e8eef8;
+  --bg-dark: #d5dfe9;
   --text-primary: #0f172a;
   --text-secondary: rgba(15, 23, 42, 0.85);
   --text-muted: rgba(15, 23, 42, 0.6);
   --text-light: rgba(15, 23, 42, 0.4);
-  --border-color: rgba(0, 37, 54, 0.18);
-  --border-light: rgba(0, 37, 54, 0.1);
-  --border-dark: rgba(0, 37, 54, 0.3);
+  --border-color: rgba(2, 38, 91, 0.18);
+  --border-light: rgba(2, 38, 91, 0.1);
+  --border-dark: rgba(2, 38, 91, 0.3);
   
   /* Shadows - Light Theme */
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 10px rgba(0, 37, 54, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 20px rgba(0, 37, 54, 0.14);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 30px rgba(0, 37, 54, 0.18);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 10px rgba(2, 38, 91, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 20px rgba(2, 38, 91, 0.14);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 30px rgba(2, 38, 91, 0.18);
   
   /* Border Radius */
   --radius-sm: 0.25rem;
@@ -2750,7 +2750,7 @@ p {
   transform: translateY(-50%);
   width: 4px;
   height: 0;
-  background: linear-gradient(180deg, #0891b2 0%, #06b6d4 100%);
+  background: linear-gradient(180deg, #3377f5 0%, #06b6d4 100%);
   border-radius: 0 4px 4px 0;
   transition: height 0.3s ease;
 }
@@ -6096,7 +6096,7 @@ table .b-icon,
 
 .home-brand-name {
   display: inline-block;
-  background: linear-gradient(135deg, #0891b2 0%, #06b6d4 25%, #10b981 50%, #06b6d4 75%, #0891b2 100%);
+  background: linear-gradient(135deg, #3377f5 0%, #06b6d4 25%, #10b981 50%, #06b6d4 75%, #3377f5 100%);
   background-size: 300% 300%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -6283,7 +6283,7 @@ table .b-icon,
 .section-title-new {
   font-size: 2.75rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #0891b2 0%, #06b6d4 25%, #10b981 50%, #06b6d4 75%, #0891b2 100%);
+  background: linear-gradient(135deg, #3377f5 0%, #06b6d4 25%, #10b981 50%, #06b6d4 75%, #3377f5 100%);
   background-size: 300% 300%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -7548,7 +7548,7 @@ table .b-icon,
   justify-content: center;
   align-items: center;
   padding: 1.25rem;
-  background: linear-gradient(145deg, #0e7490 0%, #0891b2 35%, var(--primary-color) 100%);
+  background: linear-gradient(145deg, #0056f3 0%, #3377f5 35%, var(--primary-color) 100%);
 }
 
 .login-page-wrapper--v2 .login-background-decoration {
@@ -7720,7 +7720,7 @@ table .b-icon,
 }
 
 :root.dark-theme .login-page-wrapper--v2 {
-  background: linear-gradient(145deg, #0c4a6e 0%, #155e75 40%, var(--primary-dark) 100%);
+  background: linear-gradient(145deg, #02265b 0%, #033a8c 40%, var(--primary-dark) 100%);
 }
 
 :root.dark-theme .login-card {
@@ -10261,13 +10261,13 @@ table .b-icon,
 
 .pos-category-btn-active {
   border-color: transparent;
-  background: linear-gradient(145deg, #22d3ee 0%, #0891b2 38%, #0e7490 72%, #0c6b84 100%) !important;
+  background: linear-gradient(145deg, #5b9aff 0%, #3377f5 38%, #0056f3 72%, #0046d4 100%) !important;
   color: #ffffff;
   font-weight: 700;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.28),
     0 10px 36px rgba(8, 145, 178, 0.42),
-    0 4px 14px rgba(14, 116, 144, 0.38);
+    0 4px 14px rgba(0, 86, 243, 0.38);
 }
 
 .pos-category-btn-active:hover {
@@ -10309,7 +10309,7 @@ table .b-icon,
 }
 
 .pos-category-btn.pos-category-btn-accent.pos-category-btn-active {
-  background: linear-gradient(145deg, #22d3ee 0%, #0891b2 38%, #0e7490 72%, #0c6b84 100%) !important;
+  background: linear-gradient(145deg, #5b9aff 0%, #3377f5 38%, #0056f3 72%, #0046d4 100%) !important;
   border-color: transparent;
 }
 
@@ -13917,42 +13917,42 @@ table .b-icon,
    Theme variants (AppHeader)
    ============================================ */
 :root.light-theme {
-  --primary-color: #002536;
-  --primary-dark: #001820;
-  --primary-light: #0a5a73;
-  --primary-hover: #001c28;
-  --primary-soft: #003a4f;
-  --primary-bright: #3db4d0;
-  --primary-gradient: linear-gradient(135deg, #001820 0%, #002536 48%, #0a5a73 100%);
-  --primary-gradient-soft: linear-gradient(160deg, #002536 0%, #0a5a73 100%);
+  --primary-color: #0056f3;
+  --primary-dark: #02265b;
+  --primary-light: #3d7fff;
+  --primary-hover: #0046d4;
+  --primary-soft: #033a8c;
+  --primary-bright: #5b9aff;
+  --primary-gradient: linear-gradient(135deg, #02265b 0%, #0056f3 52%, #3d7fff 100%);
+  --primary-gradient-soft: linear-gradient(160deg, #02265b 0%, #0056f3 100%);
   --bg-primary: #ffffff;
-  --bg-secondary: #f4f8fa;
-  --bg-tertiary: #e8f0f3;
+  --bg-secondary: #f4f7fc;
+  --bg-tertiary: #e8eef8;
   --text-primary: #0f172a;
   --text-secondary: rgba(15, 23, 42, 0.85);
   --text-muted: rgba(15, 23, 42, 0.6);
-  --border-color: rgba(0, 37, 54, 0.18);
-  --border-light: rgba(0, 37, 54, 0.1);
+  --border-color: rgba(2, 38, 91, 0.16);
+  --border-light: rgba(2, 38, 91, 0.1);
 }
 
 :root.dark-theme {
-  /* Lighter tint of #002536 so controls stay visible on dark UI */
-  --primary-color: #3db4d0;
-  --primary-dark: #002536;
-  --primary-light: #5ec8e0;
-  --primary-hover: #5ec8e0;
-  --primary-soft: #0a5a73;
-  --primary-bright: #7ad4e8;
-  --primary-gradient: linear-gradient(135deg, #002536 0%, #0a5a73 50%, #3db4d0 100%);
-  --primary-gradient-soft: linear-gradient(160deg, #001820 0%, #0a5a73 100%);
-  --bg-primary: #0f1c24;
-  --bg-secondary: #08141b;
-  --bg-tertiary: #1a303c;
+  /* Brighter blue so controls stay visible on dark UI */
+  --primary-color: #5b9aff;
+  --primary-dark: #02265b;
+  --primary-light: #7aadff;
+  --primary-hover: #7aadff;
+  --primary-soft: #0056f3;
+  --primary-bright: #9bc2ff;
+  --primary-gradient: linear-gradient(135deg, #02265b 0%, #0056f3 50%, #5b9aff 100%);
+  --primary-gradient-soft: linear-gradient(160deg, #02265b 0%, #0056f3 100%);
+  --bg-primary: #0b1220;
+  --bg-secondary: #070d18;
+  --bg-tertiary: #152238;
   --text-primary: #f1f5f9;
   --text-secondary: rgba(226, 232, 240, 0.85);
   --text-muted: rgba(226, 232, 240, 0.6);
-  --border-color: rgba(61, 180, 208, 0.28);
-  --border-light: rgba(61, 180, 208, 0.16);
+  --border-color: rgba(91, 154, 255, 0.28);
+  --border-light: rgba(91, 154, 255, 0.16);
 }
 
 /* AppHeader layout — full width without sidebar */
@@ -14064,7 +14064,7 @@ table .b-icon,
 }
 
 .app-top-header-fullscreen-btn--active {
-  background: linear-gradient(145deg, #22d3ee 0%, #0891b2 55%, #0e7490 100%);
+  background: linear-gradient(145deg, #5b9aff 0%, #3377f5 55%, #0056f3 100%);
   border-color: transparent;
   color: #fff;
   box-shadow:
@@ -14092,7 +14092,7 @@ table .b-icon,
 
 :root.light-theme .app-top-header-fullscreen-btn--active,
 :root.light-theme .app-top-header-fullscreen-btn--active:hover {
-  background: linear-gradient(145deg, #22d3ee 0%, #0891b2 55%, #0e7490 100%);
+  background: linear-gradient(145deg, #5b9aff 0%, #3377f5 55%, #0056f3 100%);
   border-color: transparent;
   color: #fff;
 }
@@ -14100,14 +14100,14 @@ table .b-icon,
 :root.light-theme .app-top-header-sections-link {
   background: #ffffff;
   border: 1px solid #e5e7eb;
-  color: #002536;
+  color: #02265b;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
 :root.light-theme .app-top-header-sections-link:hover {
   background: #f0f9ff;
   border-color: #67e8f9;
-  color: #0e7490;
+  color: #0056f3;
   box-shadow: 0 2px 6px rgba(8, 145, 178, 0.12);
 }
 
@@ -14161,7 +14161,7 @@ table .b-icon,
 }
 
 .role-manager {
-  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  background: linear-gradient(135deg, #0d9488 0%, #0046d4 100%);
   color: #ffffff;
 }
 
@@ -14351,7 +14351,7 @@ table .b-icon,
 }
 
 .report-order-source--menu {
-  color: #0f766e;
+  color: #0046d4;
   background: rgba(20, 184, 166, 0.14);
 }
 

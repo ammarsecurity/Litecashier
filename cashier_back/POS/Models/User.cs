@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
@@ -51,6 +51,10 @@ namespace POS.Models
 
         /// <summary>Fallback image used when a catalog product has no photo.</summary>
         public string? DefaultProductImage { get; set; }
+
+        /// <summary>POS screen layout for this commercial account: Classic or Split.</summary>
+        [StringLength(20)]
+        public string PosLayout { get; set; } = "Classic";
 
         /// <summary>Minimum public-menu order total. 0 means no minimum.</summary>
         [Column(TypeName = "decimal(18,2)")]

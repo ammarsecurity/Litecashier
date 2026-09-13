@@ -6,6 +6,7 @@ import 'bootstrap/dist/css/bootstrap.css';
 import 'bootstrap-vue/dist/bootstrap-vue.css';
 import './assets/css/main.css';
 import './assets/css/pos-v2.css';
+import './assets/css/pos-split.css';
 import Toast from "vue-toastification";
 import "vue-toastification/dist/index.css";
 import LottieAnimation from "lottie-vuejs"; 

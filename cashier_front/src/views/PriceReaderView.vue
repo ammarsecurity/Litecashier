@@ -642,7 +642,7 @@ export default {
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 800;
-  color: #0f766e;
+  color: #0046d4;
   background: rgba(94, 234, 212, 0.9);
 }
 

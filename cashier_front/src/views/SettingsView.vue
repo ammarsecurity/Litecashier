@@ -263,6 +263,48 @@
             </div>
             <div class="app-section-body">
               <p class="settings-branding-zone__intro">{{ $t("settingsPosBrandingHint") }}</p>
+
+              <div class="settings-pos-layout">
+                <div class="settings-branding-card__head">
+                  <strong>{{ $t("settingsPosLayoutTitle") }}</strong>
+                  <span>{{ $t("settingsPosLayoutHint") }}</span>
+                </div>
+                <div class="settings-pos-layout-grid" role="radiogroup" :aria-label="$t('settingsPosLayoutTitle')">
+                  <button
+                    type="button"
+                    class="settings-pos-layout-card"
+                    :class="{ 'settings-pos-layout-card--active': posLayout === 'Classic' }"
+                    role="radio"
+                    :aria-checked="posLayout === 'Classic' ? 'true' : 'false'"
+                    :disabled="brandingLoading || brandingSaving"
+                    @click="posLayout = 'Classic'"
+                  >
+                    <span class="settings-pos-layout-preview settings-pos-layout-preview--classic" aria-hidden="true">
+                      <span class="settings-pos-layout-preview__scan"></span>
+                      <span class="settings-pos-layout-preview__cart"></span>
+                    </span>
+                    <strong>{{ $t("settingsPosLayoutClassic") }}</strong>
+                    <span>{{ $t("settingsPosLayoutClassicHint") }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="settings-pos-layout-card"
+                    :class="{ 'settings-pos-layout-card--active': posLayout === 'Split' }"
+                    role="radio"
+                    :aria-checked="posLayout === 'Split' ? 'true' : 'false'"
+                    :disabled="brandingLoading || brandingSaving"
+                    @click="posLayout = 'Split'"
+                  >
+                    <span class="settings-pos-layout-preview settings-pos-layout-preview--split" aria-hidden="true">
+                      <span class="settings-pos-layout-preview__products"></span>
+                      <span class="settings-pos-layout-preview__cart"></span>
+                    </span>
+                    <strong>{{ $t("settingsPosLayoutSplit") }}</strong>
+                    <span>{{ $t("settingsPosLayoutSplitHint") }}</span>
+                  </button>
+                </div>
+              </div>
+
               <div class="settings-branding-grid">
                 <div class="settings-branding-card">
                   <div class="settings-branding-card__head">
@@ -664,7 +706,7 @@ import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "@/http/api.js";
 import { openLicenseGate } from "@/utils/licenseGateBus.js";
 import { resolveAbsoluteAssetUrl } from "@/utils/apiBase.js";
-import { applyCommercialBranding, clampWatermarkOpacity } from "@/utils/posBranding.js";
+import { applyCommercialBranding, clampWatermarkOpacity, normalizePosLayout } from "@/utils/posBranding.js";
 import { BUILTIN_DEFAULT_PRODUCT_IMAGE } from "@/utils/productImage.js";
 import { resolveCommercialUserId } from "@/utils/publicMenu.js";
 
@@ -691,6 +733,8 @@ export default {
       logoPreview: null,
       brandingLoading: false,
       brandingSaving: false,
+      posLayout: "Classic",
+      savedPosLayout: "Classic",
       cartWatermarkOpacity: 18,
       savedCartWatermarkOpacity: 18,
       savedWatermarkLogo: null,
@@ -740,7 +784,8 @@ export default {
         !!this.defaultProductFile ||
         this.clearWatermarkPending ||
         this.clearDefaultProductPending ||
-        clampWatermarkOpacity(this.cartWatermarkOpacity) !== this.savedCartWatermarkOpacity
+        clampWatermarkOpacity(this.cartWatermarkOpacity) !== this.savedCartWatermarkOpacity ||
+        normalizePosLayout(this.posLayout) !== normalizePosLayout(this.savedPosLayout)
       );
     },
   },
@@ -994,6 +1039,8 @@ export default {
     },
     applyBrandingPayload(d) {
       const branding = applyCommercialBranding(d);
+      this.posLayout = branding.posLayout;
+      this.savedPosLayout = branding.posLayout;
       this.savedWatermarkLogo = branding.cartWatermarkLogo;
       this.savedDefaultProductImage = branding.defaultProductImage;
       this.cartWatermarkOpacity = branding.cartWatermarkOpacity;
@@ -1057,6 +1104,7 @@ export default {
       try {
         const formData = new FormData();
         formData.append("CartWatermarkOpacity", String(clampWatermarkOpacity(this.cartWatermarkOpacity)));
+        formData.append("PosLayout", normalizePosLayout(this.posLayout));
         if (this.watermarkFile) formData.append("CartWatermarkLogo", this.watermarkFile);
         if (this.clearWatermarkPending) formData.append("ClearCartWatermark", "true");
         if (this.defaultProductFile) formData.append("DefaultProductImage", this.defaultProductFile);
@@ -1411,7 +1459,7 @@ export default {
 
 .settings-menu-min-zone__icon {
   background: rgba(61, 180, 208, 0.22);
-  color: #3db4d0;
+  color: #5b9aff;
 }
 
 .settings-menu-min-zone__intro {
@@ -1451,7 +1499,7 @@ export default {
 
 .settings-menu-min-input input:focus {
   outline: none;
-  border-color: #3db4d0;
+  border-color: #5b9aff;
   box-shadow: 0 0 0 4px rgba(61, 180, 208, 0.18);
 }
 
@@ -1482,14 +1530,115 @@ export default {
 }
 
 .settings-branding-zone__icon {
-  background: rgba(14, 116, 144, 0.16);
-  color: #0e7490;
+  background: rgba(0, 86, 243, 0.16);
+  color: #0056f3;
 }
 
 .settings-branding-zone__intro {
   margin: 0 0 1.25rem;
   color: var(--text-secondary, #94a3b8);
   line-height: 1.6;
+}
+
+.settings-pos-layout {
+  margin-bottom: 1.35rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: rgba(15, 23, 42, 0.28);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.settings-pos-layout > .settings-branding-card__head {
+  margin-bottom: 0.85rem;
+}
+
+.settings-pos-layout-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.settings-pos-layout-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(2, 6, 23, 0.35);
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.settings-pos-layout-card:hover:not(:disabled) {
+  border-color: rgba(0, 86, 243, 0.55);
+}
+
+.settings-pos-layout-card--active {
+  border-color: #0056f3;
+  box-shadow: 0 0 0 1px rgba(0, 86, 243, 0.35);
+  background: rgba(0, 86, 243, 0.12);
+}
+
+.settings-pos-layout-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.settings-pos-layout-card strong {
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.95rem;
+}
+
+.settings-pos-layout-card > span:last-child {
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.settings-pos-layout-preview {
+  display: grid;
+  width: 100%;
+  height: 72px;
+  border-radius: 0.65rem;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.12);
+  margin-bottom: 0.2rem;
+}
+
+.settings-pos-layout-preview--classic {
+  grid-template-rows: 28px 1fr;
+  gap: 4px;
+  padding: 6px;
+}
+
+.settings-pos-layout-preview--classic .settings-pos-layout-preview__scan {
+  border-radius: 0.35rem;
+  background: rgba(0, 86, 243, 0.35);
+}
+
+.settings-pos-layout-preview--classic .settings-pos-layout-preview__cart {
+  border-radius: 0.35rem;
+  background: rgba(226, 232, 240, 0.22);
+}
+
+.settings-pos-layout-preview--split {
+  grid-template-columns: 1.4fr 1fr;
+  gap: 4px;
+  padding: 6px;
+}
+
+.settings-pos-layout-preview--split .settings-pos-layout-preview__products {
+  border-radius: 0.35rem;
+  background: rgba(0, 86, 243, 0.4);
+}
+
+.settings-pos-layout-preview--split .settings-pos-layout-preview__cart {
+  border-radius: 0.35rem;
+  background: rgba(226, 232, 240, 0.22);
 }
 
 .settings-branding-grid {
@@ -1578,7 +1727,7 @@ export default {
 
 .settings-opacity-field input[type="range"] {
   width: 100%;
-  accent-color: #0e7490;
+  accent-color: #0056f3;
 }
 
 .settings-branding-actions {
@@ -1607,7 +1756,8 @@ export default {
 }
 
 @media (max-width: 900px) {
-  .settings-branding-grid {
+  .settings-branding-grid,
+  .settings-pos-layout-grid {
     grid-template-columns: 1fr;
   }
 }

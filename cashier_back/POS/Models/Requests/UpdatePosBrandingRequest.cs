@@ -9,5 +9,8 @@ namespace POS.Models.Requests
         public int? CartWatermarkOpacity { get; set; }
         public IFormFile? DefaultProductImage { get; set; }
         public bool ClearDefaultProductImage { get; set; }
+
+        /// <summary>Classic | Split</summary>
+        public string? PosLayout { get; set; }
     }
 }

@@ -160,7 +160,7 @@ export default {
   position: relative;
   overflow: hidden;
   border-radius: 18px;
-  background: #002536;
+  background: #02265b;
   min-height: 200px;
 }
 
@@ -191,7 +191,7 @@ export default {
 .ann-slide--no-image {
   background:
     radial-gradient(ellipse 80% 70% at 15% 20%, rgba(61, 180, 208, 0.28), transparent 55%),
-    linear-gradient(135deg, #002536 0%, #0e7490 55%, #155e75 100%);
+    linear-gradient(135deg, #02265b 0%, #0056f3 55%, #02265b 100%);
 }
 
 .ann-slide-media {
@@ -201,7 +201,7 @@ export default {
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  background-color: #002536;
+  background-color: #02265b;
 }
 
 .ann-slide-shade {
@@ -275,7 +275,7 @@ export default {
   padding: 0.45rem 0.9rem;
   border-radius: 999px;
   background: #fff;
-  color: #002536;
+  color: #02265b;
   font-size: 0.85rem;
   font-weight: 700;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -302,7 +302,7 @@ export default {
   display: grid;
   place-items: center;
   background: rgba(255, 255, 255, 0.92);
-  color: #002536;
+  color: #02265b;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
   cursor: pointer;
   opacity: 0;
@@ -346,7 +346,7 @@ export default {
 
 .ann-dot.active {
   width: 22px;
-  background: #0e7490;
+  background: #0056f3;
 }
 
 @media (max-width: 768px) {

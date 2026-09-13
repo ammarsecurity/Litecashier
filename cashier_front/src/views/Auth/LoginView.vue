@@ -2,7 +2,6 @@
   <b-overlay :show="show" spinner-variant="primary" spinner-type="border" rounded="sm">
     <div class="login-shell">
       <aside class="login-brand">
-        <img src="../../assets/logo.png" alt="" class="login-brand-logo" />
         <p class="login-brand-kicker">{{ $t("app-name") || "نظام الكاشير" }}</p>
         <h1 class="login-brand-title">{{ $t("welcomeMessage") }}</h1>
         <p class="login-brand-text">{{ $t("loginSubtitle") }}</p>
@@ -24,6 +23,15 @@
 
       <main class="login-main">
         <div class="login-toolbar">
+          <button
+            type="button"
+            class="login-theme-btn"
+            :title="currentTheme === 'dark' ? ($t('switchToLightMode') || 'الوضع الفاتح') : ($t('switchToDarkMode') || 'الوضع الداكن')"
+            :aria-label="currentTheme === 'dark' ? ($t('switchToLightMode') || 'الوضع الفاتح') : ($t('switchToDarkMode') || 'الوضع الداكن')"
+            @click="toggleTheme"
+          >
+            <b-icon :icon="currentTheme === 'dark' ? 'sun-fill' : 'moon-fill'"></b-icon>
+          </button>
           <label class="login-lang">
             <b-icon icon="translate"></b-icon>
             <select
@@ -162,6 +170,7 @@ export default {
     return {
       show: false,
       loginMode: "code",
+      currentTheme: localStorage.getItem("theme") || "dark",
       form: {
         phoneNumber: "",
         password: "",
@@ -172,12 +181,25 @@ export default {
   mounted() {
     document.documentElement.classList.add("login-page");
     document.body.classList.add("login-page");
+    this.applyTheme(this.currentTheme);
   },
   beforeDestroy() {
     document.documentElement.classList.remove("login-page");
     document.body.classList.remove("login-page");
   },
   methods: {
+    applyTheme(theme) {
+      const next = theme === "light" ? "light" : "dark";
+      const root = document.documentElement;
+      root.classList.remove("light-theme", "dark-theme");
+      root.classList.add(`${next}-theme`);
+      this.currentTheme = next;
+    },
+    toggleTheme() {
+      const next = this.currentTheme === "dark" ? "light" : "dark";
+      this.applyTheme(next);
+      localStorage.setItem("theme", next);
+    },
     onLanguageChange(event) {
       const lang = event.target.value;
       localStorage.setItem("language", lang);
@@ -292,13 +314,6 @@ body.login-page #app {
   color: #fff;
 }
 
-.login-brand-logo {
-  width: 72px;
-  height: auto;
-  margin-bottom: 24px;
-  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2));
-}
-
 .login-brand-kicker {
   margin: 0 0 8px;
   font-size: 13px;
@@ -368,7 +383,34 @@ body.login-page #app {
 .login-toolbar {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 24px;
+}
+
+.login-theme-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.login-theme-btn:hover {
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+  color: var(--primary-color);
+}
+
+.login-theme-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary-color) 45%, transparent);
+  outline-offset: 2px;
 }
 
 .login-lang {
@@ -417,7 +459,7 @@ body.login-page #app {
 }
 
 .login-panel-logo {
-  width: 56px;
+  width: 112px;
   height: auto;
   flex: 0 0 auto;
 }
@@ -521,11 +563,6 @@ body.login-page #app {
 @media (max-width: 600px) {
   .login-brand-list {
     display: none;
-  }
-
-  .login-brand-logo {
-    width: 56px;
-    margin-bottom: 16px;
   }
 }
 </style>

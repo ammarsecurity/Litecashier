@@ -14,6 +14,9 @@ namespace POS.Models.Dtos
         public int CartWatermarkOpacity { get; set; } = 18;
         public string? DefaultProductImage { get; set; }
 
+        /// <summary>Classic | Split</summary>
+        public string PosLayout { get; set; } = "Classic";
+
         /// <summary>Minimum public-menu order total. 0 means no minimum.</summary>
         public decimal PublicMenuMinOrderAmount { get; set; }
     }

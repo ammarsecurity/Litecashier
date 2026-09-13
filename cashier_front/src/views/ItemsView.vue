@@ -2358,8 +2358,8 @@ export default {
   object-fit: contain;
   padding: 12%;
   background:
-    radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--primary-bright, #3db4d0) 22%, transparent), transparent 62%),
-    var(--primary-gradient-soft, linear-gradient(160deg, #002536 0%, #0a5a73 100%));
+    radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--primary-bright, #5b9aff) 22%, transparent), transparent 62%),
+    var(--primary-gradient-soft, linear-gradient(160deg, #02265b 0%, #0056f3 100%));
 }
 
 .item-product-meta {

@@ -182,7 +182,7 @@ export default {
   border: none;
   border-radius: 10px;
   padding: 0.75rem 1rem;
-  background: #002536;
+  background: #02265b;
   color: #fff;
   font-weight: 700;
   cursor: pointer;

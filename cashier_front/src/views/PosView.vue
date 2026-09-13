@@ -92,16 +92,79 @@
       <div
         class="main-content-wrapper pos-route pos-route--v2"
         :class="{
-          'pos-has-checkout-bar': showPosCheckoutBar,
-          'pos-has-checkout-bar--with-discounts': carditems.length > 0,
-          'pos-has-checkout-bar--change-calc': changeCalcOpen && carditems.length > 0,
+          'pos-route--split': isPosSplitLayout,
+          'pos-split-mobile--products': isPosSplitLayout && splitMobilePane === 'products',
+          'pos-split-mobile--cart': isPosSplitLayout && splitMobilePane === 'cart',
+          'pos-has-checkout-bar': showPosCheckoutBar && !(isPosSplitLayout && splitMobilePane === 'products'),
+          'pos-has-checkout-bar--with-discounts':
+            carditems.length > 0 && !(isPosSplitLayout && splitMobilePane === 'products'),
+          'pos-has-checkout-bar--change-calc':
+            changeCalcOpen && carditems.length > 0 && !(isPosSplitLayout && splitMobilePane === 'products'),
         }"
       >
         <b-container fluid class="pos-container-fluid">
           <div class="pos-page-container pos-page-container--v2">
-            <div class="pos-workspace pos-workspace--v2">
-              <main class="pos-workspace-main">
-                <div class="pos-main-section pos-main-section--v2">
+            <div
+              v-if="isPosSplitLayout"
+              class="pos-split-mobile-tabs"
+              role="tablist"
+            >
+              <button
+                type="button"
+                class="pos-split-mobile-tab"
+                :class="{ 'pos-split-mobile-tab--active': splitMobilePane === 'products' }"
+                role="tab"
+                :aria-selected="splitMobilePane === 'products' ? 'true' : 'false'"
+                @click="splitMobilePane = 'products'"
+              >
+                <b-icon icon="box-seam"></b-icon>
+                {{ $t("posCatalogModalTitle") || "المنتجات" }}
+              </button>
+              <button
+                type="button"
+                class="pos-split-mobile-tab"
+                :class="{ 'pos-split-mobile-tab--active': splitMobilePane === 'cart' }"
+                role="tab"
+                :aria-selected="splitMobilePane === 'cart' ? 'true' : 'false'"
+                @click="splitMobilePane = 'cart'"
+              >
+                <b-icon icon="cart3"></b-icon>
+                {{ $t("cart") || "السلة" }}
+                <span v-if="carditems.length" class="pos-split-mobile-tab-count">{{ carditems.length }}</span>
+              </button>
+            </div>
+
+            <button
+              v-if="isPosSplitLayout && splitMobilePane === 'products' && carditems.length > 0"
+              type="button"
+              class="pos-split-mobile-cart-chip"
+              @click="splitMobilePane = 'cart'"
+            >
+              <span class="pos-split-mobile-cart-chip-main">
+                <b-icon icon="cart3"></b-icon>
+                <strong>{{ totalCardItems }} {{ $t("itemLabel") || "منتج" }}</strong>
+              </span>
+              <span class="pos-split-mobile-cart-chip-total">
+                {{ formattedNumber }} {{ $t("currency") }}
+              </span>
+              <span class="pos-split-mobile-cart-chip-go">
+                {{ $t("cart") || "السلة" }}
+                <b-icon icon="chevron-left"></b-icon>
+              </span>
+            </button>
+
+            <div
+              class="pos-workspace pos-workspace--v2"
+              :class="{ 'pos-workspace--split': isPosSplitLayout }"
+            >
+              <main
+                class="pos-workspace-main"
+                :class="{
+                  'pos-split-pane': isPosSplitLayout,
+                  'pos-split-pane--hidden-mobile': isPosSplitLayout && splitMobilePane !== 'products',
+                }"
+              >
+                <div class="pos-main-section pos-main-section--v2" :class="{ 'pos-main-section--split': isPosSplitLayout }">
                   <div class="pos-quick-actions pos-quick-actions--barcode pos-quick-actions--with-catalog">
                     <label class="pos-quick-barcode">
                       <span class="pos-quick-barcode-icon" aria-hidden="true">
@@ -142,6 +205,7 @@
                       </span>
                     </label>
                     <button
+                      v-if="!isPosSplitLayout"
                       type="button"
                       class="pos-catalog-open-btn pos-catalog-open-btn--compact"
                       @click="openCatalogModal"
@@ -152,7 +216,7 @@
                       </span>
                       <kbd class="pos-kbd">F3</kbd>
                     </button>
-                    <p v-if="activeCategory || quickSearch" class="pos-scan-hub-filter pos-scan-hub-filter--inline">
+                    <p v-if="!isPosSplitLayout && (activeCategory || quickSearch)" class="pos-scan-hub-filter pos-scan-hub-filter--inline">
                       <b-icon icon="funnel-fill"></b-icon>
                       <span v-if="activeCategory">{{ activeCategory }}</span>
                       <span v-else>{{ quickSearch }}</span>
@@ -183,11 +247,39 @@
                       </button>
                     </div>
                   </div>
+
+                  <div v-if="isPosSplitLayout" class="pos-split-catalog-panel">
+                    <PosCatalogBrowser
+                      ref="posSplitCatalog"
+                      embedded
+                      :show-hero="false"
+                      :show-close="false"
+                      :show-done="false"
+                      :items="Items"
+                      :tags="tags"
+                      :quick-search.sync="quickSearch"
+                      :active-category="activeCategory"
+                      :total-items="totalItems"
+                      :page-number.sync="pageNumber"
+                      :page-size="pageSize"
+                      :catalog-loading="catalogLoading"
+                      :is-wholesale="isWholesale"
+                      :unit-price="displayCatalogUnitPrice"
+                      :format-price="formatPrice"
+                      @select-category="selectCategory"
+                      @clear-search="clearCatalogSearch"
+                      @add-item="addToCartFromCatalog"
+                    />
+                  </div>
                 </div>
               </main>
 
               <aside
                 class="pos-cart-shell"
+                :class="{
+                  'pos-split-pane': isPosSplitLayout,
+                  'pos-split-pane--hidden-mobile': isPosSplitLayout && splitMobilePane !== 'cart',
+                }"
                 :aria-label="$t('cart')"
               >
                 <div class="pos-cart-panel pos-cart-panel--v2">
@@ -385,6 +477,244 @@
               </aside>
             </div>
 
+            <div
+              v-if="showPosCheckoutBar && !(isPosSplitLayout && splitMobilePane === 'products')"
+              class="pos-cart-checkout-bar"
+            >
+              <div class="pos-cart-checkout-bar-inner">
+                <div v-if="carditems.length > 0" class="pos-checkout-quick-row">
+                  <span class="pos-cart-checkout-segment-label">{{ $t("quickDiscount") || "خصم سريع" }}</span>
+                  <div class="pos-checkout-discount-presets">
+                    <button
+                      v-for="preset in orderDiscountPresets"
+                      :key="preset.id"
+                      type="button"
+                      class="order-discount-preset-btn"
+                      @click="applyOrderDiscountPreset(preset)"
+                    >
+                      {{ preset.label }}{{ preset.type === "amount" ? ` ${$t("currency")}` : "" }}
+                    </button>
+                    <button
+                      v-if="orderDiscountAmount > 0"
+                      type="button"
+                      class="order-discount-clear-btn"
+                      @click="clearOrderDiscount"
+                    >
+                      {{ $t("clear") || "مسح" }}
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="carditems.length > 0 && changeCalcOpen" class="pos-checkout-change-panel">
+                  <div class="pos-change-calc-grid">
+                    <div class="pos-change-calc-field">
+                      <span class="pos-change-calc-label">{{ $t("changeCalcOrderTotal") }}</span>
+                      <strong class="pos-change-calc-total">
+                        {{ formatPrice(finalOrderTotal) }} {{ $t("currency") }}
+                      </strong>
+                    </div>
+                    <div class="pos-change-calc-field">
+                      <label class="pos-change-calc-label" for="pos-customer-paid-input">
+                        {{ $t("changeCalcAmountReceived") }}
+                      </label>
+                      <input
+                        id="pos-customer-paid-input"
+                        ref="customerPaidInput"
+                        v-model.number="customerPaidAmount"
+                        type="number"
+                        min="0"
+                        step="250"
+                        class="pos-change-calc-input"
+                        :placeholder="$t('changeCalcAmountReceivedPlaceholder')"
+                        @keyup.enter="focusPosBarcode"
+                      />
+                    </div>
+                    <div class="pos-change-calc-field pos-change-calc-field--result">
+                      <span class="pos-change-calc-label">{{ $t("changeCalcChangeDue") }}</span>
+                      <strong
+                        class="pos-change-calc-result"
+                        :class="{
+                          'pos-change-calc-result--ok': changeDueAmount > 0,
+                          'pos-change-calc-result--exact': changeDueAmount === 0 && customerPaidAmount > 0,
+                          'pos-change-calc-result--warn': isInsufficientPayment,
+                        }"
+                      >
+                        <template v-if="isInsufficientPayment">
+                          {{ $t("changeCalcInsufficient") }} − {{ formatPrice(paymentShortfall) }} {{ $t("currency") }}
+                        </template>
+                        <template v-else-if="customerPaidAmount > 0">
+                          {{ formatPrice(changeDueAmount) }} {{ $t("currency") }}
+                        </template>
+                        <template v-else>—</template>
+                      </strong>
+                    </div>
+                  </div>
+                  <div class="pos-change-calc-presets">
+                    <button type="button" class="pos-change-calc-preset-btn" @click="setCustomerPaidAmount(finalOrderTotal)">
+                      {{ $t("changeCalcExactAmount") }}
+                    </button>
+                    <button
+                      v-for="amount in changeCalcQuickAmounts"
+                      :key="amount"
+                      type="button"
+                      class="pos-change-calc-preset-btn"
+                      @click="setCustomerPaidAmount(amount)"
+                    >
+                      {{ formatPrice(amount) }} {{ $t("currency") }}
+                    </button>
+                    <button type="button" class="pos-change-calc-clear-btn" @click="resetChangeCalculator(true)">
+                      {{ $t("clear") }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="pos-cart-checkout-strip">
+                  <template v-if="carditems.length > 0">
+                    <div class="pos-cart-checkout-segment pos-cart-checkout-segment--stats">
+                      <span class="pos-cart-checkout-segment-label">{{ $t("checkoutSummary") }}</span>
+                      <div class="pos-cart-checkout-btn-row pos-cart-checkout-stats-row">
+                        <span class="pos-cart-checkout-stat pos-cart-checkout-stat--pill">
+                          <b-icon icon="box-seam" class="pos-cart-checkout-ic"></b-icon>
+                          <span class="pos-cart-checkout-stat-text">{{ $t("countLabel") }}</span>
+                          <strong>{{ totalCardItems }} {{ $t("itemLabel") }}</strong>
+                        </span>
+                        <span
+                          v-if="orderDiscountAmount > 0"
+                          class="pos-cart-checkout-stat pos-cart-checkout-stat--pill pos-cart-checkout-stat--pill-discount"
+                        >
+                          <b-icon icon="tag-fill" class="pos-cart-checkout-ic"></b-icon>
+                          <span class="pos-cart-checkout-stat-text">− {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}</span>
+                        </span>
+                        <span class="pos-cart-checkout-stat pos-cart-checkout-stat--pill pos-cart-checkout-stat--pill-total">
+                          <span class="pos-cart-checkout-stat-text">{{ $t("totalLabel") }}</span>
+                          <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div class="pos-cart-checkout-segment pos-cart-checkout-segment--actions">
+                      <span class="pos-cart-checkout-segment-label">{{ $t("checkoutActions") }}</span>
+                      <div class="pos-cart-checkout-btn-row pos-cart-checkout-summary-actions">
+                        <button
+                          type="button"
+                          class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn pos-cart-checkout-action-btn--pay"
+                          @click="quickPay(false)"
+                          :disabled="totalCardItems <= 0 || orderPersisting"
+                          :title="`${$t('payNow') || 'دفع'} (F4)`"
+                        >
+                          <b-icon icon="check-circle-fill"></b-icon>
+                          <span>{{ $t("payNow") || "دفع" }}</span>
+                          <kbd class="pos-kbd">F4</kbd>
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-action-btn pos-action-btn-success pos-cart-checkout-action-btn pos-cart-checkout-action-btn--pay-print"
+                          @click="quickPay(true)"
+                          :disabled="totalCardItems <= 0 || orderPersisting"
+                          :title="`${$t('payAndPrint') || 'دفع وطباعة'} (F5)`"
+                        >
+                          <b-icon icon="receipt-cutoff"></b-icon>
+                          <span>{{ $t("payAndPrint") || "دفع وطباعة" }}</span>
+                          <kbd class="pos-kbd">F5</kbd>
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn pos-cart-checkout-action-btn--tool"
+                          @click="openPrintOnlyConfirm"
+                          :disabled="totalCardItems <= 0"
+                          :title="`${$t('printOnly') || 'طباعة فقط'} (F6)`"
+                        >
+                          <b-icon icon="printer-fill"></b-icon>
+                          <span>{{ $t("printOnly") || "طباعة فقط" }}</span>
+                          <kbd class="pos-kbd">F6</kbd>
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn pos-cart-checkout-action-btn--tool"
+                          :class="{ 'pos-cart-checkout-action-btn--active': changeCalcOpen }"
+                          @click="toggleChangeCalculator"
+                          :disabled="totalCardItems <= 0"
+                          :title="`${$t('changeCalculator') || 'حاسبة الباقي'} (F7)`"
+                        >
+                          <b-icon icon="calculator-fill"></b-icon>
+                          <span>{{ $t("changeCalculator") }}</span>
+                          <kbd class="pos-kbd">F7</kbd>
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn pos-cart-checkout-action-btn--tool"
+                          @click="openOrderExtrasModal"
+                          :disabled="totalCardItems <= 0"
+                          :title="`${$t('discountAndNotes') || 'خصم وملاحظات'} (F8)`"
+                        >
+                          <b-icon icon="tag-fill"></b-icon>
+                          <span>{{ $t("discountAndNotes") || "خصم وملاحظات" }}</span>
+                          <kbd class="pos-kbd">F8</kbd>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="pos-cart-checkout-segment pos-cart-checkout-segment--pay">
+                      <span class="pos-cart-checkout-segment-label">{{ $t("paymentMethod") }}</span>
+                      <div class="pos-cart-checkout-btn-row pos-cart-checkout-pay-row">
+                        <button
+                          type="button"
+                          class="pos-payment-method-btn"
+                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Cash' }"
+                          @click="setPosPaymentMethod('Cash')"
+                        >
+                          <b-icon icon="cash-stack" class="pos-payment-icon"></b-icon>
+                          <span class="pos-payment-label">{{ $t("cash") || "نقد" }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-payment-method-btn"
+                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Card' }"
+                          @click="setPosPaymentMethod('Card')"
+                        >
+                          <b-icon icon="credit-card" class="pos-payment-icon"></b-icon>
+                          <span class="pos-payment-label">{{ $t("card") || "بطاقة" }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="pos-payment-method-btn"
+                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Credit' }"
+                          @click="openCreditPaymentModal"
+                        >
+                          <b-icon icon="clock-history" class="pos-payment-icon"></b-icon>
+                          <span class="pos-payment-label">{{ $t("credit") || "دفع لاحق" }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+
+                  <div
+                    v-if="activeCheckoutPrinters.length > 0 || loadingManagedPrinters"
+                    class="pos-cart-checkout-segment pos-cart-checkout-segment--printer"
+                  >
+                    <span class="pos-cart-checkout-segment-label">{{ $t("selectPrinter") || "الطابعة" }}</span>
+                    <select
+                      v-if="activeCheckoutPrinters.length > 0"
+                      v-model="selectedManagedPrinterId"
+                      @change="onManagedPrinterChange"
+                      class="pos-cart-checkout-printer-select"
+                    >
+                      <option
+                        v-for="printer in activeCheckoutPrinters"
+                        :key="printer.id"
+                        :value="printer.id"
+                      >
+                        {{ printer.name }}{{ printer.isMain ? ` (${$t("mainPrinter") || "رئيسية"})` : "" }}
+                      </option>
+                    </select>
+                    <span v-else class="pos-cart-checkout-printer-loading">
+                      {{ $t("loadingPrinters") || "جاري تحميل الطابعات..." }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <b-modal
               id="modal-pos-catalog"
               :visible.sync="showCatalogModal"
@@ -401,178 +731,24 @@
               @hidden="onCatalogModalHidden"
             >
               <div class="modal-content-wrapper pos-ui-modal-wrapper pos-catalog-wrapper">
-                <div class="pos-catalog-hero">
-                  <div class="pos-catalog-hero-text">
-                    <h3 class="pos-catalog-title">
-                      <b-icon icon="box-seam" class="me-2"></b-icon>
-                      {{ $t("posCatalogModalTitle") || "كتالوج المنتجات" }}
-                    </h3>
-                    <p class="pos-catalog-subtitle">
-                      {{ $t("posCatalogModalSubtitle") || "ابحث بالاسم أو الكود، أو اختر قسماً ثم أضف للسلة" }}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    class="pos-ui-modal-close"
-                    :aria-label="$t('close') || 'إغلاق'"
-                    @click="closeCatalogModal"
-                  >
-                    <b-icon icon="x-lg"></b-icon>
-                  </button>
-                </div>
-
-                <div class="pos-catalog-toolbar">
-                  <div class="pos-catalog-search">
-                    <b-icon icon="search" class="pos-catalog-search-icon" aria-hidden="true"></b-icon>
-                    <input
-                      ref="posCatalogSearchInput"
-                      v-model="quickSearch"
-                      type="search"
-                      class="pos-catalog-search-input"
-                      :placeholder="$t('posCatalogSearchPlaceholder') || 'ابحث عن منتج بالاسم أو الكود...'"
-                      :aria-label="$t('posCatalogSearchPlaceholder') || 'بحث المنتجات'"
-                      autocomplete="off"
-                      spellcheck="false"
-                    />
-                    <button
-                      v-if="quickSearch"
-                      type="button"
-                      class="pos-catalog-search-clear"
-                      :aria-label="$t('clear') || 'مسح'"
-                      @click="clearCatalogSearch"
-                    >
-                      <b-icon icon="x"></b-icon>
-                    </button>
-                  </div>
-                  <div class="pos-catalog-meta">
-                    <span class="pos-catalog-count">
-                      {{ totalItems }}
-                      {{ $t("posCatalogItemUnit") || "مادة" }}
-                    </span>
-                  </div>
-                </div>
-
-                <div class="pos-catalog-categories" role="tablist">
-                  <button
-                    type="button"
-                    class="pos-catalog-cat-chip"
-                    :class="{ 'pos-catalog-cat-chip--active': activeCategory === '' }"
-                    @click="selectCategory('')"
-                  >
-                    {{ $t("all") || "الكل" }}
-                  </button>
-                  <button
-                    v-for="tag in tags"
-                    :key="tag.id"
-                    type="button"
-                    class="pos-catalog-cat-chip"
-                    :class="{ 'pos-catalog-cat-chip--active': activeCategory === tag.name }"
-                    @click="selectCategory(tag.name)"
-                  >
-                    {{ tag.name }}
-                  </button>
-                </div>
-
-                <div class="pos-catalog-grid-wrap">
-                  <div v-if="catalogLoading && !Items.length" class="pos-catalog-loading">
-                    {{ $t("pleaseWait") || "جاري التحميل..." }}
-                  </div>
-                  <div v-else-if="!Items.length" class="pos-catalog-empty">
-                    <b-icon icon="inbox"></b-icon>
-                    <p>{{ $t("noItemsFound") || "لا توجد منتجات مطابقة" }}</p>
-                  </div>
-                  <div v-else class="pos-products-grid pos-catalog-products-grid">
-                    <div
-                      class="pos-product-card"
-                      :class="{ 'pos-product-card-disabled': !item.quantity || item.quantity <= 0 }"
-                      v-for="item in Items"
-                      :key="item.id"
-                      @click="item.quantity > 0 ? addToCartFromCatalog(item) : null"
-                    >
-                      <div
-                        v-if="!isWholesale && item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
-                        class="pos-product-discount-badge"
-                      >
-                        <b-icon icon="tag-fill" class="me-1"></b-icon>
-                        {{ $t("discountLabel") }}
-                      </div>
-                      <div class="pos-product-media">
-                        <div class="pos-product-image-container">
-                          <img
-                            :src="productImageSrc(item.image, item.imageError)"
-                            :alt="item.name"
-                            class="pos-product-image"
-                            :class="{
-                              'pos-product-image--brand-fallback': isProductImageFallback(
-                                item.image,
-                                item.imageError
-                              ),
-                            }"
-                            @error="onProductImageError(item)"
-                          />
-                        </div>
-                      </div>
-                      <div class="pos-product-info">
-                        <h4 class="pos-product-name" :title="item.name">{{ item.name }}</h4>
-                        <div class="pos-catalog-stock-row">
-                          <span
-                            v-if="!item.quantity || item.quantity <= 0"
-                            class="pos-catalog-stock-chip pos-catalog-stock-chip--out"
-                          >
-                            {{ $t("itemOutOfStock") || "غير متوفر" }}
-                          </span>
-                          <span v-else class="pos-catalog-stock-chip pos-catalog-stock-chip--qty">
-                            <b-icon icon="box-seam" aria-hidden="true"></b-icon>
-                            {{ item.quantity }}
-                          </span>
-                        </div>
-                        <div class="pos-product-footer">
-                          <div class="pos-product-price">
-                            <div
-                              v-if="!isWholesale && item.disCountPrice !== 0 && item.disCountPrice !== item.sellingPrice"
-                              class="pos-product-price-discounted"
-                            >
-                              <span class="pos-product-price-current">
-                                {{ formatPrice(item.disCountPrice) }} {{ $t("currency") }}
-                              </span>
-                              <span class="pos-product-price-old">
-                                {{ formatPrice(item.sellingPrice) }} {{ $t("currency") }}
-                              </span>
-                            </div>
-                            <div v-else class="pos-product-price-regular">
-                              {{ formatPrice(displayCatalogUnitPrice(item)) }} {{ $t("currency") }}
-                            </div>
-                          </div>
-                          <span
-                            v-if="item.quantity && item.quantity > 0"
-                            class="pos-product-add-btn"
-                            aria-hidden="true"
-                          >
-                            <b-icon icon="plus-lg"></b-icon>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="pos-catalog-footer">
-                  <b-pagination
-                    v-model="pageNumber"
-                    :total-rows="totalItems"
-                    :per-page="pageSize"
-                    aria-controls="pos-catalog-products"
-                    class="pos-pagination pos-catalog-pagination"
-                  />
-                  <button
-                    type="button"
-                    class="pos-ui-modal-btn pos-ui-modal-btn--primary"
-                    @click="closeCatalogModal"
-                  >
-                    <b-icon icon="check-lg"></b-icon>
-                    {{ $t("done") || $t("close") || "تم" }}
-                  </button>
-                </div>
+                <PosCatalogBrowser
+                  ref="posModalCatalog"
+                  :items="Items"
+                  :tags="tags"
+                  :quick-search.sync="quickSearch"
+                  :active-category="activeCategory"
+                  :total-items="totalItems"
+                  :page-number.sync="pageNumber"
+                  :page-size="pageSize"
+                  :catalog-loading="catalogLoading"
+                  :is-wholesale="isWholesale"
+                  :unit-price="displayCatalogUnitPrice"
+                  :format-price="formatPrice"
+                  @select-category="selectCategory"
+                  @clear-search="clearCatalogSearch"
+                  @add-item="addToCartFromCatalog"
+                  @close="closeCatalogModal"
+                />
               </div>
             </b-modal>
 
@@ -1178,240 +1354,6 @@
               </div>
             </b-modal>
 
-            <div v-if="showPosCheckoutBar" class="pos-cart-checkout-bar">
-              <div class="pos-cart-checkout-bar-inner">
-                <div v-if="carditems.length > 0" class="pos-checkout-quick-row">
-                  <span class="pos-cart-checkout-segment-label">{{ $t("quickDiscount") || "خصم سريع" }}</span>
-                  <div class="pos-checkout-discount-presets">
-                    <button
-                      v-for="preset in orderDiscountPresets"
-                      :key="preset.id"
-                      type="button"
-                      class="order-discount-preset-btn"
-                      @click="applyOrderDiscountPreset(preset)"
-                    >
-                      {{ preset.label }}{{ preset.type === "amount" ? ` ${$t("currency")}` : "" }}
-                    </button>
-                    <button
-                      v-if="orderDiscountAmount > 0"
-                      type="button"
-                      class="order-discount-clear-btn"
-                      @click="clearOrderDiscount"
-                    >
-                      {{ $t("clear") || "مسح" }}
-                    </button>
-                  </div>
-                </div>
-
-                <div v-if="carditems.length > 0 && changeCalcOpen" class="pos-checkout-change-panel">
-                  <div class="pos-change-calc-grid">
-                    <div class="pos-change-calc-field">
-                      <span class="pos-change-calc-label">{{ $t("changeCalcOrderTotal") }}</span>
-                      <strong class="pos-change-calc-total">
-                        {{ formatPrice(finalOrderTotal) }} {{ $t("currency") }}
-                      </strong>
-                    </div>
-                    <div class="pos-change-calc-field">
-                      <label class="pos-change-calc-label" for="pos-customer-paid-input">
-                        {{ $t("changeCalcAmountReceived") }}
-                      </label>
-                      <input
-                        id="pos-customer-paid-input"
-                        ref="customerPaidInput"
-                        v-model.number="customerPaidAmount"
-                        type="number"
-                        min="0"
-                        step="250"
-                        class="pos-change-calc-input"
-                        :placeholder="$t('changeCalcAmountReceivedPlaceholder')"
-                        @keyup.enter="focusPosBarcode"
-                      />
-                    </div>
-                    <div class="pos-change-calc-field pos-change-calc-field--result">
-                      <span class="pos-change-calc-label">{{ $t("changeCalcChangeDue") }}</span>
-                      <strong
-                        class="pos-change-calc-result"
-                        :class="{
-                          'pos-change-calc-result--ok': changeDueAmount > 0,
-                          'pos-change-calc-result--exact': changeDueAmount === 0 && customerPaidAmount > 0,
-                          'pos-change-calc-result--warn': isInsufficientPayment,
-                        }"
-                      >
-                        <template v-if="isInsufficientPayment">
-                          {{ $t("changeCalcInsufficient") }} − {{ formatPrice(paymentShortfall) }} {{ $t("currency") }}
-                        </template>
-                        <template v-else-if="customerPaidAmount > 0">
-                          {{ formatPrice(changeDueAmount) }} {{ $t("currency") }}
-                        </template>
-                        <template v-else>—</template>
-                      </strong>
-                    </div>
-                  </div>
-                  <div class="pos-change-calc-presets">
-                    <button type="button" class="pos-change-calc-preset-btn" @click="setCustomerPaidAmount(finalOrderTotal)">
-                      {{ $t("changeCalcExactAmount") }}
-                    </button>
-                    <button
-                      v-for="amount in changeCalcQuickAmounts"
-                      :key="amount"
-                      type="button"
-                      class="pos-change-calc-preset-btn"
-                      @click="setCustomerPaidAmount(amount)"
-                    >
-                      {{ formatPrice(amount) }} {{ $t("currency") }}
-                    </button>
-                    <button type="button" class="pos-change-calc-clear-btn" @click="resetChangeCalculator(true)">
-                      {{ $t("clear") }}
-                    </button>
-                  </div>
-                </div>
-
-                <div class="pos-cart-checkout-strip">
-                  <template v-if="carditems.length > 0">
-                    <div class="pos-cart-checkout-segment pos-cart-checkout-segment--stats">
-                      <span class="pos-cart-checkout-segment-label">{{ $t("checkoutSummary") }}</span>
-                      <div class="pos-cart-checkout-btn-row pos-cart-checkout-stats-row">
-                        <span class="pos-cart-checkout-stat pos-cart-checkout-stat--pill">
-                          <b-icon icon="box-seam" class="pos-cart-checkout-ic"></b-icon>
-                          <span class="pos-cart-checkout-stat-text">{{ $t("countLabel") }}</span>
-                          <strong>{{ totalCardItems }} {{ $t("itemLabel") }}</strong>
-                        </span>
-                        <span
-                          v-if="orderDiscountAmount > 0"
-                          class="pos-cart-checkout-stat pos-cart-checkout-stat--pill pos-cart-checkout-stat--pill-discount"
-                        >
-                          <b-icon icon="tag-fill" class="pos-cart-checkout-ic"></b-icon>
-                          <span class="pos-cart-checkout-stat-text">− {{ formatPrice(orderDiscountAmount) }} {{ $t("currency") }}</span>
-                        </span>
-                        <span class="pos-cart-checkout-stat pos-cart-checkout-stat--pill pos-cart-checkout-stat--pill-total">
-                          <span class="pos-cart-checkout-stat-text">{{ $t("totalLabel") }}</span>
-                          <strong>{{ formattedNumber }} {{ $t("currency") }}</strong>
-                        </span>
-                      </div>
-                    </div>
-
-                    <div class="pos-cart-checkout-segment pos-cart-checkout-segment--actions">
-                      <span class="pos-cart-checkout-segment-label">{{ $t("checkoutActions") }}</span>
-                      <div class="pos-cart-checkout-btn-row pos-cart-checkout-summary-actions">
-                        <button
-                          type="button"
-                          class="pos-action-btn pos-action-btn-primary pos-cart-checkout-action-btn pos-cart-checkout-action-btn--pay"
-                          @click="quickPay(false)"
-                          :disabled="totalCardItems <= 0 || orderPersisting"
-                          :title="`${$t('payNow') || 'دفع'} (F4)`"
-                        >
-                          <b-icon icon="check-circle-fill"></b-icon>
-                          <span>{{ $t("payNow") || "دفع" }}</span>
-                          <kbd class="pos-kbd">F4</kbd>
-                        </button>
-                        <button
-                          type="button"
-                          class="pos-action-btn pos-action-btn-success pos-cart-checkout-action-btn pos-cart-checkout-action-btn--pay-print"
-                          @click="quickPay(true)"
-                          :disabled="totalCardItems <= 0 || orderPersisting"
-                          :title="`${$t('payAndPrint') || 'دفع وطباعة'} (F5)`"
-                        >
-                          <b-icon icon="receipt-cutoff"></b-icon>
-                          <span>{{ $t("payAndPrint") || "دفع وطباعة" }}</span>
-                          <kbd class="pos-kbd">F5</kbd>
-                        </button>
-                        <button
-                          type="button"
-                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn pos-cart-checkout-action-btn--tool"
-                          @click="openPrintOnlyConfirm"
-                          :disabled="totalCardItems <= 0"
-                          :title="`${$t('printOnly') || 'طباعة فقط'} (F6)`"
-                        >
-                          <b-icon icon="printer-fill"></b-icon>
-                          <span>{{ $t("printOnly") || "طباعة فقط" }}</span>
-                          <kbd class="pos-kbd">F6</kbd>
-                        </button>
-                        <button
-                          type="button"
-                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn pos-cart-checkout-action-btn--tool"
-                          :class="{ 'pos-cart-checkout-action-btn--active': changeCalcOpen }"
-                          @click="toggleChangeCalculator"
-                          :disabled="totalCardItems <= 0"
-                          :title="`${$t('changeCalculator') || 'حاسبة الباقي'} (F7)`"
-                        >
-                          <b-icon icon="calculator-fill"></b-icon>
-                          <span>{{ $t("changeCalculator") }}</span>
-                          <kbd class="pos-kbd">F7</kbd>
-                        </button>
-                        <button
-                          type="button"
-                          class="pos-action-btn pos-action-btn-secondary pos-cart-checkout-action-btn pos-cart-checkout-action-btn--tool"
-                          @click="openOrderExtrasModal"
-                          :disabled="totalCardItems <= 0"
-                          :title="`${$t('discountAndNotes') || 'خصم وملاحظات'} (F8)`"
-                        >
-                          <b-icon icon="tag-fill"></b-icon>
-                          <span>{{ $t("discountAndNotes") || "خصم وملاحظات" }}</span>
-                          <kbd class="pos-kbd">F8</kbd>
-                        </button>
-                      </div>
-                    </div>
-
-                    <div class="pos-cart-checkout-segment pos-cart-checkout-segment--pay">
-                      <span class="pos-cart-checkout-segment-label">{{ $t("paymentMethod") }}</span>
-                      <div class="pos-cart-checkout-btn-row pos-cart-checkout-pay-row">
-                        <button
-                          type="button"
-                          class="pos-payment-method-btn"
-                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Cash' }"
-                          @click="setPosPaymentMethod('Cash')"
-                        >
-                          <b-icon icon="cash-stack" class="pos-payment-icon"></b-icon>
-                          <span class="pos-payment-label">{{ $t("cash") || "نقد" }}</span>
-                        </button>
-                        <button
-                          type="button"
-                          class="pos-payment-method-btn"
-                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Card' }"
-                          @click="setPosPaymentMethod('Card')"
-                        >
-                          <b-icon icon="credit-card" class="pos-payment-icon"></b-icon>
-                          <span class="pos-payment-label">{{ $t("card") || "بطاقة" }}</span>
-                        </button>
-                        <button
-                          type="button"
-                          class="pos-payment-method-btn"
-                          :class="{ 'pos-payment-method-active': orderForSend.paymentMethod === 'Credit' }"
-                          @click="openCreditPaymentModal"
-                        >
-                          <b-icon icon="clock-history" class="pos-payment-icon"></b-icon>
-                          <span class="pos-payment-label">{{ $t("credit") || "دفع لاحق" }}</span>
-                        </button>
-                      </div>
-                    </div>
-                  </template>
-
-                  <div
-                    v-if="activeCheckoutPrinters.length > 0 || loadingManagedPrinters"
-                    class="pos-cart-checkout-segment pos-cart-checkout-segment--printer"
-                  >
-                    <span class="pos-cart-checkout-segment-label">{{ $t("selectPrinter") || "الطابعة" }}</span>
-                    <select
-                      v-if="activeCheckoutPrinters.length > 0"
-                      v-model="selectedManagedPrinterId"
-                      @change="onManagedPrinterChange"
-                      class="pos-cart-checkout-printer-select"
-                    >
-                      <option
-                        v-for="printer in activeCheckoutPrinters"
-                        :key="printer.id"
-                        :value="printer.id"
-                      >
-                        {{ printer.name }}{{ printer.isMain ? ` (${$t("mainPrinter") || "رئيسية"})` : "" }}
-                      </option>
-                    </select>
-                    <span v-else class="pos-cart-checkout-printer-loading">
-                      {{ $t("loadingPrinters") || "جاري تحميل الطابعات..." }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </b-container>
       </div>
@@ -1573,6 +1515,7 @@
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import CalculatorComp from "@/components/CalculatorComp.vue";
 import ClockVue from "@/components/ClockVue.vue";
+import PosCatalogBrowser from "@/components/PosCatalogBrowser.vue";
 import VueBarcode from "@chenfengyuan/vue-barcode";
 import { HTTP } from "../http/api.js";
 import { resolveAbsoluteAssetUrl } from "@/utils/apiBase.js";
@@ -1599,6 +1542,8 @@ import {
   clampWatermarkOpacity,
   getStoredCartWatermark,
   getStoredCartWatermarkOpacity,
+  getStoredPosLayout,
+  normalizePosLayout,
 } from "@/utils/posBranding.js";
 import {
   POS_INVOICE_TABS_MAX,
@@ -1640,6 +1585,7 @@ export default {
   components: {
     AppHeader,
     ClockVue,
+    PosCatalogBrowser,
     "vue-barcode": VueBarcode,
     CalculatorComp,
     CardPaymentWaitModal,
@@ -1650,6 +1596,8 @@ export default {
       showShortcutsModal: false,
       showCatalogModal: false,
       catalogLoading: false,
+      posLayout: getStoredPosLayout(),
+      splitMobilePane: "products",
       shortcutItems: [],
       show: false,
       totaPrice: 0,
@@ -1684,6 +1632,7 @@ export default {
         cartWatermarkLogo: null,
         cartWatermarkOpacity: 18,
         defaultProductImage: null,
+        posLayout: getStoredPosLayout(),
       },
       orderForSend: {
         orderCode: "",
@@ -1765,6 +1714,11 @@ export default {
           this.commercialUserInfo?.cartWatermarkOpacity ?? getStoredCartWatermarkOpacity()
         ) / 100;
       return { "--pos-cart-watermark-opacity": String(opacity) };
+    },
+    isPosSplitLayout() {
+      return normalizePosLayout(
+        this.commercialUserInfo?.posLayout || this.posLayout || getStoredPosLayout()
+      ) === "Split";
     },
     orderDiscountAmount() {
       const rawValue = Number(this.orderDiscountValue) || 0;
@@ -2077,6 +2031,7 @@ export default {
           ? "A4"
           : "Pos";
       const branding = applyCommercialBranding(d);
+      this.posLayout = branding.posLayout;
       this.commercialUserInfo = {
         storeName: d.storeName || d.StoreName || "LiteCashier",
         logo: resolveAbsoluteAssetUrl(d.logo || d.Logo) || null,
@@ -2086,8 +2041,12 @@ export default {
         cartWatermarkLogo: branding.cartWatermarkLogo,
         cartWatermarkOpacity: branding.cartWatermarkOpacity,
         defaultProductImage: branding.defaultProductImage,
+        posLayout: branding.posLayout,
       };
       localStorage.setItem("printInvoiceFormat", format);
+      if (branding.posLayout === "Split") {
+        this.$nextTick(() => this.GetAllItems());
+      }
     },
     applyWarehouseList(raw) {
       this.warehouses = (Array.isArray(raw) ? raw : []).map((w) => ({
@@ -2238,11 +2197,7 @@ export default {
     onCatalogModalShown() {
       this.showCatalogModal = true;
       this.$nextTick(() => {
-        const input = this.$refs.posCatalogSearchInput;
-        if (input) {
-          input.focus();
-          input.select?.();
-        }
+        this.$refs.posModalCatalog?.focusSearch?.();
       });
     },
     onCatalogModalHidden() {
@@ -2275,6 +2230,9 @@ export default {
     },
     addToCartFromCatalog(item) {
       this.addToCartList(item);
+      if (this.isPosSplitLayout && typeof window !== "undefined" && window.innerWidth < 960) {
+        this.splitMobilePane = "cart";
+      }
     },
     updatePosPageSize(reload = true) {
       applyPosPageSize(this, reload);
@@ -3330,7 +3288,7 @@ export default {
   font-size: 0.84rem;
   border-radius: 0.75rem;
   gap: 0.4rem;
-  box-shadow: 0 4px 12px rgba(0, 37, 54, 0.16);
+  box-shadow: 0 4px 12px rgba(2, 38, 91, 0.16);
 }
 
 .pos-catalog-open-btn--compact .pos-catalog-open-btn-label {
@@ -3386,10 +3344,10 @@ export default {
   font-size: 0.95rem;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(145deg, #0e7490 0%, #002536 100%);
+  background: linear-gradient(145deg, #0056f3 0%, #02265b 100%);
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
-  box-shadow: 0 8px 20px rgba(0, 37, 54, 0.22);
+  box-shadow: 0 8px 20px rgba(2, 38, 91, 0.22);
 }
 
 .pos-catalog-open-btn:hover {

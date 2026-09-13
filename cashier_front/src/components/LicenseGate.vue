@@ -214,7 +214,7 @@ export default {
   position: relative;
   width: min(440px, 100%);
   background: var(--bg-secondary, #0f2430);
-  border: 1px solid color-mix(in srgb, var(--primary-color, #3db4d0) 35%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary-color, #5b9aff) 35%, transparent);
   border-radius: 1rem;
   padding: 1.75rem 1.5rem;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
@@ -248,8 +248,8 @@ export default {
   display: grid;
   place-items: center;
   margin: 0 auto 1rem;
-  background: color-mix(in srgb, var(--primary-color, #3db4d0) 18%, transparent);
-  color: var(--primary-color, #3db4d0);
+  background: color-mix(in srgb, var(--primary-color, #5b9aff) 18%, transparent);
+  color: var(--primary-color, #5b9aff);
   font-size: 1.35rem;
 }
 
@@ -271,7 +271,7 @@ export default {
   margin-bottom: 1rem;
   padding: 0.75rem;
   border-radius: 0.65rem;
-  background: color-mix(in srgb, var(--primary-color, #3db4d0) 8%, transparent);
+  background: color-mix(in srgb, var(--primary-color, #5b9aff) 8%, transparent);
   font-size: 0.85rem;
   text-align: center;
 }
@@ -312,8 +312,8 @@ export default {
 
 .license-gate-input:focus {
   outline: none;
-  border-color: var(--primary-color, #3db4d0);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #3db4d0) 22%, transparent);
+  border-color: var(--primary-color, #5b9aff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #5b9aff) 22%, transparent);
 }
 
 .license-gate-error {
@@ -328,7 +328,7 @@ export default {
   padding: 0.85rem 1rem;
   border: none;
   border-radius: 0.65rem;
-  background: var(--primary-color, #3db4d0);
+  background: var(--primary-color, #5b9aff);
   color: #fff;
   font-weight: 700;
   cursor: pointer;
