@@ -13937,22 +13937,22 @@ table .b-icon,
 
 :root.dark-theme {
   /* Brighter blue so controls stay visible on dark UI */
-  --primary-color: #5b9aff;
-  --primary-dark: #02265b;
-  --primary-light: #7aadff;
-  --primary-hover: #7aadff;
-  --primary-soft: #0056f3;
-  --primary-bright: #9bc2ff;
-  --primary-gradient: linear-gradient(135deg, #02265b 0%, #0056f3 50%, #5b9aff 100%);
-  --primary-gradient-soft: linear-gradient(160deg, #02265b 0%, #0056f3 100%);
-  --bg-primary: #0b1220;
-  --bg-secondary: #070d18;
-  --bg-tertiary: #152238;
+  --primary-color: #60a5fa;
+  --primary-dark: #1e3a8a;
+  --primary-light: #93c5fd;
+  --primary-hover: #93c5fd;
+  --primary-soft: #2563eb;
+  --primary-bright: #93c5fd;
+  --primary-gradient: linear-gradient(135deg, #1e3a8a 0%, #2563eb 52%, #60a5fa 100%);
+  --primary-gradient-soft: linear-gradient(160deg, #1e3a8a 0%, #2563eb 100%);
+  --bg-primary: #121a2b;
+  --bg-secondary: #0b1220;
+  --bg-tertiary: #152033;
   --text-primary: #f1f5f9;
-  --text-secondary: rgba(226, 232, 240, 0.85);
-  --text-muted: rgba(226, 232, 240, 0.6);
-  --border-color: rgba(91, 154, 255, 0.28);
-  --border-light: rgba(91, 154, 255, 0.16);
+  --text-secondary: rgba(226, 232, 240, 0.82);
+  --text-muted: rgba(226, 232, 240, 0.55);
+  --border-color: rgba(148, 163, 184, 0.16);
+  --border-light: rgba(148, 163, 184, 0.1);
 }
 
 /* AppHeader layout — full width without sidebar */
@@ -14379,7 +14379,8 @@ table .b-icon,
 .order-discount-presets { margin-top: 0.65rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 .order-discount-preset-btn {
-  border: 1px dashed var(--primary-color); background: rgba(8, 145, 178, 0.08);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
   color: var(--primary-color); border-radius: 999px; padding: 0.35rem 0.7rem;
   font-size: 0.82rem; font-weight: 700; cursor: pointer;
 }

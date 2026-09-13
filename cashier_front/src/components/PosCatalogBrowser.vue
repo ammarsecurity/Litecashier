@@ -53,12 +53,12 @@
       </div>
     </div>
 
-    <div class="pos-catalog-categories" role="tablist">
+    <div ref="categoriesRail" class="pos-catalog-categories" role="tablist">
       <button
         type="button"
         class="pos-catalog-cat-chip"
         :class="{ 'pos-catalog-cat-chip--active': activeCategory === '' }"
-        @click="$emit('select-category', '')"
+        @click="selectCategory('', $event)"
       >
         {{ $t("all") || "الكل" }}
       </button>
@@ -68,13 +68,13 @@
         type="button"
         class="pos-catalog-cat-chip"
         :class="{ 'pos-catalog-cat-chip--active': activeCategory === tag.name }"
-        @click="$emit('select-category', tag.name)"
+        @click="selectCategory(tag.name, $event)"
       >
         {{ tag.name }}
       </button>
     </div>
 
-    <div class="pos-catalog-grid-wrap">
+    <div ref="catalogGridWrap" class="pos-catalog-grid-wrap">
       <div v-if="catalogLoading && !items.length" class="pos-catalog-loading">
         {{ $t("pleaseWait") || "جاري التحميل..." }}
       </div>
@@ -157,8 +157,42 @@
       </div>
     </div>
 
-    <div class="pos-catalog-footer">
+    <div
+      class="pos-catalog-footer"
+      :class="{ 'pos-catalog-footer--compact': embedded }"
+    >
+      <div
+        v-if="embedded && totalPages > 1"
+        class="pos-catalog-mobile-pager"
+      >
+        <button
+          type="button"
+          class="pos-catalog-mobile-pager-btn"
+          :disabled="pageNumber <= 1"
+          :aria-label="$t('previous') || 'السابق'"
+          @click="goToPage(pageNumber - 1)"
+        >
+          <b-icon icon="chevron-right"></b-icon>
+          <span>{{ $t("previous") || "السابق" }}</span>
+        </button>
+        <div class="pos-catalog-mobile-pager-meta" aria-live="polite">
+          <strong>{{ pageNumber }}</strong>
+          <span class="pos-catalog-mobile-pager-sep">/</span>
+          <span>{{ totalPages }}</span>
+        </div>
+        <button
+          type="button"
+          class="pos-catalog-mobile-pager-btn"
+          :disabled="pageNumber >= totalPages"
+          :aria-label="$t('next') || 'التالي'"
+          @click="goToPage(pageNumber + 1)"
+        >
+          <span>{{ $t("next") || "التالي" }}</span>
+          <b-icon icon="chevron-left"></b-icon>
+        </button>
+      </div>
       <b-pagination
+        v-else-if="!embedded"
         :value="pageNumber"
         :total-rows="totalItems"
         :per-page="pageSize"
@@ -205,6 +239,13 @@ export default {
     unitPrice: { type: Function, required: true },
     formatPrice: { type: Function, required: true },
   },
+  computed: {
+    totalPages() {
+      const size = Number(this.pageSize) || 1;
+      const total = Number(this.totalItems) || 0;
+      return Math.max(1, Math.ceil(total / size));
+    },
+  },
   methods: {
     productImageSrc,
     isProductImageFallback,
@@ -213,6 +254,30 @@ export default {
       this.$nextTick(() => {
         this.$refs.catalogSearchInput?.focus?.();
         this.$refs.catalogSearchInput?.select?.();
+      });
+    },
+    selectCategory(name, event) {
+      this.$emit("select-category", name);
+      const btn = event?.currentTarget;
+      this.$nextTick(() => {
+        btn?.scrollIntoView?.({
+          behavior: "smooth",
+          inline: "center",
+          block: "nearest",
+        });
+        if (this.$refs.catalogGridWrap) {
+          this.$refs.catalogGridWrap.scrollTop = 0;
+        }
+      });
+    },
+    goToPage(page) {
+      const next = Math.min(this.totalPages, Math.max(1, Number(page) || 1));
+      if (next === this.pageNumber) return;
+      this.$emit("update:pageNumber", next);
+      this.$nextTick(() => {
+        if (this.$refs.catalogGridWrap) {
+          this.$refs.catalogGridWrap.scrollTop = 0;
+        }
       });
     },
   },

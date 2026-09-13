@@ -1313,6 +1313,14 @@ export default {
 </script>
 
 <style scoped>
+.settings-page :deep(.app-section-card) {
+  background: #ffffff;
+}
+
+.settings-page :deep(.app-section-header) {
+  background: #ffffff;
+}
+
 .settings-license-zone {
   margin-bottom: 1.25rem;
 }
@@ -1347,7 +1355,7 @@ export default {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 700;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary, #0f172a);
 }
 
 .settings-license-offline__text {
@@ -1364,8 +1372,8 @@ export default {
   margin-bottom: 1.25rem;
   padding: 0.9rem 1rem;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: rgba(148, 163, 184, 0.06);
+  border: 1px solid rgba(2, 38, 91, 0.1);
+  background: #ffffff;
 }
 
 .settings-license-meta__row {
@@ -1374,12 +1382,12 @@ export default {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary, #64748b);
   font-size: 0.9rem;
 }
 
 .settings-license-meta__row strong {
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary, #0f172a);
   font-weight: 700;
 }
 
@@ -1415,16 +1423,16 @@ export default {
   align-items: flex-start;
   gap: 0.75rem;
   padding: 0.9rem 1rem;
-  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.35));
+  border: 1px solid rgba(2, 38, 91, 0.12);
   border-radius: 12px;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
-  background: rgba(148, 163, 184, 0.06);
+  background: #ffffff;
 }
 
 .settings-print-option--active {
   border-color: #0f6e6e;
-  background: rgba(15, 110, 110, 0.1);
+  background: rgba(15, 110, 110, 0.08);
 }
 
 .settings-print-option__input {
@@ -1439,12 +1447,12 @@ export default {
 }
 
 .settings-print-option__body strong {
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary, #0f172a);
   font-size: 0.98rem;
 }
 
 .settings-print-option__body span {
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary, #64748b);
   font-size: 0.85rem;
   line-height: 1.45;
 }
@@ -1489,9 +1497,9 @@ export default {
   min-width: 0;
   height: 48px;
   border-radius: 14px;
-  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.35));
-  background: rgba(15, 23, 42, 0.35);
-  color: var(--text-primary, #e2e8f0);
+  border: 1px solid rgba(2, 38, 91, 0.14);
+  background: #ffffff;
+  color: var(--text-primary, #0f172a);
   padding: 0 14px;
   font-size: 1rem;
   font-variant-numeric: tabular-nums;
@@ -1499,8 +1507,8 @@ export default {
 
 .settings-menu-min-input input:focus {
   outline: none;
-  border-color: #5b9aff;
-  box-shadow: 0 0 0 4px rgba(61, 180, 208, 0.18);
+  border-color: #0056f3;
+  box-shadow: 0 0 0 4px rgba(0, 86, 243, 0.12);
 }
 
 .settings-menu-min-input input:disabled {
@@ -1509,7 +1517,7 @@ export default {
 
 .settings-menu-min-currency {
   flex-shrink: 0;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary, #0f172a);
   font-weight: 600;
 }
 
@@ -1544,8 +1552,8 @@ export default {
   margin-bottom: 1.35rem;
   padding: 1rem;
   border-radius: 1rem;
-  background: rgba(15, 23, 42, 0.28);
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: transparent;
+  border: 1px solid rgba(2, 38, 91, 0.1);
 }
 
 .settings-pos-layout > .settings-branding-card__head {
@@ -1565,8 +1573,8 @@ export default {
   gap: 0.45rem;
   padding: 0.9rem;
   border-radius: 0.9rem;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background: rgba(2, 6, 23, 0.35);
+  border: 1px solid rgba(2, 38, 91, 0.12);
+  background: #ffffff;
   color: inherit;
   text-align: start;
   cursor: pointer;
@@ -1579,8 +1587,8 @@ export default {
 
 .settings-pos-layout-card--active {
   border-color: #0056f3;
-  box-shadow: 0 0 0 1px rgba(0, 86, 243, 0.35);
-  background: rgba(0, 86, 243, 0.12);
+  box-shadow: 0 0 0 1px rgba(0, 86, 243, 0.28);
+  background: rgba(0, 86, 243, 0.06);
 }
 
 .settings-pos-layout-card:disabled {
@@ -1589,12 +1597,12 @@ export default {
 }
 
 .settings-pos-layout-card strong {
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary, #0f172a);
   font-size: 0.95rem;
 }
 
 .settings-pos-layout-card > span:last-child {
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary, #64748b);
   font-size: 0.82rem;
   line-height: 1.45;
 }
@@ -1605,7 +1613,8 @@ export default {
   height: 72px;
   border-radius: 0.65rem;
   overflow: hidden;
-  background: rgba(148, 163, 184, 0.12);
+  background: #ffffff;
+  border: 1px solid rgba(2, 38, 91, 0.08);
   margin-bottom: 0.2rem;
 }
 
@@ -1617,12 +1626,12 @@ export default {
 
 .settings-pos-layout-preview--classic .settings-pos-layout-preview__scan {
   border-radius: 0.35rem;
-  background: rgba(0, 86, 243, 0.35);
+  background: rgba(0, 86, 243, 0.28);
 }
 
 .settings-pos-layout-preview--classic .settings-pos-layout-preview__cart {
   border-radius: 0.35rem;
-  background: rgba(226, 232, 240, 0.22);
+  background: rgba(2, 38, 91, 0.08);
 }
 
 .settings-pos-layout-preview--split {
@@ -1633,12 +1642,12 @@ export default {
 
 .settings-pos-layout-preview--split .settings-pos-layout-preview__products {
   border-radius: 0.35rem;
-  background: rgba(0, 86, 243, 0.4);
+  background: rgba(0, 86, 243, 0.32);
 }
 
 .settings-pos-layout-preview--split .settings-pos-layout-preview__cart {
   border-radius: 0.35rem;
-  background: rgba(226, 232, 240, 0.22);
+  background: rgba(2, 38, 91, 0.08);
 }
 
 .settings-branding-grid {
@@ -1654,8 +1663,8 @@ export default {
   gap: 0.85rem;
   padding: 1rem;
   border-radius: 1rem;
-  background: rgba(15, 23, 42, 0.28);
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: transparent;
+  border: 1px solid rgba(2, 38, 91, 0.1);
 }
 
 .settings-branding-card__head {
@@ -1665,12 +1674,12 @@ export default {
 }
 
 .settings-branding-card__head strong {
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary, #0f172a);
   font-size: 0.98rem;
 }
 
 .settings-branding-card__head span {
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary, #64748b);
   font-size: 0.85rem;
   line-height: 1.45;
 }
@@ -1683,11 +1692,11 @@ export default {
   min-height: 220px;
   border-radius: 0.85rem;
   overflow: hidden;
+  border: 1px dashed rgba(2, 38, 91, 0.14);
 }
 
 .settings-watermark-preview {
-  background:
-    linear-gradient(180deg, #f8fafb 0%, #eef2f5 100%);
+  background: #ffffff;
 }
 
 .settings-watermark-preview img {
@@ -1698,7 +1707,7 @@ export default {
 }
 
 .settings-product-preview {
-  background: #fff;
+  background: #ffffff;
 }
 
 .settings-product-preview img {
@@ -1716,12 +1725,12 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary, #64748b);
   font-size: 0.88rem;
 }
 
 .settings-opacity-field strong {
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary, #0f172a);
   margin-inline-start: 0.35rem;
 }
 
@@ -1795,8 +1804,8 @@ export default {
   gap: 0.55rem;
   padding: 0.7rem;
   border-radius: 1rem;
-  background: rgba(15, 23, 42, 0.28);
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: #ffffff;
+  border: 1px solid rgba(2, 38, 91, 0.1);
 }
 
 .settings-ad-card img {
@@ -1809,7 +1818,7 @@ export default {
 
 .settings-ad-card__title {
   margin: 0;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary, #0f172a);
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -1834,9 +1843,9 @@ export default {
 .settings-ads-title-field input {
   height: 44px;
   border-radius: 12px;
-  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.35));
-  background: rgba(15, 23, 42, 0.35);
-  color: var(--text-primary, #e2e8f0);
+  border: 1px solid rgba(2, 38, 91, 0.14);
+  background: #ffffff;
+  color: var(--text-primary, #0f172a);
   padding: 0 12px;
 }
 
@@ -1878,7 +1887,7 @@ export default {
 .settings-danger-zone__list {
   margin: 0 0 1rem;
   padding-inline-start: 1.25rem;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary, #0f172a);
 }
 
 .settings-danger-zone__list--modal {
@@ -1900,5 +1909,52 @@ export default {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+/* Dark theme — keep nested panels readable without light-mode gray wash */
+:root.dark-theme .settings-page .settings-pos-layout,
+:root.dark-theme .settings-page .settings-branding-card,
+:root.dark-theme .settings-page .settings-ad-card,
+:root.dark-theme .settings-page .settings-license-meta,
+:root.dark-theme .settings-page .settings-print-option {
+  background: transparent;
+  border-color: rgba(148, 163, 184, 0.16);
+}
+
+:root.dark-theme .settings-page .settings-pos-layout-card {
+  background: rgba(15, 23, 42, 0.35);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+:root.dark-theme .settings-page .settings-pos-layout-card--active {
+  background: rgba(0, 86, 243, 0.14);
+}
+
+:root.dark-theme .settings-page .settings-pos-layout-preview,
+:root.dark-theme .settings-page .settings-watermark-preview,
+:root.dark-theme .settings-page .settings-product-preview {
+  background: #152033;
+  border-color: rgba(148, 163, 184, 0.16);
+}
+
+:root.dark-theme .settings-page .settings-menu-min-input input,
+:root.dark-theme .settings-page .settings-ads-title-field input {
+  background: #152033;
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #f1f5f9;
+}
+
+:root.dark-theme .settings-page .settings-pos-layout-card strong,
+:root.dark-theme .settings-page .settings-branding-card__head strong,
+:root.dark-theme .settings-page .settings-print-option__body strong,
+:root.dark-theme .settings-page .settings-ad-card__title,
+:root.dark-theme .settings-page .settings-menu-min-currency,
+:root.dark-theme .settings-page .settings-opacity-field strong {
+  color: #f1f5f9;
+}
+
+:root.dark-theme .settings-page :deep(.app-section-card),
+:root.dark-theme .settings-page :deep(.app-section-header) {
+  background: var(--bg-primary, #121a2b);
 }
 </style>

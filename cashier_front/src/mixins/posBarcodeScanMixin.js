@@ -14,6 +14,7 @@ import {
 } from "@/utils/barcodeScan.js";
 import { findPosItemByCode } from "@/utils/posCatalogQuery.js";
 import { resolveCommercialUserId } from "@/utils/publicMenu.js";
+import { playPosScanErrorSound } from "@/utils/posScanAlertSound.js";
 
 /**
  * POS barcode field: instant on Enter, ~35ms tail for wedge scanners, no isSearching deadlocks.
@@ -25,10 +26,13 @@ export default {
       barcodeLastKeyAt: 0,
       barcodeScannerBurst: false,
       barcodeSearchGeneration: 0,
+      barcodeScanAlert: null,
+      barcodeScanAlertTimer: null,
     };
   },
   beforeDestroy() {
     this.clearBarcodeTypingTimer();
+    this.clearBarcodeScanAlertTimer();
     if (this.searchAbortController) {
       this.searchAbortController.abort();
       this.searchAbortController = null;
@@ -40,6 +44,38 @@ export default {
         clearTimeout(this.barcodeTypingTimer);
         this.barcodeTypingTimer = null;
       }
+    },
+    clearBarcodeScanAlertTimer() {
+      if (this.barcodeScanAlertTimer) {
+        clearTimeout(this.barcodeScanAlertTimer);
+        this.barcodeScanAlertTimer = null;
+      }
+    },
+    dismissBarcodeScanAlert() {
+      this.clearBarcodeScanAlertTimer();
+      this.barcodeScanAlert = null;
+      this.$nextTick(() => this.focusPosBarcode?.());
+    },
+    showBarcodeScanAlert({ type = "notFound", code = "", name = "" } = {}) {
+      playPosScanErrorSound();
+      this.clearBarcodeScanAlertTimer();
+      const isOut = type === "outOfStock";
+      this.barcodeScanAlert = {
+        type: isOut ? "outOfStock" : "notFound",
+        title: isOut
+          ? this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر"
+          : this.$i18n.t("itemNotFound") || "المنتج غير موجود",
+        message: isOut
+          ? this.$i18n.t("itemOutOfStockHint") ||
+            "هذا المنتج منتهي الكمية أو غير متاح في المخزن الحالي"
+          : this.$i18n.t("itemNotFoundHint") ||
+            "الكود غير مسجّل في النظام أو غير مرتبط بهذا المخزن",
+        code: String(code || "").trim(),
+        name: String(name || "").trim(),
+      };
+      this.barcodeScanAlertTimer = setTimeout(() => {
+        this.dismissBarcodeScanAlert();
+      }, 2600);
     },
     handleBarcodeKeydown(e) {
       const now = Date.now();
@@ -132,7 +168,7 @@ export default {
         .then((handled) => {
           if (handled || generation !== this.barcodeSearchGeneration) return null;
           if (typeof navigator !== "undefined" && !navigator.onLine) {
-            this.notifyBarcodeNotFound();
+            this.notifyBarcodeNotFound(query);
             this.resetBarcodeField();
             return null;
           }
@@ -145,7 +181,7 @@ export default {
               query
             );
             if (!item) {
-              this.notifyBarcodeNotFound();
+              this.notifyBarcodeNotFound(query);
               this.resetBarcodeField();
               return;
             }
@@ -162,7 +198,7 @@ export default {
             return;
           }
           if (generation !== this.barcodeSearchGeneration) return;
-          this.notifyBarcodeNotFound();
+          this.notifyBarcodeNotFound(query);
           this.resetBarcodeField();
         })
         .finally(() => {
@@ -179,17 +215,17 @@ export default {
       this.searchCode = "";
       this.$nextTick(() => this.focusPosBarcode?.());
     },
-    notifyBarcodeNotFound() {
-      const toastPosition =
-        document.documentElement.dir === "rtl" ? "top-right" : "top-left";
-      this.$notify.error(this.$i18n.t("itemNotFound") || "Item not found", {
-        position: toastPosition,
-        timeout: 2000,
-        closeOnClick: true,
-        pauseOnFocusLoss: false,
-        pauseOnHover: false,
-        maxToasts: 1,
-        newestOnTop: true,
+    notifyBarcodeNotFound(code = "") {
+      this.showBarcodeScanAlert({
+        type: "notFound",
+        code: code || this.searchCode || "",
+      });
+    },
+    notifyBarcodeOutOfStock(item, code = "") {
+      this.showBarcodeScanAlert({
+        type: "outOfStock",
+        code: code || item?.code || this.searchCode || "",
+        name: item?.name || "",
       });
     },
     applyBarcodeItemToCart(item) {
@@ -199,17 +235,7 @@ export default {
           : 0;
         const available = Number(item.quantity);
         if (!Number.isFinite(available) || inCart + 1 > available) {
-          const toastPosition =
-            document.documentElement.dir === "rtl" ? "top-right" : "top-left";
-          this.$notify.error(
-            this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر في المخزون",
-            {
-              position: toastPosition,
-              timeout: 2000,
-              maxToasts: 1,
-              newestOnTop: true,
-            }
-          );
+          this.notifyBarcodeOutOfStock(item, item.code);
           return;
         }
       }

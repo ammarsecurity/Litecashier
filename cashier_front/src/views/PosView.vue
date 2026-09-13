@@ -8,7 +8,7 @@
       rounded="sm"
     >
       <AppHeader>
-        <template #pos-center>
+        <template v-if="!isPosMobileViewport" #pos-center>
           <div
             class="pos-invoice-tabs pos-invoice-tabs--navbar"
             role="tablist"
@@ -93,61 +93,32 @@
         class="main-content-wrapper pos-route pos-route--v2"
         :class="{
           'pos-route--split': isPosSplitLayout,
-          'pos-split-mobile--products': isPosSplitLayout && splitMobilePane === 'products',
-          'pos-split-mobile--cart': isPosSplitLayout && splitMobilePane === 'cart',
-          'pos-has-checkout-bar': showPosCheckoutBar && !(isPosSplitLayout && splitMobilePane === 'products'),
+          'pos-route--mobile': isPosMobileViewport,
+          'pos-mobile--products': isPosMobileViewport && mobilePane === 'products',
+          'pos-mobile--cart': isPosMobileViewport && mobilePane === 'cart',
+          'pos-has-checkout-bar': showPosCheckoutBar && !(isPosMobileViewport && mobilePane === 'products'),
           'pos-has-checkout-bar--with-discounts':
-            carditems.length > 0 && !(isPosSplitLayout && splitMobilePane === 'products'),
+            carditems.length > 0 && !(isPosMobileViewport && mobilePane === 'products'),
           'pos-has-checkout-bar--change-calc':
-            changeCalcOpen && carditems.length > 0 && !(isPosSplitLayout && splitMobilePane === 'products'),
+            changeCalcOpen && carditems.length > 0 && !(isPosMobileViewport && mobilePane === 'products'),
         }"
       >
         <b-container fluid class="pos-container-fluid">
           <div class="pos-page-container pos-page-container--v2">
-            <div
-              v-if="isPosSplitLayout"
-              class="pos-split-mobile-tabs"
-              role="tablist"
-            >
-              <button
-                type="button"
-                class="pos-split-mobile-tab"
-                :class="{ 'pos-split-mobile-tab--active': splitMobilePane === 'products' }"
-                role="tab"
-                :aria-selected="splitMobilePane === 'products' ? 'true' : 'false'"
-                @click="splitMobilePane = 'products'"
-              >
-                <b-icon icon="box-seam"></b-icon>
-                {{ $t("posCatalogModalTitle") || "المنتجات" }}
-              </button>
-              <button
-                type="button"
-                class="pos-split-mobile-tab"
-                :class="{ 'pos-split-mobile-tab--active': splitMobilePane === 'cart' }"
-                role="tab"
-                :aria-selected="splitMobilePane === 'cart' ? 'true' : 'false'"
-                @click="splitMobilePane = 'cart'"
-              >
-                <b-icon icon="cart3"></b-icon>
-                {{ $t("cart") || "السلة" }}
-                <span v-if="carditems.length" class="pos-split-mobile-tab-count">{{ carditems.length }}</span>
-              </button>
-            </div>
-
             <button
-              v-if="isPosSplitLayout && splitMobilePane === 'products' && carditems.length > 0"
+              v-if="isPosMobileViewport && mobilePane === 'products' && carditems.length > 0"
               type="button"
-              class="pos-split-mobile-cart-chip"
-              @click="splitMobilePane = 'cart'"
+              class="pos-mobile-cart-chip"
+              @click="setMobilePane('cart')"
             >
-              <span class="pos-split-mobile-cart-chip-main">
+              <span class="pos-mobile-cart-chip-main">
                 <b-icon icon="cart3"></b-icon>
                 <strong>{{ totalCardItems }} {{ $t("itemLabel") || "منتج" }}</strong>
               </span>
-              <span class="pos-split-mobile-cart-chip-total">
+              <span class="pos-mobile-cart-chip-total">
                 {{ formattedNumber }} {{ $t("currency") }}
               </span>
-              <span class="pos-split-mobile-cart-chip-go">
+              <span class="pos-mobile-cart-chip-go">
                 {{ $t("cart") || "السلة" }}
                 <b-icon icon="chevron-left"></b-icon>
               </span>
@@ -161,7 +132,7 @@
                 class="pos-workspace-main"
                 :class="{
                   'pos-split-pane': isPosSplitLayout,
-                  'pos-split-pane--hidden-mobile': isPosSplitLayout && splitMobilePane !== 'products',
+                  'pos-mobile-pane--hidden': isPosMobileViewport && mobilePane !== 'products',
                 }"
               >
                 <div class="pos-main-section pos-main-section--v2" :class="{ 'pos-main-section--split': isPosSplitLayout }">
@@ -169,6 +140,7 @@
                     <label class="pos-quick-barcode">
                       <span class="pos-quick-barcode-icon" aria-hidden="true">
                         <b-icon icon="upc-scan"></b-icon>
+                        <kbd class="pos-kbd pos-kbd--barcode-badge">F2</kbd>
                       </span>
                       <span class="pos-quick-barcode-field">
                         <span class="pos-quick-barcode-label">{{ $t("barcodeScanLabel") || "مسح الباركود" }}</span>
@@ -189,6 +161,7 @@
                       </span>
                       <span class="pos-quick-barcode-actions">
                         <button
+                          v-if="!isPosMobileViewport"
                           type="button"
                           class="pos-shortcuts-trigger"
                           :title="$t('posShortcutsTitle') || 'اختصارات لوحة المفاتيح'"
@@ -197,7 +170,6 @@
                         >
                           <b-icon icon="keyboard-fill" aria-hidden="true"></b-icon>
                         </button>
-                        <kbd class="pos-kbd pos-kbd--barcode">F2</kbd>
                         <span class="pos-quick-barcode-enter-hint" aria-hidden="true">
                           <span class="pos-quick-barcode-enter-text">Enter</span>
                           <b-icon icon="arrow-return-left"></b-icon>
@@ -205,7 +177,7 @@
                       </span>
                     </label>
                     <button
-                      v-if="!isPosSplitLayout"
+                      v-if="!isPosSplitLayout && !isPosMobileViewport"
                       type="button"
                       class="pos-catalog-open-btn pos-catalog-open-btn--compact"
                       @click="openCatalogModal"
@@ -216,7 +188,7 @@
                       </span>
                       <kbd class="pos-kbd">F3</kbd>
                     </button>
-                    <p v-if="!isPosSplitLayout && (activeCategory || quickSearch)" class="pos-scan-hub-filter pos-scan-hub-filter--inline">
+                    <p v-if="!isPosSplitLayout && !isPosMobileViewport && (activeCategory || quickSearch)" class="pos-scan-hub-filter pos-scan-hub-filter--inline">
                       <b-icon icon="funnel-fill"></b-icon>
                       <span v-if="activeCategory">{{ activeCategory }}</span>
                       <span v-else>{{ quickSearch }}</span>
@@ -225,7 +197,7 @@
                       </button>
                     </p>
                   </div>
-                  <div v-if="shortcutItems.length" class="pos-shortcut-strip">
+                  <div v-if="shortcutItems.length && !isPosMobileViewport" class="pos-shortcut-strip">
                     <span class="pos-shortcut-strip-label">
                       <b-icon icon="lightning-charge-fill"></b-icon>
                       {{ $t("posShortcutItems") }}
@@ -248,7 +220,11 @@
                     </div>
                   </div>
 
-                  <div v-if="isPosSplitLayout" class="pos-split-catalog-panel">
+                  <div
+                    v-if="isPosSplitLayout || isPosMobileViewport"
+                    class="pos-split-catalog-panel"
+                    :class="{ 'pos-split-catalog-panel--mobile': isPosMobileViewport }"
+                  >
                     <PosCatalogBrowser
                       ref="posSplitCatalog"
                       embedded
@@ -278,7 +254,7 @@
                 class="pos-cart-shell"
                 :class="{
                   'pos-split-pane': isPosSplitLayout,
-                  'pos-split-pane--hidden-mobile': isPosSplitLayout && splitMobilePane !== 'cart',
+                  'pos-mobile-pane--hidden': isPosMobileViewport && mobilePane !== 'cart',
                 }"
                 :aria-label="$t('cart')"
               >
@@ -478,7 +454,7 @@
             </div>
 
             <div
-              v-if="showPosCheckoutBar && !(isPosSplitLayout && splitMobilePane === 'products')"
+              v-if="showPosCheckoutBar && !(isPosMobileViewport && mobilePane === 'products')"
               class="pos-cart-checkout-bar"
             >
               <div class="pos-cart-checkout-bar-inner">
@@ -714,6 +690,88 @@
                 </div>
               </div>
             </div>
+
+            <nav
+              v-if="isPosMobileViewport"
+              class="pos-mobile-bottom-nav"
+              role="tablist"
+              :aria-label="$t('pos') || 'نقطة البيع'"
+            >
+              <button
+                type="button"
+                class="pos-mobile-bottom-nav-btn"
+                :class="{ 'pos-mobile-bottom-nav-btn--active': mobilePane === 'products' }"
+                role="tab"
+                :aria-selected="mobilePane === 'products' ? 'true' : 'false'"
+                @click="setMobilePane('products')"
+              >
+                <b-icon icon="grid-fill"></b-icon>
+                <span>{{ $t("posCatalogModalTitle") || "المنتجات" }}</span>
+              </button>
+              <button
+                type="button"
+                class="pos-mobile-bottom-nav-btn"
+                :class="{ 'pos-mobile-bottom-nav-btn--active': mobilePane === 'cart' }"
+                role="tab"
+                :aria-selected="mobilePane === 'cart' ? 'true' : 'false'"
+                @click="setMobilePane('cart')"
+              >
+                <span class="pos-mobile-bottom-nav-icon-wrap">
+                  <b-icon icon="cart3"></b-icon>
+                  <span v-if="carditems.length" class="pos-mobile-bottom-nav-badge">{{ totalCardItems }}</span>
+                </span>
+                <span>{{ $t("cart") || "السلة" }}</span>
+              </button>
+              <button
+                type="button"
+                class="pos-mobile-bottom-nav-btn pos-mobile-bottom-nav-btn--pay"
+                :disabled="totalCardItems <= 0 || orderPersisting"
+                @click="onMobilePayNav"
+              >
+                <b-icon icon="check-circle-fill"></b-icon>
+                <span>{{ $t("payAndPrint") || "دفع وطباعة" }}</span>
+              </button>
+            </nav>
+
+            <transition name="pos-scan-alert">
+              <div
+                v-if="barcodeScanAlert"
+                class="pos-scan-alert"
+                role="alertdialog"
+                :aria-label="barcodeScanAlert.title"
+                @click="dismissBarcodeScanAlert"
+              >
+                <div
+                  class="pos-scan-alert-card"
+                  :class="{
+                    'pos-scan-alert-card--stock': barcodeScanAlert.type === 'outOfStock',
+                    'pos-scan-alert-card--missing': barcodeScanAlert.type !== 'outOfStock',
+                  }"
+                  @click.stop
+                >
+                  <div class="pos-scan-alert-icon" aria-hidden="true">
+                    <b-icon
+                      :icon="barcodeScanAlert.type === 'outOfStock' ? 'box-seam' : 'upc-scan'"
+                    ></b-icon>
+                  </div>
+                  <h3 class="pos-scan-alert-title">{{ barcodeScanAlert.title }}</h3>
+                  <p class="pos-scan-alert-message">{{ barcodeScanAlert.message }}</p>
+                  <p v-if="barcodeScanAlert.name" class="pos-scan-alert-name">
+                    {{ barcodeScanAlert.name }}
+                  </p>
+                  <p v-if="barcodeScanAlert.code" class="pos-scan-alert-code">
+                    {{ barcodeScanAlert.code }}
+                  </p>
+                  <button
+                    type="button"
+                    class="pos-scan-alert-dismiss"
+                    @click="dismissBarcodeScanAlert"
+                  >
+                    {{ $t("close") || "إغلاق" }}
+                  </button>
+                </div>
+              </div>
+            </transition>
 
             <b-modal
               id="modal-pos-catalog"
@@ -1597,7 +1655,8 @@ export default {
       showCatalogModal: false,
       catalogLoading: false,
       posLayout: getStoredPosLayout(),
-      splitMobilePane: "products",
+      mobilePane: "products",
+      isPosMobileViewport: false,
       shortcutItems: [],
       show: false,
       totaPrice: 0,
@@ -1693,6 +1752,9 @@ export default {
     if (!this.activeInvoiceTabId && this.invoiceTabs[0]) {
       this.activeInvoiceTabId = this.invoiceTabs[0].id;
     }
+    if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+      this.isPosMobileViewport = window.matchMedia("(max-width: 1099px)").matches;
+    }
   },
 
   computed: {
@@ -1719,6 +1781,12 @@ export default {
       return normalizePosLayout(
         this.commercialUserInfo?.posLayout || this.posLayout || getStoredPosLayout()
       ) === "Split";
+    },
+    isPosMobileProducts() {
+      return this.isPosMobileViewport && this.mobilePane === "products";
+    },
+    isPosMobileCart() {
+      return this.isPosMobileViewport && this.mobilePane === "cart";
     },
     orderDiscountAmount() {
       const rawValue = Number(this.orderDiscountValue) || 0;
@@ -1920,6 +1988,7 @@ export default {
   },
 
   mounted() {
+    this.bindPosMobileViewport();
     try {
       startPosSyncRuntime();
       this._posSyncUnsubscribe = subscribePosSync((next) => {
@@ -1996,6 +2065,7 @@ export default {
   },
   
   beforeDestroy() {
+    this.unbindPosMobileViewport();
     clearTimeout(this.quickSearchTimer);
     clearTimeout(this._posResizeTimer);
     clearTimeout(this._invoiceTabsSaveTimer);
@@ -2230,9 +2300,44 @@ export default {
     },
     addToCartFromCatalog(item) {
       this.addToCartList(item);
-      if (this.isPosSplitLayout && typeof window !== "undefined" && window.innerWidth < 960) {
-        this.splitMobilePane = "cart";
+    },
+    setMobilePane(pane) {
+      this.mobilePane = pane === "cart" ? "cart" : "products";
+      if (this.mobilePane === "products") {
+        this.$nextTick(() => this.focusPosBarcode?.());
       }
+    },
+    onMobilePayNav() {
+      if (this.totalCardItems <= 0 || this.orderPersisting) return;
+      if (this.mobilePane !== "cart") {
+        this.setMobilePane("cart");
+        this.$nextTick(() => this.quickPay(true));
+        return;
+      }
+      this.quickPay(true);
+    },
+    bindPosMobileViewport() {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+      this._posMobileMq = window.matchMedia("(max-width: 1099px)");
+      this._onPosMobileMq = () => {
+        this.isPosMobileViewport = !!this._posMobileMq.matches;
+      };
+      this._onPosMobileMq();
+      if (this._posMobileMq.addEventListener) {
+        this._posMobileMq.addEventListener("change", this._onPosMobileMq);
+      } else if (this._posMobileMq.addListener) {
+        this._posMobileMq.addListener(this._onPosMobileMq);
+      }
+    },
+    unbindPosMobileViewport() {
+      if (!this._posMobileMq || !this._onPosMobileMq) return;
+      if (this._posMobileMq.removeEventListener) {
+        this._posMobileMq.removeEventListener("change", this._onPosMobileMq);
+      } else if (this._posMobileMq.removeListener) {
+        this._posMobileMq.removeListener(this._onPosMobileMq);
+      }
+      this._posMobileMq = null;
+      this._onPosMobileMq = null;
     },
     updatePosPageSize(reload = true) {
       applyPosPageSize(this, reload);
@@ -2447,6 +2552,10 @@ export default {
       }
       if (key === "F3") {
         e.preventDefault();
+        if (this.isPosMobileViewport || this.isPosSplitLayout) {
+          this.$nextTick(() => this.$refs.posCatalogSearchInput?.focus?.() || this.$refs.posSplitCatalog?.$el?.querySelector?.("input")?.focus?.());
+          return;
+        }
         if (this.showCatalogModal) {
           this.onCatalogModalShown();
         } else {
@@ -2973,14 +3082,18 @@ export default {
             : 0;
           const available = Number(item.quantity);
           if (!Number.isFinite(available) || inCart + 1 > available) {
-            this.$notify.error(
-              this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر في المخزون",
-              {
-                position: toastPosition,
-                timeout: 2000,
-                maxToasts: 1,
-              }
-            );
+            if (typeof this.notifyBarcodeOutOfStock === "function") {
+              this.notifyBarcodeOutOfStock(item, item.code);
+            } else {
+              this.$notify.error(
+                this.$i18n.t("itemOutOfStock") || "المنتج غير متوفر في المخزون",
+                {
+                  position: toastPosition,
+                  timeout: 2000,
+                  maxToasts: 1,
+                }
+              );
+            }
             return;
           }
         }
