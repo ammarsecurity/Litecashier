@@ -10,6 +10,7 @@ namespace RestaurantPOS.Models.Dtos
         public List<EndOfDayOrderTypeDto> OrdersByType { get; set; } = new();
         public List<EndOfDayTableInvoicesDto> InvoicesByTable { get; set; } = new();
         public List<EndOfDayTopItemDto> TopItems { get; set; } = new();
+        public List<ItemsSoldByCategoryDto> ItemsSoldByCategory { get; set; } = new();
         public List<EndOfDayReturnedItemDto> ReturnedItems { get; set; } = new();
     }
 

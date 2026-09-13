@@ -513,17 +513,17 @@ thead th,
 .table thead th,
 .b-table th,
 .b-table thead th {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%) !important;
-  color: #ffffff !important;
+  background: var(--bg-tertiary, #1e293b) !important;
+  color: var(--text-primary, #ffffff) !important;
   font-weight: 700;
   font-size: 0.875rem;
   padding: 0.875rem;
   text-align: center;
-  border-bottom: 2px solid color-mix(in srgb, var(--primary-color) 40%, transparent) !important;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid var(--border-color, rgba(148, 163, 184, 0.28)) !important;
+  text-transform: none;
+  letter-spacing: 0;
+  text-shadow: none;
+  box-shadow: none;
 }
 
 table td,
@@ -604,10 +604,10 @@ table.b-table {
 /* Override Bootstrap default table colors */
 .table thead th,
 .b-table thead th {
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-tertiary) 50%, var(--bg-primary) 100%) !important;
-  color: var(--text-primary) !important;
+  background: var(--bg-tertiary, #1e293b) !important;
+  color: var(--text-primary, #e2e8f0) !important;
   border-color: var(--border-color) !important;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 /* Hide Bootstrap-Vue sort helper text in all tables */
@@ -619,8 +619,14 @@ table.b-table {
 }
 
 :root.light-theme .table thead th,
-:root.light-theme .b-table thead th {
-  background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-primary) 50%, var(--bg-tertiary) 100%) !important;
+:root.light-theme .b-table thead th,
+:root.light-theme table th,
+:root.light-theme table thead th,
+:root.light-theme thead th,
+:root.light-theme .table th,
+:root.light-theme .b-table th {
+  background: var(--bg-secondary, #f1f5f9) !important;
+  color: var(--text-primary, #0f172a) !important;
 }
 
 .table tbody td,
@@ -1006,9 +1012,9 @@ img, svg, video, canvas, audio, iframe, embed, object {
 }
 
 .bill-items-table thead {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
-  color: #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--bg-tertiary, #1e293b);
+  color: var(--text-primary, #ffffff);
+  box-shadow: none;
 }
 
 .bill-items-table th {
@@ -1267,9 +1273,9 @@ img, svg, video, canvas, audio, iframe, embed, object {
 }
 
 .report-table thead {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
-  color: #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--bg-tertiary, #1e293b);
+  color: var(--text-primary, #ffffff);
+  box-shadow: none;
 }
 
 .report-table th {
@@ -1277,8 +1283,8 @@ img, svg, video, canvas, audio, iframe, embed, object {
   text-align: right;
   font-weight: 700;
   font-size: 0.9375rem;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--border-color, rgba(148, 163, 184, 0.28));
+  text-shadow: none;
 }
 
 .report-table th:first-child {
@@ -15545,8 +15551,18 @@ table .b-icon,
   white-space: nowrap;
   vertical-align: middle !important;
   border-bottom: 1px solid var(--border-color) !important;
-  background: color-mix(in srgb, var(--primary-color) 7%, var(--bg-primary)) !important;
-  color: var(--text-secondary) !important;
+  background: var(--bg-tertiary, #1e293b) !important;
+  color: var(--text-primary, #e2e8f0) !important;
+}
+
+:root.light-theme .reports-table thead th,
+:root.light-theme .report-table thead th,
+:root.light-theme .users-table thead th,
+:root.light-theme .stock-returns-table thead th,
+:root.light-theme .movements-table thead th,
+:root.light-theme .app-data-table thead th {
+  background: var(--bg-secondary, #f1f5f9) !important;
+  color: var(--text-primary, #0f172a) !important;
 }
 
 .reports-table tbody td,

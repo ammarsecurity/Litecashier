@@ -491,6 +491,57 @@ namespace RestaurantPOS.Controllers
             return needsQuotes ? $"\"{escaped}\"" : escaped;
         }
 
+        private static string GetRootCategoryNameFromTags(string? tags)
+        {
+            const string sep = " › ";
+            var trimmed = (tags ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(trimmed))
+                return string.Empty;
+
+            var idx = trimmed.IndexOf(sep, StringComparison.Ordinal);
+            if (idx >= 0)
+                return trimmed.Substring(0, idx).Trim();
+
+            return trimmed;
+        }
+
+        private static List<ItemsSoldByCategoryDto> BuildItemsSoldByCategory(
+            IEnumerable<(int ItemId, string ItemName, string? ItemCode, string? Tags, int Quantity, decimal SalesAmount, int OrderCount)> rows)
+        {
+            const int maxItems = 5000;
+            return rows
+                .GroupBy(x => GetRootCategoryNameFromTags(x.Tags))
+                .Select(g =>
+                {
+                    var items = g
+                        .OrderByDescending(x => x.Quantity)
+                        .ThenByDescending(x => x.SalesAmount)
+                        .ThenBy(x => x.ItemName)
+                        .Take(maxItems)
+                        .Select(x => new ItemsSoldItemDto
+                        {
+                            ItemId = x.ItemId,
+                            ItemName = x.ItemName,
+                            ItemCode = x.ItemCode,
+                            TotalQuantitySold = x.Quantity,
+                            TotalSales = x.SalesAmount,
+                            OrderCount = x.OrderCount
+                        })
+                        .ToList();
+
+                    return new ItemsSoldByCategoryDto
+                    {
+                        CategoryName = g.Key,
+                        TotalQuantity = items.Sum(x => x.TotalQuantitySold),
+                        TotalSales = items.Sum(x => x.TotalSales),
+                        Items = items
+                    };
+                })
+                .OrderBy(c => string.IsNullOrEmpty(c.CategoryName) ? 1 : 0)
+                .ThenBy(c => c.CategoryName)
+                .ToList();
+        }
+
         private async Task<(bool IsBlocked, string? BlockMessage, EndOfDayReportDto? Data)> BuildEndOfDayReportAsync(int commercialUserId)
         {
             var businessToday = GetBusinessLocalToday();
@@ -629,6 +680,25 @@ namespace RestaurantPOS.Controllers
                 .Take(10)
                 .ToList();
 
+            var itemsSoldByCategory = BuildItemsSoldByCategory(
+                orderItems
+                    .GroupBy(x => new
+                    {
+                        x.ItemId,
+                        ItemName = x.Item != null ? x.Item.Name : $"#{x.ItemId}",
+                        ItemCode = x.Item != null ? x.Item.Code : null,
+                        Tags = x.Item != null ? x.Item.Tags : null
+                    })
+                    .Select(g => (
+                        ItemId: g.Key.ItemId,
+                        ItemName: g.Key.ItemName,
+                        ItemCode: g.Key.ItemCode,
+                        Tags: g.Key.Tags,
+                        Quantity: g.Sum(x => x.Quantity),
+                        SalesAmount: g.Sum(x => x.SellingPrice * x.Quantity),
+                        OrderCount: g.Select(x => x.CustomerOrderId).Distinct().Count()
+                    )));
+
             var ordersByType = orders
                 .GroupBy(o => string.IsNullOrWhiteSpace(o.OrderType) ? "DineIn" : o.OrderType)
                 .Select(g =>
@@ -702,6 +772,7 @@ namespace RestaurantPOS.Controllers
                 OrdersByType = ordersByType,
                 InvoicesByTable = invoicesByTable,
                 TopItems = topItems,
+                ItemsSoldByCategory = itemsSoldByCategory,
                 ReturnedItems = returnedItems
             };
 
@@ -5550,6 +5621,94 @@ namespace RestaurantPOS.Controllers
         }
 
         [AuthorizeSection("reports", Roles = "Commercial,Admin")]
+        [HttpGet("GetItemsSoldByCategory")]
+        public ActionResult<GlobalResponse<object>> GetItemsSoldByCategory(
+            DateTime? startDate = null,
+            DateTime? endDate = null,
+            string? orderType = null,
+            string? paymentMethod = null)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId)
+                    .Include(x => x.Item)
+                    .Include(x => x.CustomerOrder);
+
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
+                {
+                    orderItemsQuery = orderItemsQuery.Where(x =>
+                        x.CustomerOrder != null &&
+                        x.CustomerOrder.InsertDate >= fromUtc &&
+                        x.CustomerOrder.InsertDate < toUtcEx);
+                }
+
+                if (!string.IsNullOrEmpty(orderType))
+                {
+                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.OrderType == orderType);
+                }
+
+                if (!string.IsNullOrEmpty(paymentMethod))
+                {
+                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.PaymentMethod == paymentMethod);
+                }
+
+                var summary = new TopSellingItemsSummaryDto
+                {
+                    TotalQuantitySold = orderItemsQuery.Sum(x => (int?)x.Quantity) ?? 0,
+                    TotalSales = orderItemsQuery.Sum(x => (decimal?)(x.SellingPrice * x.Quantity)) ?? 0m,
+                    TotalDistinctItems = orderItemsQuery.Select(x => x.ItemId).Distinct().Count(),
+                    TotalOrders = orderItemsQuery.Select(x => x.CustomerOrderId).Distinct().Count()
+                };
+
+                var itemRows = orderItemsQuery
+                    .Where(x => x.Item != null)
+                    .GroupBy(x => new { x.ItemId, x.Item!.Name, x.Item.Code, x.Item.Tags })
+                    .Select(g => new
+                    {
+                        itemId = g.Key.ItemId,
+                        itemName = g.Key.Name,
+                        itemCode = g.Key.Code,
+                        tags = g.Key.Tags,
+                        totalQuantitySold = g.Sum(x => x.Quantity),
+                        totalSales = g.Sum(x => x.SellingPrice * x.Quantity),
+                        orderCount = g.Select(x => x.CustomerOrderId).Distinct().Count()
+                    })
+                    .ToList();
+
+                var categories = BuildItemsSoldByCategory(
+                    itemRows.Select(x => (
+                        ItemId: x.itemId,
+                        ItemName: x.itemName ?? $"#{x.itemId}",
+                        ItemCode: x.itemCode,
+                        Tags: x.tags,
+                        Quantity: x.totalQuantitySold,
+                        SalesAmount: x.totalSales,
+                        OrderCount: x.orderCount
+                    )));
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new { categories, summary },
+                    ErrorStatus = false,
+                    Message = "Success"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting items sold by category");
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = ex.Message
+                });
+            }
+        }
+
+        [AuthorizeSection("reports", Roles = "Commercial,Admin")]
         [HttpGet("GetSalesByCategory")]
         public ActionResult<GlobalResponse<object>> GetSalesByCategory(DateTime? startDate = null, DateTime? endDate = null)
         {
@@ -6171,6 +6330,29 @@ namespace RestaurantPOS.Controllers
                     topItemsSheet.Cell(topItemsRow, 2).Value = i.Quantity;
                     topItemsSheet.Cell(topItemsRow, 3).Value = i.SalesAmount;
                     topItemsRow++;
+                }
+
+                var itemsByCategorySheet = workbook.Worksheets.Add("ItemsByCategory");
+                itemsByCategorySheet.Cell(1, 1).Value = "Category";
+                itemsByCategorySheet.Cell(1, 2).Value = "ItemName";
+                itemsByCategorySheet.Cell(1, 3).Value = "ItemCode";
+                itemsByCategorySheet.Cell(1, 4).Value = "Quantity";
+                itemsByCategorySheet.Cell(1, 5).Value = "SalesAmount";
+                var itemsByCategoryRow = 2;
+                foreach (var category in r.ItemsSoldByCategory)
+                {
+                    var categoryLabel = string.IsNullOrWhiteSpace(category.CategoryName)
+                        ? "Uncategorized"
+                        : category.CategoryName;
+                    foreach (var item in category.Items)
+                    {
+                        itemsByCategorySheet.Cell(itemsByCategoryRow, 1).Value = categoryLabel;
+                        itemsByCategorySheet.Cell(itemsByCategoryRow, 2).Value = item.ItemName ?? string.Empty;
+                        itemsByCategorySheet.Cell(itemsByCategoryRow, 3).Value = item.ItemCode ?? string.Empty;
+                        itemsByCategorySheet.Cell(itemsByCategoryRow, 4).Value = item.TotalQuantitySold;
+                        itemsByCategorySheet.Cell(itemsByCategoryRow, 5).Value = item.TotalSales;
+                        itemsByCategoryRow++;
+                    }
                 }
 
                 var returnedItemsSheet = workbook.Worksheets.Add("ReturnedItems");

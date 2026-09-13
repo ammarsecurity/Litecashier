@@ -145,64 +145,153 @@ export function resolveItemTagsToCategoryIds(tagsStr, allTags) {
   return { rootId: null, subId: null };
 }
 
-/**
- * يحدد طابعة القسم لصنف من نص Item.Tags (يدعم القسم الرئيسي › فرعي)
- */
-export function resolvePrinterIdForItemTags(itemTagsStr, tagPrinters, allTags) {
-  if (!tagPrinters || !tagPrinters.length) return null;
-  const trimmed = String(itemTagsStr || "").trim();
-  if (!trimmed) return null;
+function normalizePrinterId(id) {
+  if (id == null || id === "") return null;
+  return String(id);
+}
 
+function addPrinterIds(targetSet, printerIds) {
+  if (!printerIds) return;
+  const list = Array.isArray(printerIds) ? printerIds : [printerIds];
+  for (const id of list) {
+    const normalized = normalizePrinterId(id);
+    if (normalized == null) continue;
+    targetSet.add(normalized);
+  }
+}
+
+function pushUniquePrinter(map, key, printerId) {
+  if (!key) return;
+  const normalized = normalizePrinterId(printerId);
+  if (normalized == null) return;
+  if (!map[key]) map[key] = [];
+  if (!map[key].includes(normalized)) {
+    map[key].push(normalized);
+  }
+}
+
+function isRootTagRef(tag, tagId, allTags) {
+  if (tag && typeof tag === "object") {
+    return getTagParentId(tag) == null;
+  }
+  if (tagId == null || !allTags?.length) return false;
+  const found = allTags.find(
+    (t) => String(t.id ?? t.Id) === String(tagId)
+  );
+  return !!(found && getTagParentId(found) == null);
+}
+
+/**
+ * فهرس TagPrinter: كل tagId → قائمة طابعات، مع خرائط الاسم للرجوع
+ * byRootTagName فقط لأسماء الأقسام الرئيسية لتفادي تصادم الاسم القصير مع فرعي
+ */
+function buildTagPrinterIndex(tagPrinters, allTags) {
   const byTagId = {};
   const byTagName = {};
-  for (const tp of tagPrinters) {
+  const byRootTagName = {};
+  for (const tp of tagPrinters || []) {
     const tag = tp.tag ?? tp.Tag;
     const printer = tp.printer ?? tp.Printer;
     if (!tag && !printer && !tp.tagId && !tp.TagId) continue;
     const tagId = tag?.id ?? tag?.Id ?? tp.tagId ?? tp.TagId;
     const printerId =
       printer?.id ?? printer?.Id ?? tp.printerId ?? tp.PrinterId;
-    if (tagId != null && printerId != null) {
-      byTagId[String(tagId)] = printerId;
+    const normalizedPrinterId = normalizePrinterId(printerId);
+    if (normalizedPrinterId == null) continue;
+
+    if (tagId != null) {
+      pushUniquePrinter(byTagId, String(tagId), normalizedPrinterId);
     }
+
     const name = String(tag?.name ?? tag?.Name ?? "").trim();
-    if (name && printerId != null) byTagName[name] = printerId;
+    if (name) {
+      pushUniquePrinter(byTagName, name, normalizedPrinterId);
+      if (isRootTagRef(tag, tagId, allTags)) {
+        pushUniquePrinter(byRootTagName, name, normalizedPrinterId);
+      }
+    }
     if (tag && allTags?.length) {
       const full = tagDisplayName(tag, allTags);
-      if (full && printerId != null) byTagName[full] = printerId;
+      if (full) {
+        pushUniquePrinter(byTagName, full, normalizedPrinterId);
+      }
     }
   }
-
-  if (byTagName[trimmed]) return byTagName[trimmed];
-
-  const { rootId, subId } = resolveItemTagsToCategoryIds(trimmed, allTags);
-  if (subId != null && byTagId[String(subId)] != null) return byTagId[String(subId)];
-  if (rootId != null && byTagId[String(rootId)] != null) return byTagId[String(rootId)];
-
-  const rootPart = trimmed.split(TAG_SUB_SEPARATOR)[0].trim();
-  if (rootPart && byTagName[rootPart]) return byTagName[rootPart];
-
-  return null;
+  return { byTagId, byTagName, byRootTagName };
 }
 
 /**
- * تجميع أصناف الطلب حسب طابعة القسم؛ الأصناف بلا طابعة في مجموعة unmapped
+ * كل طابعات القسم المستهدفة لصنف واحد:
+ * - طابعة/طابعات الفرعي إن وُجدت
+ * - وطابعة/طابعات الرئيسي دائماً إن وُجدت
+ * (بدون تكرار لنفس printerId)
+ */
+export function resolvePrinterIdsForItemTags(itemTagsStr, tagPrinters, allTags) {
+  if (!tagPrinters || !tagPrinters.length) return [];
+  const trimmed = String(itemTagsStr || "").trim();
+  if (!trimmed) return [];
+
+  const { byTagId, byTagName, byRootTagName } = buildTagPrinterIndex(
+    tagPrinters,
+    allTags
+  );
+  const ids = new Set();
+  const { rootId, subId } = resolveItemTagsToCategoryIds(trimmed, allTags);
+  const rootPart = trimmed.split(TAG_SUB_SEPARATOR)[0].trim();
+
+  if (subId != null) {
+    addPrinterIds(ids, byTagId[String(subId)]);
+    if (!byTagId[String(subId)]?.length) {
+      // مسار العرض الكامل فقط — لا نستخدم الاسم القصير للفرعي لتجنب التوجيه الخاطئ
+      addPrinterIds(ids, byTagName[trimmed]);
+    }
+  }
+
+  if (rootId != null) {
+    addPrinterIds(ids, byTagId[String(rootId)]);
+    if (!byTagId[String(rootId)]?.length && rootPart) {
+      addPrinterIds(ids, byRootTagName[rootPart]);
+    }
+  } else {
+    addPrinterIds(ids, byTagName[trimmed]);
+    if (rootPart) {
+      addPrinterIds(ids, byRootTagName[rootPart]);
+    }
+  }
+
+  return Array.from(ids);
+}
+
+/**
+ * توافق: طابعة واحدة (أول هدف) لصنف من نص Item.Tags
+ */
+export function resolvePrinterIdForItemTags(itemTagsStr, tagPrinters, allTags) {
+  const ids = resolvePrinterIdsForItemTags(itemTagsStr, tagPrinters, allTags);
+  return ids.length ? ids[0] : null;
+}
+
+/**
+ * تجميع أصناف الطلب حسب طابعات القسم؛
+ * الصنف يُدفع لكل طابعة رئيسية/فرعية مستهدفة (fan-out).
+ * الأصناف بلا طابعة في مجموعة unmapped
  */
 export function groupItemsForDepartmentPrinting(items, tagPrinters, allTags) {
   const grouped = {};
   for (const item of items || []) {
     const tagName = item.tags || "مواد اخرى";
-    const printerId = resolvePrinterIdForItemTags(tagName, tagPrinters, allTags);
-    if (printerId) {
-      const key = `printer_${printerId}`;
-      if (!grouped[key]) {
-        grouped[key] = {
-          items: [],
-          printerId,
-          tagName,
-        };
+    const printerIds = resolvePrinterIdsForItemTags(tagName, tagPrinters, allTags);
+    if (printerIds.length) {
+      for (const printerId of printerIds) {
+        const key = `printer_${printerId}`;
+        if (!grouped[key]) {
+          grouped[key] = {
+            items: [],
+            printerId,
+            tagName,
+          };
+        }
+        grouped[key].items.push(item);
       }
-      grouped[key].items.push(item);
     } else {
       if (!grouped.unmapped) {
         grouped.unmapped = {

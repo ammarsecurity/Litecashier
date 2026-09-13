@@ -31,6 +31,7 @@ import DatabaseSyncView from '../views/DatabaseSyncView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import { i18n } from '../main'
 import { managerCanAccessPath } from '../navigation/sectionRegistry.js'
+import { notifyAuthSessionChanged } from '@/utils/authSessionBus.js'
 Vue.use(VueRouter)
 
 const getDefaultPathForRole = (role) => {
@@ -288,7 +289,7 @@ const routes = [
     component: CustomersView,
     meta: {
       requiresAuth: true,
-      roles: ['Commercial', 'Admin']
+      roles: ['Commercial']
     }
   },
   {
@@ -408,6 +409,7 @@ router.beforeEach((to, from, next) => {
       localStorage.removeItem('role');
       localStorage.removeItem('info');
       localStorage.removeItem('allowedSections');
+      notifyAuthSessionChanged();
       return next('/login');
     }
 
@@ -434,7 +436,6 @@ router.beforeEach((to, from, next) => {
           to.path !== '/users' &&
           to.path !== '/logout' &&
           to.path !== '/sections' &&
-          to.path !== '/customers' &&
           to.path !== '/settings'
         ) {
           return next('/users');

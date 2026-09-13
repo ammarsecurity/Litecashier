@@ -272,6 +272,56 @@
               </div>
             </div>
 
+            <!-- Items sold by category -->
+            <div class="eod-section-card">
+              <div class="eod-section-header">
+                <div class="eod-section-title-wrap">
+                  <div class="eod-section-icon-wrap eod-section-icon-wrap--top">
+                    <b-icon icon="basket2-fill"></b-icon>
+                  </div>
+                  <div>
+                    <h3 class="eod-section-title">
+                      {{ $t("itemsSoldByCategory") || "مبيعات الأصناف حسب القسم" }}
+                    </h3>
+                    <p class="eod-section-subtitle">
+                      {{
+                        $t("itemsSoldByCategoryDescription") ||
+                        "كل الأصناف المباعة اليوم مجمّعة حسب القسم مع الكميات"
+                      }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="eod-section-body">
+                <div v-if="itemsSoldByCategoryNormalized.length" class="eod-items-sold-categories">
+                  <div
+                    v-for="(category, catIndex) in itemsSoldByCategoryNormalized"
+                    :key="(category.categoryName || 'uncat') + '-' + catIndex"
+                    class="eod-items-sold-category"
+                  >
+                    <div class="eod-items-sold-category-head">
+                      <strong>{{ categoryDisplayName(category.categoryName) }}</strong>
+                      <span>
+                        {{ category.totalQuantity || 0 }}
+                        ·
+                        {{ formatPrice(category.totalSales) }} {{ $t("currency") }}
+                      </span>
+                    </div>
+                    <b-table
+                      :items="categoryItemRows(category)"
+                      :fields="itemsSoldCategoryItemFields"
+                      small
+                      responsive
+                      class="reports-table"
+                      striped
+                      hover
+                    />
+                  </div>
+                </div>
+                <p v-else class="eod-section-empty">{{ $t("noDataForSection") || "لا توجد بيانات" }}</p>
+              </div>
+            </div>
+
             <!-- Returned items -->
             <div class="eod-section-card">
               <div class="eod-section-header">
@@ -370,6 +420,32 @@ export default {
         salesAmount: this.formatPrice(row.salesAmount),
       }));
     },
+    itemsSoldByCategoryNormalized() {
+      const raw =
+        this.report?.itemsSoldByCategory ||
+        this.report?.ItemsSoldByCategory ||
+        [];
+      return (raw || []).map((cat) => ({
+        categoryName: cat.categoryName ?? cat.CategoryName ?? "",
+        totalQuantity: cat.totalQuantity ?? cat.TotalQuantity ?? 0,
+        totalSales: cat.totalSales ?? cat.TotalSales ?? 0,
+        items: (cat.items || cat.Items || []).map((item) => ({
+          itemName: item.itemName ?? item.ItemName ?? "",
+          itemCode: item.itemCode ?? item.ItemCode ?? "",
+          totalQuantitySold: item.totalQuantitySold ?? item.TotalQuantitySold ?? 0,
+          totalSales: item.totalSales ?? item.TotalSales ?? 0,
+          orderCount: item.orderCount ?? item.OrderCount ?? 0,
+        })),
+      }));
+    },
+    itemsSoldCategoryItemFields() {
+      return [
+        { key: "itemName", label: this.$t("itemName") || "المادة" },
+        { key: "totalQuantitySold", label: this.$t("quantity") || "الكمية" },
+        { key: "totalSales", label: this.$t("totalSales") || "المبيعات" },
+        { key: "orderCount", label: this.$t("orderCount") || "عدد الطلبات" },
+      ];
+    },
     returnedRows() {
       return (this.report?.returnedItems || []).map((row) => ({
         ...row,
@@ -442,6 +518,18 @@ export default {
     formatPrice(value) {
       const n = Number(value || 0);
       return Number.isFinite(n) ? n.toLocaleString("en-EG") : "0";
+    },
+    categoryDisplayName(name) {
+      if (name == null || String(name).trim() === "") {
+        return this.$t("uncategorizedCategory") || "بدون قسم";
+      }
+      return String(name);
+    },
+    categoryItemRows(category) {
+      return (category?.items || []).map((row) => ({
+        ...row,
+        totalSales: this.formatPrice(row.totalSales),
+      }));
     },
     formatDateTime(value) {
       if (!value) return "—";
@@ -800,12 +888,12 @@ export default {
 }
 
 .reports-table ::v-deep thead th {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+  background: var(--bg-tertiary, #1e293b);
+  color: var(--text-primary, #e2e8f0);
   font-weight: 600;
   font-size: 0.8rem;
   padding: 0.85rem 1rem;
-  border-bottom: 2px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
   white-space: nowrap;
 }
 
@@ -818,6 +906,42 @@ export default {
 
 .reports-table ::v-deep tbody tr:hover {
   background: var(--bg-secondary);
+}
+
+.eod-section-subtitle {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.eod-items-sold-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.eod-items-sold-category {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.eod-items-sold-category-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--primary-color) 6%, transparent);
+  font-size: 0.9rem;
+}
+
+.eod-items-sold-category-head span {
+  color: var(--text-secondary);
 }
 
 @media (max-width: 992px) {

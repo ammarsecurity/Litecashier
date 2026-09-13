@@ -150,6 +150,7 @@
 import { HTTP } from '../../http/api.js';
 import { setAllowedSections } from '@/navigation/sectionRegistry.js';
 import { syncNotifyLocale } from '@/plugins/notifyPlugin';
+import { notifyAuthSessionChanged } from '@/utils/authSessionBus.js';
 
 export default {
     name: 'LoginView',
@@ -209,6 +210,7 @@ export default {
             localStorage.setItem('info', JSON.stringify(responseData.info || {}));
             const sections = responseData.allowedSections || [];
             setAllowedSections(sections);
+            notifyAuthSessionChanged();
         },
         redirectAfterLogin(role) {
             if (role === 'Admin') {

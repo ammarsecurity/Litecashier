@@ -43,8 +43,8 @@
                                 :class="{ 'report-tab-active': activeTab === 'topItems' }"
                                 @click="activeTab = 'topItems'; loadTopSellingItems()"
                             >
-                                <b-icon icon="trophy-fill" class="me-2"></b-icon>
-                                {{ $t('topSellingItems') || 'الأكثر مبيعاً' }}
+                                <b-icon icon="basket2-fill" class="me-2"></b-icon>
+                                {{ $t('itemsSoldByCategory') || 'مبيعات الأصناف' }}
                             </button>
                             <button 
                                 class="report-tab" 
@@ -468,14 +468,14 @@
                             </div>
                         </div>
 
-                        <!-- Top Selling Items -->
+                        <!-- Items sold by category -->
                         <div v-if="activeTab === 'topItems'" class="report-section">
                             <div class="report-section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
-                                <div class="report-info-banner" v-if="topSellingItems.length > 0" style="margin: 0;">
+                                <div class="report-info-banner" v-if="itemsSoldByCategory.length > 0" style="margin: 0;">
                                 <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
-                                <span>{{ $t('topSellingItemsDescription') || 'عرض أفضل المنتجات مبيعاً حسب الكمية المباعة' }}</span>
+                                <span>{{ $t('itemsSoldByCategoryDescription') || 'عرض كل الأصناف المباعة مجمّعة حسب القسم مع الكميات والمبالغ' }}</span>
                                 </div>
-                                <button class="export-excel-btn" @click="exportCurrentReportExcel()" :disabled="!topSellingItems.length || exportingExcel">
+                                <button class="export-excel-btn" @click="exportCurrentReportExcel()" :disabled="!itemsSoldByCategory.length || exportingExcel">
                                     <b-spinner small v-if="exportingExcel" class="me-2"></b-spinner>
                                     <b-icon v-else icon="file-earmark-excel" class="me-2"></b-icon>
                                     {{ $t('downloadExcel') || 'تحميل Excel' }}
@@ -524,39 +524,74 @@
                             <p v-if="advancedReportsPeriodColumn" class="reports-orders-summary-period">
                                 {{ $t('reportDateRange') || 'فترة التقرير' }}: {{ advancedReportsPeriodColumn }}
                             </p>
-                            <p class="reports-orders-summary-period reports-summary-note">
-                                {{ $t('topSellingGrandTotalHint') || 'المجموع الكلي لجميع الأصناف المباعة في الفترة (وليس أعلى 10 فقط)' }}
-                            </p>
-                            <div class="report-table-container">
-                                <b-table
-                                    :items="topSellingItemsForTable"
-                                    :fields="topSellingItemsFields"
-                                    striped
-                                    hover
-                                    responsive
-                                    class="reports-table"
-                                    :empty-text="$t('noTopSellingItems') || 'لا توجد منتجات'"
-                                >
-                                    <template #cell(reportPeriod)="row">
-                                        <span class="stat-value text-muted small">{{ row.item.reportPeriod }}</span>
-                                    </template>
-                                    <template #cell(rank)="row">
-                                        <span class="rank-badge" :class="getRankClass(row.index)">{{ row.index + 1 }}</span>
-                                    </template>
-                                    <template #cell(itemName)="row">
-                                        <span class="item-name-text">{{ row.item.itemName }}</span>
-                                    </template>
-                                    <template #cell(totalQuantitySold)="row">
-                                        <span class="quantity-badge">{{ row.item.totalQuantitySold }}</span>
-                                    </template>
-                                    <template #cell(totalSales)="row">
-                                        <span class="stat-amount">{{ formatPrice(row.item.totalSales) }} {{ $t('currency') }}</span>
-                                    </template>
-                                    <template #cell(averagePrice)="row">
-                                        <span class="stat-amount">{{ formatPrice(row.item.totalSales / row.item.totalQuantitySold) }} {{ $t('currency') }}</span>
-                                    </template>
-                                </b-table>
+                            <div class="app-search-wrap app-search-wrap--wide" style="margin: 0.75rem 0 1rem; max-width: 28rem;">
+                                <b-icon icon="search" class="app-search-icon"></b-icon>
+                                <input
+                                    v-model="itemsSoldSearch"
+                                    type="search"
+                                    class="app-search-input"
+                                    :placeholder="$t('searchItemsSoldPlaceholder') || 'بحث باسم الصنف...'"
+                                />
                             </div>
+                            <div v-if="filteredItemsSoldByCategory.length" class="items-sold-categories">
+                                <div
+                                    v-for="(category, catIndex) in filteredItemsSoldByCategory"
+                                    :key="(category.categoryName || 'uncat') + '-' + catIndex"
+                                    class="items-sold-category-card"
+                                >
+                                    <div class="items-sold-category-header">
+                                        <div>
+                                            <h3 class="items-sold-category-title">
+                                                {{ categoryDisplayName(category.categoryName) }}
+                                            </h3>
+                                            <p class="items-sold-category-meta">
+                                                {{ $t('totalQuantity') || 'إجمالي الكمية' }}:
+                                                <strong>{{ category.totalQuantity || 0 }}</strong>
+                                                ·
+                                                {{ $t('totalSales') || 'إجمالي المبيعات' }}:
+                                                <strong>{{ formatPrice(category.totalSales) }} {{ $t('currency') }}</strong>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="report-table-container">
+                                        <b-table
+                                            :items="categoryItemsForTable(category)"
+                                            :fields="itemsSoldItemFields"
+                                            striped
+                                            hover
+                                            responsive
+                                            class="reports-table"
+                                            :empty-text="$t('noTopSellingItems') || 'لا توجد منتجات'"
+                                        >
+                                            <template #cell(rank)="row">
+                                                <span class="rank-badge">{{ row.index + 1 }}</span>
+                                            </template>
+                                            <template #cell(itemName)="row">
+                                                <span class="item-name-text">{{ row.item.itemName }}</span>
+                                            </template>
+                                            <template #cell(totalQuantitySold)="row">
+                                                <span class="quantity-badge">{{ row.item.totalQuantitySold }}</span>
+                                            </template>
+                                            <template #cell(totalSales)="row">
+                                                <span class="stat-amount">{{ formatPrice(row.item.totalSales) }} {{ $t('currency') }}</span>
+                                            </template>
+                                            <template #cell(averagePrice)="row">
+                                                <span class="stat-amount">
+                                                    {{
+                                                        row.item.totalQuantitySold
+                                                            ? formatPrice(row.item.totalSales / row.item.totalQuantitySold)
+                                                            : formatPrice(0)
+                                                    }}
+                                                    {{ $t('currency') }}
+                                                </span>
+                                            </template>
+                                        </b-table>
+                                    </div>
+                                </div>
+                            </div>
+                            <p v-else class="eod-section-empty" style="padding: 1.5rem 0; text-align: center; color: var(--text-secondary);">
+                                {{ $t('noTopSellingItems') || 'لا توجد منتجات' }}
+                            </p>
                         </div>
 
                         <!-- Sales By Category -->
@@ -1462,6 +1497,8 @@ export default {
             // Advanced Reports Data
             profitReport: {},
             topSellingItems: [],
+            itemsSoldByCategory: [],
+            itemsSoldSearch: "",
             topSellingItemsSummary: {
                 totalQuantitySold: 0,
                 totalSales: 0,
@@ -1515,6 +1552,66 @@ export default {
         topSellingItemsForTable() {
             const p = this.advancedReportsPeriodColumn;
             return (this.topSellingItems || []).map((row) => ({ ...row, reportPeriod: p }));
+        },
+        filteredItemsSoldByCategory() {
+            const q = String(this.itemsSoldSearch || "").trim().toLowerCase();
+            const categories = this.itemsSoldByCategory || [];
+            if (!q) return categories;
+            return categories
+                .map((cat) => {
+                    const items = (cat.items || []).filter((item) => {
+                        const name = String(item.itemName || "").toLowerCase();
+                        const code = String(item.itemCode || "").toLowerCase();
+                        return name.includes(q) || code.includes(q);
+                    });
+                    if (!items.length) return null;
+                    return {
+                        ...cat,
+                        items,
+                        totalQuantity: items.reduce((s, i) => s + (Number(i.totalQuantitySold) || 0), 0),
+                        totalSales: items.reduce((s, i) => s + (Number(i.totalSales) || 0), 0),
+                    };
+                })
+                .filter(Boolean);
+        },
+        itemsSoldItemFields() {
+            return [
+                {
+                    key: "rank",
+                    label: this.$t("rank") || "الترتيب",
+                    sortable: false,
+                },
+                {
+                    key: "itemName",
+                    label: this.$t("itemName") || "اسم المنتج",
+                    sortable: true,
+                },
+                {
+                    key: "itemCode",
+                    label: this.$t("itemCode") || "الكود",
+                    sortable: true,
+                },
+                {
+                    key: "totalQuantitySold",
+                    label: this.$t("quantitySold") || "الكمية المباعة",
+                    sortable: true,
+                },
+                {
+                    key: "totalSales",
+                    label: this.$t("totalSales") || "إجمالي المبيعات",
+                    sortable: true,
+                },
+                {
+                    key: "orderCount",
+                    label: this.$t("orderCount") || "عدد الطلبات",
+                    sortable: true,
+                },
+                {
+                    key: "averagePrice",
+                    label: this.$t("averagePrice") || "متوسط السعر",
+                    sortable: false,
+                },
+            ];
         },
         salesByCategoryForTable() {
             const p = this.advancedReportsPeriodColumn;
@@ -2993,30 +3090,55 @@ export default {
         loadTopSellingItems() {
             this.show = true;
             const params = new URLSearchParams();
-            params.append('topCount', '10');
             if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
             if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
             if (this.reportFilters.orderType) params.append('orderType', this.reportFilters.orderType);
             if (this.reportFilters.paymentMethod) params.append('paymentMethod', this.reportFilters.paymentMethod);
             
-            HTTP.get(`Admin/GetTopSellingItems?${params.toString()}`)
+            HTTP.get(`Admin/GetItemsSoldByCategory?${params.toString()}`)
                 .then((response) => {
-                    const payload = response.data.data;
-                    const items = Array.isArray(payload) ? payload : (payload?.items || []);
-                    const summary = payload?.summary;
-                    this.topSellingItems = items;
+                    const payload = response.data.data || {};
+                    const categories = Array.isArray(payload.categories) ? payload.categories : [];
+                    const summary = payload.summary;
+                    this.itemsSoldByCategory = categories.map((cat) => ({
+                        categoryName: cat.categoryName ?? cat.CategoryName ?? "",
+                        totalQuantity: cat.totalQuantity ?? cat.TotalQuantity ?? 0,
+                        totalSales: cat.totalSales ?? cat.TotalSales ?? 0,
+                        items: (cat.items || cat.Items || []).map((item) => ({
+                            itemId: item.itemId ?? item.ItemId,
+                            itemName: item.itemName ?? item.ItemName ?? "",
+                            itemCode: item.itemCode ?? item.ItemCode ?? "",
+                            totalQuantitySold: item.totalQuantitySold ?? item.TotalQuantitySold ?? 0,
+                            totalSales: item.totalSales ?? item.TotalSales ?? 0,
+                            orderCount: item.orderCount ?? item.OrderCount ?? 0,
+                        })),
+                    }));
+                    this.topSellingItems = this.itemsSoldByCategory.flatMap((c) => c.items || []);
                     this.topSellingItemsSummary = {
-                        totalQuantitySold: summary?.totalQuantitySold ?? 0,
-                        totalSales: summary?.totalSales ?? 0,
-                        totalDistinctItems: summary?.totalDistinctItems ?? 0,
-                        totalOrders: summary?.totalOrders ?? 0,
+                        totalQuantitySold: summary?.totalQuantitySold ?? summary?.TotalQuantitySold ?? 0,
+                        totalSales: summary?.totalSales ?? summary?.TotalSales ?? 0,
+                        totalDistinctItems: summary?.totalDistinctItems ?? summary?.TotalDistinctItems ?? 0,
+                        totalOrders: summary?.totalOrders ?? summary?.TotalOrders ?? 0,
                     };
                     this.show = false;
                 })
                 .catch((error) => {
                     this.show = false;
-                    console.error('Error loading top selling items:', error);
+                    this.itemsSoldByCategory = [];
+                    this.topSellingItems = [];
+                    console.error('Error loading items sold by category:', error);
                 });
+        },
+
+        categoryDisplayName(name) {
+            if (name == null || String(name).trim() === "") {
+                return this.$t("uncategorizedCategory") || "بدون قسم";
+            }
+            return String(name);
+        },
+
+        categoryItemsForTable(category) {
+            return (category?.items || []).map((row) => ({ ...row }));
         },
 
         loadSalesByCategory() {
@@ -3228,23 +3350,46 @@ export default {
                     }
                 } else if (this.activeTab === 'topItems') {
                     const params = new URLSearchParams();
-                    params.append('topCount', '9999');
                     if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
                     if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
                     if (this.reportFilters.orderType) params.append('orderType', this.reportFilters.orderType);
                     if (this.reportFilters.paymentMethod) params.append('paymentMethod', this.reportFilters.paymentMethod);
-                    const res = await HTTP.get(`Admin/GetTopSellingItems?${params.toString()}`);
-                    const payload = res.data?.data;
-                    const list = Array.isArray(payload) ? payload : (payload?.items || []);
-                    const summary = payload?.summary;
-                    if (!list.length) {
+                    const res = await HTTP.get(`Admin/GetItemsSoldByCategory?${params.toString()}`);
+                    const payload = res.data?.data || {};
+                    const categories = Array.isArray(payload.categories) ? payload.categories : (payload.Categories || []);
+                    const summary = payload.summary || payload.Summary;
+                    if (!categories.length) {
                         this.$toast.info(this.$t('noDataToExport') || 'لا توجد بيانات للتصدير', { position: 'top-right', timeout: 3000 });
                     } else {
                         const period = this.formatReportPeriod(this.reportFilters.startDate, this.reportFilters.endDate);
-                        const headers = [this.$t('reportDateRange') || 'فترة التقرير', this.$t('rank') || 'الترتيب', this.$t('itemName') || 'اسم المنتج', this.$t('itemCode') || 'الكود', this.$t('quantitySold') || 'الكمية المباعة', this.$t('totalSales') || 'إجمالي المبيعات', this.$t('orderCount') || 'عدد الطلبات', this.$t('averagePrice') || 'متوسط السعر'];
+                        const headers = [
+                            this.$t('reportDateRange') || 'فترة التقرير',
+                            this.$t('category') || 'الفئة',
+                            this.$t('itemName') || 'اسم المنتج',
+                            this.$t('itemCode') || 'الكود',
+                            this.$t('quantitySold') || 'الكمية المباعة',
+                            this.$t('totalSales') || 'إجمالي المبيعات',
+                            this.$t('orderCount') || 'عدد الطلبات',
+                            this.$t('averagePrice') || 'متوسط السعر',
+                        ];
                         let csv = headers.map(this.csvEscape).join(',') + '\r\n';
-                        list.forEach((item, i) => {
-                            csv += [period, i + 1, item.itemName || '', item.itemCode || '', item.totalQuantitySold ?? '', item.totalSales ?? '', item.orderCount ?? '', item.totalQuantitySold ? (item.totalSales / item.totalQuantitySold) : ''].map(this.csvEscape).join(',') + '\r\n';
+                        categories.forEach((cat) => {
+                            const categoryName = this.categoryDisplayName(cat.categoryName ?? cat.CategoryName);
+                            const items = cat.items || cat.Items || [];
+                            items.forEach((item) => {
+                                const qty = item.totalQuantitySold ?? item.TotalQuantitySold ?? 0;
+                                const sales = item.totalSales ?? item.TotalSales ?? 0;
+                                csv += [
+                                    period,
+                                    categoryName,
+                                    item.itemName ?? item.ItemName ?? '',
+                                    item.itemCode ?? item.ItemCode ?? '',
+                                    qty,
+                                    sales,
+                                    item.orderCount ?? item.OrderCount ?? '',
+                                    qty ? sales / qty : '',
+                                ].map(this.csvEscape).join(',') + '\r\n';
+                            });
                         });
                         if (summary) {
                             csv += [
@@ -3252,13 +3397,13 @@ export default {
                                 this.$t('grandTotal') || 'المجموع الكلي',
                                 '',
                                 '',
-                                summary.totalQuantitySold ?? '',
-                                summary.totalSales ?? '',
-                                summary.totalOrders ?? '',
-                                ''
+                                summary.totalQuantitySold ?? summary.TotalQuantitySold ?? '',
+                                summary.totalSales ?? summary.TotalSales ?? '',
+                                summary.totalOrders ?? summary.TotalOrders ?? '',
+                                '',
                             ].map(this.csvEscape).join(',') + '\r\n';
                         }
-                        this.downloadCsv(csv, `top_selling_items_${dateStr}.csv`);
+                        this.downloadCsv(csv, `items_sold_by_category_${dateStr}.csv`);
                     }
                 } else if (this.activeTab === 'byCategory') {
                     const params = new URLSearchParams();
@@ -3882,14 +4027,14 @@ export default {
 
 .reports-table ::v-deep thead th,
 .drivers-statistics-table ::v-deep thead th {
-  background: var(--bg-secondary, #f8f9fa);
-  color: var(--text-primary, #212529);
+  background: var(--bg-tertiary, #1e293b);
+  color: var(--text-primary, #e2e8f0);
   font-weight: 600;
   font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  text-transform: none;
+  letter-spacing: 0;
   padding: 1rem;
-  border-bottom: 2px solid var(--border-color, #dee2e6);
+  border-bottom: 1px solid var(--border-color, #dee2e6);
 }
 
 .reports-table ::v-deep tbody td,
@@ -4087,5 +4232,41 @@ export default {
   background-repeat: no-repeat;
   background-position: left 0.75rem center;
   background-size: 12px;
+}
+
+.items-sold-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.items-sold-category-card {
+  border: 1px solid var(--border-light, rgba(148, 163, 184, 0.28));
+  border-radius: 12px;
+  background: var(--bg-primary, #fff);
+  overflow: hidden;
+}
+
+.items-sold-category-header {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border-light, rgba(148, 163, 184, 0.22));
+  background: color-mix(in srgb, var(--primary-color) 6%, transparent);
+}
+
+.items-sold-category-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.items-sold-category-meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.items-sold-category-meta strong {
+  color: var(--text-primary);
 }
 </style>

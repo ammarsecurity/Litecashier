@@ -205,11 +205,19 @@ select.app-search-input,
 .app-data-table thead th,
 .reports-table thead th,
 .b-table thead th {
-  background: var(--bg-primary) !important;
+  background: var(--bg-tertiary, #1e293b) !important;
   border-bottom: 1px solid var(--border-light) !important;
   font-size: 13px !important;
   font-weight: 700 !important;
-  color: var(--text-muted) !important;
+  color: var(--text-primary, #e2e8f0) !important;
+}
+
+:root.light-theme .users-table thead th,
+:root.light-theme .app-data-table thead th,
+:root.light-theme .reports-table thead th,
+:root.light-theme .b-table thead th {
+  background: var(--bg-secondary, #f1f5f9) !important;
+  color: var(--text-primary, #0f172a) !important;
 }
 
 .modal-content {

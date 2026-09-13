@@ -180,7 +180,6 @@ export function filterNavByRole(role, items, allowedSections = []) {
       (item) =>
         item.name === "users" ||
         item.name === "logout" ||
-        item.name === "customers" ||
         item.name === "settings"
     );
   }

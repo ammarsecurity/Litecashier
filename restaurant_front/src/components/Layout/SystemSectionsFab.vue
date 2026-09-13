@@ -137,7 +137,23 @@ export default {
       return path === "/pos" || path.startsWith("/pos/");
     },
   },
+  mounted() {
+    this.attachFabToBody();
+  },
+  updated() {
+    this.attachFabToBody();
+  },
+  beforeDestroy() {
+    this.clearSectionsModalLayer();
+  },
   methods: {
+    attachFabToBody() {
+      const el = this.$el;
+      if (!el || !document.body) return;
+      if (el.parentNode !== document.body) {
+        document.body.appendChild(el);
+      }
+    },
     liftSectionsModalLayer() {
       this.$nextTick(() => {
         const modalEl = document.querySelector(".modal.system-sections-modal");
@@ -192,15 +208,12 @@ export default {
       this.clearSectionsModalLayer();
     },
   },
-  beforeDestroy() {
-    this.clearSectionsModalLayer();
-  },
 };
 </script>
 
 <style scoped>
 .system-sections-fab-shell {
-  display: contents;
+  position: static;
 }
 
 .system-sections-fab-root {

@@ -2,6 +2,7 @@ import axios from "axios";
 import { resolveApiBaseUrl } from "@/utils/apiBase.js";
 import { openLicenseGate } from "@/utils/licenseGateBus.js";
 import { openDevicePausedGate } from "@/utils/devicePausedGateBus.js";
+import { notifyAuthSessionChanged } from "@/utils/authSessionBus.js";
 
 /** PAX Nebula sale can wait for card/PIN on device — longer than default API calls. */
 export const CARD_PAYMENT_REQUEST_TIMEOUT_MS = 180000;
@@ -69,6 +70,7 @@ HTTP.interceptors.response.use(
                     localStorage.removeItem('token');
                     localStorage.removeItem('role');
                     localStorage.removeItem('info');
+                    notifyAuthSessionChanged();
                     // Redirect to login if not already there
                     if (window.location.pathname !== '/login') {
                         window.location.href = '/login';
