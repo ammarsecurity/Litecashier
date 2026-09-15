@@ -1272,6 +1272,10 @@ export default {
             pageNumber: 1,
             totalOrders: 0,
             pageSize: 18,
+            ordersRequestSeq: 0,
+            skipOrdersPageWatch: false,
+            skipOrdersSearchWatch: false,
+            searchTimer: null,
             search: {
                 info: "",
                 startDate: "",
@@ -1331,8 +1335,6 @@ export default {
             itemSearchTimer: null,
             loadingUpdateOrder: false,
             
-            // Search debounce timer
-            searchTimer: null,
             secretDeleteMode: false,
             secretKeyBuffer: "",
             selectedOrderIds: [],
@@ -1506,14 +1508,19 @@ export default {
         },
         search: {
             handler() {
-                // Clear previous timer
+                if (this.skipOrdersSearchWatch) return;
+
                 if (this.searchTimer) {
                     clearTimeout(this.searchTimer);
                 }
-                
-                // Set new timer - wait 500ms after user stops typing
-                this.searchTimer = setTimeout(() => {
+
+                // Reset to first page without triggering a second fetch via pageNumber watcher.
+                if (this.pageNumber !== 1) {
+                    this.skipOrdersPageWatch = true;
                     this.pageNumber = 1;
+                }
+
+                this.searchTimer = setTimeout(() => {
                     this.GetAllOrders();
                 }, 500);
             },
@@ -1521,6 +1528,10 @@ export default {
         },
 
         pageNumber() {
+            if (this.skipOrdersPageWatch) {
+                this.skipOrdersPageWatch = false;
+                return;
+            }
             this.GetAllOrders();
         },
         activeTab(tab) {
@@ -1678,6 +1689,12 @@ export default {
             }
         },
         clearFilters() {
+            if (this.searchTimer) {
+                clearTimeout(this.searchTimer);
+                this.searchTimer = null;
+            }
+            this.skipOrdersSearchWatch = true;
+            this.skipOrdersPageWatch = this.pageNumber !== 1;
             this.search = {
                 info: "",
                 startDate: "",
@@ -1686,6 +1703,9 @@ export default {
                 orderSource: "",
             };
             this.pageNumber = 1;
+            this.$nextTick(() => {
+                this.skipOrdersSearchWatch = false;
+            });
             this.GetAllOrders();
         },
         clearAdvancedFilters() {
@@ -1967,21 +1987,33 @@ export default {
 
         GetAllOrders() {
             this.show = true;
+            const requestSeq = ++this.ordersRequestSeq;
             const params = new URLSearchParams();
-            params.append('pageNumber', (this.pageNumber - 1).toString());
+            const apiPage = Math.max(0, (Number(this.pageNumber) || 1) - 1);
+            params.append('pageNumber', apiPage.toString());
             params.append('pageSize', this.pageSize.toString());
-            if (this.search.info) params.append('info', this.search.info);
+            if ((this.search.info || '').trim()) params.append('info', this.search.info.trim());
             if (this.search.startDate) params.append('startDate', this.search.startDate);
             if (this.search.endDate) params.append('endDate', this.search.endDate);
             if (this.search.paymentMethod) params.append('paymentMethod', this.search.paymentMethod);
             if (this.search.orderSource) params.append('orderSource', this.search.orderSource);
             HTTP.get(`Admin/GetOrders?${params.toString()}`)
                 .then((response) => {
-                    this.Orders = response.data.data.items;
-                    this.totalOrders = response.data.data.totalItems;
-                    const summary = response.data.data.summary;
+                    if (requestSeq !== this.ordersRequestSeq) return;
+                    const payload = response.data?.data || {};
+                    this.Orders = payload.items || [];
+                    this.totalOrders = Number(payload.totalItems) || 0;
+                    // Keep UI page in sync if API clamped an out-of-range page after filtering.
+                    if (payload.pageIndex != null) {
+                        const uiPage = Number(payload.pageIndex) + 1;
+                        if (uiPage > 0 && uiPage !== this.pageNumber) {
+                            this.skipOrdersPageWatch = true;
+                            this.pageNumber = uiPage;
+                        }
+                    }
+                    const summary = payload.summary;
                     this.ordersSummary = {
-                        totalOrders: summary?.totalOrders ?? 0,
+                        totalOrders: summary?.totalOrders ?? this.totalOrders,
                         totalSubTotal: summary?.totalSubTotal ?? 0,
                         totalDiscount: summary?.totalDiscount ?? 0,
                         totalSales: summary?.totalSales ?? 0,
@@ -1991,6 +2023,7 @@ export default {
                     this.show = false;
                 })
                 .catch(() => {
+                    if (requestSeq !== this.ordersRequestSeq) return;
                     this.show = false;
                 });
         },

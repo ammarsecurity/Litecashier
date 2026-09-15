@@ -306,6 +306,34 @@ namespace POS.Controllers
             };
         }
 
+        private TimeZoneInfo ResolveBusinessTimeZone()
+        {
+            var tzId = (_configuration["BusinessSettings:TimeZoneId"] ?? "").Trim();
+            if (string.IsNullOrEmpty(tzId))
+                tzId = "Asia/Baghdad";
+
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(tzId);
+            }
+            catch
+            {
+                // Windows often uses display IDs while Linux/Docker uses IANA.
+                var fallback = string.Equals(tzId, "Asia/Baghdad", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(tzId, "Arabian Standard Time", StringComparison.OrdinalIgnoreCase)
+                    ? new[] { "Asia/Baghdad", "Arabian Standard Time" }
+                    : new[] { tzId, "Asia/Baghdad", "Arabian Standard Time" };
+
+                foreach (var id in fallback)
+                {
+                    try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
+                    catch { /* try next */ }
+                }
+
+                return TimeZoneInfo.Utc;
+            }
+        }
+
         private bool TryGetOrderInsertUtcRange(DateTime? startDate, DateTime? endDate, out DateTime fromUtc, out DateTime toUtcExclusive)
         {
             fromUtc = default;
@@ -314,6 +342,7 @@ namespace POS.Controllers
             if (!startDate.HasValue && !endDate.HasValue)
                 return false;
 
+            // Date-only query params may bind as UTC midnight; use calendar date only.
             DateTime startDay;
             DateTime endDay;
 
@@ -329,21 +358,12 @@ namespace POS.Controllers
                 startDay = endDay = startDate.Value.Date;
             }
             else
-                return false;
-
-            var tzId = (_configuration["BusinessSettings:TimeZoneId"] ?? "").Trim();
-            TimeZoneInfo tz;
-            try
             {
-                tz = !string.IsNullOrEmpty(tzId)
-                    ? TimeZoneInfo.FindSystemTimeZoneById(tzId)
-                    : TimeZoneInfo.Local;
-            }
-            catch
-            {
-                tz = TimeZoneInfo.Local;
+                // endDate only → from earliest day through end of that day
+                startDay = endDay = endDate!.Value.Date;
             }
 
+            var tz = ResolveBusinessTimeZone();
             var localStart = DateTime.SpecifyKind(startDay, DateTimeKind.Unspecified);
             var localEndExclusive = DateTime.SpecifyKind(endDay.AddDays(1), DateTimeKind.Unspecified);
             fromUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, tz);
@@ -2462,9 +2482,14 @@ namespace POS.Controllers
                 });
             }
 
+            if (pageNumber < 0) pageNumber = 0;
+            if (pageSize < 1) pageSize = 18;
+            if (pageSize > 200) pageSize = 200;
+
             var commercialUserId = GetCommercialUserId();
             var userInsertByUserId = user.InsertByUserId;
             var items = _dbConfig.CustomerOrders
+                    .AsNoTracking()
                     .Where(x => x.IsDeleted == false
                         && (x.OrderSource != "PublicMenu" || x.OrderStatus == "Approved")
                         && (x.InsertByUserId == commercialUserId
@@ -2478,9 +2503,10 @@ namespace POS.Controllers
                     .Include(x => x.User)
                     .AsQueryable();
 
-            if (!string.IsNullOrEmpty(info))
+            if (!string.IsNullOrWhiteSpace(info))
             {
-                items = items.Where(x => x.OrderCode == info);
+                var code = info.Trim();
+                items = items.Where(x => x.OrderCode != null && x.OrderCode.Contains(code));
             }
 
             if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
@@ -2488,9 +2514,10 @@ namespace POS.Controllers
                 items = items.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
             }
 
-            if (!string.IsNullOrEmpty(paymentMethod))
+            if (!string.IsNullOrWhiteSpace(paymentMethod))
             {
-                items = items.Where(x => x.PaymentMethod == paymentMethod);
+                var method = paymentMethod.Trim();
+                items = items.Where(x => x.PaymentMethod != null && x.PaymentMethod.ToLower() == method.ToLower());
             }
 
             if (!string.IsNullOrWhiteSpace(orderSource))
@@ -2502,6 +2529,12 @@ namespace POS.Controllers
             }
 
             var totalItems = items.Count();
+
+            // Clamp page when filters shrink the result set (avoids empty pages).
+            var totalPages = pageSize > 0 ? (int)Math.Ceiling(totalItems / (double)pageSize) : 0;
+            if (totalPages > 0 && pageNumber >= totalPages)
+                pageNumber = totalPages - 1;
+
             var orderIdList = items.Select(o => o.Id).ToList();
             var returnTotalsByOrder = GetOrderReturnTotals(orderIdList);
             var returnedSalesTotal = returnTotalsByOrder.Values.Sum(v => v.Amount);
@@ -2526,7 +2559,6 @@ namespace POS.Controllers
             };
 
             var pageOrders = items
-                .AsNoTracking()
                 .OrderByDescending(x => x.InsertDate)
                 .Skip(pageNumber * pageSize)
                 .Take(pageSize)
@@ -2646,12 +2678,18 @@ namespace POS.Controllers
                 .Include(x => x.CustomerOrderItem)
                 .AsQueryable();
 
-            if (!string.IsNullOrEmpty(info))
-                items = items.Where(x => x.OrderCode == info);
+            if (!string.IsNullOrWhiteSpace(info))
+            {
+                var code = info.Trim();
+                items = items.Where(x => x.OrderCode != null && x.OrderCode.Contains(code));
+            }
             if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
                 items = items.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
-            if (!string.IsNullOrEmpty(paymentMethod))
-                items = items.Where(x => x.PaymentMethod == paymentMethod);
+            if (!string.IsNullOrWhiteSpace(paymentMethod))
+            {
+                var method = paymentMethod.Trim();
+                items = items.Where(x => x.PaymentMethod != null && x.PaymentMethod.ToLower() == method.ToLower());
+            }
             if (!string.IsNullOrWhiteSpace(orderSource))
             {
                 if (string.Equals(orderSource, "PublicMenu", StringComparison.OrdinalIgnoreCase))

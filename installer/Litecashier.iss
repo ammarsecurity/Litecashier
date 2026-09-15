@@ -3,7 +3,7 @@
 ; Safe for upgrades: keeps DB connection, Images, ProgramData license; applies EF migrations only.
 
 #define MyAppName "Litecashier"
-#define MyAppVersion "1.0.31"
+#define MyAppVersion "1.0.32"
 #define MyAppPublisher "Litecashier"
 #define MyAppExeName "Litecashier.exe"
 
@@ -118,6 +118,9 @@ begin
     '  },' + #13#10 +
     '  "ApiSettings": {' + #13#10 +
     '    "ImageBaseUrl": "/Images/"' + #13#10 +
+    '  },' + #13#10 +
+    '  "BusinessSettings": {' + #13#10 +
+    '    "TimeZoneId": "Asia/Baghdad"' + #13#10 +
     '  },' + #13#10 +
     '  "DatabaseSettings": {' + #13#10 +
     '    "ApplyMigrationsOnStartup": true,' + #13#10 +
