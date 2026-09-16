@@ -685,6 +685,9 @@ namespace POS.Migrations
                     b.Property<decimal>("DisCountPrice")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<DateTime?>("ExpiryDate")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Image")
                         .HasColumnType("longtext");
 

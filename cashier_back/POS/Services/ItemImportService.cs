@@ -26,6 +26,7 @@ namespace POS.Services
             ["sellingPrice"] = new[] { "السعر", "selling price", "price", "سعر البيع" },
             ["disCountPrice"] = new[] { "سعر الخصم", "discount price", "discount", "خصم" },
             ["wholesalePrice"] = new[] { "سعر الجملة", "wholesale price", "wholesale", "جملة" },
+            ["expiryDate"] = new[] { "تاريخ الصلاحية", "الصلاحية", "expiry", "expiry date", "expire date", "expiration", "expiration date" },
         };
 
         public ItemImportService(DbConfig dbConfig, ILogger<ItemImportService> logger)
@@ -160,6 +161,22 @@ namespace POS.Services
                 var description = GetCellString(row, columns.Description);
                 var imageFileName = GetCellString(row, columns.Image);
 
+                DateTime? expiryDate = null;
+                if (columns.ExpiryDate > 0)
+                {
+                    var expiryRaw = GetCellString(row, columns.ExpiryDate);
+                    if (!string.IsNullOrWhiteSpace(expiryRaw))
+                    {
+                        if (!TryParseExpiryDate(row, columns.ExpiryDate, expiryRaw, out var parsedExpiry))
+                        {
+                            result.RowsWithErrors++;
+                            result.Errors.Add(new ItemImportRowError { RowNumber = rowNum, Message = "invalidExpiryDate" });
+                            continue;
+                        }
+                        expiryDate = parsedExpiry.Date;
+                    }
+                }
+
                 var item = new Item
                 {
                     Name = name.Trim(),
@@ -172,6 +189,7 @@ namespace POS.Services
                     WholesalePrice = wholesalePrice,
                     PurchasingPrice = 0,
                     Quantity = 0,
+                    ExpiryDate = expiryDate,
                     InsertByUserId = commercialUserId,
                 };
 
@@ -248,6 +266,7 @@ namespace POS.Services
             public int SellingPrice { get; set; } = 7;
             public int DisCountPrice { get; set; } = 8;
             public int WholesalePrice { get; set; } = 9;
+            public int ExpiryDate { get; set; } = 0;
         }
 
         private static ColumnMap ResolveColumns(IXLWorksheet worksheet)
@@ -270,6 +289,7 @@ namespace POS.Services
                 else if (MatchesHeader(header, "sellingPrice")) { map.SellingPrice = col; foundAny = true; }
                 else if (MatchesHeader(header, "disCountPrice")) { map.DisCountPrice = col; foundAny = true; }
                 else if (MatchesHeader(header, "wholesalePrice")) { map.WholesalePrice = col; foundAny = true; }
+                else if (MatchesHeader(header, "expiryDate")) { map.ExpiryDate = col; foundAny = true; }
             }
 
             return foundAny ? map : new ColumnMap();
@@ -287,12 +307,75 @@ namespace POS.Services
             var cell = row.Cell(columnIndex);
             if (cell.IsEmpty()) return "";
 
+            if (cell.DataType == XLDataType.DateTime)
+            {
+                return cell.GetDateTime().ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            }
+
             if (cell.DataType == XLDataType.Number)
             {
+                // Excel serial date stored as number
+                if (cell.Style.DateFormat.Format.Contains("y", StringComparison.OrdinalIgnoreCase)
+                    || cell.Style.DateFormat.Format.Contains("d", StringComparison.OrdinalIgnoreCase)
+                    || cell.Style.DateFormat.Format.Contains("m", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        return cell.GetDateTime().ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                    }
+                    catch
+                    {
+                        // fall through to number text
+                    }
+                }
                 return cell.GetDouble().ToString(System.Globalization.CultureInfo.InvariantCulture);
             }
 
             return cell.GetString().Trim();
+        }
+
+        private static bool TryParseExpiryDate(IXLRow row, int columnIndex, string raw, out DateTime value)
+        {
+            value = default;
+            if (columnIndex > 0)
+            {
+                var cell = row.Cell(columnIndex);
+                if (!cell.IsEmpty() && cell.DataType == XLDataType.DateTime)
+                {
+                    value = cell.GetDateTime().Date;
+                    return true;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(raw)) return false;
+
+            if (DateTime.TryParseExact(
+                    raw.Trim(),
+                    new[] { "yyyy-MM-dd", "dd/MM/yyyy", "d/M/yyyy", "MM/dd/yyyy", "yyyy/MM/dd" },
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AllowWhiteSpaces,
+                    out value))
+            {
+                value = value.Date;
+                return true;
+            }
+
+            if (DateTime.TryParse(
+                    raw,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AllowWhiteSpaces,
+                    out value)
+                || DateTime.TryParse(
+                    raw,
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    System.Globalization.DateTimeStyles.AllowWhiteSpaces,
+                    out value))
+            {
+                value = value.Date;
+                return true;
+            }
+
+            return false;
         }
 
         private static bool TryParseDecimal(string? raw, out decimal value)

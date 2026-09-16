@@ -206,6 +206,15 @@
                 <span class="item-tags-badge">{{ row.item.tags || "—" }}</span>
               </template>
 
+              <template #cell(expiryDate)="row">
+                <span
+                  class="item-expiry-badge"
+                  :class="expiryCellClass(row.item)"
+                >
+                  {{ formatItemExpiryDate(row.item.expiryDate) }}
+                </span>
+              </template>
+
               <template #cell(actions)="row">
                 <div class="actions-cell items-actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
                   <button
@@ -577,6 +586,25 @@
 
             <div class="item-form-section">
               <div class="item-form-section__head">
+                <b-icon icon="calendar-event"></b-icon>
+                <span>{{ $t("expiryDateLabel") || "تاريخ الصلاحية" }}</span>
+              </div>
+              <div class="users-form-group item-form-group--flush">
+                <label class="users-form-label" for="inputExpiryDate">
+                  <b-icon icon="calendar3" class="form-label-icon"></b-icon>
+                  {{ $t("expiryDateOptional") || "اختياري — اتركه فارغاً إن لم يوجد" }}
+                </label>
+                <input
+                  id="inputExpiryDate"
+                  v-model="addForm.expiryDate"
+                  type="date"
+                  class="users-form-input"
+                />
+              </div>
+            </div>
+
+            <div class="item-form-section">
+              <div class="item-form-section__head">
                 <b-icon icon="file-text"></b-icon>
                 <span>{{ $t("descriptionPlaceholder") }}</span>
               </div>
@@ -870,6 +898,25 @@
 
             <div class="item-form-section">
               <div class="item-form-section__head">
+                <b-icon icon="calendar-event"></b-icon>
+                <span>{{ $t("expiryDateLabel") || "تاريخ الصلاحية" }}</span>
+              </div>
+              <div class="users-form-group item-form-group--flush">
+                <label class="users-form-label" for="editInputExpiryDate">
+                  <b-icon icon="calendar3" class="form-label-icon"></b-icon>
+                  {{ $t("expiryDateOptional") || "اختياري — اتركه فارغاً إن لم يوجد" }}
+                </label>
+                <input
+                  id="editInputExpiryDate"
+                  v-model="editForm.expiryDate"
+                  type="date"
+                  class="users-form-input"
+                />
+              </div>
+            </div>
+
+            <div class="item-form-section">
+              <div class="item-form-section__head">
                 <b-icon icon="file-text"></b-icon>
                 <span>{{ $t("descriptionPlaceholder") }}</span>
               </div>
@@ -1136,6 +1183,7 @@ import ClockVue from "@/components/ClockVue.vue";
 import VueBarcode from "@chenfengyuan/vue-barcode";
 
 import { HTTP } from "../http/api.js";
+import { BUSINESS_TIME_ZONE } from "@/utils/formatBusinessDateTime.js";
 import {
   productImageSrc,
   isProductImageFallback,
@@ -1184,6 +1232,7 @@ export default {
         id: "",
         quantity: 0,
         lowStockAlertQuantity: "",
+        expiryDate: "",
       },
       imagePreview: "",
       itemPhoto: null,
@@ -1200,6 +1249,7 @@ export default {
         code: "",
         quantity: 0,
         lowStockAlertQuantity: "",
+        expiryDate: "",
       },
       barCodeList: [],
       printLabelItem: null,
@@ -1297,6 +1347,13 @@ export default {
           sortable: true,
           thClass: 'item-header-cell item-col-qty',
           tdClass: 'item-col-qty',
+        },
+        {
+          key: 'expiryDate',
+          label: this.$t('expiryDateLabel') || 'الصلاحية',
+          sortable: true,
+          thClass: 'item-header-cell item-col-expiry',
+          tdClass: 'item-col-expiry',
         },
         {
           key: 'tags',
@@ -1593,6 +1650,7 @@ export default {
         quantity: item.quantity || 0,
         lowStockAlertQuantity:
           item.lowStockAlertQuantity ?? item.LowStockAlertQuantity ?? "",
+        expiryDate: this.toDateInputValue(item.expiryDate ?? item.ExpiryDate),
       };
       const stocks = item.warehouseStocks || item.WarehouseStocks || [];
       const legacyAlert =
@@ -1643,6 +1701,7 @@ export default {
       } else {
         this.appendLowStockAlertQuantity(formData, this.addForm.lowStockAlertQuantity);
       }
+      this.appendExpiryDate(formData, this.addForm.expiryDate);
 
       HTTP.post(`Admin/AddItem`, formData)
         .then((response) => {
@@ -1670,6 +1729,7 @@ export default {
           this.addForm.wholesalePrice = 0;
           this.addForm.quantity = 0;
           this.addForm.lowStockAlertQuantity = "";
+          this.addForm.expiryDate = "";
           this.resetAddWarehouseRows();
           this.imagePreview = "";
           this.itemPhoto = null;
@@ -1715,6 +1775,7 @@ export default {
       } else {
         this.appendLowStockAlertQuantity(formData, this.editForm.lowStockAlertQuantity, true);
       }
+      this.appendExpiryDate(formData, this.editForm.expiryDate, true);
 
       this.show = true;
       HTTP.put(`Admin/UpdateItem?id=${this.editForm.id}`, formData)
@@ -1741,7 +1802,11 @@ export default {
         })
         .catch((error) => {
           this.show = false;
-          this.$notify.error(this.$i18n.t("somethingWrong"), {
+          const apiMsg = error?.response?.data?.message;
+          const msg =
+            (apiMsg && this.$te(apiMsg) ? this.$t(apiMsg) : null) ||
+            this.$i18n.t("somethingWrong");
+          this.$notify.error(msg, {
             position: "top-right",
             timeout: 4000,
             closeOnClick: true,
@@ -1842,6 +1907,54 @@ export default {
       if (!isEmpty) {
         formData.append("LowStockAlertQuantity", value);
       }
+    },
+    appendExpiryDate(formData, value, force = false) {
+      const isEmpty = value === null || value === undefined || String(value).trim() === "";
+      if (force) {
+        formData.append("ExpiryDate", isEmpty ? "" : String(value).trim());
+        return;
+      }
+      if (!isEmpty) {
+        formData.append("ExpiryDate", String(value).trim());
+      }
+    },
+    toDateInputValue(value) {
+      if (value == null || value === "") return "";
+      const s = String(value);
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+      const d = new Date(s);
+      if (Number.isNaN(d.getTime())) return "";
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    },
+    formatItemExpiryDate(value) {
+      const v = this.toDateInputValue(value);
+      return v || "—";
+    },
+    expiryDaysRemaining(value) {
+      const v = this.toDateInputValue(value);
+      if (!v) return null;
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: BUSINESS_TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(new Date());
+      const get = (type) => parts.find((p) => p.type === type)?.value || "";
+      const todayStr = `${get("year")}-${get("month")}-${get("day")}`;
+      const today = new Date(`${todayStr}T00:00:00`);
+      const expiry = new Date(`${v}T00:00:00`);
+      if (Number.isNaN(today.getTime()) || Number.isNaN(expiry.getTime())) return null;
+      return Math.round((expiry.getTime() - today.getTime()) / 86400000);
+    },
+    expiryCellClass(item) {
+      const days = this.expiryDaysRemaining(item?.expiryDate ?? item?.ExpiryDate);
+      if (days == null) return "item-expiry-badge--empty";
+      if (days < 0) return "item-expiry-badge--expired";
+      if (days <= 7) return "item-expiry-badge--soon";
+      return "";
     },
     closeModel(id) {
       this.$bvModal.hide(id);
@@ -2424,6 +2537,36 @@ export default {
 
 .item-quantity-badge.item-quantity-text--alert,
 .item-quantity-text--alert {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.16);
+}
+
+.item-expiry-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 6.5rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text-primary, #111827);
+  background: color-mix(in srgb, var(--primary-color) 8%, var(--bg-secondary, #f1f5f9));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.item-expiry-badge--empty {
+  color: var(--text-secondary, #64748b);
+  font-weight: 500;
+}
+
+.item-expiry-badge--expired {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.item-expiry-badge--soon {
   color: #b45309;
   background: rgba(245, 158, 11, 0.16);
 }

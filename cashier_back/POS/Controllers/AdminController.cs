@@ -334,6 +334,18 @@ namespace POS.Controllers
             }
         }
 
+        private static DateTime? NormalizeExpiryDate(DateTime? value)
+        {
+            if (!value.HasValue) return null;
+            return value.Value.Date;
+        }
+
+        private DateTime GetBusinessTodayLocalDate()
+        {
+            var tz = ResolveBusinessTimeZone();
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz).Date;
+        }
+
         private bool TryGetOrderInsertUtcRange(DateTime? startDate, DateTime? endDate, out DateTime fromUtc, out DateTime toUtcExclusive)
         {
             fromUtc = default;
@@ -1168,6 +1180,7 @@ namespace POS.Controllers
             newItem.Code = itemCode;
             newItem.InsertByUserId = commercialUserId;
             newItem.Quantity = Math.Max(0, request.Quantity);
+            newItem.ExpiryDate = NormalizeExpiryDate(request.ExpiryDate);
             _dbConfig.Items.Add(newItem);
             await _dbConfig.SaveChangesAsync();
 
@@ -1417,6 +1430,37 @@ namespace POS.Controllers
             else
             {
                 item.LowStockAlertQuantity = request.LowStockAlertQuantity;
+            }
+            if (Request.Form.ContainsKey("ExpiryDate"))
+            {
+                var expiryRaw = Request.Form["ExpiryDate"].ToString();
+                if (string.IsNullOrWhiteSpace(expiryRaw))
+                {
+                    item.ExpiryDate = null;
+                }
+                else if (DateTime.TryParseExact(
+                             expiryRaw.Trim(),
+                             new[] { "yyyy-MM-dd", "yyyy-MM-ddTHH:mm:ss", "yyyy-MM-ddTHH:mm:ss.FFFFFFF" },
+                             System.Globalization.CultureInfo.InvariantCulture,
+                             System.Globalization.DateTimeStyles.AllowWhiteSpaces,
+                             out var expiryParsed)
+                         || DateTime.TryParse(
+                             expiryRaw,
+                             System.Globalization.CultureInfo.InvariantCulture,
+                             System.Globalization.DateTimeStyles.AllowWhiteSpaces,
+                             out expiryParsed))
+                {
+                    item.ExpiryDate = NormalizeExpiryDate(expiryParsed);
+                }
+                else
+                {
+                    return BadRequest(new GlobalResponse<Item>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "invalidExpiryDate"
+                    });
+                }
             }
             item.Code = request.Code;
             item.Name = request.Name;
@@ -3890,6 +3934,71 @@ namespace POS.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting low stock items");
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ: {ex.Message}"
+                });
+            }
+        }
+
+        [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
+        [HttpGet("GetExpiringItems")]
+        public ActionResult<GlobalResponse<object>> GetExpiringItems(int daysWithin = 30)
+        {
+            try
+            {
+                if (daysWithin < 0) daysWithin = 0;
+                if (daysWithin > 3650) daysWithin = 3650;
+
+                var commercialUserId = GetCommercialUserId();
+                var today = GetBusinessTodayLocalDate();
+                var until = today.AddDays(daysWithin);
+
+                var items = AccessibleItemsQuery(commercialUserId)
+                    .AsNoTracking()
+                    .Where(x => !x.IsNonInventory && x.ExpiryDate != null && x.ExpiryDate <= until)
+                    .Select(x => new
+                    {
+                        itemId = x.Id,
+                        itemName = x.Name,
+                        itemCode = x.Code,
+                        category = x.Tags,
+                        expiryDate = x.ExpiryDate!.Value,
+                        quantity = x.Quantity
+                    })
+                    .ToList()
+                    .Select(x =>
+                    {
+                        var expiryDay = x.expiryDate.Date;
+                        var daysRemaining = (expiryDay - today).Days;
+                        return new
+                        {
+                            x.itemId,
+                            x.itemName,
+                            x.itemCode,
+                            x.category,
+                            expiryDate = expiryDay,
+                            x.quantity,
+                            daysRemaining,
+                            status = daysRemaining < 0 ? "expired" : "expiring"
+                        };
+                    })
+                    .OrderBy(x => x.daysRemaining)
+                    .ThenBy(x => x.itemName)
+                    .ToList();
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = items,
+                    ErrorStatus = false,
+                    Message = "Success"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting expiring items");
                 return BadRequest(new GlobalResponse<object>
                 {
                     Data = null,

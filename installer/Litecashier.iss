@@ -3,7 +3,7 @@
 ; Safe for upgrades: keeps DB connection, Images, ProgramData license; applies EF migrations only.
 
 #define MyAppName "Litecashier"
-#define MyAppVersion "1.0.32"
+#define MyAppVersion "1.0.33"
 #define MyAppPublisher "Litecashier"
 #define MyAppExeName "Litecashier.exe"
 

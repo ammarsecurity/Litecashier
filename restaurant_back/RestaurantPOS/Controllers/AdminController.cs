@@ -1281,16 +1281,16 @@ namespace RestaurantPOS.Controllers
             }
             else
             {
-                var commercialUserId = GetCommercialUserId();
+            var commercialUserId = GetCommercialUserId();
                 targetUser = await _dbConfig.Users.FirstOrDefaultAsync(
                     x => x.Id == id && !x.IsDeleted && x.InsertByUserId == commercialUserId);
 
                 if (targetUser?.Role == "Commercial")
+            {
+                return BadRequest(new GlobalResponse<int>
                 {
-                    return BadRequest(new GlobalResponse<int>
-                    {
-                        Data = 0,
-                        ErrorStatus = true,
+                    Data = 0,
+                    ErrorStatus = true,
                         Message = "noPermissionToDeleteCommercial"
                     });
                 }
@@ -1338,7 +1338,7 @@ namespace RestaurantPOS.Controllers
                     targetUser.LoginCode = null;
                     targetUser.UpdateDate = DateTime.UtcNow;
                     _dbConfig.Users.Update(targetUser);
-                    await _dbConfig.SaveChangesAsync();
+            await _dbConfig.SaveChangesAsync();
                 }
             }
             catch (Exception ex)
@@ -1821,11 +1821,11 @@ namespace RestaurantPOS.Controllers
             if (IsManagerRole(currentUser.Role) && currentUser.CanUseOwnLoginCodeForSensitiveActions)
             {
                 if (string.IsNullOrWhiteSpace(currentUser.LoginCode))
+            {
+                return BadRequest(new GlobalResponse<object>
                 {
-                    return BadRequest(new GlobalResponse<object>
-                    {
-                        Data = null,
-                        ErrorStatus = true,
+                    Data = null,
+                    ErrorStatus = true,
                         Message = "managerLoginCodeNotConfigured"
                     });
                 }
@@ -4379,7 +4379,7 @@ namespace RestaurantPOS.Controllers
                             order.OrderStatus = "Completed";
                             if (!string.Equals(order.PaymentMethod, "Credit", StringComparison.OrdinalIgnoreCase))
                             {
-                                order.PaymentStatus = "Paid";
+                            order.PaymentStatus = "Paid";
                             }
 
                             _dbConfig.CustomerOrders.Update(order);
@@ -5201,14 +5201,14 @@ namespace RestaurantPOS.Controllers
                 {
                     var activeOrderItems = GetActiveOrderItems(x.CustomerOrderItem);
                     return new
-                    {
-                        OrderCode = x.OrderCode ?? "",
-                        InsertDate = x.InsertDate,
-                        OrderType = x.OrderType ?? "",
-                        PaymentMethod = x.PaymentMethod ?? "",
+                {
+                    OrderCode = x.OrderCode ?? "",
+                    InsertDate = x.InsertDate,
+                    OrderType = x.OrderType ?? "",
+                    PaymentMethod = x.PaymentMethod ?? "",
                         OrderPrice = activeOrderItems.Sum(item => item.SellingPrice * item.Quantity),
-                        DiscountAmount = x.DiscountAmount ?? 0,
-                        OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
+                    DiscountAmount = x.DiscountAmount ?? 0,
+                    OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
                         ItemsCount = activeOrderItems.Count
                     };
                 })

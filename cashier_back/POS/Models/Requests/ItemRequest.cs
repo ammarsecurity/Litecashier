@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace POS.Models.Requests
 {
@@ -18,6 +18,8 @@ namespace POS.Models.Requests
         public decimal WholesalePrice { get; set; }
         public int Quantity { get; set; } = 0; // Total / fallback when WarehouseStocksJson omitted
         public int? LowStockAlertQuantity { get; set; }
+        /// <summary>Optional expiry date (date-only). Empty form value clears on update.</summary>
+        public DateTime? ExpiryDate { get; set; }
         public string? Tags { get; set; }
         public string? Code { get; set; }
 

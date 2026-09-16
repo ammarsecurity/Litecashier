@@ -118,6 +118,14 @@
                                 <b-icon icon="exclamation-triangle-fill" class="me-2"></b-icon>
                                 {{ $t('lowStockItems') || 'منتجات قليلة المخزون' }}
                             </button>
+                            <button
+                                class="report-tab"
+                                :class="{ 'report-tab-active': activeTab === 'expiry' }"
+                                @click="activeTab = 'expiry'; loadExpiringItems()"
+                            >
+                                <b-icon icon="calendar-x" class="me-2"></b-icon>
+                                {{ $t('expiringItemsReport') || 'صلاحية الأصناف' }}
+                            </button>
                         </div>
                     </div>
 
@@ -236,6 +244,26 @@
                                             :placeholder="$t('threshold') || 'حد الكمية'"
                                             class="users-search-input"
                                             @change="loadLowStockItems()"
+                                        />
+                                    </div>
+                                </label>
+                            </template>
+
+                            <!-- Expiry -->
+                            <template v-else-if="activeTab === 'expiry'">
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('expiryDaysWithin') || 'خلال كم يوم' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="calendar-range" class="search-icon"></b-icon>
+                                        <input
+                                            v-model.number="expiryDaysWithin"
+                                            type="number"
+                                            min="0"
+                                            :placeholder="$t('expiryDaysWithinPlaceholder') || 'مثال: 20'"
+                                            class="users-search-input"
+                                            @input="onExpiryDaysFilterInput"
+                                            @change="loadExpiringItems()"
+                                            @keyup.enter="loadExpiringItems()"
                                         />
                                     </div>
                                 </label>
@@ -893,6 +921,74 @@
                                 </table>
                             </div>
                         </div>
+
+                        <!-- Expiring Items -->
+                        <div v-if="activeTab === 'expiry'" class="report-section">
+                            <div v-if="expiringItems.length > 0" class="app-overview-grid reports-orders-summary">
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--danger"><b-icon icon="x-octagon-fill"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ expiredItemsCount }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('expiredItemsCount') || 'منتهية الصلاحية' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--warning"><b-icon icon="hourglass-split"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ expiringSoonItemsCount }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('expiringSoonCount') || 'قريبة من الانتهاء' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--primary"><b-icon icon="list-ul"></b-icon></span>
+                                    <div>
+                                        <div class="app-overview-stat-value">{{ expiringItems.length }}</div>
+                                        <div class="app-overview-stat-label">{{ $t('expiringItemsTotal') || 'إجمالي المعروض' }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-if="expiringItems.length > 0" class="report-table-container">
+                                <table class="report-table">
+                                    <thead>
+                                        <tr>
+                                            <th>{{ $t('itemName') || 'اسم المنتج' }}</th>
+                                            <th>{{ $t('itemCode') || 'الكود' }}</th>
+                                            <th>{{ $t('category') || 'الفئة' }}</th>
+                                            <th>{{ $t('expiryDateLabel') || 'تاريخ الصلاحية' }}</th>
+                                            <th>{{ $t('quantity') || 'الكمية' }}</th>
+                                            <th>{{ $t('daysRemaining') || 'الأيام المتبقية' }}</th>
+                                            <th>{{ $t('status') || 'الحالة' }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr
+                                            v-for="item in expiringItems"
+                                            :key="item.itemId"
+                                            :class="{ 'low-stock-row': item.status === 'expired' }"
+                                        >
+                                            <td class="report-item-name">{{ item.itemName }}</td>
+                                            <td class="report-item-code">{{ item.itemCode }}</td>
+                                            <td class="report-item-name">{{ item.category || '-' }}</td>
+                                            <td class="report-item-name">{{ formatExpiryDate(item.expiryDate) }}</td>
+                                            <td class="report-item-quantity">{{ item.quantity ?? 0 }}</td>
+                                            <td class="report-item-quantity" :class="{ 'quantity-out': item.daysRemaining < 0, 'quantity-low': item.daysRemaining >= 0 && item.daysRemaining <= 7 }">
+                                                {{ item.daysRemaining }}
+                                            </td>
+                                            <td class="report-item-status">
+                                                <span class="status-badge" :class="getExpiryStatusClass(item)">
+                                                    <b-icon :icon="getExpiryStatusIcon(item)" class="status-icon"></b-icon>
+                                                    {{ getExpiryStatusText(item) }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div v-else-if="!show" class="empty-state">
+                                <b-icon icon="calendar-check" class="empty-icon"></b-icon>
+                                <p>{{ $t('noExpiringItems') || 'لا توجد أصناف منتهية أو قريبة من الانتهاء ضمن الفلتر' }}</p>
+                            </div>
+                        </div>
                     </div>
                       </div>
                     </div>
@@ -1322,6 +1418,9 @@ export default {
             salesByWarehouse: [],
             lowStockItems: [],
             lowStockThreshold: 10,
+            expiringItems: [],
+            expiryDaysWithin: 30,
+            expiryFilterTimer: null,
             exportingExcel: false,
             editOrderData: null,
             editOrderForm: {
@@ -1401,6 +1500,7 @@ export default {
         hasReportFilters() {
             if (this.activeTab === "orders") return this.hasActiveFilters;
             if (this.activeTab === "lowStock") return Number(this.lowStockThreshold) !== 10;
+            if (this.activeTab === "expiry") return Number(this.expiryDaysWithin) !== 30;
             return this.hasAdvancedFilters;
         },
         reportsFiltersHint() {
@@ -1413,8 +1513,15 @@ export default {
                 byEmployee: this.$t("dateFiltersHint") || "حدد فترة التقرير",
                 byWarehouse: this.$t("dateFiltersHint") || "حدد فترة التقرير",
                 lowStock: this.$t("lowStockFiltersHint") || "حد الكمية لعرض المنتجات القليلة أو المنتهية",
+                expiry: this.$t("expiryFiltersHint") || "أدخل عدد الأيام لعرض المنتهية أو القريبة من الانتهاء",
             };
             return map[this.activeTab] || (this.$t("filters") || "فلاتر التقرير");
+        },
+        expiredItemsCount() {
+            return (this.expiringItems || []).filter((i) => i.status === "expired" || Number(i.daysRemaining) < 0).length;
+        },
+        expiringSoonItemsCount() {
+            return (this.expiringItems || []).filter((i) => i.status === "expiring" || Number(i.daysRemaining) >= 0).length;
         },
         formattedNumber() {
             return this.totaPrice.toLocaleString()
@@ -1554,6 +1661,9 @@ export default {
         if (this.searchTimer) {
             clearTimeout(this.searchTimer);
         }
+        if (this.expiryFilterTimer) {
+            clearTimeout(this.expiryFilterTimer);
+        }
         window.removeEventListener("keydown", this.onSecretDeleteKeydown);
     },
 
@@ -1684,6 +1794,8 @@ export default {
                 this.GetAllOrders();
             } else if (this.activeTab === "lowStock") {
                 this.loadLowStockItems();
+            } else if (this.activeTab === "expiry") {
+                this.loadExpiringItems();
             } else {
                 this.loadAdvancedReport();
             }
@@ -1727,6 +1839,11 @@ export default {
             if (this.activeTab === "lowStock") {
                 this.lowStockThreshold = 10;
                 this.loadLowStockItems();
+                return;
+            }
+            if (this.activeTab === "expiry") {
+                this.expiryDaysWithin = 30;
+                this.loadExpiringItems();
                 return;
             }
             this.clearAdvancedFilters();
@@ -1778,6 +1895,31 @@ export default {
             if (item.currentQuantity === 0) return this.$t('outOfStock') || 'منتهي';
             if (item.currentQuantity <= item.threshold) return this.$t('lowStock') || 'قليل';
             return this.$t('inStock') || 'متوفر';
+        },
+        formatExpiryDate(value) {
+            if (value == null || value === "") return "-";
+            const s = String(value);
+            if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+            const d = new Date(s);
+            if (Number.isNaN(d.getTime())) return s;
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, "0");
+            const dd = String(d.getDate()).padStart(2, "0");
+            return `${yyyy}-${mm}-${dd}`;
+        },
+        getExpiryStatusClass(item) {
+            if (item?.status === "expired" || Number(item?.daysRemaining) < 0) return "status-out";
+            return "status-low";
+        },
+        getExpiryStatusIcon(item) {
+            if (item?.status === "expired" || Number(item?.daysRemaining) < 0) return "x-circle-fill";
+            return "hourglass-split";
+        },
+        getExpiryStatusText(item) {
+            if (item?.status === "expired" || Number(item?.daysRemaining) < 0) {
+                return this.$t("expiredStatus") || "منتهية";
+            }
+            return this.$t("expiringSoonStatus") || "قريبة من الانتهاء";
         },
         getPaymentMethodText(method) {
             if (!method) return '-';
@@ -2312,6 +2454,32 @@ export default {
                     this.show = false;
                     console.error('Error loading low stock items:', error);
                 });
+        },
+
+        loadExpiringItems() {
+            this.show = true;
+            const days = Number(this.expiryDaysWithin);
+            const daysWithin = Number.isFinite(days) && days >= 0 ? days : 30;
+            this.expiryDaysWithin = daysWithin;
+            HTTP.get(`Admin/GetExpiringItems?daysWithin=${daysWithin}`)
+                .then((response) => {
+                    this.expiringItems = response.data.data || [];
+                    this.show = false;
+                })
+                .catch((error) => {
+                    this.show = false;
+                    this.expiringItems = [];
+                    console.error('Error loading expiring items:', error);
+                });
+        },
+
+        onExpiryDaysFilterInput() {
+            if (this.expiryFilterTimer) {
+                clearTimeout(this.expiryFilterTimer);
+            }
+            this.expiryFilterTimer = setTimeout(() => {
+                this.loadExpiringItems();
+            }, 400);
         },
 
     },

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using POS.Models.Dtos;
@@ -28,6 +28,9 @@ namespace POS.Models
 
         /// <summary>When set, alert when Quantity is at or below this value. Null = no alert.</summary>
         public int? LowStockAlertQuantity { get; set; }
+
+        /// <summary>Optional product expiry (calendar date). Null = no expiry tracked.</summary>
+        public DateTime? ExpiryDate { get; set; }
 
         [ForeignKey("InsertByUserId")]
         public int InsertByUserId { get; set; }
