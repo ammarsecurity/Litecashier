@@ -390,6 +390,18 @@ namespace POS.Controllers
                 .ToList() ?? new List<CustomerOrderItem>();
         }
 
+        private static List<CustomerOrderItem> GetActiveOrderItemsForBrand(
+            IEnumerable<CustomerOrderItem>? items,
+            int? brandId)
+        {
+            var active = GetActiveOrderItems(items);
+            if (!HasBrandFilter(brandId))
+                return active;
+            return active
+                .Where(i => i.Item != null && i.Item.BrandId == brandId!.Value)
+                .ToList();
+        }
+
         private IQueryable<CustomerOrderItem> QueryActiveOrderItemsForCommercial(int userId, int userInsertByUserId)
         {
             return _dbConfig.CustomerOrderItems
@@ -422,18 +434,27 @@ namespace POS.Controllers
                 .Sum();
         }
 
-        private Dictionary<int, (int Qty, decimal Amount)> GetOrderReturnTotals(IEnumerable<int> orderIds)
+        private Dictionary<int, (int Qty, decimal Amount)> GetOrderReturnTotals(
+            IEnumerable<int> orderIds,
+            int? brandId = null)
         {
             var ids = orderIds?.Distinct().ToList() ?? new List<int>();
             if (ids.Count == 0)
                 return new Dictionary<int, (int Qty, decimal Amount)>();
 
-            return _dbConfig.CatalogStockReturns
+            var query = _dbConfig.CatalogStockReturns
                 .AsNoTracking()
                 .Where(r => !r.IsDeleted
                     && r.ReturnType == "Order"
                     && r.CustomerOrderId != null
-                    && ids.Contains(r.CustomerOrderId.Value))
+                    && ids.Contains(r.CustomerOrderId.Value));
+
+            if (HasBrandFilter(brandId))
+            {
+                query = query.Where(r => r.Item != null && r.Item.BrandId == brandId!.Value);
+            }
+
+            return query
                 .GroupBy(r => r.CustomerOrderId!.Value)
                 .Select(g => new
                 {
@@ -1140,6 +1161,179 @@ namespace POS.Controllers
             return response;
         }
 
+        [Authorize(Roles = "Commercial,POS")]
+        [HttpPost("AddBrand")]
+        public async Task<ActionResult<GlobalResponse<Brand>>> AddBrand(BrandRequest request)
+        {
+            var commercialUserId = GetCommercialUserId();
+            var name = (request.Name ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return BadRequest(new GlobalResponse<Brand>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "invalidBrandName"
+                });
+            }
+
+            var existing = await AccessibleBrandsQuery(commercialUserId)
+                .FirstOrDefaultAsync(x => x.Name == name);
+            if (existing != null)
+            {
+                return BadRequest(new GlobalResponse<Brand>
+                {
+                    Data = existing,
+                    ErrorStatus = true,
+                    Message = "Brand is already exsit"
+                });
+            }
+
+            var newBrand = _mapper.Map<Brand>(request);
+            newBrand.Name = name;
+            newBrand.InsertByUserId = commercialUserId;
+            _dbConfig.Brands.Add(newBrand);
+            await _dbConfig.SaveChangesAsync();
+
+            return Ok(new GlobalResponse<Brand>
+            {
+                Data = newBrand,
+                ErrorStatus = false,
+                Message = "done"
+            });
+        }
+
+        [Authorize(Roles = "Commercial")]
+        [HttpPut("UpdateBrand")]
+        public async Task<ActionResult<GlobalResponse<Brand>>> UpdateBrand(BrandRequest request, int id)
+        {
+            var commercialUserId = GetCommercialUserId();
+            var brand = await AccessibleBrandsQuery(commercialUserId)
+                .FirstOrDefaultAsync(x => x.Id == id);
+            if (brand == null)
+            {
+                return BadRequest(new GlobalResponse<Brand>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "brand not exsit"
+                });
+            }
+
+            var name = (request.Name ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return BadRequest(new GlobalResponse<Brand>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "invalidBrandName"
+                });
+            }
+
+            var duplicate = await AccessibleBrandsQuery(commercialUserId)
+                .FirstOrDefaultAsync(x => x.Name == name && x.Id != id);
+            if (duplicate != null)
+            {
+                return BadRequest(new GlobalResponse<Brand>
+                {
+                    Data = duplicate,
+                    ErrorStatus = true,
+                    Message = "Brand is already exsit"
+                });
+            }
+
+            brand.Name = name;
+            _dbConfig.Brands.Update(brand);
+            await _dbConfig.SaveChangesAsync();
+
+            return Ok(new GlobalResponse<Brand>
+            {
+                Data = brand,
+                ErrorStatus = false,
+                Message = "done"
+            });
+        }
+
+        [Authorize(Roles = "Commercial")]
+        [HttpDelete("DeleteBrand")]
+        public async Task<ActionResult<GlobalResponse<Brand>>> DeleteBrand(int id)
+        {
+            var commercialUserId = GetCommercialUserId();
+            var brand = await AccessibleBrandsQuery(commercialUserId)
+                .FirstOrDefaultAsync(x => x.Id == id);
+            if (brand == null)
+            {
+                return BadRequest(new GlobalResponse<Brand>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "brand not exsit"
+                });
+            }
+
+            brand.IsDeleted = true;
+            _dbConfig.Brands.Update(brand);
+
+            var linkedItems = await _dbConfig.Items
+                .Where(x => x.BrandId == id)
+                .ToListAsync();
+            foreach (var linked in linkedItems)
+            {
+                linked.BrandId = null;
+            }
+
+            await _dbConfig.SaveChangesAsync();
+
+            return Ok(new GlobalResponse<Brand>
+            {
+                Data = brand,
+                ErrorStatus = false,
+                Message = "done"
+            });
+        }
+
+        [AuthorizeSection("pos", "category", "brands", "items", "reports", Roles = "Commercial,POS")]
+        [HttpGet("GetBrands")]
+        public ActionResult<GlobalResponse<PagedList<Brand>>> GetBrands(int pageNumber, int pageSize, string? info)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+            var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
+
+            if (user == null)
+            {
+                return BadRequest(new GlobalResponse<PagedList<Brand>>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "User not found"
+                });
+            }
+
+            var commercialUserId = GetCommercialUserId();
+            var brands = AccessibleBrandsQuery(commercialUserId);
+
+            if (!string.IsNullOrWhiteSpace(info))
+            {
+                var search = info.Trim();
+                brands = brands.Where(x => x.Name.Contains(search));
+            }
+
+            var totalItems = brands.Count();
+            var pagedItems = brands
+                .OrderByDescending(x => x.Id)
+                .Skip(pageNumber * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            return Ok(new GlobalResponse<PagedList<Brand>>
+            {
+                Data = new PagedList<Brand>(pagedItems, totalItems, pageNumber, pageSize),
+                ErrorStatus = false,
+                Message = "Success"
+            });
+        }
+
 
         // add item 
         [Authorize(Roles = "Commercial,POS")]
@@ -1181,6 +1375,19 @@ namespace POS.Controllers
             newItem.InsertByUserId = commercialUserId;
             newItem.Quantity = Math.Max(0, request.Quantity);
             newItem.ExpiryDate = NormalizeExpiryDate(request.ExpiryDate);
+
+            var (brandOk, resolvedBrandId) = await TryResolveBrandIdAsync(request.BrandId, commercialUserId);
+            if (!brandOk)
+            {
+                return BadRequest(new GlobalResponse<Item>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "invalidBrand"
+                });
+            }
+            newItem.BrandId = resolvedBrandId;
+
             _dbConfig.Items.Add(newItem);
             await _dbConfig.SaveChangesAsync();
 
@@ -1466,6 +1673,52 @@ namespace POS.Controllers
             item.Name = request.Name;
             item.Image = request.Image != null ? await UploadIamgesAsync(request.Image): item.Image;
 
+            if (Request.Form.ContainsKey("BrandId"))
+            {
+                var brandRaw = Request.Form["BrandId"].ToString();
+                if (string.IsNullOrWhiteSpace(brandRaw))
+                {
+                    item.BrandId = null;
+                }
+                else if (int.TryParse(brandRaw, out var parsedBrandId))
+                {
+                    var (brandOk, resolvedBrandId) = await TryResolveBrandIdAsync(parsedBrandId, commercialUserId);
+                    if (!brandOk)
+                    {
+                        return BadRequest(new GlobalResponse<Item>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "invalidBrand"
+                        });
+                    }
+                    item.BrandId = resolvedBrandId;
+                }
+                else
+                {
+                    return BadRequest(new GlobalResponse<Item>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "invalidBrand"
+                    });
+                }
+            }
+            else
+            {
+                var (brandOk, resolvedBrandId) = await TryResolveBrandIdAsync(request.BrandId, commercialUserId);
+                if (!brandOk)
+                {
+                    return BadRequest(new GlobalResponse<Item>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "invalidBrand"
+                    });
+                }
+                item.BrandId = resolvedBrandId;
+            }
+
 
             _dbConfig.Items.Update(item);
             await _dbConfig.SaveChangesAsync();
@@ -1533,7 +1786,8 @@ namespace POS.Controllers
             string? info,
             string? tag = null,
             string? stockStatus = null,
-            int? warehouseId = null)
+            int? warehouseId = null,
+            int? brandId = null)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
             var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
@@ -1568,7 +1822,10 @@ namespace POS.Controllers
             }
 
             var item = AccessibleItemsQuery(commercialUserId)
+                .Include(x => x.Brand)
                 .Where(x => !x.IsNonInventory);
+
+            item = ApplyBrandFilterToItems(item, brandId);
 
             if (!string.IsNullOrWhiteSpace(info))
             {
@@ -2511,7 +2768,7 @@ namespace POS.Controllers
 
         [AuthorizeSection("reports", Roles = "Commercial,POS")]
         [HttpGet("GetOrders")]
-        public ActionResult<GlobalResponse<OrdersPagedResult>> GetOrders(int pageNumber, int pageSize, string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod, string? orderSource)
+        public ActionResult<GlobalResponse<OrdersPagedResult>> GetOrders(int pageNumber, int pageSize, string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod, string? orderSource, int? brandId = null)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
             var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
@@ -2572,6 +2829,15 @@ namespace POS.Controllers
                     items = items.Where(x => x.OrderSource != "PublicMenu");
             }
 
+            if (HasBrandFilter(brandId))
+            {
+                items = items.Where(o =>
+                    o.CustomerOrderItem.Any(ci =>
+                        !ci.IsDeleted &&
+                        ci.Item != null &&
+                        ci.Item.BrandId == brandId!.Value));
+            }
+
             var totalItems = items.Count();
 
             // Clamp page when filters shrink the result set (avoids empty pages).
@@ -2580,17 +2846,41 @@ namespace POS.Controllers
                 pageNumber = totalPages - 1;
 
             var orderIdList = items.Select(o => o.Id).ToList();
-            var returnTotalsByOrder = GetOrderReturnTotals(orderIdList);
+            var returnTotalsByOrder = GetOrderReturnTotals(orderIdList, brandId);
             var returnedSalesTotal = returnTotalsByOrder.Values.Sum(v => v.Amount);
             var returnedQtyTotal = returnTotalsByOrder.Values.Sum(v => v.Qty);
 
-            var totalSales = Math.Max(0m, SumOrdersSalesAmount(items) - returnedSalesTotal);
-            var totalSubTotal = Math.Max(0m, items.Sum(o => o.OrderSubTotal ?? 0m) - returnedSalesTotal);
-            var totalDiscount = items.Sum(o => o.DiscountAmount ?? 0m);
-            var totalItemsSold = Math.Max(0,
-                (_dbConfig.CustomerOrderItems
-                    .Where(i => !i.IsDeleted && orderIdList.Contains(i.CustomerOrderId))
-                    .Sum(i => (int?)i.Quantity) ?? 0) - returnedQtyTotal);
+            decimal totalSales;
+            decimal totalSubTotal;
+            decimal totalDiscount;
+            int totalItemsSold;
+
+            if (HasBrandFilter(brandId))
+            {
+                var brandLinesQuery = _dbConfig.CustomerOrderItems
+                    .AsNoTracking()
+                    .Where(i => !i.IsDeleted
+                        && orderIdList.Contains(i.CustomerOrderId)
+                        && i.Item != null
+                        && i.Item.BrandId == brandId!.Value);
+                var brandGross = brandLinesQuery.Sum(i => (decimal?)(i.SellingPrice * i.Quantity)) ?? 0m;
+                var brandQty = brandLinesQuery.Sum(i => (int?)i.Quantity) ?? 0;
+
+                totalSales = Math.Max(0m, brandGross - returnedSalesTotal);
+                totalSubTotal = totalSales;
+                totalDiscount = 0m;
+                totalItemsSold = Math.Max(0, brandQty - returnedQtyTotal);
+            }
+            else
+            {
+                totalSales = Math.Max(0m, SumOrdersSalesAmount(items) - returnedSalesTotal);
+                totalSubTotal = Math.Max(0m, items.Sum(o => o.OrderSubTotal ?? 0m) - returnedSalesTotal);
+                totalDiscount = items.Sum(o => o.DiscountAmount ?? 0m);
+                totalItemsSold = Math.Max(0,
+                    (_dbConfig.CustomerOrderItems
+                        .Where(i => !i.IsDeleted && orderIdList.Contains(i.CustomerOrderId))
+                        .Sum(i => (int?)i.Quantity) ?? 0) - returnedQtyTotal);
+            }
 
             var summary = new OrdersSummaryDto
             {
@@ -2609,12 +2899,18 @@ namespace POS.Controllers
                 .ToList();
 
             var pageOrderIds = pageOrders.Select(o => o.Id).ToList();
-            var returnedQtyByOrderItem = _dbConfig.CatalogStockReturns
+            var returnedQtyByOrderItemQuery = _dbConfig.CatalogStockReturns
                 .AsNoTracking()
                 .Where(r => !r.IsDeleted
                     && r.ReturnType == "Order"
                     && r.CustomerOrderId != null
-                    && pageOrderIds.Contains(r.CustomerOrderId.Value))
+                    && pageOrderIds.Contains(r.CustomerOrderId.Value));
+            if (HasBrandFilter(brandId))
+            {
+                returnedQtyByOrderItemQuery = returnedQtyByOrderItemQuery
+                    .Where(r => r.Item != null && r.Item.BrandId == brandId!.Value);
+            }
+            var returnedQtyByOrderItem = returnedQtyByOrderItemQuery
                 .GroupBy(r => new { OrderId = r.CustomerOrderId!.Value, r.ItemId })
                 .Select(g => new { g.Key.OrderId, g.Key.ItemId, Qty = g.Sum(x => x.Quantity) })
                 .ToList()
@@ -2626,15 +2922,15 @@ namespace POS.Controllers
             var ordersList = pageOrders
                 .Select(x =>
                 {
-                    var activeOrderItems = GetActiveOrderItems(x.CustomerOrderItem);
+                    var activeOrderItems = GetActiveOrderItemsForBrand(x.CustomerOrderItem, brandId);
                     var lineTotal = activeOrderItems.Sum(item => item.SellingPrice * item.Quantity);
                     returnTotalsByOrder.TryGetValue(x.Id, out var orderReturn);
                     var (netSubTotal, netFinal, netDiscount) = ApplyReturnsToOrderTotals(
                         lineTotal,
                         orderReturn.Amount,
-                        x.OrderSubTotal,
-                        x.OrderTotalAfterDiscount,
-                        x.DiscountAmount);
+                        HasBrandFilter(brandId) ? lineTotal : x.OrderSubTotal,
+                        HasBrandFilter(brandId) ? lineTotal : x.OrderTotalAfterDiscount,
+                        HasBrandFilter(brandId) ? 0m : x.DiscountAmount);
 
                     returnedQtyByOrderItem.TryGetValue(x.Id, out var itemReturns);
                     itemReturns ??= new Dictionary<int, int>();
@@ -2701,7 +2997,7 @@ namespace POS.Controllers
 
         [AuthorizeSection("reports", Roles = "Commercial,POS")]
         [HttpGet("ExportOrders")]
-        public ActionResult ExportOrders(string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod, string? orderSource)
+        public ActionResult ExportOrders(string? info, DateTime? startDate, DateTime? endDate, string? paymentMethod, string? orderSource, int? brandId = null)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
             var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
@@ -2720,6 +3016,7 @@ namespace POS.Controllers
                         || x.User.InsertByUserId == commercialUserId
                         || x.User.InsertByUserId == userId))
                 .Include(x => x.CustomerOrderItem)
+                .ThenInclude(x => x.Item)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(info))
@@ -2741,13 +3038,21 @@ namespace POS.Controllers
                 else if (string.Equals(orderSource, "Pos", StringComparison.OrdinalIgnoreCase))
                     items = items.Where(x => x.OrderSource != "PublicMenu");
             }
+            if (HasBrandFilter(brandId))
+            {
+                items = items.Where(o =>
+                    o.CustomerOrderItem.Any(ci =>
+                        !ci.IsDeleted &&
+                        ci.Item != null &&
+                        ci.Item.BrandId == brandId!.Value));
+            }
 
             var ordersList = items
                 .OrderByDescending(x => x.InsertDate)
                 .ToList()
                 .Select(x =>
                 {
-                    var activeOrderItems = GetActiveOrderItems(x.CustomerOrderItem);
+                    var activeOrderItems = GetActiveOrderItemsForBrand(x.CustomerOrderItem, brandId);
                     return new
                     {
                         OrderCode = x.OrderCode ?? "",
@@ -2755,8 +3060,10 @@ namespace POS.Controllers
                         PaymentMethod = x.PaymentMethod ?? "",
                         OrderSource = string.IsNullOrWhiteSpace(x.OrderSource) ? "Pos" : x.OrderSource,
                         OrderPrice = activeOrderItems.Sum(item => item.SellingPrice * item.Quantity),
-                        DiscountAmount = x.DiscountAmount ?? 0,
-                        OrderTotalAfterDiscount = x.OrderTotalAfterDiscount,
+                        DiscountAmount = HasBrandFilter(brandId) ? 0m : (x.DiscountAmount ?? 0),
+                        OrderTotalAfterDiscount = HasBrandFilter(brandId)
+                            ? (decimal?)null
+                            : x.OrderTotalAfterDiscount,
                         ItemsCount = activeOrderItems.Count
                     };
                 })
@@ -3072,6 +3379,47 @@ namespace POS.Controllers
                  x.User.InsertByUserId == commercialUserId));
         }
 
+        /// <summary>
+        /// Brands owned by the commercial account or by any sub-user under that commercial.
+        /// </summary>
+        private IQueryable<Brand> AccessibleBrandsQuery(int commercialUserId)
+        {
+            return _dbConfig.Brands.Where(x =>
+                !x.IsDeleted &&
+                (x.InsertByUserId == commercialUserId ||
+                 x.User!.Id == commercialUserId ||
+                 x.User.InsertByUserId == commercialUserId));
+        }
+
+        private static bool HasBrandFilter(int? brandId) =>
+            brandId.HasValue && brandId.Value > 0;
+
+        private async Task<(bool ok, int? brandId)> TryResolveBrandIdAsync(int? brandId, int commercialUserId)
+        {
+            if (!HasBrandFilter(brandId))
+                return (true, null);
+
+            var exists = await AccessibleBrandsQuery(commercialUserId)
+                .AnyAsync(b => b.Id == brandId!.Value);
+            return exists ? (true, brandId) : (false, null);
+        }
+
+        private static IQueryable<CustomerOrderItem> ApplyBrandFilterToOrderItems(
+            IQueryable<CustomerOrderItem> query,
+            int? brandId)
+        {
+            if (!HasBrandFilter(brandId))
+                return query;
+            return query.Where(x => x.Item != null && x.Item.BrandId == brandId!.Value);
+        }
+
+        private static IQueryable<Item> ApplyBrandFilterToItems(IQueryable<Item> query, int? brandId)
+        {
+            if (!HasBrandFilter(brandId))
+                return query;
+            return query.Where(x => x.BrandId == brandId!.Value);
+        }
+
         private static bool BelongsToCommercialCatalog(
             int insertByUserId,
             int? ownerUserId,
@@ -3372,7 +3720,7 @@ namespace POS.Controllers
 
         [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetProfitReport")]
-        public ActionResult<GlobalResponse<object>> GetProfitReport(DateTime? startDate, DateTime? endDate)
+        public ActionResult<GlobalResponse<object>> GetProfitReport(DateTime? startDate, DateTime? endDate, int? brandId = null)
         {
             try
             {
@@ -3390,6 +3738,8 @@ namespace POS.Controllers
                         x.CustomerOrder.InsertDate >= fromUtc &&
                         x.CustomerOrder.InsertDate < toUtcEx);
                 }
+
+                orderItemsQuery = ApplyBrandFilterToOrderItems(orderItemsQuery, brandId);
 
                 var profitData = orderItemsQuery
                     .Select(x => new
@@ -3454,7 +3804,7 @@ namespace POS.Controllers
 
         [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetTopSellingItems")]
-        public ActionResult<GlobalResponse<object>> GetTopSellingItems(int topCount = 10, DateTime? startDate = null, DateTime? endDate = null)
+        public ActionResult<GlobalResponse<object>> GetTopSellingItems(int topCount = 10, DateTime? startDate = null, DateTime? endDate = null, int? brandId = null)
         {
             try
             {
@@ -3472,6 +3822,8 @@ namespace POS.Controllers
                         x.CustomerOrder.InsertDate >= fromUtc &&
                         x.CustomerOrder.InsertDate < toUtcEx);
                 }
+
+                orderItemsQuery = ApplyBrandFilterToOrderItems(orderItemsQuery, brandId);
 
                 if (topCount < 1) topCount = 10;
                 if (topCount > 500) topCount = 500;
@@ -3547,7 +3899,8 @@ namespace POS.Controllers
             int? itemId = null,
             bool onlyWithSales = false,
             int pageNumber = 0,
-            int pageSize = 200)
+            int pageSize = 200,
+            int? brandId = null)
         {
             try
             {
@@ -3581,6 +3934,8 @@ namespace POS.Controllers
                     itemsQuery = itemsQuery.Where(x => x.Tags != null && x.Tags == tagFilter);
                 }
 
+                itemsQuery = ApplyBrandFilterToItems(itemsQuery, brandId);
+
                 if (!string.IsNullOrWhiteSpace(info))
                 {
                     var search = info.Trim();
@@ -3606,6 +3961,8 @@ namespace POS.Controllers
                         x.CustomerOrder.InsertDate < toUtcEx);
                 }
 
+                orderItemsQuery = ApplyBrandFilterToOrderItems(orderItemsQuery, brandId);
+
                 var salesRows = orderItemsQuery
                     .GroupBy(x => x.ItemId)
                     .Select(g => new
@@ -3628,7 +3985,9 @@ namespace POS.Controllers
                         x.Code,
                         x.Tags,
                         x.Quantity,
-                        x.SellingPrice
+                        x.SellingPrice,
+                        x.BrandId,
+                        BrandName = x.Brand != null ? x.Brand.Name : null
                     })
                     .ToList();
 
@@ -3646,6 +4005,8 @@ namespace POS.Controllers
                             itemName = item.Name,
                             itemCode = item.Code,
                             category = item.Tags,
+                            brandId = item.BrandId,
+                            brandName = item.BrandName,
                             quantitySold = qtySold,
                             remainingQuantity = item.Quantity,
                             totalSales,
@@ -3701,7 +4062,7 @@ namespace POS.Controllers
 
         [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetSalesByCategory")]
-        public ActionResult<GlobalResponse<object>> GetSalesByCategory(DateTime? startDate = null, DateTime? endDate = null)
+        public ActionResult<GlobalResponse<object>> GetSalesByCategory(DateTime? startDate = null, DateTime? endDate = null, int? brandId = null)
         {
             try
             {
@@ -3720,6 +4081,8 @@ namespace POS.Controllers
                         x.CustomerOrder.InsertDate < toUtcEx);
                 }
 
+                orderItemsQuery = ApplyBrandFilterToOrderItems(orderItemsQuery, brandId);
+
                 var salesByCategory = orderItemsQuery
                     .Where(x => !string.IsNullOrEmpty(x.Item.Tags))
                     .GroupBy(x => x.Item.Tags)
@@ -3734,14 +4097,19 @@ namespace POS.Controllers
                     .ToList();
 
                 var orderIds = orderItemsQuery.Select(x => x.CustomerOrderId).Distinct();
-                var returnsByCategory = _dbConfig.CatalogStockReturns
+                var returnsQuery = _dbConfig.CatalogStockReturns
                     .AsNoTracking()
                     .Where(r => !r.IsDeleted
                         && r.ReturnType == "Order"
                         && r.CustomerOrderId != null
                         && orderIds.Contains(r.CustomerOrderId.Value)
                         && r.Item != null
-                        && !string.IsNullOrEmpty(r.Item.Tags))
+                        && !string.IsNullOrEmpty(r.Item.Tags));
+                if (HasBrandFilter(brandId))
+                {
+                    returnsQuery = returnsQuery.Where(r => r.Item!.BrandId == brandId!.Value);
+                }
+                var returnsByCategory = returnsQuery
                     .GroupBy(r => r.Item!.Tags)
                     .Select(g => new
                     {
@@ -3790,7 +4158,7 @@ namespace POS.Controllers
 
         [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetSalesByEmployee")]
-        public ActionResult<GlobalResponse<object>> GetSalesByEmployee(DateTime? startDate = null, DateTime? endDate = null)
+        public ActionResult<GlobalResponse<object>> GetSalesByEmployee(DateTime? startDate = null, DateTime? endDate = null, int? brandId = null)
         {
             try
             {
@@ -3798,11 +4166,21 @@ namespace POS.Controllers
 
                 IQueryable<CustomerOrder> ordersQuery = QueryActiveOrdersForCommercial(commercialUserId)
                     .Include(x => x.User)
-                    .Include(x => x.CustomerOrderItem);
+                    .Include(x => x.CustomerOrderItem)
+                    .ThenInclude(x => x.Item);
 
                 if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
                 {
                     ordersQuery = ordersQuery.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
+                }
+
+                if (HasBrandFilter(brandId))
+                {
+                    ordersQuery = ordersQuery.Where(o =>
+                        o.CustomerOrderItem.Any(ci =>
+                            !ci.IsDeleted &&
+                            ci.Item != null &&
+                            ci.Item.BrandId == brandId!.Value));
                 }
 
                 var salesByEmployee = ordersQuery
@@ -3814,9 +4192,13 @@ namespace POS.Controllers
                         employeeName = g.Key.Username,
                         totalOrders = g.Count(),
                         totalSales = g.Sum(o =>
-                            GetActiveOrderItems(o.CustomerOrderItem).Sum(x => x.SellingPrice * x.Quantity)),
+                            GetActiveOrderItems(o.CustomerOrderItem)
+                                .Where(x => !HasBrandFilter(brandId) || (x.Item != null && x.Item.BrandId == brandId!.Value))
+                                .Sum(x => x.SellingPrice * x.Quantity)),
                         totalItemsSold = g.Sum(o =>
-                            GetActiveOrderItems(o.CustomerOrderItem).Sum(x => x.Quantity))
+                            GetActiveOrderItems(o.CustomerOrderItem)
+                                .Where(x => !HasBrandFilter(brandId) || (x.Item != null && x.Item.BrandId == brandId!.Value))
+                                .Sum(x => x.Quantity))
                     })
                     .OrderByDescending(x => x.totalSales)
                     .ToList();
@@ -3842,7 +4224,7 @@ namespace POS.Controllers
 
         [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetSalesByWarehouse")]
-        public ActionResult<GlobalResponse<object>> GetSalesByWarehouse(DateTime? startDate = null, DateTime? endDate = null)
+        public ActionResult<GlobalResponse<object>> GetSalesByWarehouse(DateTime? startDate = null, DateTime? endDate = null, int? brandId = null)
         {
             try
             {
@@ -3850,11 +4232,21 @@ namespace POS.Controllers
 
                 IQueryable<CustomerOrder> ordersQuery = QueryActiveOrdersForCommercial(commercialUserId)
                     .Include(x => x.Warehouse)
-                    .Include(x => x.CustomerOrderItem);
+                    .Include(x => x.CustomerOrderItem)
+                    .ThenInclude(x => x.Item);
 
                 if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
                 {
                     ordersQuery = ordersQuery.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
+                }
+
+                if (HasBrandFilter(brandId))
+                {
+                    ordersQuery = ordersQuery.Where(o =>
+                        o.CustomerOrderItem.Any(ci =>
+                            !ci.IsDeleted &&
+                            ci.Item != null &&
+                            ci.Item.BrandId == brandId!.Value));
                 }
 
                 var salesByWarehouse = ordersQuery
@@ -3872,9 +4264,13 @@ namespace POS.Controllers
                             : g.Key.WarehouseName,
                         totalOrders = g.Count(),
                         totalSales = g.Sum(o =>
-                            GetActiveOrderItems(o.CustomerOrderItem).Sum(x => x.SellingPrice * x.Quantity)),
+                            GetActiveOrderItems(o.CustomerOrderItem)
+                                .Where(x => !HasBrandFilter(brandId) || (x.Item != null && x.Item.BrandId == brandId!.Value))
+                                .Sum(x => x.SellingPrice * x.Quantity)),
                         totalItemsSold = g.Sum(o =>
-                            GetActiveOrderItems(o.CustomerOrderItem).Sum(x => x.Quantity))
+                            GetActiveOrderItems(o.CustomerOrderItem)
+                                .Where(x => !HasBrandFilter(brandId) || (x.Item != null && x.Item.BrandId == brandId!.Value))
+                                .Sum(x => x.Quantity))
                     })
                     .OrderByDescending(x => x.totalSales)
                     .ToList();
@@ -3900,7 +4296,7 @@ namespace POS.Controllers
 
         [AuthorizeSection("stockAlerts", "reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetLowStockItems")]
-        public ActionResult<GlobalResponse<object>> GetLowStockItems(int threshold = 10)
+        public ActionResult<GlobalResponse<object>> GetLowStockItems(int threshold = 10, int? brandId = null)
         {
             try
             {
@@ -3908,7 +4304,7 @@ namespace POS.Controllers
                 var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
                 var commercialUserId = GetCommercialUserId();
-                var itemsQuery = AccessibleItemsQuery(commercialUserId);
+                var itemsQuery = ApplyBrandFilterToItems(AccessibleItemsQuery(commercialUserId), brandId);
 
                 var lowStockItems = itemsQuery
                     .Where(x => x.Quantity <= threshold)
@@ -3919,7 +4315,9 @@ namespace POS.Controllers
                         itemCode = x.Code,
                         currentQuantity = x.Quantity,
                         threshold = threshold,
-                        category = x.Tags
+                        category = x.Tags,
+                        brandId = x.BrandId,
+                        brandName = x.Brand != null ? x.Brand.Name : null
                     })
                     .OrderBy(x => x.currentQuantity)
                     .ToList();
@@ -3945,7 +4343,7 @@ namespace POS.Controllers
 
         [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetExpiringItems")]
-        public ActionResult<GlobalResponse<object>> GetExpiringItems(int daysWithin = 30)
+        public ActionResult<GlobalResponse<object>> GetExpiringItems(int daysWithin = 30, int? brandId = null)
         {
             try
             {
@@ -3956,7 +4354,7 @@ namespace POS.Controllers
                 var today = GetBusinessTodayLocalDate();
                 var until = today.AddDays(daysWithin);
 
-                var items = AccessibleItemsQuery(commercialUserId)
+                var items = ApplyBrandFilterToItems(AccessibleItemsQuery(commercialUserId), brandId)
                     .AsNoTracking()
                     .Where(x => !x.IsNonInventory && x.ExpiryDate != null && x.ExpiryDate <= until)
                     .Select(x => new
@@ -3965,6 +4363,8 @@ namespace POS.Controllers
                         itemName = x.Name,
                         itemCode = x.Code,
                         category = x.Tags,
+                        brandId = x.BrandId,
+                        brandName = x.Brand != null ? x.Brand.Name : null,
                         expiryDate = x.ExpiryDate!.Value,
                         quantity = x.Quantity
                     })
@@ -3979,6 +4379,8 @@ namespace POS.Controllers
                             x.itemName,
                             x.itemCode,
                             x.category,
+                            x.brandId,
+                            x.brandName,
                             expiryDate = expiryDay,
                             x.quantity,
                             daysRemaining,

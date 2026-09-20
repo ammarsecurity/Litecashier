@@ -5,6 +5,7 @@
 export const ASSIGNABLE_SECTION_KEYS = [
   "pos",
   "category",
+  "brands",
   "items",
   "shortcutItems",
   "priceReader",
@@ -48,6 +49,7 @@ const ROUTE_SECTION_MAP = [
   { prefix: "/card-payments", key: "cardPayments" },
   { prefix: "/priceReader", key: "priceReader" },
   { prefix: "/category", key: "category" },
+  { prefix: "/brands", key: "brands" },
   { prefix: "/shortcut-items", key: "shortcutItems" },
   { prefix: "/items", key: "items" },
   { prefix: "/users", key: "users" },
@@ -113,6 +115,7 @@ export function managerCanAccessPath(path, allowedSections) {
 export const SECTION_I18N_KEYS = {
   pos: "PointOfSale",
   category: "itemTagsPlaceholder",
+  brands: "brandsNav",
   items: "Items",
   shortcutItems: "shortcutItemsTitle",
   priceReader: "PriceReader",

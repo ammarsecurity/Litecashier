@@ -229,6 +229,25 @@
                                         </select>
                                     </div>
                                 </label>
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('brandPlaceholder') || 'البراند' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="award" class="search-icon"></b-icon>
+                                        <select
+                                            v-model="search.brandId"
+                                            class="users-search-input reports-filter-select"
+                                        >
+                                            <option value="">{{ $t('all_brands') || 'جميع البراندات' }}</option>
+                                            <option
+                                                v-for="brand in reportBrands"
+                                                :key="'orders-brand-' + brand.id"
+                                                :value="String(brand.id)"
+                                            >
+                                                {{ brand.name }}
+                                            </option>
+                                        </select>
+                                    </div>
+                                </label>
                             </template>
 
                             <!-- Low stock -->
@@ -245,6 +264,26 @@
                                             class="users-search-input"
                                             @change="loadLowStockItems()"
                                         />
+                                    </div>
+                                </label>
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('brandPlaceholder') || 'البراند' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="award" class="search-icon"></b-icon>
+                                        <select
+                                            v-model="reportBrandId"
+                                            class="users-search-input reports-filter-select"
+                                            @change="loadLowStockItems()"
+                                        >
+                                            <option value="">{{ $t('all_brands') || 'جميع البراندات' }}</option>
+                                            <option
+                                                v-for="brand in reportBrands"
+                                                :key="'low-brand-' + brand.id"
+                                                :value="String(brand.id)"
+                                            >
+                                                {{ brand.name }}
+                                            </option>
+                                        </select>
                                     </div>
                                 </label>
                             </template>
@@ -265,6 +304,26 @@
                                             @change="loadExpiringItems()"
                                             @keyup.enter="loadExpiringItems()"
                                         />
+                                    </div>
+                                </label>
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('brandPlaceholder') || 'البراند' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="award" class="search-icon"></b-icon>
+                                        <select
+                                            v-model="reportBrandId"
+                                            class="users-search-input reports-filter-select"
+                                            @change="loadExpiringItems()"
+                                        >
+                                            <option value="">{{ $t('all_brands') || 'جميع البراندات' }}</option>
+                                            <option
+                                                v-for="brand in reportBrands"
+                                                :key="'expiry-brand-' + brand.id"
+                                                :value="String(brand.id)"
+                                            >
+                                                {{ brand.name }}
+                                            </option>
+                                        </select>
                                     </div>
                                 </label>
                             </template>
@@ -293,6 +352,26 @@
                                             class="users-search-input"
                                             @change="loadAdvancedReport()"
                                         />
+                                    </div>
+                                </label>
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('brandPlaceholder') || 'البراند' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="award" class="search-icon"></b-icon>
+                                        <select
+                                            v-model="reportBrandId"
+                                            class="users-search-input reports-filter-select"
+                                            @change="loadAdvancedReport()"
+                                        >
+                                            <option value="">{{ $t('all_brands') || 'جميع البراندات' }}</option>
+                                            <option
+                                                v-for="brand in reportBrands"
+                                                :key="'adv-brand-' + brand.id"
+                                                :value="String(brand.id)"
+                                            >
+                                                {{ brand.name }}
+                                            </option>
+                                        </select>
                                     </div>
                                 </label>
                                 <label v-if="activeTab === 'productSales'" class="reports-filter-field">
@@ -1378,16 +1457,19 @@ export default {
                 endDate: "",
                 paymentMethod: "",
                 orderSource: "",
+                brandId: "",
             },
             reportFilters: {
                 startDate: "",
                 endDate: "",
             },
+            reportBrandId: "",
             productSalesFilters: {
                 tag: "",
                 info: "",
             },
             reportTags: [],
+            reportBrands: [],
             productSalesItems: [],
             productSalesSummary: {
                 totalQuantitySold: 0,
@@ -1485,13 +1567,15 @@ export default {
                 this.search.startDate ||
                 this.search.endDate ||
                 this.search.paymentMethod ||
-                this.search.orderSource
+                this.search.orderSource ||
+                this.search.brandId
             );
         },
         hasAdvancedFilters() {
             return !!(
                 this.reportFilters.startDate ||
                 this.reportFilters.endDate ||
+                this.reportBrandId ||
                 (this.activeTab === "productSales" &&
                     (this.productSalesFilters.tag ||
                         (this.productSalesFilters.info || "").trim()))
@@ -1499,8 +1583,12 @@ export default {
         },
         hasReportFilters() {
             if (this.activeTab === "orders") return this.hasActiveFilters;
-            if (this.activeTab === "lowStock") return Number(this.lowStockThreshold) !== 10;
-            if (this.activeTab === "expiry") return Number(this.expiryDaysWithin) !== 30;
+            if (this.activeTab === "lowStock") {
+                return Number(this.lowStockThreshold) !== 10 || !!this.reportBrandId;
+            }
+            if (this.activeTab === "expiry") {
+                return Number(this.expiryDaysWithin) !== 30 || !!this.reportBrandId;
+            }
             return this.hasAdvancedFilters;
         },
         reportsFiltersHint() {
@@ -1649,6 +1737,7 @@ export default {
     },
 
     mounted() {
+        this.ensureReportBrands();
         this.GetAllOrders();
         this.userInfo = JSON.parse(localStorage.getItem('info'));
         this.loadCommercialUserInfo();
@@ -1813,6 +1902,7 @@ export default {
                 endDate: "",
                 paymentMethod: "",
                 orderSource: "",
+                brandId: "",
             };
             this.pageNumber = 1;
             this.$nextTick(() => {
@@ -1825,6 +1915,7 @@ export default {
                 startDate: "",
                 endDate: "",
             };
+            this.reportBrandId = "";
             this.productSalesFilters = {
                 tag: "",
                 info: "",
@@ -1838,11 +1929,13 @@ export default {
             }
             if (this.activeTab === "lowStock") {
                 this.lowStockThreshold = 10;
+                this.reportBrandId = "";
                 this.loadLowStockItems();
                 return;
             }
             if (this.activeTab === "expiry") {
                 this.expiryDaysWithin = 30;
+                this.reportBrandId = "";
                 this.loadExpiringItems();
                 return;
             }
@@ -1857,6 +1950,19 @@ export default {
                 .catch(() => {
                     this.reportTags = [];
                 });
+        },
+        ensureReportBrands() {
+            if (this.reportBrands.length) return;
+            HTTP.get("Admin/GetBrands?pageNumber=0&pageSize=10000")
+                .then((response) => {
+                    this.reportBrands = response.data?.data?.items || [];
+                })
+                .catch(() => {
+                    this.reportBrands = [];
+                });
+        },
+        appendBrandIdParam(params, brandId) {
+            if (brandId) params.append("brandId", String(brandId));
         },
         hasDiscount(item) {
             if (this.order?.isWholesale) return false;
@@ -2139,6 +2245,7 @@ export default {
             if (this.search.endDate) params.append('endDate', this.search.endDate);
             if (this.search.paymentMethod) params.append('paymentMethod', this.search.paymentMethod);
             if (this.search.orderSource) params.append('orderSource', this.search.orderSource);
+            this.appendBrandIdParam(params, this.search.brandId);
             HTTP.get(`Admin/GetOrders?${params.toString()}`)
                 .then((response) => {
                     if (requestSeq !== this.ordersRequestSeq) return;
@@ -2281,6 +2388,7 @@ export default {
                     if (this.search.endDate) params.append('endDate', this.search.endDate);
                     if (this.search.paymentMethod) params.append('paymentMethod', this.search.paymentMethod);
                     if (this.search.orderSource) params.append('orderSource', this.search.orderSource);
+                    this.appendBrandIdParam(params, this.search.brandId);
                     const response = await HTTP.get(`Admin/ExportOrders?${params.toString()}`, { responseType: 'blob' });
                     const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
                     const link = document.createElement('a');
@@ -2325,6 +2433,7 @@ export default {
             if ((this.productSalesFilters.info || '').trim()) {
                 params.append('info', this.productSalesFilters.info.trim());
             }
+            this.appendBrandIdParam(params, this.reportBrandId);
 
             HTTP.get(`Admin/GetProductSalesReport?${params.toString()}`)
                 .then((response) => {
@@ -2352,6 +2461,7 @@ export default {
             const params = new URLSearchParams();
             if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
             if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
+            this.appendBrandIdParam(params, this.reportBrandId);
             
             HTTP.get(`Admin/GetProfitReport?${params.toString()}`)
                 .then((response) => {
@@ -2370,6 +2480,7 @@ export default {
             params.append('topCount', '10');
             if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
             if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
+            this.appendBrandIdParam(params, this.reportBrandId);
             
             HTTP.get(`Admin/GetTopSellingItems?${params.toString()}`)
                 .then((response) => {
@@ -2396,6 +2507,7 @@ export default {
             const params = new URLSearchParams();
             if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
             if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
+            this.appendBrandIdParam(params, this.reportBrandId);
             
             HTTP.get(`Admin/GetSalesByCategory?${params.toString()}`)
                 .then((response) => {
@@ -2413,6 +2525,7 @@ export default {
             const params = new URLSearchParams();
             if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
             if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
+            this.appendBrandIdParam(params, this.reportBrandId);
             
             HTTP.get(`Admin/GetSalesByEmployee?${params.toString()}`)
                 .then((response) => {
@@ -2430,6 +2543,7 @@ export default {
             const params = new URLSearchParams();
             if (this.reportFilters.startDate) params.append('startDate', this.reportFilters.startDate);
             if (this.reportFilters.endDate) params.append('endDate', this.reportFilters.endDate);
+            this.appendBrandIdParam(params, this.reportBrandId);
 
             HTTP.get(`Admin/GetSalesByWarehouse?${params.toString()}`)
                 .then((response) => {
@@ -2445,7 +2559,10 @@ export default {
 
         loadLowStockItems() {
             this.show = true;
-            HTTP.get(`Admin/GetLowStockItems?threshold=${this.lowStockThreshold}`)
+            const params = new URLSearchParams();
+            params.append('threshold', String(this.lowStockThreshold));
+            this.appendBrandIdParam(params, this.reportBrandId);
+            HTTP.get(`Admin/GetLowStockItems?${params.toString()}`)
                 .then((response) => {
                     this.lowStockItems = response.data.data || [];
                     this.show = false;
@@ -2461,7 +2578,10 @@ export default {
             const days = Number(this.expiryDaysWithin);
             const daysWithin = Number.isFinite(days) && days >= 0 ? days : 30;
             this.expiryDaysWithin = daysWithin;
-            HTTP.get(`Admin/GetExpiringItems?daysWithin=${daysWithin}`)
+            const params = new URLSearchParams();
+            params.append('daysWithin', String(daysWithin));
+            this.appendBrandIdParam(params, this.reportBrandId);
+            HTTP.get(`Admin/GetExpiringItems?${params.toString()}`)
                 .then((response) => {
                     this.expiringItems = response.data.data || [];
                     this.show = false;

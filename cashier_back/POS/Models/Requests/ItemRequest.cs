@@ -20,6 +20,8 @@ namespace POS.Models.Requests
         public int? LowStockAlertQuantity { get; set; }
         /// <summary>Optional expiry date (date-only). Empty form value clears on update.</summary>
         public DateTime? ExpiryDate { get; set; }
+        /// <summary>Optional brand id. Empty form value clears on update.</summary>
+        public int? BrandId { get; set; }
         public string? Tags { get; set; }
         public string? Code { get; set; }
 

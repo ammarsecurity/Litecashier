@@ -685,6 +685,9 @@ namespace POS.Migrations
                     b.Property<decimal>("DisCountPrice")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<int?>("BrandId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("ExpiryDate")
                         .HasColumnType("datetime(6)");
 
@@ -729,6 +732,8 @@ namespace POS.Migrations
                         .HasColumnType("decimal(65,30)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BrandId");
 
                     b.HasIndex("InsertByUserId");
 
@@ -1220,6 +1225,38 @@ namespace POS.Migrations
                     b.HasIndex("InsertByUserId");
 
                     b.ToTable("Suppliers");
+                });
+
+            modelBuilder.Entity("POS.Models.Brand", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("InsertByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("InsertDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InsertByUserId");
+
+                    b.ToTable("Brands");
                 });
 
             modelBuilder.Entity("POS.Models.Tag", b =>
@@ -1715,11 +1752,18 @@ namespace POS.Migrations
 
             modelBuilder.Entity("POS.Models.Item", b =>
                 {
+                    b.HasOne("POS.Models.Brand", "Brand")
+                        .WithMany()
+                        .HasForeignKey("BrandId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("POS.Models.User", "User")
                         .WithMany("Items")
                         .HasForeignKey("InsertByUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Brand");
 
                     b.Navigation("User");
                 });
@@ -1854,6 +1898,17 @@ namespace POS.Migrations
                 });
 
             modelBuilder.Entity("POS.Models.Supplier", b =>
+                {
+                    b.HasOne("POS.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("InsertByUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("POS.Models.Brand", b =>
                 {
                     b.HasOne("POS.Models.User", "User")
                         .WithMany()

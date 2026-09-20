@@ -32,6 +32,12 @@ export function buildNavItems(t) {
       icon: "tags-fill",
     },
     {
+      name: "brands",
+      label: t("brandsNav") || "البراندات",
+      link: "/brands",
+      icon: "award-fill",
+    },
+    {
       name: "items",
       label: t("Items"),
       link: "/items",

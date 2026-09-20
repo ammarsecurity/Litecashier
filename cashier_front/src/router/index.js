@@ -6,6 +6,7 @@ import ItemsView from '../views/ItemsView.vue'
 import ShortcutItemsView from '../views/ShortcutItemsView.vue'
 import UsersView from '../views/UsersView.vue'
 import CategoryView from '../views/CategoryView.vue'
+import BrandsView from '../views/BrandsView.vue'
 import ReporstView from '../views/ReporstView.vue'
 import EndOfDayReportView from '../views/EndOfDayReportView.vue'
 import PosView from '../views/PosView.vue'
@@ -158,6 +159,15 @@ const routes = [
     path: '/category',
     name: 'category',
     component: CategoryView,
+    meta: {
+      requiresAuth: true,
+      roles: ['Commercial', 'Admin']
+    }
+  },
+  {
+    path: '/brands',
+    name: 'brands',
+    component: BrandsView,
     meta: {
       requiresAuth: true,
       roles: ['Commercial', 'Admin']

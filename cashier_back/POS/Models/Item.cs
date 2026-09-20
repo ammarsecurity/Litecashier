@@ -32,6 +32,10 @@ namespace POS.Models
         /// <summary>Optional product expiry (calendar date). Null = no expiry tracked.</summary>
         public DateTime? ExpiryDate { get; set; }
 
+        /// <summary>Optional brand. Null = no brand assigned.</summary>
+        public int? BrandId { get; set; }
+        public Brand? Brand { get; set; }
+
         [ForeignKey("InsertByUserId")]
         public int InsertByUserId { get; set; }
         public  User? User { get; set; }

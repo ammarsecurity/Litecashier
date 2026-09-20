@@ -54,6 +54,7 @@ builder.Services.AddSingleton(new MapperConfiguration(cfg =>
         .ForMember(dest => dest.Password, opt => opt.Ignore())
         .ReverseMap();
     cfg.CreateMap<TagRequset, Tag>().ReverseMap();
+    cfg.CreateMap<BrandRequest, Brand>().ReverseMap();
     cfg.CreateMap<ItemRequest, Item>().ReverseMap();
     cfg.CreateMap<CustomerOrderRequest, CustomerOrder>().ReverseMap();
     cfg.CreateMap<CustomerOrderItemRequest, CustomerOrderItem>().ReverseMap();

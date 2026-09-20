@@ -105,7 +105,7 @@
                   </button>
                 </div>
               </div>
-              <div class="app-filters-fields app-filters-fields--3">
+              <div class="app-filters-fields app-filters-fields--4">
                 <label class="app-filter-field">
                   <span class="app-filter-label">{{ $t("categoryPlaceholder") || "القسم" }}</span>
                   <div class="users-search-container">
@@ -114,6 +114,18 @@
                       <option value="">{{ $t("all_categories") || "جميع الاقسام" }}</option>
                       <option v-for="tag in tags" :key="tag.id || tag.name" :value="tag.name">
                         {{ tag.name }}
+                      </option>
+                    </select>
+                  </div>
+                </label>
+                <label class="app-filter-field">
+                  <span class="app-filter-label">{{ $t("brandPlaceholder") || "البراند" }}</span>
+                  <div class="users-search-container">
+                    <b-icon icon="award" class="search-icon"></b-icon>
+                    <select v-model="search.brandId" class="users-search-input reports-filter-select">
+                      <option value="">{{ $t("all_brands") || "جميع البراندات" }}</option>
+                      <option v-for="brand in brands" :key="brand.id" :value="String(brand.id)">
+                        {{ brand.name }}
                       </option>
                     </select>
                   </div>
@@ -204,6 +216,9 @@
 
               <template #cell(tags)="row">
                 <span class="item-tags-badge">{{ row.item.tags || "—" }}</span>
+              </template>
+              <template #cell(brand)="row">
+                <span class="item-tags-badge">{{ row.item.brand?.name || "—" }}</span>
               </template>
 
               <template #cell(expiryDate)="row">
@@ -422,6 +437,19 @@
                   <select v-model="addForm.tags" class="users-form-select">
                     <option v-for="(item, idx) in tags" :key="'add-tag-' + (item.id || idx)" :value="item.name">
                       {{ item.name }}
+                    </option>
+                  </select>
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label">
+                    <b-icon icon="award" class="form-label-icon"></b-icon>
+                    {{ $t("brandPlaceholder") || "البراند" }}
+                    <span class="text-muted small ms-1">({{ $t("optional") || "اختياري" }})</span>
+                  </label>
+                  <select v-model="addForm.brandId" class="users-form-select">
+                    <option value="">{{ $t("noBrand") || "بدون براند" }}</option>
+                    <option v-for="brand in brands" :key="'add-brand-' + brand.id" :value="String(brand.id)">
+                      {{ brand.name }}
                     </option>
                   </select>
                 </div>
@@ -733,6 +761,19 @@
                   <select v-model="editForm.tags" class="users-form-select">
                     <option v-for="(item, idx) in tags" :key="'edit-tag-' + (item.id || idx)" :value="item.name">
                       {{ item.name }}
+                    </option>
+                  </select>
+                </div>
+                <div class="users-form-group">
+                  <label class="users-form-label">
+                    <b-icon icon="award" class="form-label-icon"></b-icon>
+                    {{ $t("brandPlaceholder") || "البراند" }}
+                    <span class="text-muted small ms-1">({{ $t("optional") || "اختياري" }})</span>
+                  </label>
+                  <select v-model="editForm.brandId" class="users-form-select">
+                    <option value="">{{ $t("noBrand") || "بدون براند" }}</option>
+                    <option v-for="brand in brands" :key="'edit-brand-' + brand.id" :value="String(brand.id)">
+                      {{ brand.name }}
                     </option>
                   </select>
                 </div>
@@ -1215,6 +1256,7 @@ export default {
       search: {
         info: "",
         tag: "",
+        brandId: "",
         stockStatus: "",
       },
       SearchItems: [],
@@ -1228,6 +1270,7 @@ export default {
         disCountPrice: 0,
         wholesalePrice: 0,
         tags: "مواد اخرى",
+        brandId: "",
         code: "",
         id: "",
         quantity: 0,
@@ -1246,6 +1289,7 @@ export default {
         disCountPrice : 0,
         wholesalePrice: 0,
         tags: "مواد اخرى",
+        brandId: "",
         code: "",
         quantity: 0,
         lowStockAlertQuantity: "",
@@ -1259,6 +1303,7 @@ export default {
       qrLabelSizes: QR_LABEL_SIZES,
       itemId: "",
       tags: [],
+      brands: [],
       importFile: null,
       importFileName: "",
       importUploading: false,
@@ -1305,6 +1350,7 @@ export default {
 
   mounted() {
     this.getTags();
+    this.getBrands();
     this.loadWarehouses();
     this.GetAllItems();
     this.addForm.code = Math.floor(Math.random() * 1000000000).toString();
@@ -1363,6 +1409,13 @@ export default {
           tdClass: 'item-col-tag',
         },
         {
+          key: 'brand',
+          label: this.$t('brandPlaceholder') || 'البراند',
+          sortable: true,
+          thClass: 'item-header-cell item-col-brand',
+          tdClass: 'item-col-brand',
+        },
+        {
           key: 'actions',
           label: this.$t('actions') || this.$t('operations') || 'العمليات',
           sortable: false,
@@ -1384,6 +1437,7 @@ export default {
       return !!(
         (this.search.info && String(this.search.info).trim()) ||
         this.search.tag ||
+        this.search.brandId ||
         this.search.stockStatus
       );
     },
@@ -1406,6 +1460,15 @@ export default {
             position: "top-right",
             timeout: 4000,
           });
+        });
+    },
+    getBrands() {
+      HTTP.get(`Admin/GetBrands?pageNumber=0&pageSize=10000`)
+        .then((response) => {
+          this.brands = response.data?.data?.items || [];
+        })
+        .catch(() => {
+          this.brands = [];
         });
     },
 
@@ -1646,6 +1709,12 @@ export default {
         disCountPrice: item.disCountPrice || 0,
         wholesalePrice: item.wholesalePrice || 0,
         tags: item.tags || "مواد اخرى",
+        brandId:
+          item.brandId != null && item.brandId !== undefined
+            ? String(item.brandId)
+            : item.brand?.id != null
+              ? String(item.brand.id)
+              : "",
         code: item.code || "",
         quantity: item.quantity || 0,
         lowStockAlertQuantity:
@@ -1687,6 +1756,7 @@ export default {
       formData.append("SellingPrice", this.addForm.sellingPrice);
       formData.append("PurchasingPrice", this.addForm.purchasingPrice);
       formData.append("Tags", this.addForm.tags);
+      formData.append("BrandId", this.addForm.brandId || "");
       formData.append("Code", this.addForm.code);
       formData.append("Image", this.itemPhoto);
       formData.append("DisCountPrice", this.addForm.disCountPrice);
@@ -1730,6 +1800,7 @@ export default {
           this.addForm.quantity = 0;
           this.addForm.lowStockAlertQuantity = "";
           this.addForm.expiryDate = "";
+          this.addForm.brandId = "";
           this.resetAddWarehouseRows();
           this.imagePreview = "";
           this.itemPhoto = null;
@@ -1761,6 +1832,7 @@ export default {
       formData.append("SellingPrice", this.editForm.sellingPrice);
       formData.append("PurchasingPrice", this.editForm.purchasingPrice);
       formData.append("Tags", this.editForm.tags);
+      formData.append("BrandId", this.editForm.brandId || "");
       formData.append("Code", this.editForm.code);
       formData.append("Image", this.itemPhoto);
       formData.append("DisCountPrice", this.editForm.disCountPrice);
@@ -1973,6 +2045,7 @@ export default {
       const info = String(this.search.info || "").trim();
       if (info) params.append("info", info);
       if (this.search.tag) params.append("tag", this.search.tag);
+      if (this.search.brandId) params.append("brandId", this.search.brandId);
       if (this.search.stockStatus) params.append("stockStatus", this.search.stockStatus);
 
       HTTP.get(`Admin/GetItems?${params.toString()}`)
@@ -1992,6 +2065,7 @@ export default {
       this.search = {
         info: "",
         tag: "",
+        brandId: "",
         stockStatus: "",
       };
     },
@@ -2053,6 +2127,7 @@ export default {
         );
         this.GetAllItems();
         this.getTags();
+        this.getBrands();
       } catch (error) {
         const msg = error?.response?.data?.message;
         this.$notify.error(this.mapImportError(msg) || this.$t("importItemsFailed"), {

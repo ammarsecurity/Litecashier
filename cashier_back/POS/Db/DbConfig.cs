@@ -45,6 +45,7 @@ namespace POS.Db
 
         public DbSet<User> Users { get; set; }
         public DbSet<Tag> Tags { get; set; }
+        public DbSet<Brand> Brands { get; set; }
         public DbSet<CustomerOrder> CustomerOrders { get; set; }
         public DbSet<CustomerOrderItem> CustomerOrderItems { get; set; }
         public DbSet<Item> Items { get; set; }
@@ -78,6 +79,18 @@ namespace POS.Db
             modelBuilder.Entity<Item>().HasOne(r => r.User).WithMany(r => r.Items).HasForeignKey(x => x.InsertByUserId);
             modelBuilder.Entity<Tag>().HasOne(r => r.User).WithMany(r => r.Tags).HasForeignKey(x => x.InsertByUserId);
             modelBuilder.Entity<User>().HasMany(r => r.Tags);
+
+            modelBuilder.Entity<Brand>()
+                .HasOne(b => b.User)
+                .WithMany()
+                .HasForeignKey(b => b.InsertByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<Item>()
+                .HasOne(i => i.Brand)
+                .WithMany()
+                .HasForeignKey(i => i.BrandId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<CustomerOrderItem>()
                    .HasOne(r => r.Item)

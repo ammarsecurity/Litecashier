@@ -11,6 +11,7 @@ public static class SectionDefinitions
     {
         "pos",
         "category",
+        "brands",
         "items",
         "shortcutItems",
         "priceReader",
