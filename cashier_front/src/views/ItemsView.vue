@@ -538,11 +538,15 @@
                   "حدد كمية كل مخزن وحد تنبيه الكمية له (اترك التنبيه فارغاً لتعطيله)"
                 }}
               </p>
-              <div class="item-warehouse-grid item-warehouse-grid--with-alert">
+              <div
+                class="item-warehouse-grid item-warehouse-grid--with-alert"
+                :class="{ 'item-warehouse-grid--single': warehouseStockRows.length === 1 }"
+              >
                 <div
                   v-for="row in warehouseStockRows"
                   :key="'add-wh-' + row.warehouseId"
                   class="item-warehouse-card"
+                  :class="{ 'item-warehouse-card--single': warehouseStockRows.length === 1 }"
                 >
                   <div class="item-warehouse-card__title">
                     <b-icon icon="building"></b-icon>
@@ -862,11 +866,15 @@
                   "حدد كمية كل مخزن وحد تنبيه الكمية له (اترك التنبيه فارغاً لتعطيله)"
                 }}
               </p>
-              <div class="item-warehouse-grid item-warehouse-grid--with-alert">
+              <div
+                class="item-warehouse-grid item-warehouse-grid--with-alert"
+                :class="{ 'item-warehouse-grid--single': editWarehouseStockRows.length === 1 }"
+              >
                 <div
                   v-for="row in editWarehouseStockRows"
                   :key="'edit-wh-' + row.warehouseId"
                   class="item-warehouse-card"
+                  :class="{ 'item-warehouse-card--single': editWarehouseStockRows.length === 1 }"
                 >
                   <div class="item-warehouse-card__title">
                     <b-icon icon="building"></b-icon>
@@ -2263,6 +2271,10 @@ export default {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
 
+.item-warehouse-grid--single {
+  grid-template-columns: 1fr;
+}
+
 .item-warehouse-card {
   display: flex;
   flex-direction: column;
@@ -2271,6 +2283,27 @@ export default {
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 12px;
   background: rgba(15, 110, 110, 0.04);
+  min-width: 0;
+}
+
+.item-warehouse-card--single {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.85rem 1.25rem;
+  padding: 1rem 1.1rem;
+}
+
+.item-warehouse-card--single .item-warehouse-card__title {
+  flex: 0 1 auto;
+  min-width: 9rem;
+  align-self: center;
+  padding-block: 0.15rem;
+}
+
+.item-warehouse-card--single .item-warehouse-card__fields {
+  flex: 1 1 16rem;
+  min-width: 0;
 }
 
 .item-warehouse-card__title {
@@ -2299,6 +2332,21 @@ export default {
 .item-warehouse-field .users-form-group,
 .item-warehouse-field {
   margin-bottom: 0;
+}
+
+@media (max-width: 575.98px) {
+  .item-warehouse-card--single {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .item-warehouse-card--single .item-warehouse-card__title {
+    align-self: flex-start;
+  }
+
+  .item-warehouse-card__fields {
+    grid-template-columns: 1fr;
+  }
 }
 
 .item-form-group--flush {

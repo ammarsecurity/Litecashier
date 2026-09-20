@@ -13213,33 +13213,62 @@ table .b-icon,
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.85rem 0.9rem;
   align-items: end;
+  width: 100%;
 }
 
 .app-filters-fields--2 {
-  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .app-filters-fields--3 {
-  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .app-filters-fields--search {
   grid-template-columns: minmax(220px, 1.4fr) minmax(160px, 0.9fr) auto;
 }
 
-.reports-filters-fields--lowStock {
-  grid-template-columns: minmax(180px, 280px);
+/* Orders: 6 filters → 3+3 on wide screens */
+.reports-filters-fields--orders {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.reports-filters-fields--lowStock,
+.reports-filters-fields--expiry {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .reports-filters-fields--profit,
 .reports-filters-fields--topItems,
 .reports-filters-fields--byCategory,
-.reports-filters-fields--byEmployee {
-  grid-template-columns: repeat(2, minmax(180px, 280px));
+.reports-filters-fields--byEmployee,
+.reports-filters-fields--byWarehouse {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .reports-filters-fields--productSales {
-  grid-template-columns: repeat(2, minmax(160px, 1fr)) minmax(160px, 0.9fr) minmax(220px, 1.4fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.reports-filters-fields--productSales .reports-filter-field--grow {
+  grid-column: 1 / -1;
+}
+
+.reports-filter-search-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.reports-filter-search-row .users-search-container {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.reports-filter-search-row .btn-refresh {
+  flex: 0 0 auto;
+  align-self: stretch;
 }
 
 .app-filter-field,
@@ -13249,6 +13278,7 @@ table .b-icon,
   gap: 0.4rem;
   margin: 0;
   min-width: 0;
+  width: 100%;
 }
 
 .app-filter-field--grow,
@@ -13305,8 +13335,18 @@ table .b-icon,
   .app-filters-fields--3,
   .app-filters-fields--search,
   .reports-filters-fields,
+  .reports-filters-fields--orders,
+  .reports-filters-fields--profit,
+  .reports-filters-fields--topItems,
+  .reports-filters-fields--byCategory,
+  .reports-filters-fields--byEmployee,
+  .reports-filters-fields--byWarehouse,
   .reports-filters-fields--productSales {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reports-filters-fields--productSales .reports-filter-field--grow {
+    grid-column: 1 / -1;
   }
 }
 
@@ -13326,13 +13366,20 @@ table .b-icon,
   .app-filters-fields--3,
   .app-filters-fields--search,
   .reports-filters-fields,
+  .reports-filters-fields--orders,
   .reports-filters-fields--profit,
   .reports-filters-fields--topItems,
   .reports-filters-fields--byCategory,
   .reports-filters-fields--byEmployee,
+  .reports-filters-fields--byWarehouse,
   .reports-filters-fields--productSales,
-  .reports-filters-fields--lowStock {
+  .reports-filters-fields--lowStock,
+  .reports-filters-fields--expiry {
     grid-template-columns: 1fr;
+  }
+
+  .reports-filters-fields--productSales .reports-filter-field--grow {
+    grid-column: auto;
   }
 
   .app-filters-panel-actions,
@@ -13366,7 +13413,8 @@ table .b-icon,
 
 .reports-filters-grid--low-stock {
   margin-bottom: 1rem;
-  max-width: 280px;
+  width: 100%;
+  max-width: none;
 }
 
 .reports-filter-select {

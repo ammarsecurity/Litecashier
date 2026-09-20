@@ -142,15 +142,6 @@
                             </div>
                             <div class="reports-filters-panel-actions">
                                 <button
-                                    v-if="activeTab === 'productSales'"
-                                    type="button"
-                                    class="btn-refresh"
-                                    @click="loadProductSalesReport()"
-                                >
-                                    <b-icon icon="search" class="button-icon"></b-icon>
-                                    <span class="button-text">{{ $t('search') || 'بحث' }}</span>
-                                </button>
-                                <button
                                     v-if="activeTab === 'orders'"
                                     type="button"
                                     class="export-excel-btn"
@@ -394,20 +385,30 @@
                                         </select>
                                     </div>
                                 </label>
-                                <label v-if="activeTab === 'productSales'" class="reports-filter-field reports-filter-field--grow">
+                                <div v-if="activeTab === 'productSales'" class="reports-filter-field reports-filter-field--grow reports-filter-field--with-action">
                                     <span class="reports-filter-label">{{ $t('search') || 'بحث' }}</span>
-                                    <div class="users-search-container">
-                                        <b-icon icon="search" class="search-icon"></b-icon>
-                                        <input
-                                            v-model="productSalesFilters.info"
-                                            type="search"
-                                            class="users-search-input"
-                                            :placeholder="$t('productSalesSearchPlaceholder') || 'بحث عن منتج...'"
-                                            autocomplete="off"
-                                            @keyup.enter="loadProductSalesReport()"
-                                        />
+                                    <div class="reports-filter-search-row">
+                                        <div class="users-search-container">
+                                            <b-icon icon="search" class="search-icon"></b-icon>
+                                            <input
+                                                v-model="productSalesFilters.info"
+                                                type="search"
+                                                class="users-search-input"
+                                                :placeholder="$t('productSalesSearchPlaceholder') || 'بحث عن منتج...'"
+                                                autocomplete="off"
+                                                @keyup.enter="loadProductSalesReport()"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            class="btn-refresh"
+                                            @click="loadProductSalesReport()"
+                                        >
+                                            <b-icon icon="search" class="button-icon"></b-icon>
+                                            <span class="button-text">{{ $t('search') || 'بحث' }}</span>
+                                        </button>
                                     </div>
-                                </label>
+                                </div>
                             </template>
                         </div>
                     </div>

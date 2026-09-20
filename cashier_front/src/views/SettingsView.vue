@@ -18,6 +18,7 @@
             </div>
           </div>
 
+          <div class="settings-sections">
           <div
             v-if="licenseStatus && licenseStatus.enforcementEnabled"
             class="app-section-card settings-license-zone"
@@ -618,6 +619,7 @@
                 </button>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>
@@ -1321,8 +1323,60 @@ export default {
   background: #ffffff;
 }
 
+.settings-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+.settings-sections > .app-section-card {
+  margin-bottom: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-sections > .app-section-card :deep(.app-section-body) {
+  flex: 1 1 auto;
+}
+
+.settings-license-zone,
+.settings-branding-zone,
+.settings-ads-zone,
+.settings-danger-zone {
+  grid-column: 1 / -1;
+}
+
+.settings-license-zone { order: 1; }
+.settings-print-zone { order: 2; }
+.settings-logo-zone { order: 3; }
+.settings-branding-zone { order: 4; }
+.settings-menu-min-zone { order: 5; }
+.settings-backup-zone { order: 6; }
+.settings-ads-zone { order: 7; }
+.settings-danger-zone { order: 8; }
+
+@media (max-width: 900px) {
+  .settings-sections {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-license-zone,
+  .settings-print-zone,
+  .settings-logo-zone,
+  .settings-branding-zone,
+  .settings-menu-min-zone,
+  .settings-backup-zone,
+  .settings-ads-zone,
+  .settings-danger-zone {
+    order: initial;
+    grid-column: auto;
+  }
+}
+
 .settings-license-zone {
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
 }
 
 .settings-license-zone__icon {
@@ -1397,7 +1451,7 @@ export default {
 }
 
 .settings-print-zone {
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
 }
 
 .settings-print-zone__icon {
@@ -1458,11 +1512,11 @@ export default {
 }
 
 .settings-logo-zone {
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
 }
 
 .settings-menu-min-zone {
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
 }
 
 .settings-menu-min-zone__icon {
@@ -1489,7 +1543,8 @@ export default {
   display: flex;
   align-items: center;
   gap: 12px;
-  max-width: 280px;
+  width: 100%;
+  max-width: none;
 }
 
 .settings-menu-min-input input {
@@ -1529,12 +1584,26 @@ export default {
 .settings-logo-zone .logo-upload-section {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  width: 100%;
+  min-height: 12rem;
+}
+
+.settings-logo-zone .logo-preview {
+  width: 168px;
+  height: 168px;
+}
+
+.settings-logo-zone .logo-upload-btn,
+.settings-logo-zone .users-add-button {
+  width: 100%;
+  max-width: 280px;
 }
 
 .settings-branding-zone {
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
 }
 
 .settings-branding-zone__icon {
@@ -1772,7 +1841,7 @@ export default {
 }
 
 .settings-ads-zone {
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
 }
 
 .settings-ads-zone__icon {
@@ -1793,24 +1862,28 @@ export default {
 
 .settings-ads-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 0.85rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
   margin-bottom: 1.15rem;
+  width: 100%;
 }
 
 .settings-ad-card {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-  padding: 0.7rem;
+  padding: 0.75rem;
   border-radius: 1rem;
   background: #ffffff;
   border: 1px solid rgba(2, 38, 91, 0.1);
+  min-width: 0;
+  width: 100%;
 }
 
 .settings-ad-card img {
   width: 100%;
-  height: 110px;
+  aspect-ratio: 16 / 10;
+  height: auto;
   object-fit: cover;
   border-radius: 0.75rem;
   background: #fff;
@@ -1824,24 +1897,26 @@ export default {
 }
 
 .settings-ads-upload {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
-  align-items: flex-end;
+  align-items: end;
+  width: 100%;
 }
 
 .settings-ads-title-field {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  flex: 1;
-  min-width: 180px;
+  min-width: 0;
+  width: 100%;
   color: var(--text-secondary, #94a3b8);
   font-size: 0.85rem;
 }
 
 .settings-ads-title-field input {
   height: 44px;
+  width: 100%;
   border-radius: 12px;
   border: 1px solid rgba(2, 38, 91, 0.14);
   background: #ffffff;
@@ -1849,8 +1924,24 @@ export default {
   padding: 0 12px;
 }
 
+@media (max-width: 1100px) {
+  .settings-ads-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .settings-ads-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-ads-upload {
+    grid-template-columns: 1fr;
+  }
+}
+
 .settings-backup-zone {
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
 }
 
 .settings-backup-zone__icon {
