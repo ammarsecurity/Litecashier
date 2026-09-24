@@ -20,8 +20,6 @@
             </div>
           </div>
 
-          <AnnouncementsSlider :items="announcements" />
-
           <div class="app-section-card" v-if="flatHubItems.length">
             <div class="app-section-header">
               <div class="app-section-title-wrap">
@@ -61,20 +59,17 @@
 
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
-import AnnouncementsSlider from "@/components/AnnouncementsSlider.vue";
 import { flatNavItemsForHub } from "@/navigation/navItems.js";
 import { getAllowedSections } from "@/navigation/sectionRegistry.js";
 import { HTTP } from "@/http/api.js";
-import { openDevicePausedGate } from "@/utils/devicePausedGateBus.js";
 import { resolveCommercialUserId } from "@/utils/publicMenu.js";
 import signalRService from "@/services/signalr.js";
 
 export default {
   name: "SectionsView",
-  components: { AppHeader, AnnouncementsSlider },
+  components: { AppHeader },
   data() {
     return {
-      announcements: [],
       pendingPublicOrders: 0,
     };
   },
@@ -104,14 +99,11 @@ export default {
     },
   },
   mounted() {
-    this.loadAnnouncements();
     this.loadPendingPublicOrders();
     this.bindRealtime();
-    window.addEventListener("online", this.loadAnnouncements);
   },
   beforeDestroy() {
     this.unbindRealtime();
-    window.removeEventListener("online", this.loadAnnouncements);
   },
   methods: {
     async loadPendingPublicOrders() {
@@ -142,22 +134,6 @@ export default {
     unbindRealtime() {
       signalRService.off("PublicOrderAdded", this.onPublicOrderRealtime);
       signalRService.off("PublicOrderUpdated", this.onPublicOrderRealtime);
-    },
-    async loadAnnouncements() {
-      try {
-        await HTTP.post("License/device-sync");
-      } catch {
-        /* offline — use cache */
-      }
-      try {
-        const { data } = await HTTP.get("License/device-status");
-        this.announcements = Array.isArray(data?.announcements) ? data.announcements : [];
-        if (data?.isPaused) {
-          openDevicePausedGate({ deviceStatus: data, pauseReason: data.pauseReason });
-        }
-      } catch {
-        this.announcements = [];
-      }
     },
   },
 };
@@ -198,26 +174,8 @@ export default {
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-primary));
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-color);
-}
-
-.hub-badge {
-  position: absolute;
-  top: -6px;
-  left: -6px;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: #ef4444;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 800;
-  display: inline-flex;
   align-items: center;
   justify-content: center;
 }
@@ -228,8 +186,25 @@ export default {
 }
 
 .hub-module-label {
-  font-size: 0.8125rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.3;
+}
+
+.hub-badge {
+  position: absolute;
+  top: -6px;
+  inset-inline-end: -6px;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

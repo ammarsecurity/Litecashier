@@ -2,22 +2,18 @@
   <div id="app">
     <router-view />
     <PublicOrderIncomingAlert v-if="!isPublicMenu" />
-    <LicenseGate v-if="!isPublicMenu" />
-    <DevicePausedGate v-if="!isPublicMenu" />
   </div>
 </template>
 
 <script>
 import { syncNotifyLocale } from '@/plugins/notifyPlugin';
-import LicenseGate from '@/components/LicenseGate.vue';
-import DevicePausedGate from '@/components/DevicePausedGate.vue';
 import PublicOrderIncomingAlert from '@/components/PublicOrderIncomingAlert.vue';
 import { HTTP } from '@/http/api.js';
 import { applyCommercialBranding } from '@/utils/posBranding.js';
 
 export default {
   name: 'App',
-  components: { LicenseGate, DevicePausedGate, PublicOrderIncomingAlert },
+  components: { PublicOrderIncomingAlert },
   computed: {
     isPublicMenu() {
       const path = this.$route?.path || '';

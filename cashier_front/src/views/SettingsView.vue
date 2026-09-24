@@ -19,103 +19,6 @@
           </div>
 
           <div class="settings-sections">
-          <div
-            v-if="licenseStatus && licenseStatus.enforcementEnabled"
-            class="app-section-card settings-license-zone"
-          >
-            <div class="app-section-header">
-              <div class="app-section-title-wrap">
-                <div class="app-section-icon-wrap settings-license-zone__icon">
-                  <b-icon icon="key-fill"></b-icon>
-                </div>
-                <div>
-                  <h3 class="app-section-title">{{ $t("settingsLicenseTitle") || "الترخيص" }}</h3>
-                  <p class="app-section-subtitle">
-                    {{ $t("settingsLicenseSubtitle") || "عرض حالة الترخيص واستبدال كود التفعيل" }}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div class="app-section-body">
-              <div v-if="licenseConnectivityLoading" class="settings-license-zone__intro">
-                <b-spinner small></b-spinner>
-              </div>
-              <template v-else-if="!licenseOnline">
-                <div class="settings-license-offline">
-                  <b-icon icon="wifi-off" class="settings-license-offline__icon"></b-icon>
-                  <p class="settings-license-offline__title">
-                    {{ $t("settingsLicenseOfflineTitle") || "اتصل بالإنترنت أولاً" }}
-                  </p>
-                  <p class="settings-license-offline__text">
-                    {{
-                      $t("settingsLicenseOfflineMessage") ||
-                      "لتغيير كود الترخيص أو عرض حالة التفعيل يلزم اتصال بالإنترنت."
-                    }}
-                  </p>
-                  <button
-                    type="button"
-                    class="users-add-button"
-                    :disabled="licenseConnectivityLoading"
-                    @click="checkLicenseConnectivity"
-                  >
-                    <b-icon icon="arrow-clockwise" class="button-icon"></b-icon>
-                    <span class="button-text">{{ $t("retry") || "إعادة المحاولة" }}</span>
-                  </button>
-                </div>
-              </template>
-              <template v-else>
-                <p class="settings-license-zone__intro">
-                  {{ $t("settingsLicenseHint") || "إذا حصلت على كود ترخيص جديد يمكنك استبدال الكود الحالي من هنا." }}
-                </p>
-                <div class="settings-license-meta" v-if="!licenseStatusLoading">
-                  <div class="settings-license-meta__row">
-                    <span>{{ $t("licenseCurrentCode") || "الكود الحالي" }}</span>
-                    <strong><code>{{ licenseStatus.code || "—" }}</code></strong>
-                  </div>
-                  <div class="settings-license-meta__row">
-                    <span>{{ $t("status") || "الحالة" }}</span>
-                    <strong>
-                      {{
-                        licenseStatus.isActive
-                          ? ($t("licenseActiveHint") || "نشط")
-                          : ($t("licenseExpiredMessage") || "غير نشط")
-                      }}
-                    </strong>
-                  </div>
-                  <div v-if="licenseStatus.isLifetime && licenseStatus.isActive" class="settings-license-meta__row">
-                    <span>{{ $t("licenseLifetime") }}</span>
-                  </div>
-                  <div
-                    v-else-if="licenseStatus.daysRemaining != null"
-                    class="settings-license-meta__row"
-                  >
-                    <span>{{ $t("licenseDaysRemaining", { days: licenseStatus.daysRemaining }) }}</span>
-                  </div>
-                  <div class="settings-license-meta__row">
-                    <span>{{ $t("licenseMachineId") }}</span>
-                    <strong><code>{{ licenseStatus.machineId }}</code></strong>
-                  </div>
-                </div>
-                <div v-else class="settings-license-zone__intro">
-                  <b-spinner small></b-spinner>
-                </div>
-                <div class="settings-danger-zone__actions">
-                  <button
-                    type="button"
-                    class="users-add-button"
-                    :disabled="licenseStatusLoading || !licenseOnline"
-                    @click="openChangeLicense"
-                  >
-                    <b-icon icon="arrow-repeat" class="button-icon"></b-icon>
-                    <span class="button-text">
-                      {{ $t("settingsLicenseChangeButton") || "تغيير كود الترخيص" }}
-                    </span>
-                  </button>
-                </div>
-              </template>
-            </div>
-          </div>
-
           <div class="app-section-card settings-print-zone">
             <div class="app-section-header">
               <div class="app-section-title-wrap">
@@ -706,7 +609,6 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "@/http/api.js";
-import { openLicenseGate } from "@/utils/licenseGateBus.js";
 import { resolveAbsoluteAssetUrl } from "@/utils/apiBase.js";
 import { applyCommercialBranding, clampWatermarkOpacity, normalizePosLayout } from "@/utils/posBranding.js";
 import { BUILTIN_DEFAULT_PRODUCT_IMAGE } from "@/utils/productImage.js";
@@ -747,10 +649,6 @@ export default {
       defaultProductPreview: null,
       clearWatermarkPending: false,
       clearDefaultProductPending: false,
-      licenseStatus: null,
-      licenseStatusLoading: false,
-      licenseOnline: false,
-      licenseConnectivityLoading: false,
       menuAds: [],
       menuAdsLoading: false,
       menuAdsUploading: false,
@@ -794,70 +692,17 @@ export default {
   mounted() {
     this.loadPrintSettings();
     this.loadPosBranding();
-    this.loadLicenseStatus();
-    this.checkLicenseConnectivity();
     this.loadMenuAds();
     this.$nextTick(() => {
       if (this.$route.hash === "#menu-ads") {
         document.getElementById("menu-ads")?.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     });
-    window.addEventListener("online", this.onBrowserOnline);
-    window.addEventListener("offline", this.onBrowserOffline);
   },
   beforeDestroy() {
-    window.removeEventListener("online", this.onBrowserOnline);
-    window.removeEventListener("offline", this.onBrowserOffline);
     this.revokeBrandingPreviews();
   },
   methods: {
-    onBrowserOnline() {
-      this.checkLicenseConnectivity();
-    },
-    onBrowserOffline() {
-      this.licenseOnline = false;
-      this.licenseConnectivityLoading = false;
-    },
-    async checkLicenseConnectivity() {
-      if (typeof navigator !== "undefined" && navigator.onLine === false) {
-        this.licenseOnline = false;
-        this.licenseConnectivityLoading = false;
-        return;
-      }
-      this.licenseConnectivityLoading = true;
-      try {
-        const res = await HTTP.get("License/connectivity", { timeout: 12000 });
-        const data = res.data || {};
-        this.licenseOnline = !!(data.online ?? data.Online);
-        // Browser reports online but probe failed: still allow UI (activate shows server errors).
-        if (!this.licenseOnline && typeof navigator !== "undefined" && navigator.onLine) {
-          this.licenseOnline = true;
-        }
-      } catch (_) {
-        this.licenseOnline =
-          typeof navigator === "undefined" ? true : navigator.onLine !== false;
-      } finally {
-        this.licenseConnectivityLoading = false;
-      }
-    },
-    async loadLicenseStatus() {
-      this.licenseStatusLoading = true;
-      try {
-        const res = await HTTP.get("License/status");
-        this.licenseStatus = res.data || null;
-      } catch (_) {
-        this.licenseStatus = null;
-      } finally {
-        this.licenseStatusLoading = false;
-      }
-    },
-    openChangeLicense() {
-      if (!this.licenseOnline) {
-        this.checkLicenseConnectivity();
-        return;
-      }
-      openLicenseGate({ allowChange: true, status: this.licenseStatus });
-    },
     async loadPrintSettings() {
       this.printSettingsLoading = true;
       this.publicMenuSettingsLoading = true;
@@ -1341,28 +1186,25 @@ export default {
   flex: 1 1 auto;
 }
 
-.settings-license-zone,
 .settings-branding-zone,
 .settings-ads-zone,
 .settings-danger-zone {
   grid-column: 1 / -1;
 }
 
-.settings-license-zone { order: 1; }
-.settings-print-zone { order: 2; }
-.settings-logo-zone { order: 3; }
-.settings-branding-zone { order: 4; }
-.settings-menu-min-zone { order: 5; }
-.settings-backup-zone { order: 6; }
-.settings-ads-zone { order: 7; }
-.settings-danger-zone { order: 8; }
+.settings-print-zone { order: 1; }
+.settings-logo-zone { order: 2; }
+.settings-branding-zone { order: 3; }
+.settings-menu-min-zone { order: 4; }
+.settings-backup-zone { order: 5; }
+.settings-ads-zone { order: 6; }
+.settings-danger-zone { order: 7; }
 
 @media (max-width: 900px) {
   .settings-sections {
     grid-template-columns: 1fr;
   }
 
-  .settings-license-zone,
   .settings-print-zone,
   .settings-logo-zone,
   .settings-branding-zone,
@@ -1373,10 +1215,6 @@ export default {
     order: initial;
     grid-column: auto;
   }
-}
-
-.settings-license-zone {
-  margin-bottom: 0;
 }
 
 .settings-license-zone__icon {

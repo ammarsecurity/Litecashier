@@ -3,7 +3,7 @@
 ; Safe for upgrades: keeps DB connection, Images, ProgramData license; applies EF migrations only.
 
 #define MyAppName "Litecashier"
-#define MyAppVersion "1.0.33"
+#define MyAppVersion "1.0.35"
 #define MyAppPublisher "Litecashier"
 #define MyAppExeName "Litecashier.exe"
 
@@ -130,8 +130,8 @@ begin
     '    "MysqldumpPath": ""' + #13#10 +
     '  },' + #13#10 +
     '  "License": {' + #13#10 +
-    '    "Enabled": true,' + #13#10 +
-    '    "BaseUrl": "https://litecashier-keys.smartstick-iq.com",' + #13#10 +
+    '    "Enabled": false,' + #13#10 +
+    '    "BaseUrl": "",' + #13#10 +
     '    "Product": "Cashier",' + #13#10 +
     '    "RevalidateHours": 24' + #13#10 +
     '  }' + #13#10 +
