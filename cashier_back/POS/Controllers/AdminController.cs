@@ -249,8 +249,8 @@ namespace POS.Controllers
 
         private async Task<EndOfDayReportDto> BuildEndOfDayReportAsync(int commercialUserId)
         {
-            var dayStart = DateTime.UtcNow.Date;
-            var dayEnd = dayStart.AddDays(1);
+            var todayLocal = GetBusinessTodayLocalDate();
+            TryGetOrderInsertUtcRange(todayLocal, todayLocal, out var dayStart, out var dayEnd);
 
             var orders = await _dbConfig.CustomerOrders
                 .Where(o =>
@@ -268,12 +268,57 @@ namespace POS.Controllers
                     .ToListAsync()
                 : new List<CustomerOrderItem>();
 
+            var returnsForDay = orderIds.Any()
+                ? await _dbConfig.CatalogStockReturns
+                    .AsNoTracking()
+                    .Include(r => r.Item)
+                    .Include(r => r.User)
+                    .Where(r =>
+                        !r.IsDeleted &&
+                        r.ReturnType == "Order" &&
+                        r.CustomerOrderId != null &&
+                        orderIds.Contains(r.CustomerOrderId.Value))
+                    .ToListAsync()
+                : new List<CatalogStockReturn>();
+
+            var returnedByItem = returnsForDay
+                .GroupBy(r => r.ItemId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (
+                        Qty: g.Sum(x => x.Quantity),
+                        Amount: g.Sum(x => x.Quantity * (x.UnitPrice ?? 0m))
+                    ));
+
+            var returnedByOrder = returnsForDay
+                .Where(r => r.CustomerOrderId.HasValue)
+                .GroupBy(r => r.CustomerOrderId!.Value)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Sum(x => x.Quantity * (x.UnitPrice ?? 0m)));
+
+            var returnedAmount = returnedByItem.Values.Sum(v => v.Amount);
+            var returnedCount = returnedByItem.Values.Sum(v => v.Qty);
+
             var itemsCount = orderItems.Count;
-            var itemsQuantity = orderItems.Sum(x => x.Quantity);
+            var itemsQuantity = Math.Max(0, orderItems.Sum(x => x.Quantity) - returnedCount);
             var grossSales = orderItems.Sum(x => x.SellingPrice * x.Quantity);
             var discountAmount = orders.Sum(x => x.DiscountAmount ?? 0m);
-            var netSales = Math.Max(0m, grossSales - discountAmount);
-            var totalCost = orderItems.Sum(x => x.PurchasingPrice * x.Quantity);
+            var netSales = Math.Max(0m, grossSales - discountAmount - returnedAmount);
+
+            var avgCostByItem = orderItems
+                .GroupBy(x => x.ItemId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Average(x => x.PurchasingPrice));
+
+            var returnedCost = returnedByItem.Sum(kv =>
+            {
+                avgCostByItem.TryGetValue(kv.Key, out var avgCost);
+                return avgCost * kv.Value.Qty;
+            });
+
+            var totalCost = Math.Max(0m, orderItems.Sum(x => x.PurchasingPrice * x.Quantity) - returnedCost);
             var profit = netSales - totalCost;
 
             var paymentBreakdown = orders
@@ -284,11 +329,13 @@ namespace POS.Controllers
                     var amount = orderItems
                         .Where(oi => groupOrderIds.Contains(oi.CustomerOrderId))
                         .Sum(oi => oi.SellingPrice * oi.Quantity);
+                    var returned = groupOrderIds.Sum(id =>
+                        returnedByOrder.TryGetValue(id, out var ra) ? ra : 0m);
                     return new EndOfDayPaymentDto
                     {
                         Method = g.Key,
                         OrdersCount = g.Count(),
-                        Amount = amount
+                        Amount = Math.Max(0m, amount - returned)
                     };
                 })
                 .OrderByDescending(x => x.Amount)
@@ -296,16 +343,36 @@ namespace POS.Controllers
 
             var topItems = orderItems
                 .GroupBy(x => new { x.ItemId, ItemName = x.Item != null ? x.Item.Name : $"#{x.ItemId}" })
-                .Select(g => new EndOfDayTopItemDto
+                .Select(g =>
                 {
-                    ItemId = g.Key.ItemId,
-                    ItemName = g.Key.ItemName ?? string.Empty,
-                    Quantity = g.Sum(x => x.Quantity),
-                    SalesAmount = g.Sum(x => x.SellingPrice * x.Quantity)
+                    returnedByItem.TryGetValue(g.Key.ItemId, out var ret);
+                    return new EndOfDayTopItemDto
+                    {
+                        ItemId = g.Key.ItemId,
+                        ItemName = g.Key.ItemName ?? string.Empty,
+                        Quantity = Math.Max(0, g.Sum(x => x.Quantity) - ret.Qty),
+                        SalesAmount = Math.Max(0m, g.Sum(x => x.SellingPrice * x.Quantity) - ret.Amount)
+                    };
                 })
+                .Where(x => x.Quantity > 0 || x.SalesAmount > 0)
                 .OrderByDescending(x => x.Quantity)
                 .ThenByDescending(x => x.SalesAmount)
                 .Take(10)
+                .ToList();
+
+            var returnedItems = returnsForDay
+                .OrderByDescending(r => r.InsertDate)
+                .Select(r => new EndOfDayReturnedItemDto
+                {
+                    Id = r.Id,
+                    OrderCode = r.OrderCode ?? r.CustomerOrder?.OrderCode ?? string.Empty,
+                    ItemName = r.Item?.Name ?? $"#{r.ItemId}",
+                    Quantity = r.Quantity,
+                    UnitPrice = r.UnitPrice ?? 0m,
+                    LineTotal = r.Quantity * (r.UnitPrice ?? 0m),
+                    DeletedByUsername = r.User?.Username,
+                    InsertDate = r.InsertDate
+                })
                 .ToList();
 
             return new EndOfDayReportDto
@@ -322,11 +389,12 @@ namespace POS.Controllers
                     NetSales = netSales,
                     TotalCost = totalCost,
                     Profit = profit,
-                    ReturnedAmount = 0,
-                    ReturnedCount = 0
+                    ReturnedAmount = returnedAmount,
+                    ReturnedCount = returnedCount
                 },
                 PaymentBreakdown = paymentBreakdown,
-                TopItems = topItems
+                TopItems = topItems,
+                ReturnedItems = returnedItems
             };
         }
 
@@ -2401,6 +2469,123 @@ namespace POS.Controllers
         }
 
         [Authorize(Roles = "Commercial,POS")]
+        [HttpDelete("DeleteItemStockEntry")]
+        public async Task<ActionResult<GlobalResponse<object>>> DeleteItemStockEntry(int id)
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+
+                var entry = await _dbConfig.ItemStockEntries
+                    .FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted);
+                if (entry == null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "stockEntryNotFound"
+                    });
+                }
+
+                var item = await FindAccessibleItemAsync(entry.ItemId, commercialUserId);
+                if (item == null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "المنتج غير موجود"
+                    });
+                }
+
+                if (item.IsNonInventory)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "nonInventoryItem"
+                    });
+                }
+
+                var wasIn = string.Equals(entry.MovementType, "In", StringComparison.OrdinalIgnoreCase);
+
+                await using var tx = await _dbConfig.Database.BeginTransactionAsync();
+
+                if (wasIn)
+                {
+                    var available = await _warehouseStock.GetStockAsync(item.Id, entry.WarehouseId);
+                    if (entry.Quantity > available)
+                    {
+                        return BadRequest(new GlobalResponse<object>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = "stockEntryDeleteInsufficientStock"
+                        });
+                    }
+
+                    if (entry.BatchPurchasingPrice.HasValue)
+                    {
+                        item.PurchasingPrice = InventoryCostHelper.ReverseWeightedAverageCost(
+                            Math.Max(0, item.Quantity),
+                            item.PurchasingPrice,
+                            entry.Quantity,
+                            entry.BatchPurchasingPrice.Value);
+                        item.UpdateDate = DateTime.UtcNow;
+                        _dbConfig.Items.Update(item);
+                        await _dbConfig.SaveChangesAsync();
+                    }
+
+                    await _warehouseStock.DeductAsync(item.Id, entry.WarehouseId, entry.Quantity);
+                }
+                else
+                {
+                    await _warehouseStock.AddAsync(item.Id, entry.WarehouseId, entry.Quantity);
+                }
+
+                entry.IsDeleted = true;
+                entry.UpdateDate = DateTime.UtcNow;
+                _dbConfig.ItemStockEntries.Update(entry);
+                await _dbConfig.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                var refreshed = await FindAccessibleItemAsync(item.Id, commercialUserId);
+                if (refreshed != null)
+                {
+                    refreshed.WarehouseStocks = await _warehouseStock.GetItemStockBreakdownAsync(item.Id, commercialUserId);
+                }
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new { item = refreshed },
+                    ErrorStatus = false,
+                    Message = "done"
+                });
+            }
+            catch (InvalidOperationException ex) when (ex.Message.StartsWith("insufficientInventory", StringComparison.Ordinal))
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "stockEntryDeleteInsufficientStock"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting item stock entry {EntryId}", id);
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ: {ex.Message}"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial,POS")]
         [HttpDelete("DeleteItem")]
         public async Task<ActionResult<GlobalResponse<int>>> DeleteItem(int id)
         {
@@ -4338,18 +4523,24 @@ namespace POS.Controllers
                 var tagsQuery = _dbConfig.Tags
                     .Where(x => x.IsDeleted == false);
 
-                // Sales Amount — one total per order
+                // Sales Amount — one total per order, net of order returns
                 decimal CalculateSalesAmount(DateTime startDate, DateTime endDate)
                 {
-                    return SumOrdersSalesAmount(
-                        customerOrdersQuery.Where(x =>
-                            x.InsertDate.Date >= startDate &&
-                            x.InsertDate.Date <= endDate));
+                    var ranged = customerOrdersQuery.Where(x =>
+                        x.InsertDate.Date >= startDate &&
+                        x.InsertDate.Date <= endDate);
+                    var orderIdList = ranged.Select(o => o.Id).ToList();
+                    var sales = SumOrdersSalesAmount(ranged);
+                    var returned = GetOrderReturnTotals(orderIdList).Values.Sum(v => v.Amount);
+                    return Math.Max(0m, sales - returned);
                 }
 
                 decimal TotalAmount()
                 {
-                    return SumOrdersSalesAmount(customerOrdersQuery);
+                    var orderIdList = customerOrdersQuery.Select(o => o.Id).ToList();
+                    var sales = SumOrdersSalesAmount(customerOrdersQuery);
+                    var returned = GetOrderReturnTotals(orderIdList).Values.Sum(v => v.Amount);
+                    return Math.Max(0m, sales - returned);
                 }
 
                 var stats = new

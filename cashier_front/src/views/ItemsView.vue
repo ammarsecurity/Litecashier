@@ -1230,15 +1230,26 @@
                       <td>{{ formatMoney(row.wholesalePrice) }}</td>
                       <td>{{ formatStockEntryNotes(row.notes) }}</td>
                       <td>
-                        <button
-                          type="button"
-                          class="item-stock-edit-btn"
-                          :disabled="stockEntrySaving"
-                          :title="$t('itemStockEntryEdit') || 'تعديل'"
-                          @click="startEditStockEntry(row)"
-                        >
-                          <b-icon icon="pencil"></b-icon>
-                        </button>
+                        <div class="item-stock-row-actions">
+                          <button
+                            type="button"
+                            class="item-stock-edit-btn"
+                            :disabled="stockEntrySaving"
+                            :title="$t('itemStockEntryEdit') || 'تعديل'"
+                            @click="startEditStockEntry(row)"
+                          >
+                            <b-icon icon="pencil"></b-icon>
+                          </button>
+                          <button
+                            type="button"
+                            class="item-stock-edit-btn item-stock-delete-btn"
+                            :disabled="stockEntrySaving"
+                            :title="$t('itemStockEntryDelete') || 'مسح'"
+                            @click="deleteStockEntry(row)"
+                          >
+                            <b-icon icon="trash"></b-icon>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   </tbody>
@@ -2175,6 +2186,52 @@ export default {
     cancelEditStockEntry() {
       this.resetStockEntryForm();
     },
+    async deleteStockEntry(row) {
+      if (!row?.id || this.stockEntrySaving) return;
+      const ok = await this.$confirm({
+        title: this.$t("confirmDelete") || "تأكيد المسح",
+        message:
+          this.$t("itemStockEntryDeleteConfirm") ||
+          "هل تريد مسح هذه الحركة من السجل؟ سيتم عكس تأثيرها على الكمية وسعر التكلفة إن وُجد.",
+        confirmText: this.$t("delete") || "مسح",
+        cancelText: this.$t("cancel") || "إلغاء",
+        variant: "danger",
+      });
+      if (!ok) return;
+
+      this.stockEntrySaving = true;
+      try {
+        const res = await HTTP.delete(`Admin/DeleteItemStockEntry?id=${row.id}`);
+        if (res?.data?.errorStatus) {
+          const msg = res.data.message;
+          this.$notify.error(
+            msg && this.$te(msg) ? this.$t(msg) : msg || this.$t("itemStockEntryDeleteFailed")
+          );
+          return;
+        }
+
+        if (this.stockEntryEditingId === row.id) {
+          this.resetStockEntryForm();
+        }
+
+        const item = res?.data?.data?.item;
+        if (item) {
+          this.applyItemAfterStockEntry(item);
+        }
+        await this.loadStockEntries(this.editForm.id);
+        this.GetAllItems();
+        this.$notify.success(this.$t("itemStockEntryDeleted") || "تم مسح الحركة");
+      } catch (err) {
+        const msg = err?.response?.data?.message;
+        this.$notify.error(
+          msg && this.$te(msg)
+            ? this.$t(msg)
+            : msg || this.$t("itemStockEntryDeleteFailed") || "فشل مسح الحركة"
+        );
+      } finally {
+        this.stockEntrySaving = false;
+      }
+    },
     async submitStockEntry() {
       if (!this.editForm.id || this.stockEntrySaving) return;
       const qty = Math.floor(Number(this.stockEntryForm.quantity) || 0);
@@ -2869,6 +2926,16 @@ export default {
   background: var(--bg-primary, #fff);
   color: var(--primary-color);
   cursor: pointer;
+}
+
+.item-stock-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.item-stock-delete-btn {
+  color: var(--danger-color, #dc2626);
 }
 
 .item-stock-edit-btn:disabled {

@@ -130,7 +130,7 @@
                   <button
                     type="button"
                     class="users-filter-clear-btn app-filters-clear-btn"
-                    @click="searchQuery = ''; startDate = ''; endDate = ''; categoryFilter = ''; loadExpenses()"
+                    @click="clearFilters"
                   >
                     <b-icon icon="x-circle" class="me-1"></b-icon>
                     {{ $t("clearFilters") || "مسح الفلاتر" }}
@@ -156,21 +156,21 @@
                   <span class="app-filter-label">{{ $t("from_date") || "من تاريخ" }}</span>
                   <div class="users-search-container">
                     <b-icon icon="calendar" class="search-icon"></b-icon>
-                    <input v-model="startDate" type="date" class="users-search-input" @change="loadExpenses" />
+                    <input v-model="startDate" type="date" class="users-search-input" @change="onFiltersChanged" />
                   </div>
                 </label>
                 <label class="app-filter-field">
                   <span class="app-filter-label">{{ $t("to_date") || "إلى تاريخ" }}</span>
                   <div class="users-search-container">
                     <b-icon icon="calendar-check" class="search-icon"></b-icon>
-                    <input v-model="endDate" type="date" class="users-search-input" @change="loadExpenses" />
+                    <input v-model="endDate" type="date" class="users-search-input" @change="onFiltersChanged" />
                   </div>
                 </label>
                 <label class="app-filter-field">
                   <span class="app-filter-label">{{ $t("category") || "الفئة" }}</span>
                   <div class="users-search-container">
                     <b-icon icon="tag" class="search-icon"></b-icon>
-                    <select v-model="categoryFilter" class="users-search-input reports-filter-select" @change="loadExpenses">
+                    <select v-model="categoryFilter" class="users-search-input reports-filter-select" @change="onFiltersChanged">
                       <option value="">{{ $t("allCategories") || "جميع الفئات" }}</option>
                       <option v-for="cat in expenseCategories" :key="cat.id" :value="cat.name">
                         {{ cat.name }}
@@ -251,7 +251,7 @@
               </div>
             </div>
 
-            <div v-if="!loadingExpenses" class="app-section-body expenses-pagination-body">
+            <div class="app-section-body expenses-pagination-body">
               <div class="users-pagination-section">
                 <b-pagination
                   v-model="pageNumber"
@@ -259,7 +259,6 @@
                   :per-page="pageSize"
                   aria-controls="expenses-table"
                   class="users-pagination"
-                  @change="loadExpenses"
                 ></b-pagination>
               </div>
             </div>
@@ -587,6 +586,11 @@ export default {
       ];
     }
   },
+  watch: {
+    pageNumber() {
+      this.loadExpenses();
+    }
+  },
   mounted() {
     const userInfo = JSON.parse(localStorage.getItem('info') || '{}');
     this.commercialUserId = userInfo.id || userInfo.commercialUserId;
@@ -615,6 +619,20 @@ export default {
     refreshPage() {
       this.loadStatistics();
       this.loadExpenses();
+    },
+    onFiltersChanged() {
+      if (this.pageNumber !== 1) {
+        this.pageNumber = 1;
+        return;
+      }
+      this.loadExpenses();
+    },
+    clearFilters() {
+      this.searchQuery = '';
+      this.startDate = '';
+      this.endDate = '';
+      this.categoryFilter = '';
+      this.onFiltersChanged();
     },
     async loadExpenses() {
       try {
@@ -682,8 +700,7 @@ export default {
     debounceSearch() {
       clearTimeout(this.searchTimer);
       this.searchTimer = setTimeout(() => {
-        this.pageNumber = 1;
-        this.loadExpenses();
+        this.onFiltersChanged();
       }, 500);
     },
     async saveExpense() {
