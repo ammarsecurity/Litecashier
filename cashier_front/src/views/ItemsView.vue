@@ -3313,12 +3313,13 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   display: block;
 }
 
 .item-table-image--brand-fallback {
-  object-fit: contain;
-  padding: 12%;
+  object-fit: cover;
+  padding: 0;
   background:
     radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--primary-bright, #5b9aff) 22%, transparent), transparent 62%),
     var(--primary-gradient-soft, linear-gradient(160deg, #02265b 0%, #0056f3 100%));
