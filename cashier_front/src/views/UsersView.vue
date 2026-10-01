@@ -136,6 +136,14 @@
                                     <span class="info-label">{{ $t('username') }}:</span>
                                     <span class="info-value">{{ User.username }}</span>
                                 </div>
+                                <div
+                                    v-if="User.role === 'Commercial' && (User.domain || User.Domain)"
+                                    class="user-info-item"
+                                >
+                                    <b-icon icon="globe2" class="info-icon"></b-icon>
+                                    <span class="info-label">{{ $t('commercialDomain') || 'الدومين' }}:</span>
+                                    <span class="info-value">{{ User.domain || User.Domain }}</span>
+                                </div>
                             </div>
                             <div class="user-card-footer actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
                                 <button 
@@ -314,6 +322,20 @@
                                 class="users-form-input"
                                 :placeholder="$t('storeName') || 'اسم المتجر'"
                             />
+                        </div>
+                        <div class="users-form-group">
+                            <label class="users-form-label">
+                                <b-icon icon="globe2" class="form-label-icon"></b-icon>
+                                {{ $t('commercialDomain') || 'الدومين / السب-دومين' }}
+                            </label>
+                            <input
+                                v-model="addForm.domain"
+                                type="text"
+                                class="users-form-input"
+                                autocomplete="off"
+                                :placeholder="$t('commercialDomainPlaceholder') || 'مثال: shop.example.com'"
+                            />
+                            <small class="text-muted d-block mt-1">{{ $t('commercialDomainHint') || 'اختياري: عند تعيينه، يدخل هذا الحساب وموظفوه فقط عبر هذا الدومين' }}</small>
                         </div>
                         <div class="users-form-group">
                             <label class="users-form-label">
@@ -521,6 +543,20 @@
                         </div>
                         <div class="users-form-group">
                             <label class="users-form-label">
+                                <b-icon icon="globe2" class="form-label-icon"></b-icon>
+                                {{ $t('commercialDomain') || 'الدومين / السب-دومين' }}
+                            </label>
+                            <input
+                                v-model="editForm.domain"
+                                type="text"
+                                class="users-form-input"
+                                autocomplete="off"
+                                :placeholder="$t('commercialDomainPlaceholder') || 'مثال: shop.example.com'"
+                            />
+                            <small class="text-muted d-block mt-1">{{ $t('commercialDomainHint') || 'اختياري: اتركه فارغاً لإلغاء العزل والرجوع للدومين المشترك' }}</small>
+                        </div>
+                        <div class="users-form-group">
+                            <label class="users-form-label">
                                 <b-icon icon="key-fill" class="form-label-icon"></b-icon>
                                 {{ $t('accountLoginCodeLabel') || 'رمز الحساب' }}
                             </label>
@@ -643,6 +679,7 @@ export default {
                 role: "",
                 id: "",
                 storeName: "",
+                domain: "",
                 loginCode: "",
                 logo: null,
                 logoPreview: null,
@@ -659,6 +696,7 @@ export default {
                 username: "",
                 role: "",
                 storeName: "",
+                domain: "",
                 loginCode: "",
                 logoFile: null,
                 logoPreview: null,
@@ -766,6 +804,7 @@ export default {
             this.editForm = {
                 ...User,
                 storeName: User.storeName || User.StoreName || '',
+                domain: User.domain || User.Domain || '',
                 password: '',
                 loginCode: '',
                 allowedSections: parseAllowedSectionsJson(
@@ -808,6 +847,7 @@ export default {
                 if (this.addForm.storeName) {
                     formData.append('storeName', this.addForm.storeName);
                 }
+                formData.append('domain', this.addForm.domain || '');
                 if (this.addForm.loginCode && String(this.addForm.loginCode).trim()) {
                     formData.append('loginCode', String(this.addForm.loginCode).trim());
                 }
@@ -839,6 +879,7 @@ export default {
                         username: "",
                         role: "",
                         storeName: "",
+                        domain: "",
                         loginCode: "",
                         logoFile: null,
                         logoPreview: null,
@@ -852,7 +893,10 @@ export default {
                 })
                 .catch((error) => {
                     this.show = false;
-                    this.$notify.error(error.response?.data?.message || this.$i18n.t('somethingWrong'));
+                    const raw = error.response?.data?.message || this.$i18n.t('somethingWrong');
+                    const msg =
+                        typeof raw === 'string' && this.$te(raw) ? this.$t(raw) : raw;
+                    this.$notify.error(msg);
                 });
         },
         EditUser() {
@@ -872,6 +916,7 @@ export default {
             formData.append('role', this.editForm.role);
             if (this.role === 'Admin' && this.editForm.role === 'Commercial') {
                 formData.append('storeName', this.editForm.storeName || this.editForm.StoreName || '');
+                formData.append('domain', this.editForm.domain || '');
                 formData.append('loginCode', this.editForm.loginCode || '');
                 formData.append('footerCreditText', this.editForm.footerCreditText || '');
                 formData.append('footerCreditPhone', this.editForm.footerCreditPhone || '');
@@ -902,17 +947,23 @@ export default {
                         role: "",
                         id: "",
                         storeName: "",
+                        domain: "",
                         loginCode: "",
                         logo: null,
                         logoPreview: null,
                         logoFile: null,
                         allowedSections: [],
-                        canUseOwnLoginCodeForSensitiveActions: false
+                        canUseOwnLoginCodeForSensitiveActions: false,
+                        footerCreditText: "",
+                        footerCreditPhone: ""
                     };
                 })
                 .catch((error) => {
                     this.show = false;
-                    this.$notify.error(error.response?.data?.message || this.$i18n.t('somethingWrong'));
+                    const raw = error.response?.data?.message || this.$i18n.t('somethingWrong');
+                    const msg =
+                        typeof raw === 'string' && this.$te(raw) ? this.$t(raw) : raw;
+                    this.$notify.error(msg);
                 });
         },
 

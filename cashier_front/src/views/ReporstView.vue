@@ -126,6 +126,14 @@
                                 <b-icon icon="calendar-x" class="me-2"></b-icon>
                                 {{ $t('expiringItemsReport') || 'صلاحية الأصناف' }}
                             </button>
+                            <button
+                                class="report-tab"
+                                :class="{ 'report-tab-active': activeTab === 'inventoryValue' }"
+                                @click="activeTab = 'inventoryValue'; ensureReportTags(); loadInventoryValuationReport()"
+                            >
+                                <b-icon icon="box-seam" class="me-2"></b-icon>
+                                {{ $t('inventoryValuationReport') || 'قيمة المخزون' }}
+                            </button>
                         </div>
                     </div>
 
@@ -239,6 +247,75 @@
                                         </select>
                                     </div>
                                 </label>
+                            </template>
+
+                            <!-- Inventory valuation -->
+                            <template v-else-if="activeTab === 'inventoryValue'">
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('brandPlaceholder') || 'البراند' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="award" class="search-icon"></b-icon>
+                                        <select
+                                            v-model="reportBrandId"
+                                            class="users-search-input reports-filter-select"
+                                            @change="loadInventoryValuationReport()"
+                                        >
+                                            <option value="">{{ $t('all_brands') || 'جميع البراندات' }}</option>
+                                            <option
+                                                v-for="brand in reportBrands"
+                                                :key="'inv-brand-' + brand.id"
+                                                :value="String(brand.id)"
+                                            >
+                                                {{ brand.name }}
+                                            </option>
+                                        </select>
+                                    </div>
+                                </label>
+                                <label class="reports-filter-field">
+                                    <span class="reports-filter-label">{{ $t('category') || 'القسم' }}</span>
+                                    <div class="users-search-container">
+                                        <b-icon icon="tags" class="search-icon"></b-icon>
+                                        <select
+                                            v-model="inventoryValueFilters.tag"
+                                            class="users-search-input reports-filter-select"
+                                            @change="loadInventoryValuationReport()"
+                                        >
+                                            <option value="">{{ $t('allCategories') || 'كل الأقسام' }}</option>
+                                            <option
+                                                v-for="tag in reportTags"
+                                                :key="'inv-tag-' + (tag.id || tag.name)"
+                                                :value="tag.name"
+                                            >
+                                                {{ tag.name }}
+                                            </option>
+                                        </select>
+                                    </div>
+                                </label>
+                                <div class="reports-filter-field reports-filter-field--grow reports-filter-field--with-action">
+                                    <label class="reports-filter-field" style="flex: 1; margin: 0">
+                                        <span class="reports-filter-label">{{ $t('searchPlaceholder') || 'بحث' }}</span>
+                                        <div class="users-search-container">
+                                            <b-icon icon="search" class="search-icon"></b-icon>
+                                            <input
+                                                v-model="inventoryValueFilters.info"
+                                                type="search"
+                                                :placeholder="$t('itemName') || 'اسم المنتج أو الكود'"
+                                                class="users-search-input"
+                                                autocomplete="off"
+                                                @keyup.enter="loadInventoryValuationReport()"
+                                            />
+                                        </div>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        class="users-filter-clear-btn"
+                                        style="align-self: end"
+                                        @click="loadInventoryValuationReport()"
+                                    >
+                                        <b-icon icon="arrow-repeat" class="me-1"></b-icon>
+                                        {{ $t('searchPlaceholder') || 'بحث' }}
+                                    </button>
+                                </div>
                             </template>
 
                             <!-- Low stock -->
@@ -1069,6 +1146,116 @@
                                 <p>{{ $t('noExpiringItems') || 'لا توجد أصناف منتهية أو قريبة من الانتهاء ضمن الفلتر' }}</p>
                             </div>
                         </div>
+
+                        <!-- Inventory valuation / expected profit -->
+                        <div v-if="activeTab === 'inventoryValue'" class="report-section">
+                            <div class="report-section-intro">
+                                <div class="report-info-banner">
+                                    <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
+                                    <span>
+                                        {{
+                                            $t('inventoryValuationHint') ||
+                                            'تقييم المخزون الحالي حسب كمية المادة × أسعار الشراء والبيع (ربح متوقع وليس مبيعات فعلية)'
+                                        }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="app-overview-grid report-stats-grid">
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--info report-stat-icon">
+                                        <b-icon icon="box-seam"></b-icon>
+                                    </span>
+                                    <div class="report-stat-content">
+                                        <div class="app-overview-stat-value report-stat-value">
+                                            {{ inventoryValuationSummary.itemCount || 0 }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">
+                                            {{ $t('inventoryItemCount') || 'عدد المواد المتوفرة' }}
+                                        </div>
+                                        <p class="report-stat-detail">
+                                            {{ $t('totalQuantity') || 'إجمالي الكمية' }}:
+                                            {{ inventoryValuationSummary.totalQuantity || 0 }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--danger report-stat-icon">
+                                        <b-icon icon="cart"></b-icon>
+                                    </span>
+                                    <div class="report-stat-content">
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(inventoryValuationSummary.totalCostValue || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">
+                                            {{ $t('totalPurchaseValue') || 'مجموع تكلفة الشراء' }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--primary report-stat-icon">
+                                        <b-icon icon="currency-dollar"></b-icon>
+                                    </span>
+                                    <div class="report-stat-content">
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(inventoryValuationSummary.totalSellValue || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">
+                                            {{ $t('totalSellValue') || 'مجموع قيمة البيع' }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--success report-stat-icon">
+                                        <b-icon icon="graph-up"></b-icon>
+                                    </span>
+                                    <div class="report-stat-content">
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(inventoryValuationSummary.expectedProfit || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">
+                                            {{ $t('expectedProfit') || 'الربح المتوقع' }}
+                                        </div>
+                                        <p class="report-stat-detail">
+                                            {{ $t('expectedMargin') || 'الهامش المتوقع' }}:
+                                            {{ inventoryValuationSummary.expectedMargin || 0 }}%
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="inventoryValuationItems.length > 0" class="report-table-container">
+                                <table class="report-table">
+                                    <thead>
+                                        <tr>
+                                            <th>{{ $t('itemName') || 'اسم المنتج' }}</th>
+                                            <th>{{ $t('itemCode') || 'الكود' }}</th>
+                                            <th>{{ $t('quantity') || 'الكمية' }}</th>
+                                            <th>{{ $t('purchasingPricePlaceholder') || 'سعر الشراء' }}</th>
+                                            <th>{{ $t('sellingPricePlaceholder') || 'سعر البيع' }}</th>
+                                            <th>{{ $t('totalPurchaseValue') || 'قيمة الشراء' }}</th>
+                                            <th>{{ $t('totalSellValue') || 'قيمة البيع' }}</th>
+                                            <th>{{ $t('expectedProfit') || 'الربح المتوقع' }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="item in inventoryValuationItems" :key="item.itemId">
+                                            <td class="report-item-name">{{ item.itemName }}</td>
+                                            <td class="report-item-code">{{ item.itemCode || '—' }}</td>
+                                            <td class="report-item-quantity">{{ item.quantity ?? 0 }}</td>
+                                            <td class="report-amount-value">{{ formatPrice(item.purchasingPrice || 0) }}</td>
+                                            <td class="report-amount-value">{{ formatPrice(item.sellingPrice || 0) }}</td>
+                                            <td class="report-amount-value">{{ formatPrice(item.costValue || 0) }}</td>
+                                            <td class="report-amount-value">{{ formatPrice(item.sellValue || 0) }}</td>
+                                            <td class="report-amount-value">{{ formatPrice(item.expectedProfit || 0) }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div v-else-if="!show" class="empty-state">
+                                <b-icon icon="inbox" class="empty-icon"></b-icon>
+                                <p>{{ $t('inventoryValuationEmpty') || 'لا توجد مواد مطابقة للفلتر' }}</p>
+                            </div>
+                        </div>
                     </div>
                       </div>
                     </div>
@@ -1409,6 +1596,7 @@ import VueBarcode from "@chenfengyuan/vue-barcode";
 import { HTTP } from '../http/api.js';
 import { resolveAbsoluteAssetUrl } from "@/utils/apiBase.js";
 import { formatBusinessDateTime } from '@/utils/formatBusinessDateTime.js';
+import { formatMoney } from '@/utils/formatMoney.js';
 import { mergeCartLinesForOrderPayload } from '@/utils/mergeCartLines.js';
 import posPrintMixin from '@/mixins/posPrintMixin.js';
 export default {
@@ -1504,6 +1692,20 @@ export default {
             expiringItems: [],
             expiryDaysWithin: 30,
             expiryFilterTimer: null,
+            inventoryValuationItems: [],
+            inventoryValuationSummary: {
+                itemCount: 0,
+                totalItems: 0,
+                totalQuantity: 0,
+                totalCostValue: 0,
+                totalSellValue: 0,
+                expectedProfit: 0,
+                expectedMargin: 0,
+            },
+            inventoryValueFilters: {
+                tag: "",
+                info: "",
+            },
             exportingExcel: false,
             editOrderData: null,
             editOrderForm: {
@@ -1590,6 +1792,13 @@ export default {
             if (this.activeTab === "expiry") {
                 return Number(this.expiryDaysWithin) !== 30 || !!this.reportBrandId;
             }
+            if (this.activeTab === "inventoryValue") {
+                return !!(
+                    this.reportBrandId ||
+                    this.inventoryValueFilters.tag ||
+                    (this.inventoryValueFilters.info || "").trim()
+                );
+            }
             return this.hasAdvancedFilters;
         },
         reportsFiltersHint() {
@@ -1603,6 +1812,9 @@ export default {
                 byWarehouse: this.$t("dateFiltersHint") || "حدد فترة التقرير",
                 lowStock: this.$t("lowStockFiltersHint") || "حد الكمية لعرض المنتجات القليلة أو المنتهية",
                 expiry: this.$t("expiryFiltersHint") || "أدخل عدد الأيام لعرض المنتهية أو القريبة من الانتهاء",
+                inventoryValue:
+                    this.$t("inventoryValuationFiltersHint") ||
+                    "فلترة حسب البراند أو القسم أو اسم المنتج",
             };
             return map[this.activeTab] || (this.$t("filters") || "فلاتر التقرير");
         },
@@ -1613,7 +1825,7 @@ export default {
             return (this.expiringItems || []).filter((i) => i.status === "expiring" || Number(i.daysRemaining) >= 0).length;
         },
         formattedNumber() {
-            return this.totaPrice.toLocaleString()
+            return formatMoney(this.totaPrice);
         },
         reportInvoiceItemCount() {
             return (this.customerOrderItem || []).reduce(
@@ -1886,6 +2098,8 @@ export default {
                 this.loadLowStockItems();
             } else if (this.activeTab === "expiry") {
                 this.loadExpiringItems();
+            } else if (this.activeTab === "inventoryValue") {
+                this.loadInventoryValuationReport();
             } else {
                 this.loadAdvancedReport();
             }
@@ -1938,6 +2152,12 @@ export default {
                 this.expiryDaysWithin = 30;
                 this.reportBrandId = "";
                 this.loadExpiringItems();
+                return;
+            }
+            if (this.activeTab === "inventoryValue") {
+                this.reportBrandId = "";
+                this.inventoryValueFilters = { tag: "", info: "" };
+                this.loadInventoryValuationReport();
                 return;
             }
             this.clearAdvancedFilters();
@@ -2080,10 +2300,7 @@ export default {
             return formatBusinessDateTime(dateTime);
         },
         formatPrice(price) {
-            if (price) {
-                return price.toLocaleString("en-EG");
-            }
-            return "0";
+            return formatMoney(price);
         },
         loadCommercialUserInfo() {
             HTTP.get("Admin/CommercialUserInfo")
@@ -2472,6 +2689,49 @@ export default {
                 .catch((error) => {
                     this.show = false;
                     console.error('Error loading profit report:', error);
+                });
+        },
+
+        loadInventoryValuationReport() {
+            this.show = true;
+            const params = new URLSearchParams();
+            this.appendBrandIdParam(params, this.reportBrandId);
+            if (this.inventoryValueFilters.tag) {
+                params.append("tag", this.inventoryValueFilters.tag);
+            }
+            if ((this.inventoryValueFilters.info || "").trim()) {
+                params.append("info", this.inventoryValueFilters.info.trim());
+            }
+
+            HTTP.get(`Admin/GetInventoryValuationReport?${params.toString()}`)
+                .then((response) => {
+                    const payload = response.data?.data || response.data?.Data || {};
+                    const summary = payload.summary || {};
+                    this.inventoryValuationItems = payload.items || [];
+                    this.inventoryValuationSummary = {
+                        itemCount: summary.itemCount ?? 0,
+                        totalItems: summary.totalItems ?? 0,
+                        totalQuantity: summary.totalQuantity ?? 0,
+                        totalCostValue: summary.totalCostValue ?? 0,
+                        totalSellValue: summary.totalSellValue ?? 0,
+                        expectedProfit: summary.expectedProfit ?? 0,
+                        expectedMargin: summary.expectedMargin ?? 0,
+                    };
+                    this.show = false;
+                })
+                .catch((error) => {
+                    this.show = false;
+                    this.inventoryValuationItems = [];
+                    this.inventoryValuationSummary = {
+                        itemCount: 0,
+                        totalItems: 0,
+                        totalQuantity: 0,
+                        totalCostValue: 0,
+                        totalSellValue: 0,
+                        expectedProfit: 0,
+                        expectedMargin: 0,
+                    };
+                    console.error("Error loading inventory valuation report:", error);
                 });
         },
 

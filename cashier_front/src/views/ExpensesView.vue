@@ -519,6 +519,7 @@
 <script>
 import AppHeader from '../components/Layout/AppHeader.vue';
 import { HTTP } from '../http/api.js';
+import { formatMoney } from '@/utils/formatMoney.js';
 
 export default {
   name: 'ExpensesView',
@@ -878,15 +879,13 @@ export default {
       return classes[category] || 'category-other';
     },
     formatPrice(price) {
-      if (price) {
-        return price.toLocaleString("en-EG");
-      }
-      return "0";
+      return formatMoney(price);
     },
     formatDate(date) {
       if (!date) return '';
       const d = new Date(date);
       return d.toLocaleDateString('ar-IQ', {
+        numberingSystem: 'latn',
         year: 'numeric',
         month: 'long',
         day: 'numeric'

@@ -62,6 +62,7 @@ namespace POS.Db
         public DbSet<PayrollLine> PayrollLines { get; set; }
         public DbSet<StockMovement> StockMovements { get; set; }
         public DbSet<CatalogStockReturn> CatalogStockReturns { get; set; }
+        public DbSet<ItemStockEntry> ItemStockEntries { get; set; }
         public DbSet<Supplier> Suppliers { get; set; }
         public DbSet<Customer> Customers { get; set; }
         public DbSet<PaymentDevice> PaymentDevices { get; set; }
@@ -132,6 +133,25 @@ namespace POS.Db
             modelBuilder.Entity<CatalogStockReturn>().HasIndex(r => r.CustomerOrderId);
             modelBuilder.Entity<CatalogStockReturn>().HasIndex(r => r.ItemId);
             modelBuilder.Entity<CatalogStockReturn>().HasIndex(r => r.ReturnType);
+
+            modelBuilder.Entity<ItemStockEntry>()
+                .HasOne(e => e.Item)
+                .WithMany()
+                .HasForeignKey(e => e.ItemId)
+                .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<ItemStockEntry>()
+                .HasOne(e => e.Warehouse)
+                .WithMany()
+                .HasForeignKey(e => e.WarehouseId)
+                .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<ItemStockEntry>()
+                .HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.InsertByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<ItemStockEntry>()
+                .HasIndex(e => new { e.ItemId, e.InsertDate });
+
             modelBuilder.Entity<Supplier>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<Customer>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<CustomerOrder>().HasOne(r => r.CreditCustomer).WithMany().HasForeignKey(x => x.CreditCustomerId).OnDelete(DeleteBehavior.SetNull);
@@ -185,6 +205,10 @@ namespace POS.Db
 
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.LoginCode)
+                .IsUnique();
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Domain)
                 .IsUnique();
 
             modelBuilder.Entity<User>()

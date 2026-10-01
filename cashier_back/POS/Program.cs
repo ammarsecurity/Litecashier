@@ -199,6 +199,7 @@ if (Directory.Exists(spaRoot))
 app.UseAuthentication();
 app.UseCors("CorsPolicy");
 app.UseAuthorization();
+app.UseMiddleware<POS.Middleware.CommercialDomainMiddleware>();
 app.MapControllers();
 app.MapHub<OrderHub>("/orderHub");
 

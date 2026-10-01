@@ -1,12 +1,13 @@
 /**
  * Resolve API base URL for axios / SignalR.
- * Installer builds use "/" (same origin) so LAN clients work via http://SERVER_IP:5189
+ * Prefer same-origin in browser so custom Commercial domains hit the correct host.
+ * Installer builds can set VUE_APP_API_URL="/" explicitly.
  */
 export function resolveApiBaseUrl() {
   const raw = process.env.VUE_APP_API_URL;
   if (raw != null && String(raw).trim() !== "") {
     const trimmed = String(raw).trim();
-    // Same-origin relative base (installer / LAN)
+    // Same-origin relative base (installer / LAN / cloud SPA behind nginx)
     if (trimmed === "/" || trimmed === "./") {
       if (typeof window !== "undefined" && window.location?.origin) {
         return `${window.location.origin}/`;
@@ -20,9 +21,7 @@ export function resolveApiBaseUrl() {
     return `${window.location.origin}/`;
   }
 
-  return process.env.NODE_ENV === "production"
-    ? "https://pos-api.tanfeeth-iq.tech/"
-    : "https://pos-api.tanfeeth-iq.tech/";
+  return "https://litecashier.smartstick-iq.com/";
 }
 
 /** Print Server on the same host as the POS page (LAN-safe). */

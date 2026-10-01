@@ -123,7 +123,8 @@ public class WarehouseStockService : IWarehouseStockService
         int commercialUserId,
         IReadOnlyList<WarehouseStockInputDto>? stocks,
         int? fallbackTotalQuantity,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool preserveQuantities = false)
     {
         var defaultWh = await EnsureDefaultWarehouseAsync(commercialUserId, ct);
         var warehouseIds = await _db.Warehouses
@@ -146,7 +147,7 @@ public class WarehouseStockService : IWarehouseStockService
             })
             .ToList();
 
-        if (inputs.Count == 0)
+        if (inputs.Count == 0 && !preserveQuantities)
         {
             inputs.Add(new WarehouseStockInputDto
             {
@@ -169,25 +170,37 @@ public class WarehouseStockService : IWarehouseStockService
                 {
                     ItemId = itemId,
                     WarehouseId = input.WarehouseId,
-                    Quantity = input.Quantity,
+                    Quantity = preserveQuantities ? 0 : input.Quantity,
                     LowStockAlertQuantity = input.LowStockAlertQuantity
                 });
             }
             else
             {
-                row.Quantity = input.Quantity;
+                if (!preserveQuantities)
+                    row.Quantity = input.Quantity;
                 row.LowStockAlertQuantity = input.LowStockAlertQuantity;
             }
         }
 
-        foreach (var row in existing.Where(e => !inputs.Any(i => i.WarehouseId == e.WarehouseId)))
+        if (!preserveQuantities)
         {
-            row.Quantity = 0;
-            row.LowStockAlertQuantity = null;
+            foreach (var row in existing.Where(e => !inputs.Any(i => i.WarehouseId == e.WarehouseId)))
+            {
+                row.Quantity = 0;
+                row.LowStockAlertQuantity = null;
+            }
+        }
+        else
+        {
+            foreach (var row in existing.Where(e => !inputs.Any(i => i.WarehouseId == e.WarehouseId)))
+            {
+                row.LowStockAlertQuantity = null;
+            }
         }
 
         await _db.SaveChangesAsync(ct);
-        await RecalculateItemTotalAsync(itemId, ct);
+        if (!preserveQuantities)
+            await RecalculateItemTotalAsync(itemId, ct);
 
         // Keep item-level alert as the lowest enabled warehouse threshold (legacy / list badges).
         var item = await _db.Items.FirstOrDefaultAsync(i => i.Id == itemId && !i.IsDeleted, ct);
@@ -197,8 +210,12 @@ public class WarehouseStockService : IWarehouseStockService
                 .Where(i => i.LowStockAlertQuantity.HasValue)
                 .Select(i => i.LowStockAlertQuantity!.Value)
                 .ToList();
-            item.LowStockAlertQuantity = enabled.Count > 0 ? enabled.Min() : null;
-            await _db.SaveChangesAsync(ct);
+            // When preserving quantities and no alert inputs were sent, keep existing item alert.
+            if (inputs.Count > 0 || !preserveQuantities)
+            {
+                item.LowStockAlertQuantity = enabled.Count > 0 ? enabled.Min() : null;
+                await _db.SaveChangesAsync(ct);
+            }
         }
     }
 

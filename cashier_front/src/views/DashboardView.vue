@@ -529,6 +529,7 @@ import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "../http/api.js";
 import StatCard from "@/components/StatCard.vue";
 import { formatBusinessDateTime } from "@/utils/formatBusinessDateTime.js";
+import { formatMoney } from "@/utils/formatMoney.js";
 import { publicMenuUrl, resolveCommercialUserId } from "@/utils/publicMenu.js";
 
 export default {
@@ -714,10 +715,7 @@ export default {
       return formatBusinessDateTime(dateString);
     },
     formatPrice(price) {
-      if (price !== null && price !== undefined && !isNaN(price)) {
-        return parseFloat(price).toLocaleString("en-EG");
-      }
-      return "0";
+      return formatMoney(price);
     },
     getPaymentMethodText(method) {
       const methods = {

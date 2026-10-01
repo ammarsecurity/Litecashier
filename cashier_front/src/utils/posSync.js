@@ -542,6 +542,12 @@ async function runFlush() {
       };
       await idbPut(POS_IDB_STORES.pendingOrders, next);
       try {
+        const stillQueued = await idbGet(
+          POS_IDB_STORES.pendingOrders,
+          next.clientOrderId
+        );
+        if (!stillQueued) continue;
+
         const response = await HTTP.post("Admin/AddOrder", next.payload, {
           timeout: ORDER_TIMEOUT_MS,
         });
@@ -552,18 +558,30 @@ async function runFlush() {
         }
         markPosSaleAccepted();
         await deductCatalogForFlushedOrder(next);
-        await idbDelete(POS_IDB_STORES.pendingOrders, next.clientOrderId);
+        const afterOk = await idbGet(
+          POS_IDB_STORES.pendingOrders,
+          next.clientOrderId
+        );
+        if (afterOk) {
+          await idbDelete(POS_IDB_STORES.pendingOrders, next.clientOrderId);
+        }
         lastError = null;
       } catch (err) {
         const statusCode = err && err.response && err.response.status;
         const message = orderApiMessage(err);
         const inventory = String(message).indexOf("insufficientInventory") === 0;
         const retryable = !inventory && isRetryableOrderError(err);
-        await idbPut(POS_IDB_STORES.pendingOrders, {
-          ...next,
-          status: retryable ? "pending" : "failed",
-          lastError: message,
-        });
+        const stillThere = await idbGet(
+          POS_IDB_STORES.pendingOrders,
+          next.clientOrderId
+        );
+        if (stillThere) {
+          await idbPut(POS_IDB_STORES.pendingOrders, {
+            ...next,
+            status: retryable ? "pending" : "failed",
+            lastError: message,
+          });
+        }
         lastError = message;
         if (statusCode === 401 || statusCode === 403) {
           break;
@@ -597,6 +615,207 @@ export async function retryFailedOrders() {
   await refreshQueueCounts(cid);
   notify();
   await flushPendingOrders();
+}
+
+function matchesQueueFilter(row, filter) {
+  const status = String(row?.status || "");
+  if (filter === "all") return true;
+  if (filter === "failed") return status === "failed";
+  // pending = waiting to sync (pending + syncing)
+  return status === "pending" || status === "syncing";
+}
+
+async function enrichQueuedOrder(row) {
+  const payload = row?.payload || {};
+  const lines = Array.isArray(payload.customerOrderItem)
+    ? payload.customerOrderItem
+    : [];
+  const cid = Number(row.commercialUserId);
+  const wid = Number(row.warehouseId || payload.warehouseId) || null;
+  const isWholesale = !!payload.isWholesale;
+  const enrichedLines = [];
+  let shortcutsCache = null;
+
+  async function resolveItem(itemId) {
+    if (!cid || !itemId) return null;
+    if (wid) {
+      try {
+        const fromCatalog = await idbGet(
+          POS_IDB_STORES.items,
+          itemCacheKey(cid, wid, itemId)
+        );
+        if (fromCatalog) return fromCatalog;
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    if (!shortcutsCache) {
+      try {
+        shortcutsCache = await idbGetAllByIndex(
+          POS_IDB_STORES.shortcuts,
+          "commercialUserId",
+          cid
+        );
+      } catch (_) {
+        shortcutsCache = [];
+      }
+    }
+    return shortcutsCache.find((s) => Number(s.id) === itemId) || null;
+  }
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] || {};
+    const itemId = Number(line.itemId) || 0;
+    const qty = Math.max(0, Number(line.quantity) || 0);
+    const item = await resolveItem(itemId);
+    const unitPrice = item
+      ? isWholesale
+        ? Number(item.wholesalePrice) > 0
+          ? Number(item.wholesalePrice)
+          : Number(item.sellingPrice) || 0
+        : Number(item.disCountPrice) > 0 &&
+          Number(item.disCountPrice) < Number(item.sellingPrice)
+        ? Number(item.disCountPrice)
+        : Number(item.sellingPrice) || 0
+      : 0;
+    enrichedLines.push({
+      itemId,
+      quantity: qty,
+      notes: line.notes || null,
+      name: item?.name || `#${itemId || "—"}`,
+      code: item?.code || "",
+      unitPrice,
+      lineTotal: unitPrice * qty,
+      fromCache: !!item,
+    });
+  }
+
+  const cachedSubtotal = enrichedLines.reduce((sum, l) => sum + l.lineTotal, 0);
+  const payloadSubtotal = Number(payload.orderSubTotal);
+  const payloadTotal = Number(payload.orderTotalAfterDiscount);
+  const discountAmount = Number(payload.discountAmount) || 0;
+
+  return {
+    clientOrderId: row.clientOrderId,
+    commercialUserId: cid,
+    warehouseId: wid,
+    status: row.status || "pending",
+    attempts: Number(row.attempts) || 0,
+    lastError: row.lastError || null,
+    createdAt: row.createdAt || null,
+    soldAt: row.soldAt || payload.soldAt || null,
+    orderCode: payload.orderCode || "—",
+    paymentMethod: payload.paymentMethod || "Cash",
+    isWholesale,
+    notes: payload.notes || "",
+    discountAmount,
+    discountType: payload.discountType || null,
+    discountValue: payload.discountValue ?? null,
+    orderSubTotal: Number.isFinite(payloadSubtotal)
+      ? payloadSubtotal
+      : cachedSubtotal,
+    orderTotal: Number.isFinite(payloadTotal)
+      ? payloadTotal
+      : Math.max(0, cachedSubtotal - discountAmount),
+    lineCount: enrichedLines.length,
+    itemQty: enrichedLines.reduce((sum, l) => sum + l.quantity, 0),
+    lines: enrichedLines,
+  };
+}
+
+/**
+ * List offline/queued invoices awaiting sync.
+ * @param {{ filter?: 'pending'|'failed'|'all' }} [options]
+ */
+export async function listQueuedOrders({ filter = "all" } = {}) {
+  const cid = Number(resolveCommercialUserId());
+  if (!cid) return [];
+  const rows = await idbGetAllByIndex(
+    POS_IDB_STORES.pendingOrders,
+    "commercialUserId",
+    cid
+  );
+  const filtered = rows
+    .filter((row) => matchesQueueFilter(row, filter))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const out = [];
+  for (let i = 0; i < filtered.length; i += 1) {
+    out.push(await enrichQueuedOrder(filtered[i]));
+  }
+  return out;
+}
+
+/**
+ * Remove queued invoices (cancel sync). Skips rows currently mid-flight
+ * unless force is true.
+ * @param {string[]|null} clientOrderIds null/empty = all matching filter
+ * @param {{ filter?: string, force?: boolean }} [options]
+ */
+export async function clearQueuedOrders(
+  clientOrderIds = null,
+  { filter = "all", force = false } = {}
+) {
+  const cid = Number(resolveCommercialUserId());
+  if (!cid) return { removed: 0, skipped: 0 };
+  const rows = await idbGetAllByIndex(
+    POS_IDB_STORES.pendingOrders,
+    "commercialUserId",
+    cid
+  );
+  const idSet =
+    Array.isArray(clientOrderIds) && clientOrderIds.length
+      ? new Set(clientOrderIds.map(String))
+      : null;
+  let removed = 0;
+  let skipped = 0;
+  for (const row of rows) {
+    if (idSet && !idSet.has(String(row.clientOrderId))) continue;
+    if (!idSet && !matchesQueueFilter(row, filter)) continue;
+    if (row.status === "syncing" && !force) {
+      skipped += 1;
+      continue;
+    }
+    await idbDelete(POS_IDB_STORES.pendingOrders, row.clientOrderId);
+    removed += 1;
+  }
+  await refreshQueueCounts(cid);
+  notify();
+  return { removed, skipped };
+}
+
+/**
+ * Re-queue selected (or all failed) invoices and flush.
+ * @param {string[]|null} clientOrderIds null = all failed/pending
+ */
+export async function retryQueuedOrders(clientOrderIds = null) {
+  const cid = Number(resolveCommercialUserId());
+  if (!cid) return { updated: 0 };
+  const rows = await idbGetAllByIndex(
+    POS_IDB_STORES.pendingOrders,
+    "commercialUserId",
+    cid
+  );
+  const idSet =
+    Array.isArray(clientOrderIds) && clientOrderIds.length
+      ? new Set(clientOrderIds.map(String))
+      : null;
+  let updated = 0;
+  for (const row of rows) {
+    if (idSet && !idSet.has(String(row.clientOrderId))) continue;
+    if (!idSet && row.status !== "failed" && row.status !== "pending") continue;
+    if (row.status === "syncing") continue;
+    await idbPut(POS_IDB_STORES.pendingOrders, {
+      ...row,
+      status: "pending",
+      attempts: idSet ? Number(row.attempts) || 0 : 0,
+      lastError: null,
+    });
+    updated += 1;
+  }
+  await refreshQueueCounts(cid);
+  notify();
+  await flushPendingOrders();
+  return { updated };
 }
 
 export async function syncPosNow(warehouseId) {

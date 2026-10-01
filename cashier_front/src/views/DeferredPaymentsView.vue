@@ -444,6 +444,7 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "@/http/api.js";
+import { formatMoney as formatMoneyLatn } from "@/utils/formatMoney.js";
 
 export default {
   name: "DeferredPaymentsView",
@@ -545,20 +546,21 @@ export default {
   },
   methods: {
     formatMoney(value) {
-      const n = Number(value || 0);
-      return n.toLocaleString(this.$i18n?.locale === "en" ? "en" : "ar-IQ");
+      return formatMoneyLatn(value);
     },
     formatDate(value) {
       if (!value) return "—";
       try {
-        return new Date(value).toLocaleString(this.$i18n?.locale === "en" ? "en" : "ar-IQ", {
+        const locale = this.$i18n?.locale === "en" ? "en-GB" : "ar-IQ";
+        return new Intl.DateTimeFormat(locale, {
+          numberingSystem: "latn",
           year: "numeric",
           month: "short",
           day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
-        });
-      } catch (e) {
+        }).format(new Date(value));
+      } catch (_) {
         return String(value);
       }
     },

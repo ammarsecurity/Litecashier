@@ -1357,6 +1357,10 @@ namespace POS.Migrations
                     b.Property<string>("DefaultProductImage")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("Domain")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
                     b.Property<string>("FooterCreditPhone")
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
@@ -1423,6 +1427,9 @@ namespace POS.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DefaultPrinterId");
+
+                    b.HasIndex("Domain")
+                        .IsUnique();
 
                     b.HasIndex("LoginCode")
                         .IsUnique();

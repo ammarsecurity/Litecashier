@@ -25,6 +25,8 @@ namespace POS.Models.Requests
         public required string Role { get; set; }
         public IFormFile? Logo { get; set; }
         public string? StoreName { get; set; }
+        /// <summary>Optional host/subdomain for Commercial accounts (Admin only).</summary>
+        public string? Domain { get; set; }
         public string? LoginCode { get; set; }
         public string? AllowedSectionsJson { get; set; }
         public bool? CanUseOwnLoginCodeForSensitiveActions { get; set; }

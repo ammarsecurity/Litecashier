@@ -18,6 +18,13 @@ namespace POS.Models
         public string? Logo { get; set; }
         public string? StoreName { get; set; }
 
+        /// <summary>
+        /// Optional custom host/subdomain for this Commercial. When set, login and API
+        /// access for the Commercial and its staff are restricted to this host.
+        /// </summary>
+        [StringLength(255)]
+        public string? Domain { get; set; }
+
         [StringLength(20)]
         public string? LoginCode { get; set; }
 

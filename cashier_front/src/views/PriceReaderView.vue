@@ -8,7 +8,7 @@
         <div class="pr-scan-ring" aria-hidden="true">
           <div class="pr-scan-ring__pulse"></div>
           <div class="pr-scan-ring__core">
-            <b-icon icon="upc-scan" class="pr-scan-ring__icon"></b-icon>
+            <b-icon icon="tags-fill" class="pr-scan-ring__icon"></b-icon>
           </div>
           <div class="pr-scan-beam"></div>
         </div>
@@ -138,8 +138,8 @@ import {
   onProductImageError,
 } from "@/utils/productImage.js";
 
-const SUCCESS_HOLD_MS = 6500;
-const ERROR_HOLD_MS = 4000;
+const SUCCESS_HOLD_MS = 4000;
+const ERROR_HOLD_MS = 3000;
 const DEBOUNCE_MS = 180;
 
 export default {
@@ -166,7 +166,9 @@ export default {
       resetDurationMs: SUCCESS_HOLD_MS,
       resetProgress: 100,
       resetSecondsLeft: 0,
+      resetToken: 0,
       searchAbortController: null,
+      searchRequestId: 0,
       isSearching: false,
     };
   },
@@ -187,6 +189,7 @@ export default {
     document.body.classList.remove("price-reader-active");
     this.clearTypingTimer();
     this.clearResetTimers();
+    this.resetToken += 1;
     if (this.searchAbortController) this.searchAbortController.abort();
     document.removeEventListener("click", this.focusScanner);
     window.removeEventListener("focus", this.focusScanner);
@@ -227,8 +230,10 @@ export default {
     },
     goIdle() {
       this.clearResetTimers();
+      this.resetToken += 1;
       this.phase = "idle";
       this.searchCode = "";
+      this.lastScannedCode = "";
       this.resetProgress = 100;
       this.resetSecondsLeft = 0;
       this.isSearching = false;
@@ -236,19 +241,25 @@ export default {
     },
     scheduleAutoReset(durationMs) {
       this.clearResetTimers();
+      const token = ++this.resetToken;
       this.resetDurationMs = durationMs;
       this.resetStartedAt = Date.now();
       this.resetProgress = 100;
       this.resetSecondsLeft = Math.ceil(durationMs / 1000);
 
       this.resetTickTimer = setInterval(() => {
+        if (token !== this.resetToken) return;
         const elapsed = Date.now() - this.resetStartedAt;
         const left = Math.max(0, durationMs - elapsed);
         this.resetProgress = (left / durationMs) * 100;
         this.resetSecondsLeft = Math.ceil(left / 1000);
+        if (left <= 0) {
+          this.goIdle();
+        }
       }, 50);
 
       this.resetTimer = setTimeout(() => {
+        if (token !== this.resetToken) return;
         this.goIdle();
       }, durationMs);
     },
@@ -263,7 +274,11 @@ export default {
       const code = String(this.searchCode || "").trim();
       if (!code) return;
 
-      // While showing a result, a new scan should interrupt immediately after debounce
+      // While showing a result, wait for Enter (full scan) so the auto-return timer is not cancelled
+      if (this.phase === "found" || this.phase === "missing") {
+        return;
+      }
+
       this.typingTimer = setTimeout(() => {
         if (String(this.searchCode || "").trim().length >= 3) {
           this.SearchByCode(String(this.searchCode || "").trim());
@@ -275,11 +290,14 @@ export default {
       if (!query) return;
       if (this.isSearching) return;
 
+      this.clearTypingTimer();
       this.clearResetTimers();
+      this.resetToken += 1;
       if (this.searchAbortController) {
         this.searchAbortController.abort();
       }
 
+      const requestId = ++this.searchRequestId;
       this.searchAbortController = new AbortController();
       this.isSearching = true;
       this.phase = "searching";
@@ -289,6 +307,7 @@ export default {
         signal: this.searchAbortController.signal,
       })
         .then((response) => {
+          if (requestId !== this.searchRequestId) return;
           this.isSearching = false;
           const item = response?.data?.data || response?.data?.Data;
           if (item && (item.sellingPrice != null || item.SellingPrice != null)) {
@@ -318,8 +337,9 @@ export default {
           }
         })
         .catch((error) => {
+          if (requestId !== this.searchRequestId) return;
           this.isSearching = false;
-          if (error?.name === "AbortError" || error?.name === "CanceledError") {
+          if (error?.name === "AbortError" || error?.name === "CanceledError" || error?.code === "ERR_CANCELED") {
             return;
           }
           this.phase = "missing";
@@ -727,28 +747,136 @@ body.price-reader-active {
   overflow: hidden;
 }
 
-/* Light theme readability */
+/* ——— Light theme: brand blue, high contrast ——— */
 :root.light-theme .pr-kiosk,
 .light-theme .pr-kiosk {
   background:
-    radial-gradient(1000px 520px at 85% -10%, rgba(15, 110, 110, 0.12), transparent 55%),
-    radial-gradient(800px 420px at 0% 100%, rgba(15, 110, 110, 0.08), transparent 50%),
-    #f3f6f8;
+    radial-gradient(1100px 560px at 88% -8%, rgba(0, 86, 243, 0.1), transparent 58%),
+    radial-gradient(820px 440px at -5% 105%, rgba(2, 38, 91, 0.06), transparent 52%),
+    var(--bg-secondary, #f4f7fc);
+  color: var(--text-primary, #0f172a);
 }
 
 :root.light-theme .pr-headline,
 .light-theme .pr-headline,
 :root.light-theme .pr-result-name,
-.light-theme .pr-result-name,
-:root.light-theme .pr-price-main,
-.light-theme .pr-price-main {
-  color: #0f172a;
+.light-theme .pr-result-name {
+  color: var(--primary-dark, #02265b);
+}
+
+:root.light-theme .pr-subline,
+.light-theme .pr-subline,
+:root.light-theme .pr-result-code,
+.light-theme .pr-result-code,
+:root.light-theme .pr-auto-reset,
+.light-theme .pr-auto-reset {
+  color: var(--text-muted, rgba(15, 23, 42, 0.6));
+}
+
+:root.light-theme .pr-scan-ring__pulse,
+.light-theme .pr-scan-ring__pulse {
+  border-color: rgba(0, 86, 243, 0.28);
+}
+
+:root.light-theme .pr-scan-ring__core,
+.light-theme .pr-scan-ring__core {
+  background: linear-gradient(160deg, rgba(0, 86, 243, 0.14), rgba(0, 86, 243, 0.04));
+  border-color: rgba(0, 86, 243, 0.28);
+  box-shadow: 0 16px 40px rgba(0, 86, 243, 0.12);
+}
+
+:root.light-theme .pr-scan-ring__icon,
+.light-theme .pr-scan-ring__icon {
+  color: var(--primary-color, #0056f3);
+}
+
+:root.light-theme .pr-scan-beam,
+.light-theme .pr-scan-beam {
+  background: linear-gradient(90deg, transparent, var(--primary-light, #3d7fff), transparent);
+  box-shadow: 0 0 14px rgba(0, 86, 243, 0.35);
+}
+
+:root.light-theme .pr-idle-badge,
+.light-theme .pr-idle-badge {
+  color: #ffffff;
+  background: var(--primary-color, #0056f3);
+  border-color: transparent;
+  box-shadow: 0 8px 20px rgba(0, 86, 243, 0.22);
+}
+
+:root.light-theme .pr-loader span,
+.light-theme .pr-loader span {
+  background: var(--primary-color, #0056f3);
+}
+
+:root.light-theme .pr-code-chip,
+.light-theme .pr-code-chip {
+  color: var(--primary-dark, #02265b);
+  background: #ffffff;
+  border-color: rgba(2, 38, 91, 0.14);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
 :root.light-theme .pr-result-card,
 .light-theme .pr-result-card {
-  background: linear-gradient(155deg, #ffffff 0%, #f0fdfa 100%);
-  border-color: rgba(15, 110, 110, 0.22);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  background: linear-gradient(160deg, #ffffff 0%, #f0f5ff 100%);
+  border-color: rgba(0, 86, 243, 0.18);
+  box-shadow: 0 18px 44px rgba(2, 38, 91, 0.08);
+}
+
+:root.light-theme .pr-result-media,
+.light-theme .pr-result-media {
+  background: #f8fafc;
+  border-color: rgba(2, 38, 91, 0.12);
+}
+
+:root.light-theme .pr-result-label,
+.light-theme .pr-result-label {
+  color: var(--primary-color, #0056f3);
+}
+
+:root.light-theme .pr-price-main,
+.light-theme .pr-price-main {
+  color: var(--primary-dark, #02265b);
+}
+
+:root.light-theme .pr-price-main--sale,
+.light-theme .pr-price-main--sale {
+  color: var(--primary-color, #0056f3);
+}
+
+:root.light-theme .pr-price-main small,
+.light-theme .pr-price-main small,
+:root.light-theme .pr-price-old,
+.light-theme .pr-price-old {
+  color: var(--text-muted, rgba(15, 23, 42, 0.55));
+}
+
+:root.light-theme .pr-price-tag,
+.light-theme .pr-price-tag {
+  color: #ffffff;
+  background: var(--primary-color, #0056f3);
+}
+
+:root.light-theme .pr-missing-icon,
+.light-theme .pr-missing-icon {
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(217, 119, 6, 0.28);
+}
+
+:root.light-theme .pr-auto-reset__track,
+.light-theme .pr-auto-reset__track {
+  background: rgba(2, 38, 91, 0.1);
+}
+
+:root.light-theme .pr-auto-reset__fill,
+.light-theme .pr-auto-reset__fill {
+  background: linear-gradient(90deg, var(--primary-dark, #02265b), var(--primary-color, #0056f3));
+}
+
+:root.light-theme .pr-auto-reset--warn .pr-auto-reset__fill,
+.light-theme .pr-auto-reset--warn .pr-auto-reset__fill {
+  background: linear-gradient(90deg, #b45309, #f59e0b);
 }
 </style>

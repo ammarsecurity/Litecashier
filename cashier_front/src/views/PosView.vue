@@ -82,7 +82,7 @@
             :class="'pos-sync-chip--' + posSyncChipKind"
             :title="posSyncChipTitle"
             :aria-label="posSyncChipTitle"
-            @click="retryPosSync"
+            @click="openPosSyncQueueModal"
           >
             <span class="pos-sync-chip-dot" aria-hidden="true"></span>
             <span class="pos-sync-chip-label">{{ posSyncChipLabel }}</span>
@@ -1169,6 +1169,12 @@
               @close="onCardPaymentWaitClose"
             />
 
+            <PosSyncQueueModal
+              :visible.sync="showPosSyncQueueModal"
+              @synced="onPosSyncQueueChanged"
+              @cleared="onPosSyncQueueChanged"
+            />
+
             <b-modal
               id="modal-print-only-confirm"
               hide-header
@@ -1582,6 +1588,7 @@ import posCardPaymentMixin from "@/mixins/posCardPaymentMixin.js";
 import posPrintMixin from "@/mixins/posPrintMixin.js";
 import posBarcodeScanMixin from "@/mixins/posBarcodeScanMixin.js";
 import CardPaymentWaitModal from "@/components/CardPaymentWaitModal.vue";
+import PosSyncQueueModal from "@/components/PosSyncQueueModal.vue";
 import {
   findCartLineIndex,
   getCartLineUnitPrice,
@@ -1615,9 +1622,9 @@ import {
   tabHasItems,
 } from "@/utils/posInvoiceTabs.js";
 import { resolveCommercialUserId } from "@/utils/publicMenu.js";
+import { formatMoney } from "@/utils/formatMoney.js";
 import { queryPosItems, hasPosCatalog, getItemAvailableQty } from "@/utils/posCatalogQuery.js";
-import {
-  cacheCommercialInfo,
+import {  cacheCommercialInfo,
   cacheCustomers,
   cachePrinters,
   loadCachedCommercialInfo,
@@ -1647,12 +1654,14 @@ export default {
     "vue-barcode": VueBarcode,
     CalculatorComp,
     CardPaymentWaitModal,
+    PosSyncQueueModal,
   },
   data() {
     return {
       showbarCode: false,
       showShortcutsModal: false,
       showCatalogModal: false,
+      showPosSyncQueueModal: false,
       catalogLoading: false,
       posLayout: getStoredPosLayout(),
       mobilePane: "products",
@@ -1800,7 +1809,7 @@ export default {
       return Math.max(this.totaPrice - this.orderDiscountAmount, 0);
     },
     formattedNumber() {
-      return this.finalOrderTotal.toLocaleString();
+      return formatMoney(this.finalOrderTotal);
     },
     changeDueAmount() {
       const paid = Number(this.customerPaidAmount) || 0;
@@ -2196,6 +2205,12 @@ export default {
         await retryFailedOrders();
       }
       await this.syncPosBackground();
+    },
+    openPosSyncQueueModal() {
+      this.showPosSyncQueueModal = true;
+    },
+    onPosSyncQueueChanged() {
+      // counts refresh via subscribePosSync; optional catalog refresh after clear
     },
     loadCommercialUserInfo() {
       loadCachedCommercialInfo().then((cached) => {
@@ -2748,9 +2763,7 @@ export default {
       }
     },
     formatPrice(price) {
-      const n = Number(price);
-      if (!Number.isFinite(n)) return "0";
-      return n.toLocaleString("en-EG");
+      return formatMoney(price);
     },
     displayCatalogUnitPrice(item) {
       if (this.isWholesale) {

@@ -177,6 +177,30 @@ namespace POS.Controllers
         private static bool IsManagerRole(string? role) =>
             string.Equals(role, SectionDefinitions.ManagerRole, StringComparison.OrdinalIgnoreCase);
 
+        private async Task<(bool Ok, string? ErrorMessage, string? Domain)> ResolveCommercialDomainAsync(
+            string? rawDomain,
+            int? excludeUserId)
+        {
+            if (string.IsNullOrWhiteSpace(rawDomain))
+                return (true, null, null);
+
+            var normalized = TenantHostHelper.NormalizeDomain(rawDomain);
+            if (normalized == null)
+                return (false, "invalidDomain", null);
+
+            var duplicateQuery = _dbConfig.Users.Where(u =>
+                !u.IsDeleted
+                && u.Role == "Commercial"
+                && u.Domain == normalized);
+            if (excludeUserId.HasValue)
+                duplicateQuery = duplicateQuery.Where(u => u.Id != excludeUserId.Value);
+
+            if (await duplicateQuery.AnyAsync())
+                return (false, "domainAlreadyUsed", null);
+
+            return (true, null, normalized);
+        }
+
         private async Task<(bool Ok, string? ErrorMessage)> ApplyManagerSensitiveLoginCodeSettingsAsync(
             User user,
             string role,
@@ -642,6 +666,27 @@ namespace POS.Controllers
                         newUse.FooterCreditPhone = string.IsNullOrWhiteSpace(request.FooterCreditPhone) ? null : request.FooterCreditPhone.Trim();
                 }
 
+                if (request.Role == "Commercial" && currentUser?.Role == "Admin")
+                {
+                    var (domainOk, domainError, domainValue) = await ResolveCommercialDomainAsync(
+                        request.Domain,
+                        excludeUserId: null);
+                    if (!domainOk)
+                    {
+                        return BadRequest(new GlobalResponse<User>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = domainError ?? "domainAlreadyUsed"
+                        });
+                    }
+                    newUse.Domain = domainValue;
+                }
+                else
+                {
+                    newUse.Domain = null;
+                }
+
                 if (request.Role == "Commercial" && currentUser?.Role == "Admin" && !string.IsNullOrWhiteSpace(request.LoginCode))
                 {
                     var lc = NormalizeLoginCode(request.LoginCode);
@@ -761,6 +806,7 @@ namespace POS.Controllers
                     user.Username,
                     user.Role,
                     user.StoreName,
+                    user.Domain,
                     user.Logo,
                     user.LoginCode
                 };
@@ -769,6 +815,9 @@ namespace POS.Controllers
                 user.PhoneNumber = request.PhoneNumber;
                 user.Username = request.Username;
                 user.Role = request.Role;
+
+                if (user.Role != "Commercial")
+                    user.Domain = null;
 
                 var (sectionsOk, sectionsError, sectionsJson) =
                     SectionPermissionService.ResolveManagerSectionsForSave(request.Role, request.AllowedSectionsJson);
@@ -830,6 +879,20 @@ namespace POS.Controllers
                     if (request.FooterCreditPhone != null)
                         user.FooterCreditPhone = string.IsNullOrWhiteSpace(request.FooterCreditPhone) ? null : request.FooterCreditPhone.Trim();
 
+                    var (domainOk, domainError, domainValue) = await ResolveCommercialDomainAsync(
+                        request.Domain,
+                        excludeUserId: id);
+                    if (!domainOk)
+                    {
+                        return BadRequest(new GlobalResponse<User>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = domainError ?? "domainAlreadyUsed"
+                        });
+                    }
+                    user.Domain = domainValue;
+
                     if (string.IsNullOrWhiteSpace(request.LoginCode))
                         user.LoginCode = null;
                     else
@@ -864,6 +927,7 @@ namespace POS.Controllers
                     user.Username,
                     user.Role,
                     user.StoreName,
+                    user.Domain,
                     user.Logo,
                     user.LoginCode
                 };
@@ -1398,6 +1462,7 @@ namespace POS.Controllers
                 request.Quantity);
 
             newItem.WarehouseStocks = await _warehouseStock.GetItemStockBreakdownAsync(newItem.Id, commercialUserId);
+            await CreateOpeningStockEntriesAsync(newItem, commercialUserId, userId);
 
             return Ok(new GlobalResponse<Item>
             {
@@ -1622,11 +1687,9 @@ namespace POS.Controllers
            
 
             item.Tags = request.Tags;
-            item.PurchasingPrice = request.PurchasingPrice;
-            item.DisCountPrice = request.DisCountPrice;
-            item.WholesalePrice = request.WholesalePrice;
+            // Prices and quantities are owned by the stock ledger (AddItemStockEntry).
+            // UpdateItem only keeps identity/metadata and low-stock alerts.
             item.Description = request.Description;
-            item.SellingPrice = request.SellingPrice;
             if (Request.Form.ContainsKey("LowStockAlertQuantity"))
             {
                 var alertRaw = Request.Form["LowStockAlertQuantity"].ToString();
@@ -1634,7 +1697,7 @@ namespace POS.Controllers
                     ? null
                     : int.TryParse(alertRaw, out var alertQty) ? alertQty : null;
             }
-            else
+            else if (string.IsNullOrWhiteSpace(request.WarehouseStocksJson))
             {
                 item.LowStockAlertQuantity = request.LowStockAlertQuantity;
             }
@@ -1727,7 +1790,8 @@ namespace POS.Controllers
                 item.Id,
                 commercialUserId,
                 ParseWarehouseStocksJson(request.WarehouseStocksJson),
-                request.Quantity);
+                request.Quantity,
+                preserveQuantities: true);
 
             item.WarehouseStocks = await _warehouseStock.GetItemStockBreakdownAsync(item.Id, commercialUserId);
 
@@ -1737,6 +1801,603 @@ namespace POS.Controllers
                 ErrorStatus = false,
                 Message = "done"
             });
+        }
+
+        [Authorize(Roles = "Commercial,POS")]
+        [HttpGet("GetItemStockEntries")]
+        public async Task<ActionResult<GlobalResponse<List<ItemStockEntryDto>>>> GetItemStockEntries(int itemId)
+        {
+            var commercialUserId = GetCommercialUserId();
+            var item = await FindAccessibleItemAsync(itemId, commercialUserId);
+            if (item == null)
+            {
+                return BadRequest(new GlobalResponse<List<ItemStockEntryDto>>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "item not exsit"
+                });
+            }
+
+            var rows = await _dbConfig.ItemStockEntries
+                .AsNoTracking()
+                .Include(e => e.Warehouse)
+                .Include(e => e.User)
+                .Where(e => !e.IsDeleted && e.ItemId == itemId)
+                .OrderByDescending(e => e.InsertDate)
+                .ThenByDescending(e => e.Id)
+                .Select(e => new ItemStockEntryDto
+                {
+                    Id = e.Id,
+                    ItemId = e.ItemId,
+                    WarehouseId = e.WarehouseId,
+                    WarehouseName = e.Warehouse != null ? e.Warehouse.Name : null,
+                    MovementType = e.MovementType,
+                    Quantity = e.Quantity,
+                    SellingPrice = e.SellingPrice,
+                    PurchasingPrice = e.PurchasingPrice,
+                    WholesalePrice = e.WholesalePrice,
+                    DisCountPrice = e.DisCountPrice,
+                    BatchPurchasingPrice = e.BatchPurchasingPrice,
+                    Notes = e.Notes,
+                    InsertDate = e.InsertDate,
+                    InsertByUserId = e.InsertByUserId,
+                    InsertByUserName = e.User != null ? e.User.Name : null
+                })
+                .ToListAsync();
+
+            return Ok(new GlobalResponse<List<ItemStockEntryDto>>
+            {
+                Data = rows,
+                ErrorStatus = false,
+                Message = "done"
+            });
+        }
+
+        [Authorize(Roles = "Commercial,POS")]
+        [HttpPost("AddItemStockEntry")]
+        public async Task<ActionResult<GlobalResponse<object>>> AddItemStockEntry([FromBody] ItemStockEntryRequest request)
+        {
+            try
+            {
+                if (request == null || request.Quantity <= 0)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "الكمية يجب أن تكون أكبر من صفر"
+                    });
+                }
+
+                var movementType = (request.MovementType ?? "In").Trim();
+                if (!string.Equals(movementType, "In", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(movementType, "Out", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "invalidMovementType"
+                    });
+                }
+
+                movementType = string.Equals(movementType, "Out", StringComparison.OrdinalIgnoreCase) ? "Out" : "In";
+
+                var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+                var commercialUserId = GetCommercialUserId();
+                var item = await FindAccessibleItemAsync(request.ItemId, commercialUserId);
+                if (item == null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "المنتج غير موجود"
+                    });
+                }
+
+                if (item.IsNonInventory)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "nonInventoryItem"
+                    });
+                }
+
+                var defaultWh = await _warehouseStock.EnsureDefaultWarehouseAsync(commercialUserId);
+                var warehouseId = request.WarehouseId ?? defaultWh.Id;
+                var warehouse = await _warehouseStock.GetActiveWarehouseAsync(commercialUserId, warehouseId);
+                if (warehouse == null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "invalidWarehouse"
+                    });
+                }
+
+                var notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+                var oldTotalQty = Math.Max(0, item.Quantity);
+                var oldPurchaseCost = item.PurchasingPrice;
+
+                decimal appliedSelling = item.SellingPrice;
+                decimal appliedWholesale = item.WholesalePrice;
+                decimal appliedDiscount = item.DisCountPrice;
+                decimal appliedPurchase = item.PurchasingPrice;
+                decimal? batchPurchase = null;
+
+                ItemStockEntry entry;
+                await using (var tx = await _dbConfig.Database.BeginTransactionAsync())
+                {
+                    if (movementType == "In")
+                    {
+                        if (request.SellingPrice.HasValue)
+                            appliedSelling = request.SellingPrice.Value;
+                        if (request.WholesalePrice.HasValue)
+                            appliedWholesale = request.WholesalePrice.Value;
+                        if (request.DisCountPrice.HasValue)
+                            appliedDiscount = request.DisCountPrice.Value;
+
+                        if (request.PurchasingPrice.HasValue)
+                        {
+                            batchPurchase = request.PurchasingPrice.Value;
+                            appliedPurchase = InventoryCostHelper.ComputeWeightedAverageCost(
+                                oldTotalQty,
+                                oldPurchaseCost,
+                                request.Quantity,
+                                batchPurchase.Value);
+                        }
+
+                        item.SellingPrice = appliedSelling;
+                        item.WholesalePrice = appliedWholesale;
+                        item.DisCountPrice = appliedDiscount;
+                        item.PurchasingPrice = appliedPurchase;
+
+                        await _warehouseStock.AddAsync(item.Id, warehouse.Id, request.Quantity);
+
+                        item.UpdateDate = DateTime.UtcNow;
+                        _dbConfig.Items.Update(item);
+                        await _dbConfig.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        var available = await _warehouseStock.GetStockAsync(item.Id, warehouse.Id);
+                        if (request.Quantity > available)
+                        {
+                            return BadRequest(new GlobalResponse<object>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = "insufficientWarehouseStock"
+                            });
+                        }
+
+                        await _warehouseStock.DeductAsync(item.Id, warehouse.Id, request.Quantity);
+                        appliedSelling = item.SellingPrice;
+                        appliedWholesale = item.WholesalePrice;
+                        appliedDiscount = item.DisCountPrice;
+                        appliedPurchase = item.PurchasingPrice;
+                    }
+
+                    entry = new ItemStockEntry
+                    {
+                        ItemId = item.Id,
+                        WarehouseId = warehouse.Id,
+                        MovementType = movementType,
+                        Quantity = request.Quantity,
+                        SellingPrice = appliedSelling,
+                        PurchasingPrice = appliedPurchase,
+                        WholesalePrice = appliedWholesale,
+                        DisCountPrice = appliedDiscount,
+                        BatchPurchasingPrice = batchPurchase,
+                        Notes = notes,
+                        InsertByUserId = userId,
+                        InsertDate = DateTime.UtcNow,
+                        UpdateDate = DateTime.UtcNow,
+                        IsDeleted = false
+                    };
+                    _dbConfig.ItemStockEntries.Add(entry);
+                    await _dbConfig.SaveChangesAsync();
+                    await tx.CommitAsync();
+                }
+
+                var refreshed = await FindAccessibleItemAsync(item.Id, commercialUserId);
+                if (refreshed != null)
+                {
+                    refreshed.WarehouseStocks = await _warehouseStock.GetItemStockBreakdownAsync(item.Id, commercialUserId);
+                }
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new
+                    {
+                        entry = new ItemStockEntryDto
+                        {
+                            Id = entry.Id,
+                            ItemId = entry.ItemId,
+                            WarehouseId = entry.WarehouseId,
+                            WarehouseName = warehouse.Name,
+                            MovementType = entry.MovementType,
+                            Quantity = entry.Quantity,
+                            SellingPrice = entry.SellingPrice,
+                            PurchasingPrice = entry.PurchasingPrice,
+                            WholesalePrice = entry.WholesalePrice,
+                            DisCountPrice = entry.DisCountPrice,
+                            BatchPurchasingPrice = entry.BatchPurchasingPrice,
+                            Notes = entry.Notes,
+                            InsertDate = entry.InsertDate,
+                            InsertByUserId = entry.InsertByUserId
+                        },
+                        item = refreshed
+                    },
+                    ErrorStatus = false,
+                    Message = "done"
+                });
+            }
+            catch (InvalidOperationException ex) when (ex.Message.StartsWith("insufficientInventory", StringComparison.Ordinal))
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "insufficientWarehouseStock"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding item stock entry");
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ: {ex.Message}"
+                });
+            }
+        }
+
+        [Authorize(Roles = "Commercial,POS")]
+        [HttpPut("UpdateItemStockEntry")]
+        public async Task<ActionResult<GlobalResponse<object>>> UpdateItemStockEntry(int id, [FromBody] ItemStockEntryRequest request)
+        {
+            try
+            {
+                if (request == null || request.Quantity <= 0)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "الكمية يجب أن تكون أكبر من صفر"
+                    });
+                }
+
+                var movementType = (request.MovementType ?? "In").Trim();
+                if (!string.Equals(movementType, "In", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(movementType, "Out", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "invalidMovementType"
+                    });
+                }
+
+                movementType = string.Equals(movementType, "Out", StringComparison.OrdinalIgnoreCase) ? "Out" : "In";
+
+                var commercialUserId = GetCommercialUserId();
+
+                var entry = await _dbConfig.ItemStockEntries
+                    .FirstOrDefaultAsync(e => e.Id == id && !e.IsDeleted);
+                if (entry == null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "stockEntryNotFound"
+                    });
+                }
+
+                var item = await FindAccessibleItemAsync(entry.ItemId, commercialUserId);
+                if (item == null || (request.ItemId > 0 && request.ItemId != entry.ItemId))
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "المنتج غير موجود"
+                    });
+                }
+
+                if (item.IsNonInventory)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "nonInventoryItem"
+                    });
+                }
+
+                var defaultWh = await _warehouseStock.EnsureDefaultWarehouseAsync(commercialUserId);
+                var newWarehouseId = request.WarehouseId ?? entry.WarehouseId;
+                if (newWarehouseId <= 0)
+                    newWarehouseId = defaultWh.Id;
+                var newWarehouse = await _warehouseStock.GetActiveWarehouseAsync(commercialUserId, newWarehouseId);
+                if (newWarehouse == null)
+                {
+                    return BadRequest(new GlobalResponse<object>
+                    {
+                        Data = null,
+                        ErrorStatus = true,
+                        Message = "invalidWarehouse"
+                    });
+                }
+
+                var notes = string.IsNullOrWhiteSpace(request.Notes)
+                    ? null
+                    : request.Notes.Trim();
+                if (string.Equals(entry.Notes, "openingBalance", StringComparison.Ordinal)
+                    && (notes == null || string.Equals(notes, "openingBalance", StringComparison.Ordinal)))
+                {
+                    notes = "openingBalance";
+                }
+
+                var previousWasIn = string.Equals(entry.MovementType, "In", StringComparison.OrdinalIgnoreCase);
+                var previousBatch = entry.BatchPurchasingPrice;
+                var stockChanged = entry.WarehouseId != newWarehouse.Id
+                    || entry.Quantity != request.Quantity
+                    || !string.Equals(entry.MovementType, movementType, StringComparison.OrdinalIgnoreCase);
+
+                await using var tx = await _dbConfig.Database.BeginTransactionAsync();
+
+                decimal appliedSelling;
+                decimal appliedWholesale;
+                decimal appliedDiscount;
+                decimal appliedPurchase;
+                decimal? batchPurchase;
+
+                if (!stockChanged)
+                {
+                    // Notes/prices only — do not reverse warehouse qty (safe after sales).
+                    appliedSelling = entry.SellingPrice;
+                    appliedWholesale = entry.WholesalePrice;
+                    appliedDiscount = entry.DisCountPrice;
+                    appliedPurchase = entry.PurchasingPrice;
+                    batchPurchase = previousBatch;
+
+                    if (previousWasIn && movementType == "In")
+                    {
+                        var itemPricesChanged = false;
+
+                        if (request.SellingPrice.HasValue)
+                        {
+                            appliedSelling = request.SellingPrice.Value;
+                            item.SellingPrice = appliedSelling;
+                            itemPricesChanged = true;
+                        }
+                        if (request.WholesalePrice.HasValue)
+                        {
+                            appliedWholesale = request.WholesalePrice.Value;
+                            item.WholesalePrice = appliedWholesale;
+                            itemPricesChanged = true;
+                        }
+                        if (request.DisCountPrice.HasValue)
+                        {
+                            appliedDiscount = request.DisCountPrice.Value;
+                            item.DisCountPrice = appliedDiscount;
+                            itemPricesChanged = true;
+                        }
+
+                        if (request.PurchasingPrice.HasValue)
+                        {
+                            var newBatch = request.PurchasingPrice.Value;
+                            if (previousBatch.HasValue)
+                            {
+                                item.PurchasingPrice = InventoryCostHelper.ReverseWeightedAverageCost(
+                                    Math.Max(0, item.Quantity),
+                                    item.PurchasingPrice,
+                                    entry.Quantity,
+                                    previousBatch.Value);
+                            }
+
+                            var qtyBefore = Math.Max(0, item.Quantity - entry.Quantity);
+                            appliedPurchase = InventoryCostHelper.ComputeWeightedAverageCost(
+                                qtyBefore,
+                                item.PurchasingPrice,
+                                entry.Quantity,
+                                newBatch);
+                            batchPurchase = newBatch;
+                            item.PurchasingPrice = appliedPurchase;
+                            itemPricesChanged = true;
+                        }
+                        else
+                        {
+                            // Blank purchase = keep previous batch / current weighted cost
+                            batchPurchase = previousBatch;
+                            appliedPurchase = item.PurchasingPrice;
+                        }
+
+                        if (itemPricesChanged)
+                        {
+                            item.UpdateDate = DateTime.UtcNow;
+                            _dbConfig.Items.Update(item);
+                            await _dbConfig.SaveChangesAsync();
+                        }
+                    }
+                }
+                else
+                {
+                    // Stock-affecting edit: reverse old movement then apply new.
+                    if (previousWasIn)
+                    {
+                        var available = await _warehouseStock.GetStockAsync(item.Id, entry.WarehouseId);
+                        if (entry.Quantity > available)
+                        {
+                            return BadRequest(new GlobalResponse<object>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = "stockEntryEditInsufficientStock"
+                            });
+                        }
+
+                        if (previousBatch.HasValue)
+                        {
+                            item.PurchasingPrice = InventoryCostHelper.ReverseWeightedAverageCost(
+                                Math.Max(0, item.Quantity),
+                                item.PurchasingPrice,
+                                entry.Quantity,
+                                previousBatch.Value);
+                            item.UpdateDate = DateTime.UtcNow;
+                            _dbConfig.Items.Update(item);
+                            await _dbConfig.SaveChangesAsync();
+                        }
+
+                        await _warehouseStock.DeductAsync(item.Id, entry.WarehouseId, entry.Quantity);
+                        item = await FindAccessibleItemAsync(item.Id, commercialUserId) ?? item;
+                    }
+                    else
+                    {
+                        await _warehouseStock.AddAsync(item.Id, entry.WarehouseId, entry.Quantity);
+                        item = await FindAccessibleItemAsync(item.Id, commercialUserId) ?? item;
+                    }
+
+                    appliedSelling = item.SellingPrice;
+                    appliedWholesale = item.WholesalePrice;
+                    appliedDiscount = item.DisCountPrice;
+                    appliedPurchase = item.PurchasingPrice;
+                    batchPurchase = null;
+                    var oldTotalQty = Math.Max(0, item.Quantity);
+                    var oldPurchaseCost = item.PurchasingPrice;
+
+                    if (movementType == "In")
+                    {
+                        if (request.SellingPrice.HasValue)
+                            appliedSelling = request.SellingPrice.Value;
+                        if (request.WholesalePrice.HasValue)
+                            appliedWholesale = request.WholesalePrice.Value;
+                        if (request.DisCountPrice.HasValue)
+                            appliedDiscount = request.DisCountPrice.Value;
+
+                        // Blank purchase keeps the previous batch cost when editing an In.
+                        if (request.PurchasingPrice.HasValue)
+                            batchPurchase = request.PurchasingPrice.Value;
+                        else if (previousWasIn && previousBatch.HasValue)
+                            batchPurchase = previousBatch;
+
+                        if (batchPurchase.HasValue)
+                        {
+                            appliedPurchase = InventoryCostHelper.ComputeWeightedAverageCost(
+                                oldTotalQty,
+                                oldPurchaseCost,
+                                request.Quantity,
+                                batchPurchase.Value);
+                        }
+
+                        item.SellingPrice = appliedSelling;
+                        item.WholesalePrice = appliedWholesale;
+                        item.DisCountPrice = appliedDiscount;
+                        item.PurchasingPrice = appliedPurchase;
+                        item.UpdateDate = DateTime.UtcNow;
+                        _dbConfig.Items.Update(item);
+                        await _dbConfig.SaveChangesAsync();
+
+                        await _warehouseStock.AddAsync(item.Id, newWarehouse.Id, request.Quantity);
+                    }
+                    else
+                    {
+                        var available = await _warehouseStock.GetStockAsync(item.Id, newWarehouse.Id);
+                        if (request.Quantity > available)
+                        {
+                            return BadRequest(new GlobalResponse<object>
+                            {
+                                Data = null,
+                                ErrorStatus = true,
+                                Message = "insufficientWarehouseStock"
+                            });
+                        }
+
+                        await _warehouseStock.DeductAsync(item.Id, newWarehouse.Id, request.Quantity);
+                        appliedSelling = item.SellingPrice;
+                        appliedWholesale = item.WholesalePrice;
+                        appliedDiscount = item.DisCountPrice;
+                        appliedPurchase = item.PurchasingPrice;
+                        batchPurchase = null;
+                    }
+                }
+
+                entry.WarehouseId = newWarehouse.Id;
+                entry.MovementType = movementType;
+                entry.Quantity = request.Quantity;
+                entry.SellingPrice = appliedSelling;
+                entry.PurchasingPrice = appliedPurchase;
+                entry.WholesalePrice = appliedWholesale;
+                entry.DisCountPrice = appliedDiscount;
+                entry.BatchPurchasingPrice = batchPurchase;
+                entry.Notes = notes;
+                entry.UpdateDate = DateTime.UtcNow;
+                _dbConfig.ItemStockEntries.Update(entry);
+                await _dbConfig.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                var refreshed = await FindAccessibleItemAsync(item.Id, commercialUserId);
+                if (refreshed != null)
+                {
+                    refreshed.WarehouseStocks = await _warehouseStock.GetItemStockBreakdownAsync(item.Id, commercialUserId);
+                }
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = new
+                    {
+                        entry = new ItemStockEntryDto
+                        {
+                            Id = entry.Id,
+                            ItemId = entry.ItemId,
+                            WarehouseId = entry.WarehouseId,
+                            WarehouseName = newWarehouse.Name,
+                            MovementType = entry.MovementType,
+                            Quantity = entry.Quantity,
+                            SellingPrice = entry.SellingPrice,
+                            PurchasingPrice = entry.PurchasingPrice,
+                            WholesalePrice = entry.WholesalePrice,
+                            DisCountPrice = entry.DisCountPrice,
+                            BatchPurchasingPrice = entry.BatchPurchasingPrice,
+                            Notes = entry.Notes,
+                            InsertDate = entry.InsertDate,
+                            InsertByUserId = entry.InsertByUserId
+                        },
+                        item = refreshed
+                    },
+                    ErrorStatus = false,
+                    Message = "done"
+                });
+            }
+            catch (InvalidOperationException ex) when (ex.Message.StartsWith("insufficientInventory", StringComparison.Ordinal))
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "insufficientWarehouseStock"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating item stock entry {EntryId}", id);
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ: {ex.Message}"
+                });
+            }
         }
 
         [Authorize(Roles = "Commercial,POS")]
@@ -3296,6 +3957,42 @@ namespace POS.Controllers
             }
         }
 
+        /// <summary>Writes one opening In ledger row per warehouse with stock after item create.</summary>
+        private async Task CreateOpeningStockEntriesAsync(Item item, int commercialUserId, int actorUserId)
+        {
+            if (item.IsNonInventory)
+                return;
+
+            var stocks = item.WarehouseStocks
+                ?? await _warehouseStock.GetItemStockBreakdownAsync(item.Id, commercialUserId);
+            var now = DateTime.UtcNow;
+            var created = false;
+            foreach (var stock in stocks.Where(s => s.Quantity > 0))
+            {
+                _dbConfig.ItemStockEntries.Add(new ItemStockEntry
+                {
+                    ItemId = item.Id,
+                    WarehouseId = stock.WarehouseId,
+                    MovementType = "In",
+                    Quantity = stock.Quantity,
+                    SellingPrice = item.SellingPrice,
+                    PurchasingPrice = item.PurchasingPrice,
+                    WholesalePrice = item.WholesalePrice,
+                    DisCountPrice = item.DisCountPrice,
+                    BatchPurchasingPrice = item.PurchasingPrice,
+                    Notes = "openingBalance",
+                    InsertByUserId = actorUserId,
+                    InsertDate = now,
+                    UpdateDate = now,
+                    IsDeleted = false
+                });
+                created = true;
+            }
+
+            if (created)
+                await _dbConfig.SaveChangesAsync();
+        }
+
         private static decimal ResolveItemUnitPrice(Item item, bool isWholesale)
         {
             if (isWholesale)
@@ -3746,7 +4443,7 @@ namespace POS.Controllers
                     {
                         ItemId = x.ItemId,
                         SellingPrice = x.SellingPrice,
-                        PurchasingPrice = x.Item.PurchasingPrice,
+                        PurchasingPrice = x.PurchasingPrice,
                         Quantity = x.Quantity
                     })
                     .ToList();
@@ -4285,6 +4982,120 @@ namespace POS.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting sales by warehouse");
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ: {ex.Message}"
+                });
+            }
+        }
+
+        [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
+        [HttpGet("GetInventoryValuationReport")]
+        public ActionResult<GlobalResponse<object>> GetInventoryValuationReport(
+            int? brandId = null,
+            string? tag = null,
+            string? info = null)
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var itemsQuery = ApplyBrandFilterToItems(AccessibleItemsQuery(commercialUserId), brandId)
+                    .AsNoTracking()
+                    .Where(x => !x.IsNonInventory);
+
+                if (!string.IsNullOrWhiteSpace(tag))
+                {
+                    var tagFilter = tag.Trim();
+                    itemsQuery = itemsQuery.Where(x => x.Tags != null && x.Tags == tagFilter);
+                }
+
+                if (!string.IsNullOrWhiteSpace(info))
+                {
+                    var search = info.Trim();
+                    itemsQuery = itemsQuery.Where(x =>
+                        x.Code == search ||
+                        x.Name.Contains(search) ||
+                        (x.Description != null && x.Description.Contains(search)) ||
+                        (x.Tags != null && x.Tags.Contains(search)) ||
+                        _dbConfig.ItemCodes.Any(c =>
+                            !c.IsDeleted &&
+                            c.ItemId == x.Id &&
+                            c.Code == search));
+                }
+
+                var rows = itemsQuery
+                    .Select(x => new
+                    {
+                        itemId = x.Id,
+                        itemName = x.Name,
+                        itemCode = x.Code,
+                        category = x.Tags,
+                        brandId = x.BrandId,
+                        brandName = x.Brand != null ? x.Brand.Name : null,
+                        quantity = x.Quantity,
+                        purchasingPrice = x.PurchasingPrice,
+                        sellingPrice = x.SellingPrice
+                    })
+                    .ToList()
+                    .Select(x =>
+                    {
+                        var qty = Math.Max(0, x.quantity);
+                        var costValue = qty * x.purchasingPrice;
+                        var sellValue = qty * x.sellingPrice;
+                        return new
+                        {
+                            x.itemId,
+                            x.itemName,
+                            x.itemCode,
+                            x.category,
+                            x.brandId,
+                            x.brandName,
+                            quantity = qty,
+                            purchasingPrice = x.purchasingPrice,
+                            sellingPrice = x.sellingPrice,
+                            costValue,
+                            sellValue,
+                            expectedProfit = sellValue - costValue
+                        };
+                    })
+                    .OrderByDescending(x => x.sellValue)
+                    .ThenBy(x => x.itemName)
+                    .ToList();
+
+                var totalCostValue = rows.Sum(x => x.costValue);
+                var totalSellValue = rows.Sum(x => x.sellValue);
+                var expectedProfit = totalSellValue - totalCostValue;
+                var expectedMargin = totalSellValue > 0
+                    ? Math.Round((expectedProfit / totalSellValue) * 100, 2)
+                    : 0m;
+
+                var report = new
+                {
+                    summary = new
+                    {
+                        itemCount = rows.Count(x => x.quantity > 0),
+                        totalItems = rows.Count,
+                        totalQuantity = rows.Sum(x => x.quantity),
+                        totalCostValue,
+                        totalSellValue,
+                        expectedProfit,
+                        expectedMargin
+                    },
+                    items = rows
+                };
+
+                return Ok(new GlobalResponse<object>
+                {
+                    Data = report,
+                    ErrorStatus = false,
+                    Message = "Success"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting inventory valuation report");
                 return BadRequest(new GlobalResponse<object>
                 {
                     Data = null,

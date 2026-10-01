@@ -168,7 +168,13 @@ namespace POS.Services
                 }
             }
 
-            // Last resort: rely on PATH (dev machines with MariaDB/MySQL client tools)
+            // Linux/Docker common locations
+            if (File.Exists("/usr/bin/mysqldump"))
+                return "/usr/bin/mysqldump";
+            if (File.Exists("/usr/local/bin/mysqldump"))
+                return "/usr/local/bin/mysqldump";
+
+            // Last resort: rely on PATH (dev machines / containers with mysql-client)
             return FindExecutableOnPath("mysqldump");
         }
 

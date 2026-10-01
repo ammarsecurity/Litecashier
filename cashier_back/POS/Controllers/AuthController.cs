@@ -10,6 +10,7 @@ using POS.Db;
 using POS.Models;
 using POS.Models.Requests;
 using POS.Models.Response;
+using POS.Services;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -154,6 +155,20 @@ namespace POS.Controllers
                     Message = "errorInLoginInfo"
                 });
             }
+
+            if (!await TenantHostHelper.IsHostAllowedForUserAsync(
+                    _dbConfig,
+                    userFromDb,
+                    TenantHostHelper.GetRequestHost(HttpContext)))
+            {
+                return BadRequest(new GlobalResponse<User>
+                {
+                    Data = null,
+                    ErrorStatus = false,
+                    Message = "errorInLoginInfo"
+                });
+            }
+
             return Ok(BuildLoginPayload(userFromDb));
         }
 
@@ -176,6 +191,19 @@ namespace POS.Controllers
                 u.LoginCode == code && u.Role == "Commercial" && !u.IsDeleted);
 
             if (userFromDb == null)
+            {
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = false,
+                    Message = "errorInLoginInfo"
+                });
+            }
+
+            if (!await TenantHostHelper.IsHostAllowedForUserAsync(
+                    _dbConfig,
+                    userFromDb,
+                    TenantHostHelper.GetRequestHost(HttpContext)))
             {
                 return BadRequest(new GlobalResponse<object>
                 {

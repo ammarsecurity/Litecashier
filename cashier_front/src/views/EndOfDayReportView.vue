@@ -319,6 +319,7 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import { HTTP } from "../http/api.js";
+import { formatMoney, formatDateTimeLatn } from "@/utils/formatMoney.js";
 
 export default {
   name: "EndOfDayReportView",
@@ -365,9 +366,7 @@ export default {
   },
   methods: {
     formatPrice(value) {
-      const n = Number(value || 0);
-      const locale = this.$i18n?.locale === "en" ? "en" : "ar-IQ";
-      return Number.isFinite(n) ? n.toLocaleString(locale) : "0";
+      return formatMoney(value);
     },
     paymentMethodLabel(method) {
       const labels = {
@@ -397,16 +396,7 @@ export default {
       return "";
     },
     formatDateTime(value) {
-      if (!value) return "—";
-      try {
-        const d = new Date(value);
-        return d.toLocaleString(this.$i18n.locale === "ar" ? "ar-EG" : "en-GB", {
-          dateStyle: "medium",
-          timeStyle: "short",
-        });
-      } catch {
-        return String(value);
-      }
+      return formatDateTimeLatn(value, this.$i18n.locale === "ar" ? "ar" : "en");
     },
     async fetchReport() {
       try {

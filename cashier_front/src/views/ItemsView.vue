@@ -789,6 +789,12 @@
                 <b-icon icon="cash-coin"></b-icon>
                 <span>{{ $t("itemPricesSection") || "الأسعار" }}</span>
               </div>
+              <p class="item-form-section__hint">
+                {{
+                  $t("itemPricesReadOnlyHint") ||
+                  "الأسعار تُحدَّث من سجل الحركات عند التوريد. هنا للعرض فقط."
+                }}
+              </p>
               <div class="modal-form-grid">
                 <div class="users-form-group">
                   <label class="users-form-label" for="editInputSellingPrice">
@@ -797,11 +803,11 @@
                   </label>
                   <input
                     id="editInputSellingPrice"
-                    v-model="editForm.sellingPrice"
+                    :value="editForm.sellingPrice"
                     type="number"
-                    :placeholder="$t('sellingPricePlaceholder')"
-                    required
-                    class="users-form-input"
+                    readonly
+                    tabindex="-1"
+                    class="users-form-input users-form-input--readonly"
                   />
                 </div>
                 <div class="users-form-group">
@@ -811,11 +817,11 @@
                   </label>
                   <input
                     id="editInputDisCountPrice"
-                    v-model="editForm.disCountPrice"
+                    :value="editForm.disCountPrice"
                     type="number"
-                    :placeholder="$t('disCountPricePlaceholder')"
-                    required
-                    class="users-form-input"
+                    readonly
+                    tabindex="-1"
+                    class="users-form-input users-form-input--readonly"
                   />
                 </div>
                 <div class="users-form-group">
@@ -825,11 +831,11 @@
                   </label>
                   <input
                     id="editInputWholesalePrice"
-                    v-model="editForm.wholesalePrice"
+                    :value="editForm.wholesalePrice"
                     type="number"
-                    :placeholder="$t('wholesalePricePlaceholder')"
-                    min="0"
-                    class="users-form-input"
+                    readonly
+                    tabindex="-1"
+                    class="users-form-input users-form-input--readonly"
                   />
                 </div>
                 <div class="users-form-group">
@@ -839,11 +845,11 @@
                   </label>
                   <input
                     id="editInputPurchasingPrice"
-                    v-model="editForm.purchasingPrice"
+                    :value="editForm.purchasingPrice"
                     type="number"
-                    :placeholder="$t('purchasingPricePlaceholder')"
-                    required
-                    class="users-form-input"
+                    readonly
+                    tabindex="-1"
+                    class="users-form-input users-form-input--readonly"
                   />
                 </div>
               </div>
@@ -862,8 +868,8 @@
               </div>
               <p class="item-form-section__hint">
                 {{
-                  $t("warehouseQuantitiesAlertHint") ||
-                  "حدد كمية كل مخزن وحد تنبيه الكمية له (اترك التنبيه فارغاً لتعطيله)"
+                  $t("warehouseQuantitiesReadOnlyHint") ||
+                  "الكمية تُغيَّر من سجل الحركات فقط. يمكنك تعديل تنبيه الكمية هنا."
                 }}
               </p>
               <div
@@ -888,10 +894,12 @@
                       </label>
                       <input
                         :id="'edit-wh-qty-' + row.warehouseId"
-                        v-model.number="row.quantity"
+                        :value="row.quantity"
                         type="number"
                         min="0"
-                        class="users-form-input"
+                        readonly
+                        tabindex="-1"
+                        class="users-form-input users-form-input--readonly"
                       />
                     </div>
                     <div class="users-form-group">
@@ -917,15 +925,22 @@
                 <b-icon icon="box"></b-icon>
                 <span>{{ $t("quantityPlaceholder") || "الكمية" }}</span>
               </div>
+              <p class="item-form-section__hint">
+                {{
+                  $t("warehouseQuantitiesReadOnlyHint") ||
+                  "الكمية تُغيَّر من سجل الحركات فقط. يمكنك تعديل تنبيه الكمية هنا."
+                }}
+              </p>
               <div class="modal-form-grid">
                 <div class="users-form-group">
                   <input
                     id="editInputQuantity"
-                    v-model="editForm.quantity"
+                    :value="editForm.quantity"
                     type="number"
                     min="0"
-                    class="users-form-input"
-                    required
+                    readonly
+                    tabindex="-1"
+                    class="users-form-input users-form-input--readonly"
                   />
                 </div>
                 <div class="users-form-group">
@@ -1014,6 +1029,220 @@
               </div>
               <div v-else class="item-form-barcode item-form-barcode--empty">
                 {{ $t("itemCodeBarcodeEmpty") || "سيظهر الباركود هنا بعد إدخال الكود" }}
+              </div>
+            </div>
+
+            <div class="item-form-section item-stock-ledger" v-if="editForm.id">
+              <div class="item-form-section__head">
+                <b-icon icon="journal-text"></b-icon>
+                <span>{{ $t("itemStockLedgerTitle") || "سجل حركات المخزون" }}</span>
+              </div>
+              <p class="item-form-section__hint">
+                {{
+                  $t("itemStockLedgerHint") ||
+                  "سجّل توريد أو تقليل كمية يدوياً. اترك الأسعار فارغة عند الزيادة لاستخدام الأسعار السابقة."
+                }}
+              </p>
+
+              <div class="item-stock-entry-form" :class="{ 'item-stock-entry-form--editing': !!stockEntryEditingId }">
+                <div v-if="stockEntryEditingId" class="item-stock-entry-edit-banner">
+                  <b-icon icon="pencil-square"></b-icon>
+                  <span>{{ $t("itemStockEntryEditing") || "تعديل حركة في السجل" }}</span>
+                </div>
+                <div class="modal-form-grid">
+                  <div class="users-form-group">
+                    <label class="users-form-label">{{ $t("warehouse") || "المخزن" }}</label>
+                    <select v-model="stockEntryForm.warehouseId" class="users-form-select">
+                      <option
+                        v-for="w in warehouses"
+                        :key="'stock-entry-wh-' + w.id"
+                        :value="String(w.id)"
+                      >
+                        {{ w.name }}
+                      </option>
+                    </select>
+                  </div>
+                  <div class="users-form-group">
+                    <label class="users-form-label">{{ $t("itemStockMovementType") || "نوع الحركة" }}</label>
+                    <select v-model="stockEntryForm.movementType" class="users-form-select">
+                      <option value="In">{{ $t("itemStockMovementIn") || "زيادة / توريد" }}</option>
+                      <option value="Out">{{ $t("itemStockMovementOut") || "تقليل" }}</option>
+                    </select>
+                  </div>
+                  <div class="users-form-group">
+                    <label class="users-form-label">{{ $t("quantityLabel") || "الكمية" }}</label>
+                    <input
+                      v-model.number="stockEntryForm.quantity"
+                      type="number"
+                      min="1"
+                      class="users-form-input"
+                    />
+                  </div>
+                  <div class="users-form-group">
+                    <label class="users-form-label">{{ $t("notes") || "ملاحظات" }}</label>
+                    <input
+                      v-model.trim="stockEntryForm.notes"
+                      type="text"
+                      class="users-form-input"
+                      :placeholder="$t('optional') || 'اختياري'"
+                    />
+                  </div>
+                </div>
+
+                <div
+                  v-if="stockEntryForm.movementType === 'In'"
+                  class="modal-form-grid item-stock-entry-prices"
+                >
+                  <div class="users-form-group">
+                    <label class="users-form-label">{{ $t("sellingPricePlaceholder") }}</label>
+                    <input
+                      v-model="stockEntryForm.sellingPrice"
+                      type="number"
+                      min="0"
+                      class="users-form-input"
+                      :placeholder="String(editForm.sellingPrice ?? '')"
+                    />
+                  </div>
+                  <div class="users-form-group">
+                    <label class="users-form-label">{{ $t("purchasingPricePlaceholder") }}</label>
+                    <input
+                      v-model="stockEntryForm.purchasingPrice"
+                      type="number"
+                      min="0"
+                      class="users-form-input"
+                      :placeholder="String(editForm.purchasingPrice ?? '')"
+                    />
+                    <p v-if="stockEntryWeightedPreview != null" class="item-restock-preview">
+                      {{
+                        $t("restockWeightedCostPreview", {
+                          value: formatMoney(stockEntryWeightedPreview),
+                        })
+                      }}
+                    </p>
+                  </div>
+                  <div class="users-form-group">
+                    <label class="users-form-label">{{ $t("wholesalePricePlaceholder") }}</label>
+                    <input
+                      v-model="stockEntryForm.wholesalePrice"
+                      type="number"
+                      min="0"
+                      class="users-form-input"
+                      :placeholder="String(editForm.wholesalePrice ?? '')"
+                    />
+                  </div>
+                  <div class="users-form-group">
+                    <label class="users-form-label">{{ $t("disCountPricePlaceholder") }}</label>
+                    <input
+                      v-model="stockEntryForm.disCountPrice"
+                      type="number"
+                      min="0"
+                      class="users-form-input"
+                      :placeholder="String(editForm.disCountPrice ?? '')"
+                    />
+                  </div>
+                </div>
+
+                <div class="item-stock-entry-actions">
+                  <button
+                    type="button"
+                    class="users-add-button"
+                    :disabled="stockEntrySaving || !stockEntryForm.quantity"
+                    @click="submitStockEntry"
+                  >
+                    <b-spinner small v-if="stockEntrySaving" class="button-icon"></b-spinner>
+                    <b-icon
+                      v-else
+                      :icon="stockEntryEditingId ? 'check2-circle' : 'plus-circle'"
+                      class="button-icon"
+                    ></b-icon>
+                    <span class="button-text">
+                      {{
+                        stockEntryEditingId
+                          ? $t("itemStockEntryUpdate") || "حفظ التعديل"
+                          : $t("itemStockEntrySave") || "حفظ الحركة"
+                      }}
+                    </span>
+                  </button>
+                  <button
+                    v-if="stockEntryEditingId"
+                    type="button"
+                    class="users-form-cancel-button item-stock-entry-cancel"
+                    :disabled="stockEntrySaving"
+                    @click="cancelEditStockEntry"
+                  >
+                    <b-icon icon="x-circle" class="button-icon"></b-icon>
+                    <span class="button-text">{{ $t("cancelButton") || "تراجع" }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="item-stock-ledger-table-wrap">
+                <div v-if="stockEntriesLoading" class="item-stock-ledger-empty">
+                  <b-spinner small></b-spinner>
+                </div>
+                <div v-else-if="!stockEntries.length" class="item-stock-ledger-empty">
+                  {{
+                    $t("itemStockLedgerEmpty") ||
+                    "لا توجد حركات بعد. الجدول سيُملأ عند أول توريد أو تقليل."
+                  }}
+                </div>
+                <table v-else class="item-stock-ledger-table">
+                  <thead>
+                    <tr>
+                      <th>{{ $t("date") || "التاريخ" }}</th>
+                      <th>{{ $t("itemStockMovementType") || "النوع" }}</th>
+                      <th>{{ $t("quantityLabel") || "الكمية" }}</th>
+                      <th>{{ $t("warehouse") || "المخزن" }}</th>
+                      <th>{{ $t("purchasingPricePlaceholder") }}</th>
+                      <th>{{ $t("sellingPricePlaceholder") }}</th>
+                      <th>{{ $t("wholesalePricePlaceholder") }}</th>
+                      <th>{{ $t("notes") || "ملاحظات" }}</th>
+                      <th>{{ $t("actions") || "إجراءات" }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="row in stockEntries"
+                      :key="row.id"
+                      :class="{ 'item-stock-ledger-row--active': stockEntryEditingId === row.id }"
+                    >
+                      <td>{{ formatStockEntryDate(row.insertDate) }}</td>
+                      <td>
+                        <span
+                          class="item-stock-type-badge"
+                          :class="
+                            row.movementType === 'Out'
+                              ? 'item-stock-type-badge--out'
+                              : 'item-stock-type-badge--in'
+                          "
+                        >
+                          {{
+                            row.movementType === "Out"
+                              ? $t("itemStockMovementOut") || "تقليل"
+                              : $t("itemStockMovementIn") || "زيادة"
+                          }}
+                        </span>
+                      </td>
+                      <td>{{ row.quantity }}</td>
+                      <td>{{ row.warehouseName || "—" }}</td>
+                      <td>{{ formatMoney(stockEntryPurchaseDisplay(row)) }}</td>
+                      <td>{{ formatMoney(row.sellingPrice) }}</td>
+                      <td>{{ formatMoney(row.wholesalePrice) }}</td>
+                      <td>{{ formatStockEntryNotes(row.notes) }}</td>
+                      <td>
+                        <button
+                          type="button"
+                          class="item-stock-edit-btn"
+                          :disabled="stockEntrySaving"
+                          :title="$t('itemStockEntryEdit') || 'تعديل'"
+                          @click="startEditStockEntry(row)"
+                        >
+                          <b-icon icon="pencil"></b-icon>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -1233,6 +1462,8 @@ import VueBarcode from "@chenfengyuan/vue-barcode";
 
 import { HTTP } from "../http/api.js";
 import { BUSINESS_TIME_ZONE } from "@/utils/formatBusinessDateTime.js";
+import { formatMoney as formatMoneyLatn } from "@/utils/formatMoney.js";
+import { computeWeightedAverageCost } from "@/utils/inventoryCost.js";
 import {
   productImageSrc,
   isProductImageFallback,
@@ -1326,6 +1557,23 @@ export default {
       warehouses: [],
       warehouseStockRows: [],
       editWarehouseStockRows: [],
+      editBaselineQuantity: 0,
+      editBaselinePurchasingPrice: 0,
+      stockEntries: [],
+      stockEntriesLoading: false,
+      stockEntrySaving: false,
+      stockEntryEditingId: null,
+      stockEntryEditingSnapshot: null,
+      stockEntryForm: {
+        warehouseId: "",
+        movementType: "In",
+        quantity: 1,
+        sellingPrice: "",
+        purchasingPrice: "",
+        wholesalePrice: "",
+        disCountPrice: "",
+        notes: "",
+      },
     };
   },
 
@@ -1371,6 +1619,49 @@ export default {
     },
     editWarehouseTotal() {
       return (this.editWarehouseStockRows || []).reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+    },
+    editRestockAddedQty() {
+      const added = this.editWarehouseTotal - (Number(this.editBaselineQuantity) || 0);
+      return added > 0 ? added : 0;
+    },
+    editShowRestockCostHint() {
+      return this.editRestockAddedQty > 0;
+    },
+    editWeightedCostPreview() {
+      if (!this.editShowRestockCostHint) return null;
+      return computeWeightedAverageCost(
+        this.editBaselineQuantity,
+        this.editBaselinePurchasingPrice,
+        this.editRestockAddedQty,
+        this.editForm.purchasingPrice
+      );
+    },
+    stockEntryWeightedPreview() {
+      if (this.stockEntryForm.movementType !== "In") return null;
+      const batch = this.parseOptionalPrice(this.stockEntryForm.purchasingPrice);
+      if (batch == null) return null;
+      const qty = Math.max(0, Number(this.stockEntryForm.quantity) || 0);
+      if (qty <= 0) return null;
+
+      let baseQty = Number(this.editBaselineQuantity) || 0;
+      let baseCost = Number(this.editBaselinePurchasingPrice) || 0;
+      const snap = this.stockEntryEditingSnapshot;
+      if (snap && snap.movementType === "In") {
+        const oldQty = Math.max(0, Number(snap.quantity) || 0);
+        baseQty = Math.max(0, baseQty - oldQty);
+        if (snap.batchPurchasingPrice != null && oldQty > 0) {
+          const currentQty = Number(this.editBaselineQuantity) || 0;
+          const currentCost = Number(this.editBaselinePurchasingPrice) || 0;
+          if (baseQty <= 0) {
+            baseCost = Number(snap.batchPurchasingPrice) || baseCost;
+          } else {
+            baseCost =
+              (currentQty * currentCost - oldQty * Number(snap.batchPurchasingPrice)) / baseQty;
+          }
+        }
+      }
+
+      return computeWeightedAverageCost(baseQty, baseCost, qty, batch);
     },
     itemFields() {
       return [
@@ -1729,6 +2020,8 @@ export default {
           item.lowStockAlertQuantity ?? item.LowStockAlertQuantity ?? "",
         expiryDate: this.toDateInputValue(item.expiryDate ?? item.ExpiryDate),
       };
+      this.editBaselineQuantity = Number(item.quantity) || 0;
+      this.editBaselinePurchasingPrice = Number(item.purchasingPrice) || 0;
       const stocks = item.warehouseStocks || item.WarehouseStocks || [];
       const legacyAlert =
         item.lowStockAlertQuantity ?? item.LowStockAlertQuantity ?? "";
@@ -1754,7 +2047,235 @@ export default {
           lowStockAlertQuantity: w.isDefault ? legacyAlert : "",
         }));
       }
+      if (this.editWarehouseStockRows.length) {
+        this.editBaselineQuantity = this.editWarehouseStockRows.reduce(
+          (s, r) => s + (Number(r.quantity) || 0),
+          0
+        );
+      }
+      this.resetStockEntryForm();
+      this.loadStockEntries(item.id);
       this.$bvModal.show("modal-editItem");
+    },
+    resetStockEntryForm() {
+      const defaultWh =
+        (this.warehouses || []).find((w) => w.isDefault) || (this.warehouses || [])[0];
+      this.stockEntryEditingId = null;
+      this.stockEntryEditingSnapshot = null;
+      this.stockEntryForm = {
+        warehouseId: defaultWh ? String(defaultWh.id) : "",
+        movementType: "In",
+        quantity: 1,
+        sellingPrice: "",
+        purchasingPrice: "",
+        wholesalePrice: "",
+        disCountPrice: "",
+        notes: "",
+      };
+    },
+    parseOptionalPrice(value) {
+      if (value === null || value === undefined || String(value).trim() === "") {
+        return null;
+      }
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    },
+    async loadStockEntries(itemId) {
+      if (!itemId) {
+        this.stockEntries = [];
+        return;
+      }
+      this.stockEntriesLoading = true;
+      try {
+        const res = await HTTP.get("Admin/GetItemStockEntries", {
+          params: { itemId },
+        });
+        const rows = res?.data?.data || [];
+        this.stockEntries = rows.map((r) => ({
+          id: r.id ?? r.Id,
+          insertDate: r.insertDate ?? r.InsertDate,
+          movementType: r.movementType ?? r.MovementType,
+          quantity: r.quantity ?? r.Quantity,
+          warehouseId: r.warehouseId ?? r.WarehouseId,
+          warehouseName: r.warehouseName ?? r.WarehouseName,
+          purchasingPrice: r.purchasingPrice ?? r.PurchasingPrice,
+          sellingPrice: r.sellingPrice ?? r.SellingPrice,
+          wholesalePrice: r.wholesalePrice ?? r.WholesalePrice,
+          disCountPrice: r.disCountPrice ?? r.DisCountPrice,
+          batchPurchasingPrice: r.batchPurchasingPrice ?? r.BatchPurchasingPrice ?? null,
+          notes: r.notes ?? r.Notes,
+        }));
+      } catch (_) {
+        this.stockEntries = [];
+      } finally {
+        this.stockEntriesLoading = false;
+      }
+    },
+    formatStockEntryDate(value) {
+      if (!value) return "—";
+      try {
+        return new Intl.DateTimeFormat(this.$i18n.locale === "ar" ? "ar-IQ" : "en-GB", {
+          dateStyle: "short",
+          timeStyle: "short",
+          timeZone: BUSINESS_TIME_ZONE,
+          numberingSystem: "latn",
+        }).format(new Date(value));
+      } catch (_) {
+        return String(value);
+      }
+    },
+    formatStockEntryNotes(notes) {
+      if (!notes) return "—";
+      if (notes === "openingBalance") {
+        return this.$t("openingBalanceNote") || "رصيد افتتاحي";
+      }
+      return notes;
+    },
+    /** Batch unit cost entered for this In row; falls back to WA cost snapshot. */
+    stockEntryPurchaseDisplay(row) {
+      if (!row) return 0;
+      if (row.batchPurchasingPrice != null && row.batchPurchasingPrice !== "") {
+        return Number(row.batchPurchasingPrice);
+      }
+      return Number(row.purchasingPrice) || 0;
+    },
+    startEditStockEntry(row) {
+      if (!row || !row.id) return;
+      this.stockEntryEditingId = row.id;
+      this.stockEntryEditingSnapshot = {
+        movementType: row.movementType,
+        quantity: row.quantity,
+        batchPurchasingPrice: row.batchPurchasingPrice,
+      };
+      const notes =
+        row.notes === "openingBalance"
+          ? this.$t("openingBalanceNote") || "رصيد افتتاحي"
+          : row.notes || "";
+      this.stockEntryForm = {
+        warehouseId: row.warehouseId != null ? String(row.warehouseId) : "",
+        movementType: row.movementType === "Out" ? "Out" : "In",
+        quantity: Number(row.quantity) || 1,
+        sellingPrice:
+          row.movementType === "In" && row.sellingPrice != null ? String(row.sellingPrice) : "",
+        purchasingPrice:
+          row.movementType === "In" && row.batchPurchasingPrice != null
+            ? String(row.batchPurchasingPrice)
+            : "",
+        wholesalePrice:
+          row.movementType === "In" && row.wholesalePrice != null ? String(row.wholesalePrice) : "",
+        disCountPrice:
+          row.movementType === "In" && row.disCountPrice != null ? String(row.disCountPrice) : "",
+        notes,
+      };
+      const formEl = this.$el?.querySelector?.(".item-stock-entry-form");
+      if (formEl && formEl.scrollIntoView) {
+        formEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    },
+    cancelEditStockEntry() {
+      this.resetStockEntryForm();
+    },
+    async submitStockEntry() {
+      if (!this.editForm.id || this.stockEntrySaving) return;
+      const qty = Math.floor(Number(this.stockEntryForm.quantity) || 0);
+      if (qty <= 0) {
+        this.$notify.error(this.$t("itemStockEntryInvalidQty") || "أدخل كمية صحيحة");
+        return;
+      }
+      if (!this.stockEntryForm.warehouseId) {
+        this.$notify.error(this.$t("itemStockEntrySelectWarehouse") || "اختر المخزن");
+        return;
+      }
+
+      const payload = {
+        itemId: Number(this.editForm.id),
+        warehouseId: Number(this.stockEntryForm.warehouseId),
+        movementType: this.stockEntryForm.movementType,
+        quantity: qty,
+        notes: this.stockEntryForm.notes || null,
+      };
+
+      // Keep opening-balance marker if user left the localized label
+      const openingLabel = this.$t("openingBalanceNote") || "رصيد افتتاحي";
+      if (
+        this.stockEntryEditingId &&
+        this.stockEntries.find((e) => e.id === this.stockEntryEditingId)?.notes === "openingBalance" &&
+        (payload.notes === openingLabel || payload.notes === "openingBalance")
+      ) {
+        payload.notes = "openingBalance";
+      }
+
+      if (this.stockEntryForm.movementType === "In") {
+        payload.sellingPrice = this.parseOptionalPrice(this.stockEntryForm.sellingPrice);
+        payload.purchasingPrice = this.parseOptionalPrice(this.stockEntryForm.purchasingPrice);
+        payload.wholesalePrice = this.parseOptionalPrice(this.stockEntryForm.wholesalePrice);
+        payload.disCountPrice = this.parseOptionalPrice(this.stockEntryForm.disCountPrice);
+      }
+
+      this.stockEntrySaving = true;
+      try {
+        const editingId = this.stockEntryEditingId;
+        const res = editingId
+          ? await HTTP.put(`Admin/UpdateItemStockEntry?id=${editingId}`, payload)
+          : await HTTP.post("Admin/AddItemStockEntry", payload);
+        if (res?.data?.errorStatus) {
+          const msg = res.data.message;
+          this.$notify.error(
+            msg && this.$te(msg) ? this.$t(msg) : msg || this.$t("itemStockEntryFailed")
+          );
+          return;
+        }
+
+        const item = res?.data?.data?.item;
+        if (item) {
+          this.applyItemAfterStockEntry(item);
+        }
+        await this.loadStockEntries(this.editForm.id);
+        this.resetStockEntryForm();
+        this.GetAllItems();
+        this.$notify.success(
+          editingId
+            ? this.$t("itemStockEntryUpdated") || "تم تعديل الحركة"
+            : this.$t("itemStockEntrySaved") || "تم حفظ الحركة"
+        );
+      } catch (err) {
+        const msg = err?.response?.data?.message;
+        this.$notify.error(
+          msg && this.$te(msg) ? this.$t(msg) : msg || this.$t("itemStockEntryFailed") || "فشل حفظ الحركة"
+        );
+      } finally {
+        this.stockEntrySaving = false;
+      }
+    },
+    applyItemAfterStockEntry(item) {
+      this.editForm.sellingPrice = item.sellingPrice ?? item.SellingPrice ?? this.editForm.sellingPrice;
+      this.editForm.purchasingPrice =
+        item.purchasingPrice ?? item.PurchasingPrice ?? this.editForm.purchasingPrice;
+      this.editForm.wholesalePrice =
+        item.wholesalePrice ?? item.WholesalePrice ?? this.editForm.wholesalePrice;
+      this.editForm.disCountPrice =
+        item.disCountPrice ?? item.DisCountPrice ?? this.editForm.disCountPrice;
+      this.editForm.quantity = item.quantity ?? item.Quantity ?? this.editForm.quantity;
+      this.editBaselineQuantity = Number(this.editForm.quantity) || 0;
+      this.editBaselinePurchasingPrice = Number(this.editForm.purchasingPrice) || 0;
+
+      const stocks = item.warehouseStocks || item.WarehouseStocks || [];
+      if (stocks.length) {
+        this.editWarehouseStockRows = stocks.map((s) => ({
+          warehouseId: s.warehouseId ?? s.WarehouseId,
+          warehouseName: s.warehouseName ?? s.WarehouseName,
+          quantity: Number(s.quantity ?? s.Quantity) || 0,
+          lowStockAlertQuantity:
+            s.lowStockAlertQuantity ?? s.LowStockAlertQuantity ?? "",
+        }));
+        this.editBaselineQuantity = this.editWarehouseStockRows.reduce(
+          (sum, r) => sum + (Number(r.quantity) || 0),
+          0
+        );
+      }
+    },
+    formatMoney(value) {
+      return formatMoneyLatn(value);
     },
     addItem() {
       this.show = true;
@@ -1942,15 +2463,10 @@ export default {
     },
 
     formatPrice(price) {
-      if (price) {
-        return price.toLocaleString("en-EG"); // Use the "ar-EG" locale for Arabic formatting
-      }
-      return "";
+      return formatMoneyLatn(price);
     },
     formatQuantity(quantity) {
-      const value = Number(quantity);
-      if (Number.isNaN(value)) return "0";
-      return value.toLocaleString("en-EG");
+      return formatMoneyLatn(quantity, { maximumFractionDigits: 0 });
     },
     getLowStockAlertThreshold(item) {
       const raw = item?.lowStockAlertQuantity ?? item?.LowStockAlertQuantity;
@@ -2241,6 +2757,149 @@ export default {
   color: var(--text-secondary, #94a3b8);
   font-size: 0.82rem;
   line-height: 1.45;
+}
+
+.item-restock-hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.45;
+}
+
+.item-restock-hint--muted {
+  opacity: 0.92;
+}
+
+.item-restock-preview {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.item-stock-ledger {
+  margin-top: 0.5rem;
+}
+
+.item-stock-entry-form {
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--bg-secondary, #f8fafc) 80%, transparent);
+}
+
+.item-stock-entry-form--editing {
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color, #e5e7eb));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+
+.item-stock-entry-edit-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.item-stock-entry-prices {
+  margin-top: 0.75rem;
+}
+
+.item-stock-entry-actions {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.item-stock-entry-cancel {
+  margin: 0;
+}
+
+.item-stock-ledger-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 0.85rem;
+}
+
+.item-stock-ledger-empty {
+  padding: 1.1rem;
+  text-align: center;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.88rem;
+}
+
+.item-stock-ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.item-stock-ledger-table th,
+.item-stock-ledger-table td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  text-align: start;
+  white-space: nowrap;
+}
+
+.item-stock-ledger-table th {
+  background: color-mix(in srgb, var(--primary-color) 6%, var(--bg-secondary, #f8fafc));
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+}
+
+.item-stock-ledger-row--active {
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+}
+
+.item-stock-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 0.55rem;
+  background: var(--bg-primary, #fff);
+  color: var(--primary-color);
+  cursor: pointer;
+}
+
+.item-stock-edit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.item-stock-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.item-stock-type-badge--in {
+  background: rgba(16, 185, 129, 0.14);
+  color: #059669;
+}
+
+.item-stock-type-badge--out {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+.users-form-input--readonly {
+  background: color-mix(in srgb, var(--bg-secondary, #f1f5f9) 88%, transparent);
+  color: var(--text-secondary, #64748b);
+  cursor: default;
+  opacity: 0.95;
 }
 
 .item-form-total-pill {
