@@ -40,6 +40,76 @@ namespace POS.Controllers
             return user?.InsertByUserId ?? userId;
         }
 
+        private void AttachPublicUrls(IEnumerable<Expense> expenses)
+        {
+            foreach (var expense in expenses)
+                expense.AttachmentUrl = BuildAttachmentPublicUrl(expense.AttachmentPath);
+        }
+
+        private string? BuildAttachmentPublicUrl(string? storedFileName)
+        {
+            if (string.IsNullOrWhiteSpace(storedFileName))
+                return null;
+
+            var raw = storedFileName.Trim();
+            if (raw.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                raw.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return raw;
+
+            var name = Path.GetFileName(raw.Replace('\\', '/'));
+            if (string.IsNullOrEmpty(name) || name.Contains("..", StringComparison.Ordinal))
+                return null;
+
+            var root = $"{Request.Scheme}://{Request.Host}{Request.PathBase}".TrimEnd('/');
+            return $"{root}/Images/Expenses/{Uri.EscapeDataString(name)}";
+        }
+
+        private async Task<string> UploadExpenseAttachmentAsync(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                throw new ArgumentException("الملف فارغ");
+
+            const long maxBytes = 10 * 1024 * 1024;
+            if (file.Length > maxBytes)
+                throw new ArgumentException("حجم الملف يجب أن لا يتجاوز 10 ميجابايت");
+
+            var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Images", "Expenses");
+            if (!Directory.Exists(path))
+                Directory.CreateDirectory(path);
+
+            var allowed = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf" };
+            var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant();
+            if (string.IsNullOrEmpty(ext) || !allowed.Contains(ext))
+                throw new ArgumentException("نوع الملف غير مسموح. المسموح: jpg, jpeg, png, gif, webp, pdf");
+
+            var uniqueName = Guid.NewGuid().ToString("N") + ext;
+            var filePath = Path.Combine(path, uniqueName);
+            await using (var stream = new FileStream(filePath, FileMode.Create))
+                await file.CopyToAsync(stream);
+            return uniqueName;
+        }
+
+        private void TryDeleteAttachmentFile(string? storedFileName)
+        {
+            if (string.IsNullOrWhiteSpace(storedFileName))
+                return;
+
+            var name = Path.GetFileName(storedFileName.Replace('\\', '/'));
+            if (string.IsNullOrEmpty(name) || name.Contains("..", StringComparison.Ordinal))
+                return;
+
+            var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Images", "Expenses", name);
+            try
+            {
+                if (System.IO.File.Exists(fullPath))
+                    System.IO.File.Delete(fullPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete expense attachment {File}", name);
+            }
+        }
+
         // GET: api/Expenses
         [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpGet]
@@ -105,6 +175,7 @@ namespace POS.Controllers
                     .Take(pageSize)
                     .ToListAsync();
 
+                AttachPublicUrls(pagedExpenses);
                 var pagedList = new PagedList<Expense>(pagedExpenses, totalItems, pageNumber, pageSize);
 
                 return Ok(new GlobalResponse<PagedList<Expense>>
@@ -150,6 +221,8 @@ namespace POS.Controllers
                     });
                 }
 
+                expense.AttachmentUrl = BuildAttachmentPublicUrl(expense.AttachmentPath);
+
                 return Ok(new GlobalResponse<Expense>
                 {
                     Data = expense,
@@ -172,7 +245,8 @@ namespace POS.Controllers
         // POST: api/Expenses
         [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpPost]
-        public async Task<ActionResult<GlobalResponse<Expense>>> AddExpense([FromBody] ExpenseRequest request)
+        [RequestSizeLimit(12 * 1024 * 1024)]
+        public async Task<ActionResult<GlobalResponse<Expense>>> AddExpense([FromForm] ExpenseRequest request)
         {
             try
             {
@@ -228,6 +302,24 @@ namespace POS.Controllers
                     }
                 }
 
+                string? attachmentPath = null;
+                if (request.Attachment != null && request.Attachment.Length > 0)
+                {
+                    try
+                    {
+                        attachmentPath = await UploadExpenseAttachmentAsync(request.Attachment);
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        return BadRequest(new GlobalResponse<Expense>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = ex.Message
+                        });
+                    }
+                }
+
                 var expense = new Expense
                 {
                     Amount = request.Amount,
@@ -236,6 +328,7 @@ namespace POS.Controllers
                     Description = request.Description?.Trim(),
                     EmployeeId = request.EmployeeId,
                     TagId = request.TagId,
+                    AttachmentPath = attachmentPath,
                     InsertByUserId = commercialUserId,
                     InsertDate = DateTime.UtcNow,
                     UpdateDate = DateTime.UtcNow,
@@ -246,6 +339,11 @@ namespace POS.Controllers
                 await _dbConfig.SaveChangesAsync();
 
                 var added = await _dbConfig.Expenses.Include(e => e.Employee).Include(e => e.Tag).FirstOrDefaultAsync(e => e.Id == expense.Id);
+                if (added != null)
+                    added.AttachmentUrl = BuildAttachmentPublicUrl(added.AttachmentPath);
+                else
+                    expense.AttachmentUrl = BuildAttachmentPublicUrl(expense.AttachmentPath);
+
                 return Ok(new GlobalResponse<Expense>
                 {
                     Data = added ?? expense,
@@ -268,7 +366,8 @@ namespace POS.Controllers
         // PUT: api/Expenses/{id}
         [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
         [HttpPut("{id}")]
-        public async Task<ActionResult<GlobalResponse<Expense>>> UpdateExpense(int id, [FromBody] ExpenseRequest request)
+        [RequestSizeLimit(12 * 1024 * 1024)]
+        public async Task<ActionResult<GlobalResponse<Expense>>> UpdateExpense(int id, [FromForm] ExpenseRequest request)
         {
             try
             {
@@ -345,7 +444,8 @@ namespace POS.Controllers
                     Category = expense.Category,
                     Description = expense.Description,
                     EmployeeId = expense.EmployeeId,
-                    TagId = expense.TagId
+                    TagId = expense.TagId,
+                    AttachmentPath = expense.AttachmentPath
                 };
 
                 expense.Amount = request.Amount;
@@ -356,6 +456,30 @@ namespace POS.Controllers
                 expense.TagId = request.TagId;
                 expense.UpdateDate = DateTime.UtcNow;
 
+                if (request.Attachment != null && request.Attachment.Length > 0)
+                {
+                    try
+                    {
+                        var previous = expense.AttachmentPath;
+                        expense.AttachmentPath = await UploadExpenseAttachmentAsync(request.Attachment);
+                        TryDeleteAttachmentFile(previous);
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        return BadRequest(new GlobalResponse<Expense>
+                        {
+                            Data = null,
+                            ErrorStatus = true,
+                            Message = ex.Message
+                        });
+                    }
+                }
+                else if (request.RemoveAttachment)
+                {
+                    TryDeleteAttachmentFile(expense.AttachmentPath);
+                    expense.AttachmentPath = null;
+                }
+
                 // Store new values for audit log
                 var newValues = new
                 {
@@ -364,7 +488,8 @@ namespace POS.Controllers
                     Category = expense.Category,
                     Description = expense.Description,
                     EmployeeId = expense.EmployeeId,
-                    TagId = expense.TagId
+                    TagId = expense.TagId,
+                    AttachmentPath = expense.AttachmentPath
                 };
 
                 _dbConfig.Expenses.Update(expense);
@@ -385,6 +510,8 @@ namespace POS.Controllers
                 );
 
                 var updated = await _dbConfig.Expenses.Include(e => e.Employee).Include(e => e.Tag).FirstOrDefaultAsync(e => e.Id == id);
+                if (updated != null)
+                    updated.AttachmentUrl = BuildAttachmentPublicUrl(updated.AttachmentPath);
                 return Ok(new GlobalResponse<Expense>
                 {
                     Data = updated ?? expense,

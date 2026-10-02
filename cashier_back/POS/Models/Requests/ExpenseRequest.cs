@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace POS.Models.Requests
 {
@@ -20,5 +21,11 @@ namespace POS.Models.Requests
         public int? EmployeeId { get; set; }
 
         public int? TagId { get; set; }
+
+        /// <summary>Optional image or PDF attachment.</summary>
+        public IFormFile? Attachment { get; set; }
+
+        /// <summary>When true on update, clears the existing attachment if no new file is sent.</summary>
+        public bool RemoveAttachment { get; set; }
     }
 }

@@ -30,6 +30,13 @@ namespace POS.Models
         public int? TagId { get; set; }
         public Tag? Tag { get; set; }
 
+        /// <summary>Optional receipt/invoice attachment file name under wwwroot/Images/Expenses.</summary>
+        [StringLength(500)]
+        public string? AttachmentPath { get; set; }
+
+        [NotMapped]
+        public string? AttachmentUrl { get; set; }
+
         [ForeignKey("InsertByUserId")]
         public int InsertByUserId { get; set; }
         public User? User { get; set; }

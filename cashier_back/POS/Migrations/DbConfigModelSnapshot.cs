@@ -586,6 +586,10 @@ namespace POS.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("AttachmentPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
                     b.Property<string>("Category")
                         .IsRequired()
                         .HasMaxLength(100)

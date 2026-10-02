@@ -225,6 +225,37 @@
               <template #cell(tag)="row">
                 <span>{{ row.item.tag?.name || '-' }}</span>
               </template>
+              <template #cell(attachment)="row">
+                <div class="expense-attachment-cell">
+                  <template v-if="expenseAttachmentUrl(row.item)">
+                    <a
+                      v-if="isExpenseImageAttachment(row.item)"
+                      :href="expenseAttachmentUrl(row.item)"
+                      target="_blank"
+                      rel="noopener"
+                      class="expense-attachment-thumb-frame"
+                      :title="$t('open') || 'فتح'"
+                    >
+                      <img
+                        :src="expenseAttachmentUrl(row.item)"
+                        alt=""
+                        class="expense-attachment-thumb"
+                      />
+                    </a>
+                    <a
+                      v-else
+                      :href="expenseAttachmentUrl(row.item)"
+                      target="_blank"
+                      rel="noopener"
+                      class="expense-attachment-link"
+                    >
+                      <b-icon icon="file-earmark-pdf" class="me-1"></b-icon>
+                      {{ $t("open") || "فتح" }}
+                    </a>
+                  </template>
+                  <span v-else>—</span>
+                </div>
+              </template>
               <template #cell(actions)="row">
                 <div class="actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
                   <button
@@ -358,6 +389,52 @@
               <option v-for="tag in tags" :key="tag.id" :value="tag.id">{{ tag.name }}</option>
             </select>
           </div>
+          <div class="users-form-group">
+            <label class="users-form-label">
+              <b-icon icon="paperclip" class="form-label-icon"></b-icon>
+              {{ $t("expenseAttachment") || "المرفق" }}
+              <span class="expense-optional-hint">({{ $t("optional") || "اختياري" }})</span>
+            </label>
+            <label class="expense-file-drop">
+              <input
+                ref="expenseAttachmentInput"
+                type="file"
+                accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,image/*"
+                class="expense-file-drop__input"
+                @change="onExpenseAttachmentSelect"
+              />
+              <span class="expense-file-drop__text">
+                <b-icon icon="cloud-upload" class="me-2"></b-icon>
+                {{ $t("expenseAttachmentHint") || "صورة أو PDF — انقر للاختيار" }}
+              </span>
+            </label>
+            <small v-if="expenseForm.attachmentFileName" class="expense-file-name">
+              {{ expenseForm.attachmentFileName }}
+              <button type="button" class="expense-file-clear" @click="clearSelectedAttachment">
+                {{ $t("clear") || "مسح" }}
+              </button>
+            </small>
+            <div v-else-if="expenseForm.existingAttachmentUrl && !expenseForm.removeAttachment" class="expense-existing-attachment">
+              <a
+                :href="expenseForm.existingAttachmentUrl"
+                target="_blank"
+                rel="noopener"
+                class="expense-attachment-link"
+              >
+                <b-icon icon="paperclip" class="me-1"></b-icon>
+                {{ $t("expenseViewAttachment") || "عرض المرفق الحالي" }}
+              </a>
+              <button type="button" class="expense-file-clear" @click="markAttachmentForRemoval">
+                {{ $t("expenseRemoveAttachment") || "إزالة المرفق" }}
+              </button>
+            </div>
+            <small v-else-if="expenseForm.removeAttachment" class="expense-file-name expense-file-name--warn">
+              {{ $t("expenseAttachmentWillRemove") || "سيتم إزالة المرفق عند الحفظ" }}
+              <button type="button" class="expense-file-clear" @click="expenseForm.removeAttachment = false">
+                {{ $t("cancel") || "إلغاء" }}
+              </button>
+            </small>
+          </div>
           <div class="users-form-actions">
             <button type="submit" class="users-form-submit-button" :disabled="savingExpense">
               <b-spinner small v-if="savingExpense" class="me-2"></b-spinner>
@@ -374,20 +451,49 @@
     </b-modal>
 
     <!-- Delete Confirmation Modal -->
-    <b-modal 
-      v-model="showDeleteModal" 
-      :title="$t('confirmDelete') || 'تأكيد الحذف'"
-      @ok="deleteExpense"
-      @cancel="showDeleteModal = false"
-      ok-variant="danger"
-      cancel-variant="secondary"
-      :ok-disabled="deletingExpense"
+    <b-modal
+      v-model="showDeleteModal"
+      hide-header
+      hide-footer
+      class="users-modal"
+      centered
+      @hidden="expenseToDelete = null"
     >
-      <div v-if="deletingExpense" class="loading-state">
-        <b-spinner small></b-spinner>
-        <span>{{ $t("deleting") || "جاري الحذف..." }}</span>
+      <div class="modal-content-wrapper">
+        <div class="delete-confirmation-content">
+          <div class="delete-icon-wrapper">
+            <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
+          </div>
+          <h3 class="delete-confirmation-title">{{ $t("confirmDelete") || "تأكيد الحذف" }}</h3>
+          <p class="delete-confirmation-text">
+            {{ $t("confirmDeleteExpense") || "هل أنت متأكد من حذف هذه الصرفية؟" }}
+          </p>
+          <div v-if="deletingExpense" class="loading-state">
+            <b-spinner small></b-spinner>
+            <span>{{ $t("deleting") || "جاري الحذف..." }}</span>
+          </div>
+          <div v-else class="delete-confirmation-actions">
+            <button
+              type="button"
+              class="delete-confirm-button"
+              :disabled="deletingExpense"
+              @click="deleteExpense"
+            >
+              <b-icon icon="trash-fill" class="me-2"></b-icon>
+              {{ $t("delete") || "مسح" }}
+            </button>
+            <button
+              type="button"
+              class="delete-cancel-button"
+              :disabled="deletingExpense"
+              @click="showDeleteModal = false"
+            >
+              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+              {{ $t("cancel") || "إلغاء" }}
+            </button>
+          </div>
+        </div>
       </div>
-      <p v-else>{{ $t("confirmDeleteExpense") || "هل أنت متأكد من حذف هذه الصرفية؟" }}</p>
     </b-modal>
 
     <!-- Categories Management Modal -->
@@ -497,20 +603,49 @@
     </b-modal>
 
     <!-- Delete Category Confirmation Modal -->
-    <b-modal 
-      v-model="showDeleteCategoryModal" 
-      :title="$t('confirmDelete') || 'تأكيد الحذف'"
-      @ok="deleteCategory"
-      @cancel="showDeleteCategoryModal = false"
-      ok-variant="danger"
-      cancel-variant="secondary"
-      :ok-disabled="deletingCategory"
+    <b-modal
+      v-model="showDeleteCategoryModal"
+      hide-header
+      hide-footer
+      class="users-modal"
+      centered
+      @hidden="categoryToDelete = null"
     >
-      <div v-if="deletingCategory" class="loading-state">
-        <b-spinner small></b-spinner>
-        <span>{{ $t("deleting") || "جاري الحذف..." }}</span>
+      <div class="modal-content-wrapper">
+        <div class="delete-confirmation-content">
+          <div class="delete-icon-wrapper">
+            <b-icon icon="exclamation-triangle-fill" class="delete-warning-icon"></b-icon>
+          </div>
+          <h3 class="delete-confirmation-title">{{ $t("confirmDelete") || "تأكيد الحذف" }}</h3>
+          <p class="delete-confirmation-text">
+            {{ $t("confirmDeleteCategory") || "هل أنت متأكد من حذف هذه الفئة؟" }}
+          </p>
+          <div v-if="deletingCategory" class="loading-state">
+            <b-spinner small></b-spinner>
+            <span>{{ $t("deleting") || "جاري الحذف..." }}</span>
+          </div>
+          <div v-else class="delete-confirmation-actions">
+            <button
+              type="button"
+              class="delete-confirm-button"
+              :disabled="deletingCategory"
+              @click="deleteCategory"
+            >
+              <b-icon icon="trash-fill" class="me-2"></b-icon>
+              {{ $t("delete") || "مسح" }}
+            </button>
+            <button
+              type="button"
+              class="delete-cancel-button"
+              :disabled="deletingCategory"
+              @click="showDeleteCategoryModal = false"
+            >
+              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+              {{ $t("cancel") || "إلغاء" }}
+            </button>
+          </div>
+        </div>
       </div>
-      <p v-else>{{ $t("confirmDeleteCategory") || "هل أنت متأكد من حذف هذه الفئة؟" }}</p>
     </b-modal>
   </b-overlay>
 </template>
@@ -545,7 +680,11 @@ export default {
         category: '',
         description: '',
         employeeId: '',
-        tagId: ''
+        tagId: '',
+        attachmentFile: null,
+        attachmentFileName: '',
+        existingAttachmentUrl: '',
+        removeAttachment: false
       },
       employees: [],
       tags: [],
@@ -582,6 +721,7 @@ export default {
         { key: 'description', label: this.$t("expenseDescription") || "الوصف" },
         { key: 'employee', label: this.$t("employeeLabel") || "الموظف" },
         { key: 'tag', label: this.$t("expenseTag") || "القسم (Tag)" },
+        { key: 'attachment', label: this.$t("expenseAttachment") || "المرفق" },
         { key: 'actions', label: this.$t("actions") || "الإجراءات" }
       ];
     }
@@ -703,24 +843,72 @@ export default {
         this.onFiltersChanged();
       }, 500);
     },
+    expenseAttachmentUrl(expense) {
+      if (!expense) return '';
+      return expense.attachmentUrl || expense.attachmentPath || '';
+    },
+    isExpenseImageAttachment(expense) {
+      const url = (this.expenseAttachmentUrl(expense) || '').toLowerCase();
+      return /\.(jpe?g|png|gif|webp)(\?|$)/i.test(url);
+    },
+    onExpenseAttachmentSelect(event) {
+      const file = event?.target?.files?.[0] || null;
+      if (!file) {
+        this.clearSelectedAttachment();
+        return;
+      }
+      const allowed = /\.(jpe?g|png|gif|webp|pdf)$/i;
+      if (!allowed.test(file.name)) {
+        this.$bvToast.toast(
+          this.$t("expenseAttachmentInvalidType") || "نوع الملف غير مسموح. المسموح: صورة أو PDF",
+          { title: this.$t("error") || "خطأ", variant: "danger", solid: true }
+        );
+        this.clearSelectedAttachment();
+        return;
+      }
+      this.expenseForm.attachmentFile = file;
+      this.expenseForm.attachmentFileName = file.name;
+      this.expenseForm.removeAttachment = false;
+    },
+    clearSelectedAttachment() {
+      this.expenseForm.attachmentFile = null;
+      this.expenseForm.attachmentFileName = '';
+      if (this.$refs.expenseAttachmentInput) {
+        this.$refs.expenseAttachmentInput.value = '';
+      }
+    },
+    markAttachmentForRemoval() {
+      this.clearSelectedAttachment();
+      this.expenseForm.removeAttachment = true;
+    },
     async saveExpense() {
       try {
         this.savingExpense = true;
-        
-        const request = {
-          amount: parseFloat(this.expenseForm.amount),
-          date: this.expenseForm.date,
-          category: this.expenseForm.category,
-          description: this.expenseForm.description || null,
-          employeeId: (this.expenseForm.employeeId != null && this.expenseForm.employeeId !== '') ? Number(this.expenseForm.employeeId) : null,
-          tagId: (this.expenseForm.tagId != null && this.expenseForm.tagId !== '') ? Number(this.expenseForm.tagId) : null
-        };
 
+        const formData = new FormData();
+        formData.append('amount', String(parseFloat(this.expenseForm.amount) || 0));
+        formData.append('date', this.expenseForm.date);
+        formData.append('category', this.expenseForm.category || '');
+        if (this.expenseForm.description) {
+          formData.append('description', this.expenseForm.description);
+        }
+        if (this.expenseForm.employeeId != null && this.expenseForm.employeeId !== '') {
+          formData.append('employeeId', String(Number(this.expenseForm.employeeId)));
+        }
+        if (this.expenseForm.tagId != null && this.expenseForm.tagId !== '') {
+          formData.append('tagId', String(Number(this.expenseForm.tagId)));
+        }
+        formData.append('removeAttachment', this.expenseForm.removeAttachment ? 'true' : 'false');
+        if (this.expenseForm.attachmentFile) {
+          formData.append('attachment', this.expenseForm.attachmentFile);
+        }
+
+        const config = { headers: { 'Content-Type': 'multipart/form-data' } };
         let response;
         if (this.selectedExpense) {
-          response = await HTTP.put(`Expenses/${this.selectedExpense.id}`, request);
+          response = await HTTP.put(`Expenses/${this.selectedExpense.id}`, formData, config);
         } else {
-          response = await HTTP.post('Expenses', request);
+          response = await HTTP.post('Expenses', formData, config);
         }
 
         if (response.data && !response.data.errorStatus) {
@@ -759,7 +947,11 @@ export default {
         category: expense.category,
         description: expense.description || '',
         employeeId: (expense.employeeId != null && expense.employeeId !== '') ? expense.employeeId : '',
-        tagId: (expense.tagId != null && expense.tagId !== '') ? expense.tagId : ''
+        tagId: (expense.tagId != null && expense.tagId !== '') ? expense.tagId : '',
+        attachmentFile: null,
+        attachmentFileName: '',
+        existingAttachmentUrl: this.expenseAttachmentUrl(expense) || '',
+        removeAttachment: false
       };
       this.showAddExpenseModal = true;
     },
@@ -810,8 +1002,15 @@ export default {
         category: '',
         description: '',
         employeeId: '',
-        tagId: ''
+        tagId: '',
+        attachmentFile: null,
+        attachmentFileName: '',
+        existingAttachmentUrl: '',
+        removeAttachment: false
       };
+      if (this.$refs.expenseAttachmentInput) {
+        this.$refs.expenseAttachmentInput.value = '';
+      }
     },
     async loadTags() {
       try {
@@ -1274,6 +1473,113 @@ export default {
 .color-input {
   height: 48px;
   cursor: pointer;
+}
+
+.expense-optional-hint {
+  margin-inline-start: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary, #64748b);
+}
+
+.expense-file-drop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.75rem 1rem;
+  border: 1px dashed color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--primary-color) 6%, var(--bg-secondary, #f8fafc));
+  cursor: pointer;
+}
+
+.expense-file-drop:hover {
+  border-color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-secondary, #f8fafc));
+}
+
+.expense-file-drop__input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.expense-file-drop__text {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+  pointer-events: none;
+}
+
+.expense-file-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  font-size: 0.8125rem;
+  color: var(--text-primary, #111827);
+}
+
+.expense-file-name--warn {
+  color: var(--danger-color, #dc2626);
+}
+
+.expense-file-clear {
+  border: none;
+  background: transparent;
+  color: var(--danger-color, #dc2626);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.expense-existing-attachment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.4rem;
+}
+
+.expense-attachment-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.expense-attachment-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+
+.expense-attachment-link:hover {
+  text-decoration: underline;
+}
+
+.expense-attachment-thumb-frame {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  border-radius: 0.45rem;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.expense-attachment-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 </style>
 
