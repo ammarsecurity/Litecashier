@@ -30,7 +30,7 @@ public static class ReceiptPrintStyles
             padding-bottom: 8px;
             border-bottom: 1px dashed #000;
           }
-          .bill-logo-img { max-width: 50px; height: auto; margin-bottom: 4px; }
+          .bill-logo-img { max-width: 100px; height: auto; margin-bottom: 4px; }
           .bill-store-name { font-size: 17px; font-weight: 800; margin: 4px 0 2px 0; color: #000; }
           .bill-store-subtitle { font-size: 10px; color: #666; margin: 0; }
           .bill-info-section { margin: 8px 0; padding: 0 1mm 0 2mm; font-size: 11px; }

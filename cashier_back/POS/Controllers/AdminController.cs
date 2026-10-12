@@ -268,20 +268,30 @@ namespace POS.Controllers
                     .ToListAsync()
                 : new List<CustomerOrderItem>();
 
-            var returnsForDay = orderIds.Any()
-                ? await _dbConfig.CatalogStockReturns
-                    .AsNoTracking()
-                    .Include(r => r.Item)
-                    .Include(r => r.User)
-                    .Where(r =>
-                        !r.IsDeleted &&
-                        r.ReturnType == "Order" &&
-                        r.CustomerOrderId != null &&
-                        orderIds.Contains(r.CustomerOrderId.Value))
-                    .ToListAsync()
-                : new List<CatalogStockReturn>();
+            // All returns recorded today (Order + Manual) — drives ReturnedItems / totals display
+            var returnsForDay = await _dbConfig.CatalogStockReturns
+                .AsNoTracking()
+                .Include(r => r.Item)
+                .Include(r => r.User)
+                .Include(r => r.CustomerOrder)
+                .Where(r =>
+                    !r.IsDeleted &&
+                    r.InsertDate >= dayStart &&
+                    r.InsertDate < dayEnd &&
+                    (r.InsertByUserId == commercialUserId ||
+                     (r.User != null &&
+                      (r.User.Id == commercialUserId || r.User.InsertByUserId == commercialUserId))))
+                .ToListAsync();
 
-            var returnedByItem = returnsForDay
+            // Only Order returns tied to today's invoices — adjust today's net sales / payments / top items
+            var salesAdjustReturns = returnsForDay
+                .Where(r =>
+                    r.ReturnType == "Order" &&
+                    r.CustomerOrderId != null &&
+                    orderIds.Contains(r.CustomerOrderId.Value))
+                .ToList();
+
+            var returnedByItem = salesAdjustReturns
                 .GroupBy(r => r.ItemId)
                 .ToDictionary(
                     g => g.Key,
@@ -290,15 +300,15 @@ namespace POS.Controllers
                         Amount: g.Sum(x => x.Quantity * (x.UnitPrice ?? 0m))
                     ));
 
-            var returnedByOrder = returnsForDay
+            var returnedByOrder = salesAdjustReturns
                 .Where(r => r.CustomerOrderId.HasValue)
                 .GroupBy(r => r.CustomerOrderId!.Value)
                 .ToDictionary(
                     g => g.Key,
                     g => g.Sum(x => x.Quantity * (x.UnitPrice ?? 0m)));
 
-            var returnedAmount = returnedByItem.Values.Sum(v => v.Amount);
-            var returnedCount = returnedByItem.Values.Sum(v => v.Qty);
+            var returnedAmount = returnsForDay.Sum(x => x.Quantity * (x.UnitPrice ?? 0m));
+            var returnedCount = returnsForDay.Sum(x => x.Quantity);
 
             var itemsCount = orderItems.Count;
             var itemsQuantity = Math.Max(0, orderItems.Sum(x => x.Quantity) - returnedCount);
@@ -1063,7 +1073,7 @@ namespace POS.Controllers
 
         [Authorize(Roles = "Commercial,Admin")]
         [HttpGet("GetUsers")]
-        public ActionResult<GlobalResponse<PagedList<User>>> GetUsers(int pageNumber, int pageSize, string? info)
+        public ActionResult<GlobalResponse<PagedList<User>>> GetUsers(int pageNumber, int pageSize, string? info, string? role = null)
         {
 
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
@@ -1077,6 +1087,10 @@ namespace POS.Controllers
                 {
                     user = user.Where(x => x.PhoneNumber == info || x.Name.Contains(info) || x.Username.Contains(info));
                 }
+                if (!string.IsNullOrWhiteSpace(role))
+                {
+                    user = user.Where(x => x.Role == role);
+                }
                 var totalItems = user.Count();
 
                 var pagedItems = user
@@ -1084,6 +1098,8 @@ namespace POS.Controllers
                     .Skip(pageNumber * pageSize)
                     .Take(pageSize)
                     .ToList();
+
+                AttachCommercialOwners(pagedItems);
 
                 var pagedResult = new PagedList<User>(pagedItems, totalItems, pageNumber, pageSize);
 
@@ -1104,6 +1120,10 @@ namespace POS.Controllers
                 {
                     user = user.Where(x => x.PhoneNumber == info || x.Name.Contains(info) || x.Username.Contains(info));
                 }
+                if (!string.IsNullOrWhiteSpace(role))
+                {
+                    user = user.Where(x => x.Role == role);
+                }
                 var totalItems = user.Count();
 
                 var pagedItems = user
@@ -1111,6 +1131,8 @@ namespace POS.Controllers
                     .Skip(pageNumber * pageSize)
                     .Take(pageSize)
                     .ToList();
+
+                AttachCommercialOwners(pagedItems);
 
                 var pagedResult = new PagedList<User>(pagedItems, totalItems, pageNumber, pageSize);
 
@@ -1126,6 +1148,37 @@ namespace POS.Controllers
 
 
         
+        }
+
+        private static readonly HashSet<string> SubordinateUserRoles = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "POS", "Reader", "Manager"
+        };
+
+        private void AttachCommercialOwners(List<User> users)
+        {
+            var parentIds = users
+                .Where(u => SubordinateUserRoles.Contains(u.Role) && u.InsertByUserId > 0)
+                .Select(u => u.InsertByUserId)
+                .Distinct()
+                .ToList();
+
+            if (parentIds.Count == 0) return;
+
+            var parents = _dbConfig.Users
+                .AsNoTracking()
+                .Where(x => parentIds.Contains(x.Id) && x.IsDeleted == false)
+                .Select(x => new { x.Id, x.Name, x.StoreName })
+                .ToList()
+                .ToDictionary(x => x.Id);
+
+            foreach (var u in users)
+            {
+                if (!SubordinateUserRoles.Contains(u.Role) || u.InsertByUserId <= 0) continue;
+                if (!parents.TryGetValue(u.InsertByUserId, out var parent)) continue;
+                u.CommercialOwnerName = parent.Name;
+                u.CommercialOwnerStoreName = parent.StoreName;
+            }
         }
 
 
@@ -4691,6 +4744,162 @@ namespace POS.Controllers
         }
 
         [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
+        [HttpGet("GetFinancialOperationsReport")]
+        public ActionResult<GlobalResponse<FinancialOperationsReportDto>> GetFinancialOperationsReport(
+            DateTime? startDate,
+            DateTime? endDate,
+            string? categories = null,
+            int? brandId = null)
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var user = _dbConfig.Users.FirstOrDefault(x => x.Id == commercialUserId);
+
+                IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(commercialUserId, user!.InsertByUserId)
+                    .Include(x => x.Item)
+                    .Include(x => x.CustomerOrder);
+
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
+                {
+                    orderItemsQuery = orderItemsQuery.Where(x =>
+                        x.CustomerOrder != null &&
+                        x.CustomerOrder.InsertDate >= fromUtc &&
+                        x.CustomerOrder.InsertDate < toUtcEx);
+                }
+
+                orderItemsQuery = ApplyBrandFilterToOrderItems(orderItemsQuery, brandId);
+
+                var profitData = orderItemsQuery
+                    .Select(x => new
+                    {
+                        ItemId = x.ItemId,
+                        SellingPrice = x.SellingPrice,
+                        PurchasingPrice = x.PurchasingPrice,
+                        Quantity = x.Quantity
+                    })
+                    .ToList();
+
+                var returnRows = GetItemReturnTotalsForOrderItems(orderItemsQuery);
+                var returnedSales = returnRows.Values.Sum(v => v.Amount);
+                var returnedCost = profitData
+                    .GroupBy(x => x.ItemId)
+                    .Sum(g =>
+                    {
+                        returnRows.TryGetValue(g.Key, out var ret);
+                        if (ret.Qty <= 0) return 0m;
+                        var avgCost = g.Average(x => x.PurchasingPrice);
+                        return avgCost * ret.Qty;
+                    });
+
+                var totalSales = Math.Max(0m, profitData.Sum(x => x.SellingPrice * x.Quantity) - returnedSales);
+                var totalCost = Math.Max(0m, profitData.Sum(x => x.PurchasingPrice * x.Quantity) - returnedCost);
+                var totalProfit = totalSales - totalCost;
+
+                var expensesQuery = _dbConfig.Expenses
+                    .AsNoTracking()
+                    .Where(e => !e.IsDeleted && e.InsertByUserId == commercialUserId);
+
+                if (startDate.HasValue)
+                {
+                    expensesQuery = expensesQuery.Where(e => e.Date.Date >= startDate.Value.Date);
+                }
+
+                if (endDate.HasValue)
+                {
+                    expensesQuery = expensesQuery.Where(e => e.Date.Date <= endDate.Value.Date);
+                }
+
+                var expenses = expensesQuery
+                    .Select(e => new { e.Category, e.Amount })
+                    .ToList();
+
+                var totalExpenses = expenses.Sum(e => e.Amount);
+                var expensesByCategory = expenses
+                    .GroupBy(e => string.IsNullOrWhiteSpace(e.Category) ? "" : e.Category.Trim())
+                    .Select(g => new ExpenseCategoryAmountDto
+                    {
+                        Category = string.IsNullOrEmpty(g.Key) ? "-" : g.Key,
+                        TotalAmount = g.Sum(x => x.Amount),
+                        Count = g.Count(),
+                    })
+                    .OrderByDescending(x => x.TotalAmount)
+                    .ToList();
+
+                var selectedNames = (categories ?? "")
+                    .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(c => c.Trim())
+                    .Where(c => !string.IsNullOrWhiteSpace(c))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var selectedSet = new HashSet<string>(selectedNames, StringComparer.OrdinalIgnoreCase);
+                foreach (var row in expensesByCategory)
+                {
+                    row.IsSelected = selectedSet.Contains(row.Category);
+                }
+
+                var selectedBreakdown = expensesByCategory
+                    .Where(x => x.IsSelected)
+                    .ToList();
+
+                // Include selected names that had zero spend in the period
+                foreach (var name in selectedNames)
+                {
+                    if (selectedBreakdown.Any(x => string.Equals(x.Category, name, StringComparison.OrdinalIgnoreCase)))
+                        continue;
+                    selectedBreakdown.Add(new ExpenseCategoryAmountDto
+                    {
+                        Category = name,
+                        TotalAmount = 0,
+                        Count = 0,
+                        IsSelected = true,
+                    });
+                }
+
+                var selectedTotal = selectedBreakdown.Sum(x => x.TotalAmount);
+                var actualCash = totalSales - totalExpenses;
+                var netProfit = totalProfit - selectedTotal;
+
+                var report = new FinancialOperationsReportDto
+                {
+                    TotalSales = totalSales,
+                    TotalCost = totalCost,
+                    TotalProfit = totalProfit,
+                    TotalExpenses = totalExpenses,
+                    ActualCash = actualCash,
+                    SelectedCategoriesTotal = selectedTotal,
+                    NetProfit = netProfit,
+                    SelectedCategories = selectedNames,
+                    SelectedCategoryBreakdown = selectedBreakdown,
+                    ExpensesByCategory = expensesByCategory,
+                    Period = new FinancialOperationsPeriodDto
+                    {
+                        StartDate = startDate?.ToString("yyyy-MM-dd"),
+                        EndDate = endDate?.ToString("yyyy-MM-dd"),
+                    },
+                };
+
+                return Ok(new GlobalResponse<FinancialOperationsReportDto>
+                {
+                    Data = report,
+                    ErrorStatus = false,
+                    Message = "Success",
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting financial operations report");
+                return BadRequest(new GlobalResponse<FinancialOperationsReportDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = $"حدث خطأ: {ex.Message}",
+                });
+            }
+        }
+
+        [AuthorizeSection("reports", Roles = "Commercial,Admin,POS")]
         [HttpGet("GetTopSellingItems")]
         public ActionResult<GlobalResponse<object>> GetTopSellingItems(int topCount = 10, DateTime? startDate = null, DateTime? endDate = null, int? brandId = null)
         {
@@ -6544,6 +6753,10 @@ namespace POS.Controllers
                 summarySheet.Cell(10, 2).Value = r.Totals.TotalCost;
                 summarySheet.Cell(11, 1).Value = "Profit";
                 summarySheet.Cell(11, 2).Value = r.Totals.Profit;
+                summarySheet.Cell(12, 1).Value = "ReturnedAmount";
+                summarySheet.Cell(12, 2).Value = r.Totals.ReturnedAmount;
+                summarySheet.Cell(13, 1).Value = "ReturnedCount";
+                summarySheet.Cell(13, 2).Value = r.Totals.ReturnedCount;
 
                 var paymentsSheet = workbook.Worksheets.Add("PaymentBreakdown");
                 paymentsSheet.Cell(1, 1).Value = "Method";
@@ -6569,6 +6782,27 @@ namespace POS.Controllers
                     topItemsSheet.Cell(topItemsRow, 2).Value = i.Quantity;
                     topItemsSheet.Cell(topItemsRow, 3).Value = i.SalesAmount;
                     topItemsRow++;
+                }
+
+                var returnedSheet = workbook.Worksheets.Add("ReturnedItems");
+                returnedSheet.Cell(1, 1).Value = "OrderCode";
+                returnedSheet.Cell(1, 2).Value = "ItemName";
+                returnedSheet.Cell(1, 3).Value = "Quantity";
+                returnedSheet.Cell(1, 4).Value = "UnitPrice";
+                returnedSheet.Cell(1, 5).Value = "LineTotal";
+                returnedSheet.Cell(1, 6).Value = "InsertDate";
+                returnedSheet.Cell(1, 7).Value = "DeletedByUsername";
+                var returnedRow = 2;
+                foreach (var item in r.ReturnedItems)
+                {
+                    returnedSheet.Cell(returnedRow, 1).Value = item.OrderCode ?? string.Empty;
+                    returnedSheet.Cell(returnedRow, 2).Value = item.ItemName ?? string.Empty;
+                    returnedSheet.Cell(returnedRow, 3).Value = item.Quantity;
+                    returnedSheet.Cell(returnedRow, 4).Value = item.UnitPrice;
+                    returnedSheet.Cell(returnedRow, 5).Value = item.LineTotal;
+                    returnedSheet.Cell(returnedRow, 6).Value = item.InsertDate;
+                    returnedSheet.Cell(returnedRow, 7).Value = item.DeletedByUsername ?? string.Empty;
+                    returnedRow++;
                 }
 
                 foreach (var sheet in workbook.Worksheets)

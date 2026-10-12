@@ -70,6 +70,14 @@
                                 <b-icon icon="file-earmark-bar-graph-fill" class="me-2"></b-icon>
                                 {{ $t('profitReport') || 'تقرير الأرباح' }}
                             </button>
+                            <button
+                                class="report-tab"
+                                :class="{ 'report-tab-active': activeTab === 'financialOps' }"
+                                @click="activeTab = 'financialOps'; openFinancialOpsTab()"
+                            >
+                                <b-icon icon="cash-stack" class="me-2"></b-icon>
+                                {{ $t('financialOpsReport') || 'العمليات المالية' }}
+                            </button>
                             <button 
                                 class="report-tab" 
                                 :class="{ 'report-tab-active': activeTab === 'topItems' }"
@@ -488,6 +496,42 @@
                                 </div>
                             </template>
                         </div>
+
+                        <div
+                            v-if="activeTab === 'financialOps'"
+                            class="financial-ops-categories-row"
+                        >
+                            <span class="reports-filter-label">
+                                {{ $t('expenseCategoriesForNetProfit') || 'فئات المصروف لصافي الأرباح' }}
+                            </span>
+                            <div v-if="expenseCategoriesForReport.length === 0" class="financial-ops-categories-empty">
+                                {{ $t('noExpenseCategories') || 'لا توجد فئات مصروف بعد' }}
+                            </div>
+                            <div v-else class="financial-ops-categories-chips">
+                                <label
+                                    v-for="cat in expenseCategoriesForReport"
+                                    :key="'fo-cat-' + (cat.id || cat.name)"
+                                    class="financial-ops-chip"
+                                    :class="{ 'financial-ops-chip--active': isFinancialOpsCategorySelected(cat.name) }"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        :value="cat.name"
+                                        v-model="financialOpsSelectedCategories"
+                                        @change="loadFinancialOperationsReport()"
+                                    />
+                                    <span>{{ cat.name }}</span>
+                                </label>
+                                <button
+                                    v-if="financialOpsSelectedCategories.length"
+                                    type="button"
+                                    class="btn btn-sm btn-outline-secondary financial-ops-clear-cats"
+                                    @click="clearFinancialOpsCategories()"
+                                >
+                                    {{ $t('clearSelection') || 'مسح الاختيار' }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div v-if="activeTab === 'orders'">
@@ -754,6 +798,130 @@
                                         </p>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Financial Operations Report -->
+                        <div v-if="activeTab === 'financialOps'" class="report-section">
+                            <div class="report-section-intro">
+                                <div class="report-info-banner">
+                                    <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
+                                    <span>
+                                        {{ $t('financialOpsHint') || 'النقد الفعلي = المبيعات − كل المصروفات. صافي الأرباح = الأرباح − مجموع فئات المصروف المختارة.' }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="app-overview-grid report-stats-grid">
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--primary report-stat-icon">
+                                        <b-icon icon="currency-dollar"></b-icon>
+                                    </span>
+                                    <div class="report-stat-content">
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(financialOpsReport.totalSales || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">{{ $t('totalSales') || 'إجمالي المبيعات' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--danger report-stat-icon">
+                                        <b-icon icon="wallet2"></b-icon>
+                                    </span>
+                                    <div class="report-stat-content">
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(financialOpsReport.totalExpenses || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">{{ $t('totalExpenses') || 'إجمالي المصروفات' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--info report-stat-icon">
+                                        <b-icon icon="cash"></b-icon>
+                                    </span>
+                                    <div class="report-stat-content">
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(financialOpsReport.actualCash || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">{{ $t('actualCash') || 'النقد الفعلي' }}</div>
+                                        <p class="report-stat-detail">{{ $t('actualCashFormula') || 'المبيعات − المصروفات' }}</p>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--success report-stat-icon">
+                                        <b-icon icon="graph-up-arrow"></b-icon>
+                                    </span>
+                                    <div class="report-stat-content">
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(financialOpsReport.totalProfit || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">{{ $t('totalProfit') || 'إجمالي الربح' }}</div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--warning report-stat-icon">
+                                        <b-icon icon="funnel"></b-icon>
+                                    </span>
+                                    <div class="report-stat-content">
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(financialOpsReport.selectedCategoriesTotal || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">{{ $t('selectedCategoriesTotal') || 'مجموع الفئات المختارة' }}</div>
+                                        <p class="report-stat-detail" v-if="(financialOpsReport.selectedCategories || []).length">
+                                            {{ (financialOpsReport.selectedCategories || []).join(' · ') }}
+                                        </p>
+                                        <p class="report-stat-detail" v-else>
+                                            {{ $t('noCategoriesSelectedHint') || 'لم تُختر فئات — الخصم = 0' }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--success report-stat-icon">
+                                        <b-icon icon="check2-circle"></b-icon>
+                                    </span>
+                                    <div class="report-stat-content">
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(financialOpsReport.netProfit || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">{{ $t('netProfit') || 'صافي الأرباح' }}</div>
+                                        <p class="report-stat-detail">{{ $t('netProfitFormula') || 'الأرباح − الفئات المختارة' }}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="report-table-wrap" style="margin-top: 1.25rem;">
+                                <h4 class="report-subsection-title">
+                                    {{ $t('expensesByCategory') || 'المصروفات حسب الفئة' }}
+                                </h4>
+                                <div v-if="!(financialOpsReport.expensesByCategory || []).length" class="reports-empty-state">
+                                    {{ $t('noExpensesInPeriod') || 'لا توجد مصروفات في هذه الفترة' }}
+                                </div>
+                                <b-table
+                                    v-else
+                                    :items="financialOpsReport.expensesByCategory"
+                                    :fields="financialOpsCategoryFields"
+                                    responsive
+                                    hover
+                                    class="reports-table"
+                                    thead-class="reports-table-head"
+                                >
+                                    <template #cell(category)="data">
+                                        <span
+                                            class="financial-ops-cat-name"
+                                            :class="{ 'financial-ops-cat-name--selected': data.item.isSelected }"
+                                        >
+                                            {{ data.item.category }}
+                                            <span v-if="data.item.isSelected" class="financial-ops-selected-badge">
+                                                {{ $t('selectedForNetProfit') || 'مختار لصافي الأرباح' }}
+                                            </span>
+                                        </span>
+                                    </template>
+                                    <template #cell(totalAmount)="data">
+                                        {{ formatPrice(data.item.totalAmount) }} {{ $t('currency') }}
+                                    </template>
+                                    <template #cell(count)="data">
+                                        {{ data.item.count }}
+                                    </template>
+                                </b-table>
                             </div>
                         </div>
 
@@ -1677,6 +1845,21 @@ export default {
             
             // Advanced Reports Data
             profitReport: {},
+            financialOpsReport: {
+                totalSales: 0,
+                totalCost: 0,
+                totalProfit: 0,
+                totalExpenses: 0,
+                actualCash: 0,
+                selectedCategoriesTotal: 0,
+                netProfit: 0,
+                selectedCategories: [],
+                selectedCategoryBreakdown: [],
+                expensesByCategory: [],
+                period: {},
+            },
+            expenseCategoriesForReport: [],
+            financialOpsSelectedCategories: [],
             topSellingItems: [],
             topSellingItemsSummary: {
                 totalQuantitySold: 0,
@@ -1781,7 +1964,9 @@ export default {
                 this.reportBrandId ||
                 (this.activeTab === "productSales" &&
                     (this.productSalesFilters.tag ||
-                        (this.productSalesFilters.info || "").trim()))
+                        (this.productSalesFilters.info || "").trim())) ||
+                (this.activeTab === "financialOps" &&
+                    (this.financialOpsSelectedCategories || []).length)
             );
         },
         hasReportFilters() {
@@ -1805,6 +1990,9 @@ export default {
             const map = {
                 orders: this.$t("ordersFiltersHint") || "تصفية الفواتير بالتاريخ أو طريقة الدفع أو رقم الفاتورة",
                 profit: this.$t("dateFiltersHint") || "حدد فترة التقرير",
+                financialOps:
+                    this.$t("financialOpsFiltersHint") ||
+                    "حدد الفترة واختر فئات المصروف لحساب صافي الأرباح",
                 topItems: this.$t("dateFiltersHint") || "حدد فترة التقرير",
                 productSales: this.$t("productSalesFiltersHint") || "فلترة حسب التاريخ والقسم واسم المنتج",
                 byCategory: this.$t("dateFiltersHint") || "حدد فترة التقرير",
@@ -1817,6 +2005,22 @@ export default {
                     "فلترة حسب البراند أو القسم أو اسم المنتج",
             };
             return map[this.activeTab] || (this.$t("filters") || "فلاتر التقرير");
+        },
+        financialOpsCategoryFields() {
+            return [
+                {
+                    key: "category",
+                    label: this.$t("expenseCategory") || this.$t("category") || "الفئة",
+                },
+                {
+                    key: "totalAmount",
+                    label: this.$t("totalAmount") || "المبلغ",
+                },
+                {
+                    key: "count",
+                    label: this.$t("count") || "العدد",
+                },
+            ];
         },
         expiredItemsCount() {
             return (this.expiringItems || []).filter((i) => i.status === "expired" || Number(i.daysRemaining) < 0).length;
@@ -2135,6 +2339,7 @@ export default {
                 tag: "",
                 info: "",
             };
+            this.financialOpsSelectedCategories = [];
             this.loadAdvancedReport();
         },
         clearCurrentTabFilters() {
@@ -2626,6 +2831,8 @@ export default {
         loadAdvancedReport() {
             if (this.activeTab === 'profit') {
                 this.loadProfitReport();
+            } else if (this.activeTab === 'financialOps') {
+                this.loadFinancialOperationsReport();
             } else if (this.activeTab === 'topItems') {
                 this.loadTopSellingItems();
             } else if (this.activeTab === 'productSales') {
@@ -2637,6 +2844,105 @@ export default {
             } else if (this.activeTab === 'byWarehouse') {
                 this.loadSalesByWarehouse();
             }
+        },
+
+        openFinancialOpsTab() {
+            this.ensureExpenseCategoriesForReport().then(() => {
+                this.loadFinancialOperationsReport();
+            });
+        },
+
+        isFinancialOpsCategorySelected(name) {
+            return (this.financialOpsSelectedCategories || []).includes(name);
+        },
+
+        clearFinancialOpsCategories() {
+            this.financialOpsSelectedCategories = [];
+            this.loadFinancialOperationsReport();
+        },
+
+        async ensureExpenseCategoriesForReport() {
+            if (this.expenseCategoriesForReport.length > 0) return;
+            try {
+                const response = await HTTP.get("ExpenseCategories");
+                const raw = response.data?.data ?? response.data?.Data ?? [];
+                this.expenseCategoriesForReport = (Array.isArray(raw) ? raw : [])
+                    .map((c) => ({
+                        id: c.id ?? c.Id,
+                        name: (c.name ?? c.Name ?? "").trim(),
+                    }))
+                    .filter((c) => c.name);
+            } catch (e) {
+                console.error("Error loading expense categories:", e);
+                this.expenseCategoriesForReport = [];
+            }
+        },
+
+        loadFinancialOperationsReport() {
+            this.show = true;
+            const params = new URLSearchParams();
+            if (this.reportFilters.startDate) params.append("startDate", this.reportFilters.startDate);
+            if (this.reportFilters.endDate) params.append("endDate", this.reportFilters.endDate);
+            this.appendBrandIdParam(params, this.reportBrandId);
+            if ((this.financialOpsSelectedCategories || []).length) {
+                params.append("categories", this.financialOpsSelectedCategories.join(","));
+            }
+
+            HTTP.get(`Admin/GetFinancialOperationsReport?${params.toString()}`)
+                .then((response) => {
+                    const data = response.data?.data || response.data?.Data || {};
+                    this.financialOpsReport = {
+                        totalSales: data.totalSales ?? data.TotalSales ?? 0,
+                        totalCost: data.totalCost ?? data.TotalCost ?? 0,
+                        totalProfit: data.totalProfit ?? data.TotalProfit ?? 0,
+                        totalExpenses: data.totalExpenses ?? data.TotalExpenses ?? 0,
+                        actualCash: data.actualCash ?? data.ActualCash ?? 0,
+                        selectedCategoriesTotal:
+                            data.selectedCategoriesTotal ?? data.SelectedCategoriesTotal ?? 0,
+                        netProfit: data.netProfit ?? data.NetProfit ?? 0,
+                        selectedCategories:
+                            data.selectedCategories || data.SelectedCategories || [],
+                        selectedCategoryBreakdown: (
+                            data.selectedCategoryBreakdown ||
+                            data.SelectedCategoryBreakdown ||
+                            []
+                        ).map((row) => ({
+                            category: row.category ?? row.Category ?? "",
+                            totalAmount: row.totalAmount ?? row.TotalAmount ?? 0,
+                            count: row.count ?? row.Count ?? 0,
+                            isSelected: row.isSelected ?? row.IsSelected ?? true,
+                        })),
+                        expensesByCategory: (
+                            data.expensesByCategory ||
+                            data.ExpensesByCategory ||
+                            []
+                        ).map((row) => ({
+                            category: row.category ?? row.Category ?? "",
+                            totalAmount: row.totalAmount ?? row.TotalAmount ?? 0,
+                            count: row.count ?? row.Count ?? 0,
+                            isSelected: !!(row.isSelected ?? row.IsSelected),
+                        })),
+                        period: data.period || data.Period || {},
+                    };
+                    this.mergeExpenseCategoriesFromReport(this.financialOpsReport.expensesByCategory);
+                    this.show = false;
+                })
+                .catch((error) => {
+                    this.show = false;
+                    console.error("Error loading financial operations report:", error);
+                });
+        },
+
+        mergeExpenseCategoriesFromReport(rows) {
+            const known = new Set(
+                (this.expenseCategoriesForReport || []).map((c) => (c.name || "").trim())
+            );
+            (rows || []).forEach((row) => {
+                const name = (row.category || "").trim();
+                if (!name || name === "-" || known.has(name)) return;
+                known.add(name);
+                this.expenseCategoriesForReport.push({ id: `exp-${name}`, name });
+            });
         },
 
         loadProductSalesReport() {

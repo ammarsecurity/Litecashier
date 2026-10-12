@@ -82,6 +82,7 @@ namespace RestaurantPOS.Db
         public DbSet<StockMovement> StockMovements { get; set; }
         public DbSet<Supplier> Suppliers { get; set; }
         public DbSet<Customer> Customers { get; set; }
+        public DbSet<CreditSettlement> CreditSettlements { get; set; }
         public DbSet<ReturnedOrderItem> ReturnedOrderItems { get; set; }
         public DbSet<PaymentDevice> PaymentDevices { get; set; }
         public DbSet<CardPaymentTransaction> CardPaymentTransactions { get; set; }
@@ -132,6 +133,16 @@ namespace RestaurantPOS.Db
             modelBuilder.Entity<CustomerOrder>().HasOne(r => r.DeliveryDriver).WithMany().HasForeignKey(x => x.DeliveryDriverId).OnDelete(DeleteBehavior.SetNull);
             modelBuilder.Entity<CustomerOrder>().HasOne(r => r.CreditEmployee).WithMany().HasForeignKey(x => x.CreditEmployeeId).OnDelete(DeleteBehavior.SetNull);
             modelBuilder.Entity<CustomerOrder>().HasOne(r => r.CreditCustomer).WithMany().HasForeignKey(x => x.CreditCustomerId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<CreditSettlement>()
+                .HasOne(s => s.CustomerOrder)
+                .WithMany(o => o.CreditSettlements)
+                .HasForeignKey(s => s.CustomerOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<CreditSettlement>()
+                .HasOne(s => s.User)
+                .WithMany()
+                .HasForeignKey(s => s.InsertByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<AuditLog>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<AuditLog>().HasOne(r => r.CommercialUser).WithMany().HasForeignKey(x => x.CommercialUserId).OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<StockMovement>().HasOne(r => r.User).WithMany().HasForeignKey(x => x.InsertByUserId).OnDelete(DeleteBehavior.NoAction);

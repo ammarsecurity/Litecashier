@@ -116,12 +116,6 @@ begin
     '    "Ftp": {' + #13#10 +
     '      "Enabled": false' + #13#10 +
     '    }' + #13#10 +
-    '  },' + #13#10 +
-    '  "License": {' + #13#10 +
-    '    "Enabled": true,' + #13#10 +
-    '    "BaseUrl": "https://litecashier-keys.smartstick-iq.com",' + #13#10 +
-    '    "Product": "Restaurant",' + #13#10 +
-    '    "RevalidateHours": 24' + #13#10 +
     '  }' + #13#10 +
     '}' + #13#10;
   if not SaveStringToFile(Path, Content, False) then

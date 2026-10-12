@@ -39,8 +39,8 @@ namespace POS.Controllers
             return user?.InsertByUserId ?? userId;
         }
 
-        // GET: api/ExpenseCategories
-        [AuthorizeSection("expenses", Roles = "Commercial,Admin")]
+        // GET: api/ExpenseCategories (reports: financial ops category picker)
+        [AuthorizeSection("expenses", "reports", Roles = "Commercial,Admin,POS")]
         [HttpGet]
         public async Task<ActionResult<GlobalResponse<List<ExpenseCategory>>>> GetExpenseCategories()
         {

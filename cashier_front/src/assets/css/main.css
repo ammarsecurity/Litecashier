@@ -707,7 +707,8 @@ table.b-table {
 .audit-log-table-container,
 .report-table-container,
 .customers-table-wrap,
-.expenses-table-wrap {
+.expenses-table-wrap,
+.deferred-table-wrap {
   overflow-x: auto;
 }
 
@@ -9201,6 +9202,91 @@ table .b-icon,
   margin-top: 0.1rem;
 }
 
+/* Financial operations — expense categories on their own row */
+.financial-ops-categories-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+}
+
+.financial-ops-categories-empty {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  padding: 0.25rem 0;
+}
+
+.financial-ops-categories-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.financial-ops-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.financial-ops-chip input {
+  margin: 0;
+  accent-color: var(--primary-color);
+}
+
+.financial-ops-chip--active {
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+  background: color-mix(in srgb, var(--primary-color) 12%, var(--bg-primary));
+  color: var(--text-primary);
+}
+
+.financial-ops-clear-cats {
+  margin-inline-start: 0.25rem;
+}
+
+.financial-ops-cat-name--selected {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.financial-ops-selected-badge {
+  display: inline-block;
+  margin-inline-start: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--primary-color) 16%, transparent);
+  color: var(--primary-color);
+}
+
+.report-subsection-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.reports-empty-state {
+  padding: 1.25rem 0.5rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
 /* Rank Badges */
 .rank-badge {
   display: inline-flex;
@@ -13239,6 +13325,7 @@ table .b-icon,
 }
 
 .reports-filters-fields--profit,
+.reports-filters-fields--financialOps,
 .reports-filters-fields--topItems,
 .reports-filters-fields--byCategory,
 .reports-filters-fields--byEmployee,
@@ -13337,6 +13424,7 @@ table .b-icon,
   .reports-filters-fields,
   .reports-filters-fields--orders,
   .reports-filters-fields--profit,
+  .reports-filters-fields--financialOps,
   .reports-filters-fields--topItems,
   .reports-filters-fields--byCategory,
   .reports-filters-fields--byEmployee,
@@ -13368,6 +13456,7 @@ table .b-icon,
   .reports-filters-fields,
   .reports-filters-fields--orders,
   .reports-filters-fields--profit,
+  .reports-filters-fields--financialOps,
   .reports-filters-fields--topItems,
   .reports-filters-fields--byCategory,
   .reports-filters-fields--byEmployee,
@@ -14209,8 +14298,39 @@ table .b-icon,
 }
 
 .role-manager {
-  background: linear-gradient(135deg, #0d9488 0%, #0046d4 100%);
-  color: #ffffff;
+  background: color-mix(in srgb, #0d9488 18%, transparent);
+  color: #0f766e;
+  border: 1px solid color-mix(in srgb, #0d9488 35%, transparent);
+}
+
+:root.dark-theme .role-admin {
+  background: color-mix(in srgb, var(--danger-color) 18%, transparent);
+  color: #fca5a5;
+  border-color: color-mix(in srgb, var(--danger-color) 35%, transparent);
+}
+
+:root.dark-theme .role-commercial {
+  background: color-mix(in srgb, var(--primary-color) 18%, transparent);
+  color: #93c5fd;
+  border-color: color-mix(in srgb, var(--primary-color) 35%, transparent);
+}
+
+:root.dark-theme .role-pos {
+  background: color-mix(in srgb, var(--success-color) 18%, transparent);
+  color: #6ee7b7;
+  border-color: color-mix(in srgb, var(--success-color) 35%, transparent);
+}
+
+:root.dark-theme .role-reader {
+  background: color-mix(in srgb, var(--info-color) 18%, transparent);
+  color: #93c5fd;
+  border-color: color-mix(in srgb, var(--info-color) 35%, transparent);
+}
+
+:root.dark-theme .role-manager {
+  background: color-mix(in srgb, #14b8a6 18%, transparent);
+  color: #5eead4;
+  border-color: color-mix(in srgb, #14b8a6 35%, transparent);
 }
 
 .users-sections-grid {

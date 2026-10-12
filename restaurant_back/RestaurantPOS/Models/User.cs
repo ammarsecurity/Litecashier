@@ -29,6 +29,14 @@ namespace RestaurantPOS.Models
         /// <summary>When true (Manager only), sensitive POS actions are confirmed with this user's LoginCode instead of the commercial account password.</summary>
         public bool CanUseOwnLoginCodeForSensitiveActions { get; set; }
 
+        /// <summary>Parent Commercial display name (populated for subordinate roles in list APIs).</summary>
+        [NotMapped]
+        public string? CommercialOwnerName { get; set; }
+
+        /// <summary>Parent Commercial restaurant name (populated for subordinate roles in list APIs).</summary>
+        [NotMapped]
+        public string? CommercialOwnerStoreName { get; set; }
+
         [JsonIgnore]
         public List<Item>? Items { get; set; }
         [JsonIgnore]

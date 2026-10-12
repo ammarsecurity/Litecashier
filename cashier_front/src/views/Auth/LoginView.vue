@@ -295,6 +295,71 @@ body.login-page #app {
   min-height: 100%;
   min-height: 100dvh;
 }
+
+/* Dark login: deep navy brand panel + calmer accents */
+html.dark-theme.login-page .login-brand {
+  background: linear-gradient(155deg, #07101f 0%, #0c1a33 42%, #132d55 100%);
+  color: #e8eef8;
+}
+html.dark-theme.login-page .login-brand::before {
+  background:
+    radial-gradient(ellipse 70% 55% at 85% 10%, rgba(37, 99, 235, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 45% at 10% 90%, rgba(2, 38, 91, 0.45) 0%, transparent 50%);
+}
+html.dark-theme.login-page .login-brand-kicker {
+  color: rgba(147, 197, 253, 0.75);
+}
+html.dark-theme.login-page .login-brand-title {
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+}
+html.dark-theme.login-page .login-brand-text {
+  color: rgba(203, 213, 225, 0.88);
+}
+html.dark-theme.login-page .login-brand-list li {
+  background: rgba(15, 23, 42, 0.45);
+  border-color: rgba(148, 163, 184, 0.16);
+  color: #e2e8f0;
+  backdrop-filter: blur(6px);
+}
+html.dark-theme.login-page .login-brand-icon {
+  background: rgba(37, 99, 235, 0.28);
+  color: #93c5fd;
+}
+html.dark-theme.login-page .login-panel {
+  background: #121a2b;
+  border-color: rgba(148, 163, 184, 0.14);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+html.dark-theme.login-page .login-panel .form-input-field {
+  background: #0b1220;
+  border-color: rgba(148, 163, 184, 0.18);
+  color: #f1f5f9;
+}
+html.dark-theme.login-page .login-panel .form-input-field::placeholder {
+  color: rgba(148, 163, 184, 0.55);
+}
+html.dark-theme.login-page .login-panel .login-submit-button {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  box-shadow: 0 8px 20px rgba(29, 78, 216, 0.28);
+  filter: none;
+}
+html.dark-theme.login-page .login-panel .login-submit-button:hover {
+  background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+  box-shadow: 0 10px 24px rgba(29, 78, 216, 0.36);
+  filter: none;
+  transform: none;
+}
+html.dark-theme.login-page .login-theme-btn,
+html.dark-theme.login-page .login-lang {
+  background: #121a2b;
+  border-color: rgba(148, 163, 184, 0.16);
+}
+html.dark-theme.login-page .login-mode-btn.active {
+  background: color-mix(in srgb, #2563eb 18%, #121a2b);
+  color: #93c5fd;
+  box-shadow: none;
+}
 </style>
 
 <style scoped>
@@ -312,6 +377,23 @@ body.login-page #app {
   padding: 48px 40px;
   background: var(--primary-gradient);
   color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-brand::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 100% 0%, rgba(255, 255, 255, 0.1) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 0% 100%, rgba(0, 0, 0, 0.18) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.login-brand > * {
+  position: relative;
+  z-index: 1;
 }
 
 .login-brand-kicker {
@@ -359,14 +441,15 @@ body.login-page #app {
   border: 1px solid rgba(255, 255, 255, 0.12);
   font-size: 15px;
   font-weight: 700;
+  color: #fff;
 }
 
 .login-brand-icon {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: rgba(61, 180, 208, 0.22);
-  color: #7ad4e8;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;

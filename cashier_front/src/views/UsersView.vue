@@ -1,5 +1,5 @@
 <template>
-    <b-overlay :show="show" spinner-variant="primary" spinner-type="grow" spinner-large rounded="sm">
+    <b-overlay :show="show && Users.length > 0" spinner-variant="primary" spinner-type="border" rounded="sm">
         <AppHeader />
         <div class="main-content-wrapper">
         <div class="app-page-container">
@@ -20,7 +20,7 @@
                                 <b-icon icon="arrow-clockwise" class="button-icon" :class="{ spinning: show }"></b-icon>
                                 <span class="button-text">{{ $t('refresh') || 'تحديث' }}</span>
                             </button>
-                            <button class="users-add-button" v-b-modal.modal-addUser>
+                            <button type="button" class="users-add-button" v-b-modal.modal-addUser>
                                 <b-icon icon="person-plus-fill" class="button-icon"></b-icon>
                                 <span class="button-text">{{ $t('add_account') }}</span>
                             </button>
@@ -34,7 +34,10 @@
                             <b-icon icon="people-fill"></b-icon>
                         </span>
                         <div>
-                            <div class="app-overview-stat-value">{{ totalUsers }}</div>
+                            <div class="app-overview-stat-value">
+                                <b-spinner small v-if="show && !Users.length"></b-spinner>
+                                <template v-else>{{ totalUsers }}</template>
+                            </div>
                             <div class="app-overview-stat-label">{{ $t('usersOverviewTotal') || 'إجمالي الحسابات' }}</div>
                         </div>
                     </div>
@@ -49,11 +52,11 @@
                     </div>
                     <div class="app-overview-stat">
                         <span class="app-overview-stat-icon app-overview-stat-icon--success">
-                            <b-icon icon="shield-check"></b-icon>
+                            <b-icon :icon="role === 'Admin' ? 'shop' : 'shield-check'"></b-icon>
                         </span>
                         <div>
-                            <div class="app-overview-stat-value">{{ adminCountOnPage }}</div>
-                            <div class="app-overview-stat-label">{{ $t('Admin') || 'مدير' }}</div>
+                            <div class="app-overview-stat-value">{{ overviewStatThreeCount }}</div>
+                            <div class="app-overview-stat-label">{{ overviewStatThreeLabel }}</div>
                         </div>
                     </div>
                     <div class="app-overview-stat">
@@ -62,7 +65,7 @@
                         </span>
                         <div>
                             <div class="app-overview-stat-value">{{ posCountOnPage }}</div>
-                            <div class="app-overview-stat-label">{{ $t('POS') || 'كاشير' }}</div>
+                            <div class="app-overview-stat-label">{{ $t('point_of_sale') || 'نقطة بيع' }}</div>
                         </div>
                     </div>
                 </div>
@@ -85,14 +88,14 @@
                                 <span class="app-filters-panel-icon"><b-icon icon="funnel-fill"></b-icon></span>
                                 <div>
                                     <h3>{{ $t('filters') || 'الفلاتر' }}</h3>
-                                    <p>{{ $t('usersFiltersHint') || 'بحث في الحسابات بالاسم أو اسم المستخدم' }}</p>
+                                    <p>{{ $t('usersFiltersHint') || 'بحث في الحسابات بالاسم أو اسم المستخدم وتصفية حسب الدور' }}</p>
                                 </div>
                             </div>
-                            <div class="app-filters-panel-actions" v-if="search.info">
+                            <div class="app-filters-panel-actions" v-if="hasActiveFilters">
                                 <button
                                     type="button"
                                     class="users-filter-clear-btn app-filters-clear-btn"
-                                    @click="search.info = ''"
+                                    @click="clearFilters"
                                 >
                                     <b-icon icon="x-circle" class="me-1"></b-icon>
                                     {{ $t('clearFilters') || 'مسح الفلاتر' }}
@@ -107,79 +110,136 @@
                                     <input
                                         v-model="search.info"
                                         type="search"
-                                        :placeholder="$t('search')"
+                                        :placeholder="$t('usersSearchPlaceholder') || 'بحث بالاسم أو الهاتف أو اسم المستخدم...'"
                                         class="users-search-input"
                                         autocomplete="off"
                                     />
                                 </div>
                             </label>
+                            <label class="app-filter-field">
+                                <span class="app-filter-label">{{ $t('role') || 'الدور' }}</span>
+                                <div class="users-search-container">
+                                    <b-icon icon="person-badge" class="search-icon"></b-icon>
+                                    <select v-model="roleFilter" class="users-search-input reports-filter-select">
+                                        <option value="">{{ $t('allRoles') || 'كل الأدوار' }}</option>
+                                        <option v-for="opt in roleFilterOptions" :key="opt.value" :value="opt.value">
+                                            {{ opt.label }}
+                                        </option>
+                                    </select>
+                                </div>
+                            </label>
                         </div>
                     </div>
                     <div class="app-section-body">
-                <div class="users-grid-container">
-                    <div class="users-grid">
-                        <div class="user-card" v-for="User in Users" v-bind:key="User.id">
-                            <div class="user-card-header">
-                                <div class="user-avatar">
-                                    <b-icon icon="person-circle" class="avatar-icon"></b-icon>
+                        <div v-if="show && !Users.length" class="loading-state-full">
+                            <b-spinner small></b-spinner>
+                            <span>{{ $t('loading') || 'جاري التحميل...' }}</span>
+                        </div>
+                        <div v-else-if="Users.length > 0" class="app-cards-grid">
+                            <div
+                                v-for="User in Users"
+                                :key="User.id"
+                                class="app-item-card users-account-card"
+                            >
+                                <div class="app-item-card-header">
+                                    <div class="app-item-card-title">
+                                        <span class="users-avatar-chip" :class="getRoleClass(User.role)">
+                                            <b-icon icon="person-fill"></b-icon>
+                                        </span>
+                                        <div class="users-account-title-text">
+                                            <h4>{{ User.name }}</h4>
+                                            <span
+                                                class="user-role-badge"
+                                                :class="getRoleClass(User.role)"
+                                            >{{ roleLabel(User.role) }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="app-item-card-actions" role="group" :aria-label="$t('actions') || 'العمليات'">
+                                        <button
+                                            type="button"
+                                            class="action-btn action-btn--icon action-btn--edit"
+                                            @click="getUserInfo(User)"
+                                            :disabled="role === 'Commercial' && User.role === 'Commercial'"
+                                            :title="role === 'Commercial' && User.role === 'Commercial' ? ($t('noPermissionToEditCommercial') || 'ليس لديك صلاحية لتعديل المستخدمين التجاريين') : ($t('edit') || 'تعديل')"
+                                            :aria-label="$t('edit') || 'تعديل'"
+                                        >
+                                            <b-icon icon="pencil-square" class="action-icon"></b-icon>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="action-btn action-btn--icon action-btn--delete"
+                                            @click="deleteUserModel(User.id)"
+                                            :title="$t('delete') || 'حذف'"
+                                            :aria-label="$t('delete') || 'حذف'"
+                                        >
+                                            <b-icon icon="trash" class="action-icon"></b-icon>
+                                        </button>
+                                    </div>
                                 </div>
-                                <h3 class="user-name">{{ User.name }}</h3>
-                            </div>
-                            <div class="user-card-body">
-                                <div class="user-info-item">
-                                    <b-icon icon="person-badge" class="info-icon"></b-icon>
-                                    <span class="info-label">{{ $t('role') }}:</span>
-                                    <span class="info-value user-role-badge" :class="getRoleClass(User.role)">{{ User.role }}</span>
+                                <div class="app-item-card-body">
+                                    <div class="app-info-row">
+                                        <b-icon icon="person" class="info-icon"></b-icon>
+                                        <span class="info-label">{{ $t('username') }}</span>
+                                        <span class="info-value">{{ User.username || '—' }}</span>
+                                    </div>
+                                    <div v-if="User.phoneNumber || User.PhoneNumber" class="app-info-row">
+                                        <b-icon icon="telephone-fill" class="info-icon"></b-icon>
+                                        <span class="info-label">{{ $t('phone_number') }}</span>
+                                        <a
+                                            class="info-value users-phone-link"
+                                            :href="'tel:' + (User.phoneNumber || User.PhoneNumber)"
+                                        >{{ User.phoneNumber || User.PhoneNumber }}</a>
+                                    </div>
+                                    <div
+                                        v-if="isSubordinateRole(User.role)"
+                                        class="app-info-row"
+                                    >
+                                        <b-icon icon="shop" class="info-icon"></b-icon>
+                                        <span class="info-label">{{ $t('belongsToCommercial') || 'تابع لـ' }}</span>
+                                        <span class="info-value">{{ commercialOwnerLabel(User) }}</span>
+                                    </div>
+                                    <div
+                                        v-if="User.role === 'Commercial' && (User.domain || User.Domain)"
+                                        class="app-info-row"
+                                    >
+                                        <b-icon icon="globe2" class="info-icon"></b-icon>
+                                        <span class="info-label">{{ $t('commercialDomain') || 'الدومين' }}</span>
+                                        <span class="info-value">{{ User.domain || User.Domain }}</span>
+                                    </div>
+                                    <div
+                                        v-if="User.role === 'Commercial' && (User.storeName || User.StoreName)"
+                                        class="app-info-row"
+                                    >
+                                        <b-icon icon="shop" class="info-icon"></b-icon>
+                                        <span class="info-label">{{ $t('storeName') || 'اسم المتجر' }}</span>
+                                        <span class="info-value">{{ User.storeName || User.StoreName }}</span>
+                                    </div>
                                 </div>
-                                <div class="user-info-item">
-                                    <b-icon icon="person" class="info-icon"></b-icon>
-                                    <span class="info-label">{{ $t('username') }}:</span>
-                                    <span class="info-value">{{ User.username }}</span>
-                                </div>
-                                <div
-                                    v-if="User.role === 'Commercial' && (User.domain || User.Domain)"
-                                    class="user-info-item"
-                                >
-                                    <b-icon icon="globe2" class="info-icon"></b-icon>
-                                    <span class="info-label">{{ $t('commercialDomain') || 'الدومين' }}:</span>
-                                    <span class="info-value">{{ User.domain || User.Domain }}</span>
-                                </div>
-                            </div>
-                            <div class="user-card-footer actions-cell" role="group" :aria-label="$t('actions') || 'العمليات'">
-                                <button 
-                                    type="button"
-                                    class="action-btn action-btn--icon action-btn--edit" 
-                                    @click="getUserInfo(User)"
-                                    :disabled="role === 'Commercial' && User.role === 'Commercial'"
-                                    :title="role === 'Commercial' && User.role === 'Commercial' ? ($t('noPermissionToEditCommercial') || 'ليس لديك صلاحية لتعديل المستخدمين التجاريين') : ($t('edit') || 'تعديل')"
-                                    :aria-label="$t('edit') || 'تعديل'"
-                                >
-                                    <b-icon icon="pencil-square" class="action-icon"></b-icon>
-                                </button>
-                                <button
-                                    type="button"
-                                    class="action-btn action-btn--icon action-btn--delete"
-                                    @click="deleteUserModel(User.id)"
-                                    :title="$t('delete') || 'حذف'"
-                                    :aria-label="$t('delete') || 'حذف'"
-                                >
-                                    <b-icon icon="trash" class="action-icon"></b-icon>
-                                </button>
                             </div>
                         </div>
-                    </div>
-                </div>
+                        <div v-else class="empty-state">
+                            <b-icon icon="people" class="empty-icon"></b-icon>
+                            <p>{{ emptyStateMessage }}</p>
+                            <button
+                                v-if="!hasActiveFilters"
+                                type="button"
+                                class="empty-state-btn"
+                                v-b-modal.modal-addUser
+                            >
+                                <b-icon icon="person-plus-fill" class="button-icon"></b-icon>
+                                <span class="button-text">{{ $t('add_account') }}</span>
+                            </button>
+                        </div>
 
-                <!-- Pagination -->
-                <div class="users-pagination-section">
-                    <b-pagination 
-                        v-model="pageNumber" 
-                        :total-rows="totalUsers" 
-                        :per-page="pageSize"
-                        aria-controls="users-table"
-                        class="users-pagination"
-                    ></b-pagination>
-                </div>
+                        <div v-if="Users.length > 0" class="users-pagination-section">
+                            <b-pagination
+                                v-model="pageNumber"
+                                :total-rows="totalUsers"
+                                :per-page="pageSize"
+                                aria-controls="users-table"
+                                class="users-pagination"
+                            ></b-pagination>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -642,8 +702,6 @@
 </template>
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
-import ClockVue from "@/components/ClockVue.vue";
-import VueBarcode from "@chenfengyuan/vue-barcode";
 import { HTTP } from '../http/api.js';
 import {
     ASSIGNABLE_SECTION_KEYS,
@@ -655,9 +713,6 @@ export default {
     name: "UsersView",
     components: {
         AppHeader,
-        ClockVue,
-        "vue-barcode": VueBarcode,
-
     },
     data() {
         return {
@@ -665,13 +720,11 @@ export default {
             Users: [],
             pageNumber: 1,
             totalUsers: 0,
-            pageSize: 10,
+            pageSize: 12,
+            roleFilter: "",
             search: {
                 info: "",
             },
-            SearchUsers: [],
-            totalCardUsers: 0,
-            userInfo: {},
             editForm: {
                 name: "",
                 phoneNumber: "",
@@ -710,14 +763,17 @@ export default {
     },
 
     watch: {
-
         search: {
             handler() {
+                this.pageNumber = 1;
                 this.GetAllUsers();
             },
             deep: true,
         },
-
+        roleFilter() {
+            this.pageNumber = 1;
+            this.GetAllUsers();
+        },
         pageNumber() {
             this.GetAllUsers();
         },
@@ -737,11 +793,48 @@ export default {
         usersOnPageCount() {
             return (this.Users || []).length;
         },
-        adminCountOnPage() {
-            return (this.Users || []).filter((u) => u.role === 'Admin').length;
+        commercialCountOnPage() {
+            return (this.Users || []).filter((u) => u.role === "Commercial").length;
+        },
+        managerCountOnPage() {
+            return (this.Users || []).filter((u) => u.role === "Manager").length;
         },
         posCountOnPage() {
-            return (this.Users || []).filter((u) => u.role === 'POS').length;
+            return (this.Users || []).filter((u) => u.role === "POS").length;
+        },
+        overviewStatThreeCount() {
+            return this.role === "Admin" ? this.commercialCountOnPage : this.managerCountOnPage;
+        },
+        overviewStatThreeLabel() {
+            if (this.role === "Admin") {
+                return this.$t("commercial") || "تجاري";
+            }
+            return this.$t("managerRole") || "مدير إدارة";
+        },
+        hasActiveFilters() {
+            return !!(this.search.info || this.roleFilter);
+        },
+        emptyStateMessage() {
+            if (this.hasActiveFilters) {
+                return this.$t("noResults") || "لا توجد نتائج";
+            }
+            return this.$t("noUsersYet") || "لا توجد حسابات بعد";
+        },
+        roleFilterOptions() {
+            if (this.role === "Admin") {
+                return [
+                    { value: "Commercial", label: this.roleLabel("Commercial") },
+                    { value: "Admin", label: this.roleLabel("Admin") },
+                    { value: "POS", label: this.roleLabel("POS") },
+                    { value: "Manager", label: this.roleLabel("Manager") },
+                    { value: "Reader", label: this.roleLabel("Reader") },
+                ];
+            }
+            return [
+                { value: "POS", label: this.roleLabel("POS") },
+                { value: "Manager", label: this.roleLabel("Manager") },
+                { value: "Reader", label: this.roleLabel("Reader") },
+            ];
         },
     },
 
@@ -749,15 +842,44 @@ export default {
         refreshPage() {
             this.GetAllUsers();
         },
+        clearFilters() {
+            this.search.info = "";
+            this.roleFilter = "";
+        },
         getRoleClass(role) {
             const roleClasses = {
-                'Admin': 'role-admin',
-                'Commercial': 'role-commercial',
-                'POS': 'role-pos',
-                'Reader': 'role-reader',
-                'Manager': 'role-manager'
+                Admin: "role-admin",
+                Commercial: "role-commercial",
+                POS: "role-pos",
+                Reader: "role-reader",
+                Manager: "role-manager",
             };
-            return roleClasses[role] || 'role-default';
+            return roleClasses[role] || "role-default";
+        },
+        roleLabel(role) {
+            const map = {
+                Admin: this.$t("adminRole") || "مدير النظام",
+                Commercial: this.$t("commercial") || "تجاري",
+                POS: this.$t("point_of_sale") || "نقطة بيع",
+                Reader: this.$t("price_reader") || "قارئ أسعار",
+                Manager: this.$t("managerRole") || "مدير إدارة",
+            };
+            return map[role] || role;
+        },
+        isSubordinateRole(role) {
+            return role === "POS" || role === "Reader" || role === "Manager";
+        },
+        commercialOwnerLabel(user) {
+            const store =
+                user.commercialOwnerStoreName ||
+                user.CommercialOwnerStoreName ||
+                "";
+            const name =
+                user.commercialOwnerName ||
+                user.CommercialOwnerName ||
+                "";
+            if (store && name && store !== name) return `${store} · ${name}`;
+            return store || name || "—";
         },
         sectionLabel(key) {
             const i18nKey = SECTION_I18N_KEYS[key];
@@ -1017,13 +1139,21 @@ export default {
 
         GetAllUsers() {
             this.show = true;
-            HTTP.get(`Admin/GetUsers?pageNumber=${this.pageNumber - 1}&pageSize=${this.pageSize}&info=${this.search.info}`)
+            const params = new URLSearchParams({
+                pageNumber: String(this.pageNumber - 1),
+                pageSize: String(this.pageSize),
+                info: this.search.info || "",
+            });
+            if (this.roleFilter) {
+                params.set("role", this.roleFilter);
+            }
+            HTTP.get(`Admin/GetUsers?${params.toString()}`)
                 .then((response) => {
                     this.Users = response.data.data.items;
                     this.totalUsers = response.data.data.totalItems;
                     this.show = false;
                 })
-                .catch((error) => {
+                .catch(() => {
                     this.show = false;
                 });
         },
@@ -1033,3 +1163,60 @@ export default {
 
 };
 </script>
+
+<style scoped>
+.users-account-card .app-item-card-title {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.users-avatar-chip {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-size: 1.15rem;
+}
+
+.users-account-title-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.users-account-title-text h4 {
+  margin: 0;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.users-account-card .user-role-badge {
+  text-transform: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  letter-spacing: 0;
+}
+
+.users-phone-link {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.users-phone-link:hover {
+  text-decoration: underline;
+}
+
+.users-pagination-section {
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: center;
+}
+</style>

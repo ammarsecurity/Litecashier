@@ -2,8 +2,6 @@
   <div id="app">
     <router-view />
     <SystemSectionsFab v-if="showSectionsFab" />
-    <LicenseGate />
-    <DevicePausedGate />
   </div>
 </template>
 
@@ -11,14 +9,12 @@
 <script>
 import { syncNotifyLocale } from '@/plugins/notifyPlugin';
 import SystemSectionsFab from '@/components/Layout/SystemSectionsFab.vue';
-import LicenseGate from '@/components/LicenseGate.vue';
-import DevicePausedGate from '@/components/DevicePausedGate.vue';
 import pendingOrderAlertSound from '@/utils/pendingOrderAlertSound.js';
 import { onAuthSessionChanged } from '@/utils/authSessionBus.js';
 
 export default {
   name: 'App',
-  components: { SystemSectionsFab, LicenseGate, DevicePausedGate },
+  components: { SystemSectionsFab },
   data() {
     return {
       sessionTick: 0,

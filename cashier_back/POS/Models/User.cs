@@ -67,6 +67,14 @@ namespace POS.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal PublicMenuMinOrderAmount { get; set; }
 
+        /// <summary>Parent Commercial display name (populated for subordinate roles in list APIs).</summary>
+        [NotMapped]
+        public string? CommercialOwnerName { get; set; }
+
+        /// <summary>Parent Commercial store name (populated for subordinate roles in list APIs).</summary>
+        [NotMapped]
+        public string? CommercialOwnerStoreName { get; set; }
+
         [JsonIgnore]
         [ForeignKey(nameof(DefaultPrinterId))]
         public Printer? DefaultPrinter { get; set; }

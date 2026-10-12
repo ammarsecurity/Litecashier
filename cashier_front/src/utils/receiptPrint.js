@@ -56,7 +56,7 @@ export const RECEIPT_PRINT_STYLES_HTML = `
       }
 
       .bill-logo-img {
-        max-width: 50px;
+        max-width: 100px;
         height: auto;
         margin-bottom: 4px;
       }

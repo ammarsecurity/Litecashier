@@ -121,8 +121,13 @@
                   <b-icon icon="arrow-counterclockwise"></b-icon>
                 </span>
                 <div>
-                  <div class="app-overview-stat-value">{{ report.totals.returnedCount || 0 }}</div>
-                  <div class="app-overview-stat-label">{{ $t("returnedItemsReport") || "المواد المسترجعة" }}</div>
+                  <div class="app-overview-stat-value app-overview-stat-value--text">
+                    {{ formatPrice(report.totals.returnedAmount || 0) }} {{ $t("currency") }}
+                  </div>
+                  <div class="app-overview-stat-label">
+                    {{ $t("returnedItemsReport") || "المواد المسترجعة" }}
+                    <span class="eod-stat-extra">· {{ report.totals.returnedCount || 0 }}</span>
+                  </div>
                 </div>
               </div>
               <div class="app-overview-stat">

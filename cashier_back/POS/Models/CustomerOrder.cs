@@ -44,6 +44,12 @@ namespace POS.Models
 
         public DateTime? SettledAt { get; set; }
 
+        /// <summary>مجموع ما تسدد من فاتورة الدفع اللاحق (تسديد جزئي أو كامل).</summary>
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal SettledAmount { get; set; }
+
+        public List<CreditSettlement>? CreditSettlements { get; set; }
+
         /// <summary>Warehouse stock is deducted from for this invoice.</summary>
         public int? WarehouseId { get; set; }
 

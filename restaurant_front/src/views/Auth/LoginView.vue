@@ -575,3 +575,85 @@ export default {
     }
 }
 </style>
+
+<style>
+html.dark-theme .login-page {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+html.dark-theme .login-page .login-page-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(37, 99, 235, 0.12), transparent 55%),
+    radial-gradient(circle at 85% 75%, rgba(15, 23, 42, 0.65), transparent 40%),
+    radial-gradient(circle at 10% 60%, rgba(2, 38, 91, 0.35), transparent 35%);
+}
+
+html.dark-theme .login-page .login-auth-topbar {
+  background: color-mix(in srgb, #121a2b 88%, transparent);
+  border-bottom-color: rgba(148, 163, 184, 0.14);
+}
+
+html.dark-theme .login-page .login-card {
+  background: #121a2b;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+html.dark-theme .login-page .login-card-title {
+  color: #f8fafc;
+}
+
+html.dark-theme .login-page .login-card-subtitle,
+html.dark-theme .login-page .login-card-footer,
+html.dark-theme .login-page .login-form-hint {
+  color: rgba(203, 213, 225, 0.88);
+}
+
+html.dark-theme .login-page .login-mode-toggle {
+  background: #0b1220;
+}
+
+html.dark-theme .login-page .login-mode-btn.active {
+  background: color-mix(in srgb, #2563eb 18%, #121a2b);
+  color: #93c5fd;
+  box-shadow: none;
+}
+
+html.dark-theme .login-page .form-input-field {
+  background: #0b1220;
+  border-color: rgba(148, 163, 184, 0.18);
+  color: #f1f5f9;
+}
+
+html.dark-theme .login-page .form-input-field::placeholder {
+  color: rgba(148, 163, 184, 0.55);
+}
+
+html.dark-theme .login-page .login-submit-button {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  box-shadow: 0 8px 20px rgba(29, 78, 216, 0.28);
+  filter: none;
+}
+
+html.dark-theme .login-page .login-submit-button:hover {
+  background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+  box-shadow: 0 10px 24px rgba(29, 78, 216, 0.36);
+  filter: none;
+}
+
+html.dark-theme .login-page .login-auth-icon-btn,
+html.dark-theme .login-page .login-auth-lang-btn {
+  background: #121a2b;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  color: #e2e8f0;
+}
+
+html.dark-theme .login-page .login-card-icon-wrap {
+  background: rgba(37, 99, 235, 0.22);
+}
+
+html.dark-theme .login-page .login-card-icon {
+  color: #93c5fd;
+}
+</style>

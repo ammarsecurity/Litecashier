@@ -1,7 +1,5 @@
 import axios from "axios";
 import { resolveApiBaseUrl } from "@/utils/apiBase.js";
-import { openLicenseGate } from "@/utils/licenseGateBus.js";
-import { openDevicePausedGate } from "@/utils/devicePausedGateBus.js";
 import { notifyAuthSessionChanged } from "@/utils/authSessionBus.js";
 
 /** PAX Nebula sale can wait for card/PIN on device — longer than default API calls. */
@@ -78,15 +76,8 @@ HTTP.interceptors.response.use(
                     }
                     // For public routes, just log the error without redirecting
                     break;
-                case 402:
-                    openLicenseGate(error.response.data || {});
-                    break;
                 case 403:
-                    if (error.response.data?.message === "devicePaused") {
-                        openDevicePausedGate(error.response.data || {});
-                    } else {
-                        console.error('Access forbidden');
-                    }
+                    console.error('Access forbidden');
                     break;
                 case 404:
                     // Not found

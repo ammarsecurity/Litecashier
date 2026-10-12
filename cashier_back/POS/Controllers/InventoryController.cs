@@ -412,6 +412,157 @@ namespace POS.Controllers
             });
         }
 
+        /// <summary>تعديل حركة مخزن مع التحقق من الرصيد بعد التعديل</summary>
+        [HttpPut("UpdateStockMovement/{id}")]
+        public async Task<ActionResult<GlobalResponse<object>>> UpdateStockMovement(int id, [FromBody] UpdateStockMovementRequest request)
+        {
+            var commercialUserId = GetCommercialUserId();
+            var movement = await _dbConfig.StockMovements
+                .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted && x.InsertByUserId == commercialUserId);
+            if (movement == null)
+                return NotFound(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "الحركة غير موجودة" });
+
+            var newName = (request.MaterialName ?? movement.MaterialName).Trim();
+            if (string.IsNullOrEmpty(newName))
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "اسم المادة مطلوب" });
+
+            var newQty = request.Quantity ?? movement.Quantity;
+            if (newQty <= 0)
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "الكمية يجب أن تكون أكبر من الصفر" });
+
+            if (movement.MovementType == "Withdraw")
+            {
+                var receivedBy = (request.ReceivedByEmployeeName ?? movement.ReceivedByEmployeeName)?.Trim() ?? "";
+                if (string.IsNullOrEmpty(receivedBy))
+                    return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "يجب تحديد الموظف الذي استلم السحب" });
+                movement.ReceivedByEmployeeName = receivedBy;
+            }
+
+            var oldName = movement.MaterialName.Trim();
+            var oldReceiptKey = InventoryReceiptKey(movement);
+
+            var newReceipt = request.ReceiptNumber != null
+                ? NormalizeReceiptNumber(request.ReceiptNumber)
+                : movement.ReceiptNumber;
+            var newReceiptKey = string.IsNullOrWhiteSpace(newReceipt) ? "" : newReceipt.Trim();
+
+            var proposed = new StockMovement
+            {
+                Id = movement.Id,
+                MaterialName = newName,
+                MovementType = movement.MovementType,
+                Quantity = newQty,
+                ReceiptNumber = newReceipt,
+                Notes = request.Notes != null || request.ReceiptNumber != null
+                    ? BuildNotesWithReceiptNumber(
+                        newReceipt,
+                        request.Notes != null ? request.Notes : CleanNotesFromReceiptNumber(movement.Notes))
+                    : movement.Notes,
+                InsertByUserId = commercialUserId,
+                IsDeleted = false,
+            };
+
+            var allRows = await _dbConfig.StockMovements
+                .AsNoTracking()
+                .Where(x => !x.IsDeleted && x.InsertByUserId == commercialUserId)
+                .ToListAsync();
+
+            // Replace current movement with proposed values for balance projection
+            var projected = allRows
+                .Where(x => x.Id != id)
+                .Concat(new[] { proposed })
+                .ToList();
+
+            decimal SlotBalance(IEnumerable<StockMovement> source, string name, string receiptKey)
+            {
+                var slot = source
+                    .Where(x => x.MaterialName.Trim() == name && InventoryReceiptKey(x) == receiptKey)
+                    .ToList();
+                return slot.Where(m => m.MovementType == "Add").Sum(m => m.Quantity)
+                     - slot.Where(m => m.MovementType == "Withdraw").Sum(m => m.Quantity);
+            }
+
+            if (SlotBalance(projected, newName, newReceiptKey) < 0)
+                return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "الكمية المتاحة في المخزن غير كافية بعد التعديل" });
+
+            if (!string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase) || oldReceiptKey != newReceiptKey)
+            {
+                if (SlotBalance(projected, oldName, oldReceiptKey) < 0)
+                    return BadRequest(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "تعديل الحركة يجعل رصيد الدفعة السابقة سالباً" });
+            }
+
+            movement.MaterialName = newName;
+            movement.Quantity = newQty;
+            if (request.SupplierName != null)
+                movement.SupplierName = string.IsNullOrWhiteSpace(request.SupplierName) ? null : request.SupplierName.Trim();
+            if (request.Amount.HasValue)
+                movement.Amount = request.Amount.Value;
+            if (request.UnitType != null)
+                movement.UnitType = string.IsNullOrWhiteSpace(request.UnitType) ? null : request.UnitType.Trim();
+            if (request.Notes != null || request.ReceiptNumber != null)
+            {
+                var notes = request.Notes != null ? request.Notes : CleanNotesFromReceiptNumber(movement.Notes);
+                movement.ReceiptNumber = newReceipt;
+                movement.Notes = BuildNotesWithReceiptNumber(newReceipt, notes);
+            }
+            else
+            {
+                movement.ReceiptNumber = newReceipt;
+            }
+            movement.UpdateDate = DateTime.UtcNow;
+
+            await _dbConfig.SaveChangesAsync();
+            return Ok(new GlobalResponse<object>
+            {
+                Data = new { id = movement.Id },
+                ErrorStatus = false,
+                Message = "تم تعديل الحركة بنجاح"
+            });
+        }
+
+        /// <summary>حذف حركة مخزن مع عكس أثرها على الرصيد</summary>
+        [HttpDelete("DeleteStockMovement/{id}")]
+        public async Task<ActionResult<GlobalResponse<object>>> DeleteStockMovement(int id)
+        {
+            var commercialUserId = GetCommercialUserId();
+            var movement = await _dbConfig.StockMovements
+                .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted && x.InsertByUserId == commercialUserId);
+            if (movement == null)
+                return NotFound(new GlobalResponse<object> { Data = null, ErrorStatus = true, Message = "الحركة غير موجودة" });
+
+            var name = movement.MaterialName.Trim();
+            var receiptKey = InventoryReceiptKey(movement);
+            var rows = await _dbConfig.StockMovements
+                .Where(x => !x.IsDeleted && x.InsertByUserId == commercialUserId && x.MaterialName.Trim() == name && x.Id != id)
+                .ToListAsync();
+            var slot = rows.Where(x => InventoryReceiptKey(x) == receiptKey).ToList();
+            var adds = slot.Where(m => m.MovementType == "Add").Sum(m => m.Quantity);
+            var withdraws = slot.Where(m => m.MovementType == "Withdraw").Sum(m => m.Quantity);
+            // After deleting this movement: if it was Add, balance decreases; if Withdraw, increases
+            var balanceAfter = movement.MovementType == "Add"
+                ? adds - withdraws
+                : adds - withdraws; // movement already excluded; Add deletion already reflected
+
+            if (movement.MovementType == "Add" && balanceAfter < 0)
+                return BadRequest(new GlobalResponse<object>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = "لا يمكن حذف الإضافة لأن السحوبات اللاحقة تتجاوز الرصيد المتبقي"
+                });
+
+            movement.IsDeleted = true;
+            movement.UpdateDate = DateTime.UtcNow;
+            await _dbConfig.SaveChangesAsync();
+
+            return Ok(new GlobalResponse<object>
+            {
+                Data = null,
+                ErrorStatus = false,
+                Message = "تم حذف الحركة بنجاح"
+            });
+        }
+
         /// <summary>سحب كمية من المخزن حسب اسم المادة</summary>
         [HttpPost("WithdrawStock")]
         public async Task<ActionResult<GlobalResponse<object>>> WithdrawStock([FromBody] WithdrawStockRequest request)

@@ -761,6 +761,7 @@ export default {
       this.loadExpenses();
     },
     onFiltersChanged() {
+      this.loadStatistics();
       if (this.pageNumber !== 1) {
         this.pageNumber = 1;
         return;
@@ -774,27 +775,21 @@ export default {
       this.categoryFilter = '';
       this.onFiltersChanged();
     },
+    buildExpenseFilterParams() {
+      const params = new URLSearchParams();
+      if (this.searchQuery) params.append('search', this.searchQuery);
+      if (this.categoryFilter) params.append('category', this.categoryFilter);
+      if (this.startDate) params.append('startDate', this.startDate);
+      if (this.endDate) params.append('endDate', this.endDate);
+      return params;
+    },
     async loadExpenses() {
       try {
         this.loadingExpenses = true;
         
-        const params = new URLSearchParams({
-          pageNumber: (this.pageNumber - 1).toString(),
-          pageSize: this.pageSize.toString()
-        });
-
-        if (this.searchQuery) {
-          params.append('search', this.searchQuery);
-        }
-        if (this.categoryFilter) {
-          params.append('category', this.categoryFilter);
-        }
-        if (this.startDate) {
-          params.append('startDate', this.startDate);
-        }
-        if (this.endDate) {
-          params.append('endDate', this.endDate);
-        }
+        const params = this.buildExpenseFilterParams();
+        params.append('pageNumber', (this.pageNumber - 1).toString());
+        params.append('pageSize', this.pageSize.toString());
 
         const response = await HTTP.get(`Expenses?${params.toString()}`);
         
@@ -822,9 +817,7 @@ export default {
     async loadStatistics() {
       try {
         this.loadingStatistics = true;
-        const params = new URLSearchParams();
-        if (this.startDate) params.append('startDate', this.startDate);
-        if (this.endDate) params.append('endDate', this.endDate);
+        const params = this.buildExpenseFilterParams();
         
         const response = await HTTP.get(`Expenses/Statistics?${params.toString()}`);
         

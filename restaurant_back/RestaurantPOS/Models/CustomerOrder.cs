@@ -93,6 +93,12 @@ namespace RestaurantPOS.Models
 
         public DateTime? SettledAt { get; set; }
 
+        /// <summary>مجموع المبالغ المسدَّدة جزئياً/كلياً لفاتورة الآجل.</summary>
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal SettledAmount { get; set; }
+
+        public List<CreditSettlement>? CreditSettlements { get; set; }
+
         // علاقة many-to-many مع الطاولات
         public List<Restaurant.OrderTable>? OrderTables { get; set; }
 

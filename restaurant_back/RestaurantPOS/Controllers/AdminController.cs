@@ -129,21 +129,36 @@ namespace RestaurantPOS.Controllers
         /// تحويل تاريخ البداية/النهاية من الواجهة (يوم تقويمي) إلى نطاق UTC [from, to) لمقارنة <see cref="CustomerOrder.InsertDate"/> المخزَّنة بـ UtcNow.
         /// يدعم start فقط (يوم واحد) أو start+end.
         /// </summary>
-        private DateTime GetBusinessLocalToday()
+        private TimeZoneInfo ResolveBusinessTimeZone()
         {
             var tzId = (_configuration["BusinessSettings:TimeZoneId"] ?? "").Trim();
-            TimeZoneInfo tz;
+            if (string.IsNullOrEmpty(tzId))
+                tzId = "Asia/Baghdad";
+
             try
             {
-                tz = !string.IsNullOrEmpty(tzId)
-                    ? TimeZoneInfo.FindSystemTimeZoneById(tzId)
-                    : TimeZoneInfo.Local;
+                return TimeZoneInfo.FindSystemTimeZoneById(tzId);
             }
             catch
             {
-                tz = TimeZoneInfo.Local;
-            }
+                var fallback = string.Equals(tzId, "Asia/Baghdad", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(tzId, "Arabian Standard Time", StringComparison.OrdinalIgnoreCase)
+                    ? new[] { "Asia/Baghdad", "Arabian Standard Time" }
+                    : new[] { tzId, "Asia/Baghdad", "Arabian Standard Time" };
 
+                foreach (var id in fallback)
+                {
+                    try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
+                    catch { /* try next */ }
+                }
+
+                return TimeZoneInfo.Utc;
+            }
+        }
+
+        private DateTime GetBusinessLocalToday()
+        {
+            var tz = ResolveBusinessTimeZone();
             return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz).Date;
         }
 
@@ -172,19 +187,7 @@ namespace RestaurantPOS.Controllers
             else
                 return false;
 
-            var tzId = (_configuration["BusinessSettings:TimeZoneId"] ?? "").Trim();
-            TimeZoneInfo tz;
-            try
-            {
-                tz = !string.IsNullOrEmpty(tzId)
-                    ? TimeZoneInfo.FindSystemTimeZoneById(tzId)
-                    : TimeZoneInfo.Local;
-            }
-            catch
-            {
-                tz = TimeZoneInfo.Local;
-            }
-
+            var tz = ResolveBusinessTimeZone();
             var localStart = DateTime.SpecifyKind(startDay, DateTimeKind.Unspecified);
             var localEndExclusive = DateTime.SpecifyKind(endDay.AddDays(1), DateTimeKind.Unspecified);
             fromUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, tz);
@@ -1605,7 +1608,7 @@ namespace RestaurantPOS.Controllers
 
         [Authorize(Roles = "Commercial,Admin")]
         [HttpGet("GetUsers")]
-        public ActionResult<GlobalResponse<PagedList<User>>> GetUsers(int pageNumber, int pageSize, string? info)
+        public ActionResult<GlobalResponse<PagedList<User>>> GetUsers(int pageNumber, int pageSize, string? info, string? role = null)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
             var userInfo = _dbConfig.Users.FirstOrDefault(x => x.Id == userId && x.IsDeleted == false);
@@ -1618,12 +1621,18 @@ namespace RestaurantPOS.Controllers
                 {
                     user = user.Where(x => x.PhoneNumber == info || x.Name.Contains(info) || x.Username.Contains(info));
                 }
+                if (!string.IsNullOrWhiteSpace(role))
+                {
+                    user = user.Where(x => x.Role == role);
+                }
                 var totalItems = user.Count();
                 var pagedUsers = user
                     .OrderByDescending(x => x.Id)
                     .Skip(pageNumber * pageSize)
                     .Take(pageSize)
                     .ToList();
+
+                AttachCommercialOwners(pagedUsers);
 
                 var pagedResult = new PagedList<User>(pagedUsers, totalItems, pageNumber, pageSize);
 
@@ -1645,12 +1654,18 @@ namespace RestaurantPOS.Controllers
                 {
                     user = user.Where(x => x.PhoneNumber == info || x.Name.Contains(info) || x.Username.Contains(info));
                 }
+                if (!string.IsNullOrWhiteSpace(role))
+                {
+                    user = user.Where(x => x.Role == role);
+                }
                 var totalItems = user.Count();
                 var pagedUsers = user
                     .OrderByDescending(x => x.Id)
                     .Skip(pageNumber * pageSize)
                     .Take(pageSize)
                     .ToList();
+
+                AttachCommercialOwners(pagedUsers);
 
                 var pagedResult = new PagedList<User>(pagedUsers, totalItems, pageNumber, pageSize);
 
@@ -1662,10 +1677,38 @@ namespace RestaurantPOS.Controllers
                 };
 
                 return response;
-            }   
+            }
+        }
 
+        private static readonly HashSet<string> SubordinateUserRoles = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "POS", "Waiter", "Manager"
+        };
 
-        
+        private void AttachCommercialOwners(List<User> users)
+        {
+            var parentIds = users
+                .Where(u => SubordinateUserRoles.Contains(u.Role) && u.InsertByUserId > 0)
+                .Select(u => u.InsertByUserId)
+                .Distinct()
+                .ToList();
+
+            if (parentIds.Count == 0) return;
+
+            var parents = _dbConfig.Users
+                .AsNoTracking()
+                .Where(x => parentIds.Contains(x.Id) && x.IsDeleted == false)
+                .Select(x => new { x.Id, x.Name, x.RestaurantName })
+                .ToList()
+                .ToDictionary(x => x.Id);
+
+            foreach (var u in users)
+            {
+                if (!SubordinateUserRoles.Contains(u.Role) || u.InsertByUserId <= 0) continue;
+                if (!parents.TryGetValue(u.InsertByUserId, out var parent)) continue;
+                u.CommercialOwnerName = parent.Name;
+                u.CommercialOwnerStoreName = parent.RestaurantName;
+            }
         }
 
 

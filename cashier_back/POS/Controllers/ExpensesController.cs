@@ -597,7 +597,9 @@ namespace POS.Controllers
         [HttpGet("Statistics")]
         public async Task<ActionResult<GlobalResponse<object>>> GetExpensesStatistics(
             DateTime? startDate = null,
-            DateTime? endDate = null)
+            DateTime? endDate = null,
+            string? category = null,
+            string? search = null)
         {
             try
             {
@@ -605,6 +607,16 @@ namespace POS.Controllers
                 
                 var query = _dbConfig.Expenses
                     .Where(e => !e.IsDeleted && e.InsertByUserId == commercialUserId);
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    query = query.Where(e => e.Description != null && e.Description.Contains(search));
+                }
+
+                if (!string.IsNullOrWhiteSpace(category))
+                {
+                    query = query.Where(e => e.Category == category);
+                }
 
                 if (startDate.HasValue)
                 {
@@ -633,13 +645,13 @@ namespace POS.Controllers
                     .OrderByDescending(x => x.TotalAmount)
                     .ToList();
 
-                // This month expenses
+                // This month expenses (within current filters)
                 var thisMonthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
                 var thisMonthExpenses = expenses
                     .Where(e => e.Date.Date >= thisMonthStart.Date)
                     .Sum(e => e.Amount);
 
-                // This week expenses
+                // This week expenses (within current filters)
                 var thisWeekStart = DateTime.UtcNow.AddDays(-(int)DateTime.UtcNow.DayOfWeek);
                 var thisWeekExpenses = expenses
                     .Where(e => e.Date.Date >= thisWeekStart.Date)

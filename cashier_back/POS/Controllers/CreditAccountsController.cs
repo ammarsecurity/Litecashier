@@ -107,4 +107,126 @@ public class CreditAccountsController : ControllerBase
             Message = "settleSuccess",
         });
     }
+
+    [AuthorizeSection("deferredPayments", Roles = "Commercial,Admin")]
+    [HttpPost("orders")]
+    public async Task<ActionResult<GlobalResponse<CreditAccountOrderDto>>> CreateOrder(
+        [FromBody] CreateCreditOrderRequest request,
+        CancellationToken cancellationToken)
+    {
+        var (ok, error, result) = await _creditAccountService.CreateOrderAsync(
+            GetCommercialUserId(),
+            GetActingUserId(),
+            request,
+            cancellationToken);
+
+        if (!ok)
+        {
+            return BadRequest(new GlobalResponse<CreditAccountOrderDto>
+            {
+                Data = null,
+                ErrorStatus = true,
+                Message = error,
+            });
+        }
+
+        return Ok(new GlobalResponse<CreditAccountOrderDto>
+        {
+            Data = result,
+            ErrorStatus = false,
+            Message = "creditOrderCreated",
+        });
+    }
+
+    [AuthorizeSection("deferredPayments", Roles = "Commercial,Admin")]
+    [HttpPut("orders/{orderId:int}")]
+    public async Task<ActionResult<GlobalResponse<CreditAccountOrderDto>>> UpdateOrder(
+        int orderId,
+        [FromBody] UpdateCreditOrderRequest request,
+        CancellationToken cancellationToken)
+    {
+        var (ok, error, result) = await _creditAccountService.UpdateOrderAsync(
+            GetCommercialUserId(),
+            GetActingUserId(),
+            orderId,
+            request,
+            cancellationToken);
+
+        if (!ok)
+        {
+            return BadRequest(new GlobalResponse<CreditAccountOrderDto>
+            {
+                Data = null,
+                ErrorStatus = true,
+                Message = error,
+            });
+        }
+
+        return Ok(new GlobalResponse<CreditAccountOrderDto>
+        {
+            Data = result,
+            ErrorStatus = false,
+            Message = "creditOrderUpdated",
+        });
+    }
+
+    [AuthorizeSection("deferredPayments", Roles = "Commercial,Admin")]
+    [HttpDelete("orders/{orderId:int}")]
+    public async Task<ActionResult<GlobalResponse<object>>> DeleteOrder(
+        int orderId,
+        CancellationToken cancellationToken)
+    {
+        var (ok, error) = await _creditAccountService.DeleteOrderAsync(
+            GetCommercialUserId(),
+            GetActingUserId(),
+            orderId,
+            cancellationToken);
+
+        if (!ok)
+        {
+            return BadRequest(new GlobalResponse<object>
+            {
+                Data = null,
+                ErrorStatus = true,
+                Message = error,
+            });
+        }
+
+        return Ok(new GlobalResponse<object>
+        {
+            Data = null,
+            ErrorStatus = false,
+            Message = "creditOrderDeleted",
+        });
+    }
+
+    [AuthorizeSection("deferredPayments", Roles = "Commercial,Admin")]
+    [HttpDelete("Customer/{accountId:int}")]
+    public async Task<ActionResult<GlobalResponse<object>>> DeleteAccount(
+        int accountId,
+        CancellationToken cancellationToken)
+    {
+        var (ok, error) = await _creditAccountService.DeleteAccountAsync(
+            GetCommercialUserId(),
+            GetActingUserId(),
+            accountId,
+            cancellationToken);
+
+        if (!ok)
+        {
+            return BadRequest(new GlobalResponse<object>
+            {
+                Data = null,
+                ErrorStatus = true,
+                Message = error,
+            });
+        }
+
+        return Ok(new GlobalResponse<object>
+        {
+            Data = null,
+            ErrorStatus = false,
+            Message = "creditAccountDeleted",
+        });
+    }
 }

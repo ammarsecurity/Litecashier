@@ -394,6 +394,7 @@
                       <th>{{ $t("receiptAttachment") || "مرفق الوصل" }}</th>
                       <th>{{ $t("unitType") || "الوحدة" }}</th>
                       <th>{{ $t("notes") || "ملاحظات" }}</th>
+                      <th>{{ $t("actions") || "إجراءات" }}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -442,6 +443,26 @@
                       </td>
                       <td>{{ m.unitType || '—' }}</td>
                       <td>{{ m.notes || '—' }}</td>
+                      <td>
+                        <div class="inventory-row-actions">
+                          <button
+                            type="button"
+                            class="action-btn action-btn--icon action-btn--edit"
+                            :title="$t('edit') || 'تعديل'"
+                            @click="openEditMovement(m)"
+                          >
+                            <b-icon icon="pencil"></b-icon>
+                          </button>
+                          <button
+                            type="button"
+                            class="action-btn action-btn--icon action-btn--delete"
+                            :title="$t('delete') || 'حذف'"
+                            @click="confirmDeleteMovement(m)"
+                          >
+                            <b-icon icon="trash"></b-icon>
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -888,6 +909,66 @@
         </form>
       </div>
     </b-modal>
+
+    <!-- Modal: تعديل حركة مخزن -->
+    <b-modal
+      v-model="showEditMovementModal"
+      hide-header
+      hide-footer
+      class="users-modal"
+      centered
+      size="md"
+      @hidden="editingMovementId = null"
+    >
+      <div class="modal-content-wrapper">
+        <h2 class="modal-title">{{ $t("editStockMovement") || "تعديل حركة المخزن" }}</h2>
+        <form @submit.prevent="submitEditMovement" class="users-form">
+          <div class="users-form-group">
+            <label class="users-form-label">{{ $t("inventoryMaterialName") || "اسم المادة" }} <span class="required">*</span></label>
+            <input v-model="editMovementForm.materialName" type="text" class="users-form-input" required />
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">{{ $t("quantity") || "الكمية" }} <span class="required">*</span></label>
+            <input v-model.number="editMovementForm.quantity" type="number" min="0.01" step="0.01" class="users-form-input" required />
+          </div>
+          <div class="users-form-group" v-if="editMovementForm.movementType === 'Add'">
+            <label class="users-form-label">{{ $t("supplierName") || "المورد" }}</label>
+            <input v-model="editMovementForm.supplierName" type="text" class="users-form-input" />
+          </div>
+          <div class="users-form-group" v-if="editMovementForm.movementType === 'Add'">
+            <label class="users-form-label">{{ $t("amount") || "المبلغ" }}</label>
+            <input v-model.number="editMovementForm.amount" type="number" min="0" step="1" class="users-form-input" />
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">{{ $t("unitType") || "الوحدة" }}</label>
+            <input v-model="editMovementForm.unitType" type="text" class="users-form-input" />
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">{{ $t("receiptNumber") || "رقم الوصل" }}</label>
+            <input v-model="editMovementForm.receiptNumber" type="text" class="users-form-input" />
+          </div>
+          <div class="users-form-group" v-if="editMovementForm.movementType === 'Withdraw'">
+            <label class="users-form-label">{{ $t("withdrawReceivedByEmployee") || "الموظف المستلم" }}</label>
+            <input v-model="editMovementForm.receivedByEmployeeName" type="text" class="users-form-input" required />
+          </div>
+          <div class="users-form-group">
+            <label class="users-form-label">{{ $t("notes") || "ملاحظات" }}</label>
+            <textarea v-model="editMovementForm.notes" class="users-form-input" rows="2"></textarea>
+          </div>
+          <div class="users-form-actions">
+            <button type="submit" class="users-form-submit-button" :disabled="savingMovementEdit">
+              <b-spinner small v-if="savingMovementEdit" class="me-2"></b-spinner>
+              <b-icon v-else icon="check-circle-fill" class="me-2"></b-icon>
+              {{ $t("update") || "تحديث" }}
+            </button>
+            <button type="button" class="users-form-cancel-button" @click="showEditMovementModal = false">
+              <b-icon icon="x-circle-fill" class="me-2"></b-icon>
+              {{ $t("cancel") || "إلغاء" }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </b-modal>
   </b-overlay>
 </template>
 
@@ -946,6 +1027,20 @@ export default {
       loadingSuppliers: false,
       showAddSupplierModal: false,
       showEditSupplierModal: false,
+      showEditMovementModal: false,
+      savingMovementEdit: false,
+      editingMovementId: null,
+      editMovementForm: {
+        movementType: "Add",
+        materialName: "",
+        quantity: 0.01,
+        supplierName: "",
+        amount: null,
+        unitType: "",
+        receiptNumber: "",
+        notes: "",
+        receivedByEmployeeName: "",
+      },
       supplierForm: { name: '', notes: '' },
       editingSupplierId: null,
       savingSupplier: false,
@@ -1112,6 +1207,72 @@ export default {
         }
       } catch (error) {
         this.$notify.error(error.response?.data?.message || this.$t('error'));
+      }
+    },
+    openEditMovement(m) {
+      this.editingMovementId = m.id;
+      this.editMovementForm = {
+        movementType: m.movementType || "Add",
+        materialName: m.materialName || "",
+        quantity: Number(m.quantity) || 0.01,
+        supplierName: m.supplierName || "",
+        amount: m.amount != null ? Number(m.amount) : null,
+        unitType: m.unitType || "",
+        receiptNumber: m.receiptNumber || "",
+        notes: m.notes || "",
+        receivedByEmployeeName: m.receivedByEmployeeName || "",
+      };
+      this.showEditMovementModal = true;
+    },
+    async submitEditMovement() {
+      if (!this.editingMovementId) return;
+      this.savingMovementEdit = true;
+      try {
+        const payload = {
+          materialName: this.editMovementForm.materialName,
+          quantity: Number(this.editMovementForm.quantity),
+          supplierName: this.editMovementForm.supplierName,
+          amount: this.editMovementForm.amount,
+          unitType: this.editMovementForm.unitType,
+          receiptNumber: this.editMovementForm.receiptNumber,
+          notes: this.editMovementForm.notes,
+          receivedByEmployeeName: this.editMovementForm.receivedByEmployeeName,
+        };
+        const response = await HTTP.put(
+          `Inventory/UpdateStockMovement/${this.editingMovementId}`,
+          payload
+        );
+        if (response.data && !response.data.errorStatus) {
+          this.$notify.success(response.data.message || this.$t("stockMovementUpdated") || "تم تعديل الحركة");
+          this.showEditMovementModal = false;
+          this.loadStockMovements();
+          this.loadInventory();
+        } else {
+          this.$notify.error(response.data?.message || this.$t("error"));
+        }
+      } catch (error) {
+        this.$notify.error(error.response?.data?.message || this.$t("error"));
+      } finally {
+        this.savingMovementEdit = false;
+      }
+    },
+    async confirmDeleteMovement(m) {
+      const ok = window.confirm(
+        this.$t("confirmDeleteStockMovement") ||
+          `هل تريد حذف حركة «${m.materialName}»؟`
+      );
+      if (!ok) return;
+      try {
+        const response = await HTTP.delete(`Inventory/DeleteStockMovement/${m.id}`);
+        if (response.data && !response.data.errorStatus) {
+          this.$notify.success(response.data.message || this.$t("stockMovementDeleted") || "تم حذف الحركة");
+          this.loadStockMovements();
+          this.loadInventory();
+        } else {
+          this.$notify.error(response.data?.message || this.$t("error"));
+        }
+      } catch (error) {
+        this.$notify.error(error.response?.data?.message || this.$t("error"));
       }
     },
     async loadStockMovements() {
@@ -1543,6 +1704,11 @@ export default {
 .movements-filter-input {
   max-width: none;
   width: 100%;
+}
+
+.inventory-row-actions {
+  display: inline-flex;
+  gap: 0.35rem;
 }
 
 .movements-table th,
