@@ -76,10 +76,7 @@ namespace POS.Controllers
             try
             {
                 var commercialUserId = GetCommercialUserId();
-                var run = await _db.PayrollRuns
-                    .Include(r => r.Lines!.Where(l => !l.IsDeleted))
-                    .ThenInclude(l => l.Employee)
-                    .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted && r.InsertByUserId == commercialUserId);
+                var run = await LoadRunAsync(id, commercialUserId);
 
                 if (run == null)
                 {
@@ -211,15 +208,16 @@ namespace POS.Controllers
                     });
                 }
 
+                // Hard-delete draft lines so EF change-tracker fixup cannot
+                // reattach soft-deleted rows into Lines on the next load.
                 var oldLines = await _db.PayrollLines
-                    .Where(l => l.PayrollRunId == id && !l.IsDeleted)
+                    .Where(l => l.PayrollRunId == id)
                     .ToListAsync();
-                foreach (var l in oldLines)
+                if (oldLines.Count > 0)
                 {
-                    l.IsDeleted = true;
-                    l.UpdateDate = DateTime.UtcNow;
+                    _db.PayrollLines.RemoveRange(oldLines);
+                    await _db.SaveChangesAsync();
                 }
-                await _db.SaveChangesAsync();
 
                 await GenerateLinesInternalAsync(run, commercialUserId);
                 var refreshed = await LoadRunAsync(id, commercialUserId);
@@ -977,10 +975,24 @@ namespace POS.Controllers
             await _db.SaveChangesAsync();
         }
 
-        private Task<PayrollRun?> LoadRunAsync(int id, int commercialUserId) =>
-            _db.PayrollRuns
+        private async Task<PayrollRun?> LoadRunAsync(int id, int commercialUserId)
+        {
+            var run = await _db.PayrollRuns
+                .AsNoTracking()
                 .Include(r => r.Lines!.Where(l => !l.IsDeleted))
                 .ThenInclude(l => l.Employee)
                 .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted && r.InsertByUserId == commercialUserId);
+
+            // Break EF navigation cycle (PayrollRun <-> Lines) before JSON serialization.
+            // Also re-filter in case identity-resolution reattached soft-deleted lines.
+            if (run?.Lines != null)
+            {
+                run.Lines = run.Lines.Where(l => !l.IsDeleted).ToList();
+                foreach (var line in run.Lines)
+                    line.PayrollRun = null;
+            }
+
+            return run;
+        }
     }
 }

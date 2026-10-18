@@ -388,7 +388,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="line in selectedRun.lines || []" :key="line.id">
+                      <tr v-for="line in selectedRunLines" :key="line.id">
                         <td>{{ line.employee?.name || ("#" + line.employeeId) }}</td>
                         <td>
                           <input
@@ -917,11 +917,14 @@ export default {
     activeEmployeesCount() {
       return (this.balances.employees || []).filter((e) => e.isActive).length;
     },
+    selectedRunLines() {
+      return (this.selectedRun?.lines || []).filter((l) => !l.isDeleted);
+    },
     hasAnyPaidLine() {
-      return (this.selectedRun?.lines || []).some((l) => l.isPaid);
+      return this.selectedRunLines.some((l) => l.isPaid);
     },
     hasUnpaidLines() {
-      return (this.selectedRun?.lines || []).some((l) => !l.isPaid);
+      return this.selectedRunLines.some((l) => !l.isPaid);
     },
     selectedReportRunLabel() {
       const run = (this.runs || []).find((r) => r.id === this.reportRunId);
