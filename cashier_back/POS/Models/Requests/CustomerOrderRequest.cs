@@ -31,5 +31,17 @@
 
         /// <summary>Original sale time on the cashier device. Mapped to InsertDate when valid.</summary>
         public DateTime? SoldAt { get; set; }
+
+        /// <summary>Optional walk-in customer name on the sale (not required).</summary>
+        public string? CustomerName { get; set; }
+
+        /// <summary>Optional walk-in customer phone on the sale (not required).</summary>
+        public string? CustomerPhone { get; set; }
+
+        /// <summary>Optional walk-in customer address on the sale (not required).</summary>
+        public string? CustomerAddress { get; set; }
+
+        /// <summary>Optional order notes.</summary>
+        public string? Notes { get; set; }
     }
 }

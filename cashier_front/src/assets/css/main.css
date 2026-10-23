@@ -14388,6 +14388,12 @@ table .b-icon,
   color: var(--text-primary);
 }
 
+.order-customer-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
 .order-notes-textarea {
   resize: vertical;
   min-height: 96px;

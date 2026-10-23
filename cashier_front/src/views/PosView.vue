@@ -1054,7 +1054,7 @@
                   <div class="pos-ui-modal-hero-text">
                     <h3 class="pos-ui-modal-title">{{ $t("discountAndNotes") || "خصم وملاحظات" }}</h3>
                     <p class="pos-ui-modal-subtitle">
-                      {{ $t("discountAndNotesHint") || "أضف ملاحظات الطلب أو خصماً على الفاتورة الحالية" }}
+                      {{ $t("discountAndNotesHint") || "أضف بيانات الزبون (اختياري) أو ملاحظات أو خصماً على الفاتورة" }}
                     </p>
                   </div>
                   <button
@@ -1069,6 +1069,35 @@
                 <form @submit.prevent="applyOrderExtras">
                   <div class="pos-ui-modal-body-content">
                     <div class="order-notes-content">
+                      <div class="order-notes-input-wrapper">
+                        <label class="order-notes-label">{{ $t("saleCustomerInfo") || "بيانات الزبون (اختياري)" }}</label>
+                        <div class="order-customer-fields">
+                          <input
+                            v-model="orderForSend.customerName"
+                            type="text"
+                            maxlength="120"
+                            class="order-notes-input"
+                            :placeholder="$t('enterCustomerNamePlaceholder') || 'اسم الزبون'"
+                            autocomplete="name"
+                          />
+                          <input
+                            v-model="orderForSend.customerPhone"
+                            type="tel"
+                            maxlength="30"
+                            class="order-notes-input"
+                            :placeholder="$t('enterPhoneNumber') || 'رقم الهاتف'"
+                            autocomplete="tel"
+                          />
+                          <input
+                            v-model="orderForSend.customerAddress"
+                            type="text"
+                            maxlength="500"
+                            class="order-notes-input"
+                            :placeholder="$t('enterAddress') || 'العنوان'"
+                            autocomplete="street-address"
+                          />
+                        </div>
+                      </div>
                       <div class="order-notes-input-wrapper">
                         <label class="order-notes-label" for="pos-order-notes">{{ $t("notesLabel") || "الملاحظات (اختياري)" }}</label>
                         <textarea
@@ -1478,6 +1507,18 @@
             <span class="bill-info-label">{{ $t("employeeLabel") }}:</span>
             <span class="bill-info-value">{{ userInfo.name || userInfo.fullName || '---' }}</span>
           </div>
+          <div class="bill-info-row" v-if="saleCustomerNameForPrint">
+            <span class="bill-info-label">{{ $t("customerName") || "اسم الزبون" }}:</span>
+            <span class="bill-info-value">{{ saleCustomerNameForPrint }}</span>
+          </div>
+          <div class="bill-info-row" v-if="saleCustomerPhoneForPrint">
+            <span class="bill-info-label">{{ $t("phoneNumber") || "رقم الهاتف" }}:</span>
+            <span class="bill-info-value">{{ saleCustomerPhoneForPrint }}</span>
+          </div>
+          <div class="bill-info-row" v-if="saleCustomerAddressForPrint">
+            <span class="bill-info-label">{{ $t("address") || "العنوان" }}:</span>
+            <span class="bill-info-value">{{ saleCustomerAddressForPrint }}</span>
+          </div>
           <div class="bill-info-row" v-if="orderForSend.orderType">
             <span class="bill-info-label">{{ $t("orderType") }}:</span>
             <span class="bill-info-value">{{ getOrderTypeText(orderForSend.orderType) }}</span>
@@ -1708,6 +1749,9 @@ export default {
         customerOrderItem: [],
         orderType: "Takeaway",
         notes: "",
+        customerName: "",
+        customerPhone: "",
+        customerAddress: "",
         creditCustomerId: null,
         warehouseId: null,
       },
@@ -1845,6 +1889,39 @@ export default {
       const c = this.orderForSend?.creditCustomerId;
       return c != null && c !== "";
     },
+    selectedCreditCustomer() {
+      const id = this.orderForSend?.creditCustomerId;
+      if (id == null || id === "") return null;
+      return (
+        (this.creditCustomers || []).find(
+          (c) => String(c.id ?? c.Id) === String(id)
+        ) || null
+      );
+    },
+    saleCustomerNameForPrint() {
+      return (
+        String(this.orderForSend?.customerName || "").trim() ||
+        this.selectedCreditCustomer?.name ||
+        this.selectedCreditCustomer?.Name ||
+        ""
+      );
+    },
+    saleCustomerPhoneForPrint() {
+      return (
+        String(this.orderForSend?.customerPhone || "").trim() ||
+        this.selectedCreditCustomer?.phoneNumber ||
+        this.selectedCreditCustomer?.PhoneNumber ||
+        ""
+      );
+    },
+    saleCustomerAddressForPrint() {
+      return (
+        String(this.orderForSend?.customerAddress || "").trim() ||
+        this.selectedCreditCustomer?.address ||
+        this.selectedCreditCustomer?.Address ||
+        ""
+      );
+    },
     cardfields() {
       const lang = this.$i18n.locale;
       if (!lang) {
@@ -1956,6 +2033,15 @@ export default {
       this.scheduleActiveInvoiceTabSync();
     },
     "orderForSend.notes"() {
+      this.scheduleActiveInvoiceTabSync();
+    },
+    "orderForSend.customerName"() {
+      this.scheduleActiveInvoiceTabSync();
+    },
+    "orderForSend.customerPhone"() {
+      this.scheduleActiveInvoiceTabSync();
+    },
+    "orderForSend.customerAddress"() {
       this.scheduleActiveInvoiceTabSync();
     },
     "orderForSend.paymentMethod"() {
@@ -2856,6 +2942,9 @@ export default {
       this.clearOrderDiscount();
       this.resetChangeCalculator(false);
       this.orderForSend.notes = "";
+      this.orderForSend.customerName = "";
+      this.orderForSend.customerPhone = "";
+      this.orderForSend.customerAddress = "";
       this.orderForSend.creditCustomerId = null;
       this.orderForSend.orderCode = "";
       this.syncActiveInvoiceTabSnapshot(true);

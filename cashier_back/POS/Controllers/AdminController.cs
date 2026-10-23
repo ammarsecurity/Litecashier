@@ -351,6 +351,54 @@ namespace POS.Controllers
                 .OrderByDescending(x => x.Amount)
                 .ToList();
 
+            // Credit settlements collected today (cash/card/transfer received against deferred invoices).
+            var daySettlements = await _dbConfig.CreditSettlements
+                .AsNoTracking()
+                .Include(s => s.CustomerOrder)
+                    .ThenInclude(o => o!.User)
+                .Include(s => s.CustomerOrder)
+                    .ThenInclude(o => o!.CreditCustomer)
+                .Where(s =>
+                    !s.IsDeleted
+                    && s.InsertDate >= dayStart
+                    && s.InsertDate < dayEnd
+                    && s.CustomerOrder != null
+                    && !s.CustomerOrder.IsDeleted
+                    && (
+                        s.CustomerOrder.InsertByUserId == commercialUserId
+                        || (s.CustomerOrder.User != null
+                            && (s.CustomerOrder.User.Id == commercialUserId
+                                || s.CustomerOrder.User.InsertByUserId == commercialUserId))))
+                .OrderByDescending(s => s.InsertDate)
+                .ToListAsync();
+
+            var settlementBreakdown = daySettlements
+                .GroupBy(s => string.IsNullOrWhiteSpace(s.PaymentMethod) ? "Cash" : s.PaymentMethod)
+                .Select(g => new EndOfDayPaymentDto
+                {
+                    Method = g.Key,
+                    OrdersCount = g.Count(),
+                    Amount = g.Sum(x => x.Amount)
+                })
+                .OrderByDescending(x => x.Amount)
+                .ToList();
+
+            var settlementRows = daySettlements
+                .Select(s => new EndOfDaySettlementDto
+                {
+                    Id = s.Id,
+                    OrderId = s.CustomerOrderId,
+                    OrderCode = s.CustomerOrder?.OrderCode ?? $"#{s.CustomerOrderId}",
+                    CustomerName = !string.IsNullOrWhiteSpace(s.CustomerOrder?.CustomerName)
+                        ? s.CustomerOrder!.CustomerName
+                        : s.CustomerOrder?.CreditCustomer?.Name,
+                    Amount = s.Amount,
+                    PaymentMethod = string.IsNullOrWhiteSpace(s.PaymentMethod) ? "Cash" : s.PaymentMethod,
+                    Notes = s.Notes,
+                    InsertDate = s.InsertDate
+                })
+                .ToList();
+
             var topItems = orderItems
                 .GroupBy(x => new { x.ItemId, ItemName = x.Item != null ? x.Item.Name : $"#{x.ItemId}" })
                 .Select(g =>
@@ -400,9 +448,13 @@ namespace POS.Controllers
                     TotalCost = totalCost,
                     Profit = profit,
                     ReturnedAmount = returnedAmount,
-                    ReturnedCount = returnedCount
+                    ReturnedCount = returnedCount,
+                    CreditSettlementsCount = daySettlements.Count,
+                    CreditSettlementsAmount = daySettlements.Sum(s => s.Amount)
                 },
                 PaymentBreakdown = paymentBreakdown,
+                SettlementBreakdown = settlementBreakdown,
+                CreditSettlements = settlementRows,
                 TopItems = topItems,
                 ReturnedItems = returnedItems
             };
@@ -3247,6 +3299,10 @@ namespace POS.Controllers
                 var orderCode = request.OrderCode ?? RandomCode();
                 var paymentMethod = request.PaymentMethod ?? "Cash";
                 int? creditCustomerId = null;
+                string? customerName = TrimOrNull(request.CustomerName, 120);
+                string? customerPhone = TrimOrNull(request.CustomerPhone, 30);
+                string? customerAddress = TrimOrNull(request.CustomerAddress, 500);
+                string? orderNotes = TrimOrNull(request.Notes, 1000);
 
                 if (string.Equals(paymentMethod, "Credit", StringComparison.OrdinalIgnoreCase))
                 {
@@ -3278,6 +3334,10 @@ namespace POS.Controllers
                     }
 
                     creditCustomerId = cust.Id;
+                    // Fill blank walk-in fields from the selected credit account.
+                    customerName ??= TrimOrNull(cust.Name, 120);
+                    customerPhone ??= TrimOrNull(cust.PhoneNumber, 30);
+                    customerAddress ??= TrimOrNull(cust.Address, 500);
                 }
 
                 var paymentStatus = string.Equals(paymentMethod, "Credit", StringComparison.OrdinalIgnoreCase)
@@ -3340,6 +3400,10 @@ namespace POS.Controllers
                     IsWholesale = request.IsWholesale,
                     WarehouseId = warehouse.Id,
                     ClientOrderId = clientOrderId,
+                    CustomerName = customerName,
+                    CustomerPhone = customerPhone,
+                    CustomerAddress = customerAddress,
+                    Notes = orderNotes,
                     InsertDate = ResolveSoldAtUtc(request.SoldAt) ?? default,
                 };
                 _dbConfig.CustomerOrders.Add(newOrder);
@@ -3880,6 +3944,10 @@ namespace POS.Controllers
                         DiscountPercent = x.DiscountPercent,
                         OrderSubTotal = netSubTotal,
                         OrderTotalAfterDiscount = netFinal,
+                        CustomerName = x.CustomerName,
+                        CustomerPhone = x.CustomerPhone,
+                        CustomerAddress = x.CustomerAddress,
+                        Notes = x.Notes,
                     };
                 })
                 .ToList();
@@ -4248,6 +4316,16 @@ namespace POS.Controllers
             if (!clientOrderId.HasValue || clientOrderId.Value == Guid.Empty)
                 return null;
             return clientOrderId.Value;
+        }
+
+        private static string? TrimOrNull(string? value, int maxLen)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+            var trimmed = value.Trim();
+            if (trimmed.Length > maxLen)
+                trimmed = trimmed.Substring(0, maxLen);
+            return trimmed;
         }
 
         private static DateTime? ResolveSoldAtUtc(DateTime? soldAt)
@@ -4739,6 +4817,96 @@ namespace POS.Controllers
                     Data = null,
                     ErrorStatus = true,
                     Message = $"حدث خطأ: {ex.Message}"
+                });
+            }
+        }
+
+        [AuthorizeSection("reports", "deferredPayments", Roles = "Commercial,Admin,POS")]
+        [HttpGet("GetCreditSettlementsReport")]
+        public async Task<ActionResult<GlobalResponse<CreditSettlementsReportDto>>> GetCreditSettlementsReport(
+            DateTime? startDate,
+            DateTime? endDate)
+        {
+            try
+            {
+                var commercialUserId = GetCommercialUserId();
+                var query = _dbConfig.CreditSettlements
+                    .AsNoTracking()
+                    .Include(s => s.CustomerOrder)
+                        .ThenInclude(o => o!.User)
+                    .Include(s => s.CustomerOrder)
+                        .ThenInclude(o => o!.CreditCustomer)
+                    .Where(s =>
+                        !s.IsDeleted
+                        && s.CustomerOrder != null
+                        && !s.CustomerOrder.IsDeleted
+                        && (
+                            s.CustomerOrder.InsertByUserId == commercialUserId
+                            || (s.CustomerOrder.User != null
+                                && (s.CustomerOrder.User.Id == commercialUserId
+                                    || s.CustomerOrder.User.InsertByUserId == commercialUserId))));
+
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
+                {
+                    query = query.Where(s => s.InsertDate >= fromUtc && s.InsertDate < toUtcEx);
+                }
+
+                var rows = await query
+                    .OrderByDescending(s => s.InsertDate)
+                    .ThenByDescending(s => s.Id)
+                    .ToListAsync();
+
+                var items = rows.Select(s => new EndOfDaySettlementDto
+                {
+                    Id = s.Id,
+                    OrderId = s.CustomerOrderId,
+                    OrderCode = s.CustomerOrder?.OrderCode ?? $"#{s.CustomerOrderId}",
+                    CustomerName = !string.IsNullOrWhiteSpace(s.CustomerOrder?.CustomerName)
+                        ? s.CustomerOrder!.CustomerName
+                        : s.CustomerOrder?.CreditCustomer?.Name,
+                    Amount = s.Amount,
+                    PaymentMethod = string.IsNullOrWhiteSpace(s.PaymentMethod) ? "Cash" : s.PaymentMethod,
+                    Notes = s.Notes,
+                    InsertDate = s.InsertDate
+                }).ToList();
+
+                var breakdown = items
+                    .GroupBy(s => s.PaymentMethod)
+                    .Select(g => new EndOfDayPaymentDto
+                    {
+                        Method = g.Key,
+                        OrdersCount = g.Count(),
+                        Amount = g.Sum(x => x.Amount)
+                    })
+                    .OrderByDescending(x => x.Amount)
+                    .ToList();
+
+                return Ok(new GlobalResponse<CreditSettlementsReportDto>
+                {
+                    Data = new CreditSettlementsReportDto
+                    {
+                        Count = items.Count,
+                        TotalAmount = items.Sum(x => x.Amount),
+                        BreakdownByMethod = breakdown,
+                        Items = items,
+                        Period = new CreditSettlementsReportPeriodDto
+                        {
+                            StartDate = startDate?.Date,
+                            EndDate = endDate?.Date
+                        }
+                    },
+                    ErrorStatus = false,
+                    Message = "Success"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error building credit settlements report");
+                return StatusCode(500, new GlobalResponse<CreditSettlementsReportDto>
+                {
+                    Data = null,
+                    ErrorStatus = true,
+                    Message = ex.Message
                 });
             }
         }
@@ -6757,6 +6925,10 @@ namespace POS.Controllers
                 summarySheet.Cell(12, 2).Value = r.Totals.ReturnedAmount;
                 summarySheet.Cell(13, 1).Value = "ReturnedCount";
                 summarySheet.Cell(13, 2).Value = r.Totals.ReturnedCount;
+                summarySheet.Cell(14, 1).Value = "CreditSettlementsCount";
+                summarySheet.Cell(14, 2).Value = r.Totals.CreditSettlementsCount;
+                summarySheet.Cell(15, 1).Value = "CreditSettlementsAmount";
+                summarySheet.Cell(15, 2).Value = r.Totals.CreditSettlementsAmount;
 
                 var paymentsSheet = workbook.Worksheets.Add("PaymentBreakdown");
                 paymentsSheet.Cell(1, 1).Value = "Method";
@@ -6769,6 +6941,38 @@ namespace POS.Controllers
                     paymentsSheet.Cell(paymentRow, 2).Value = p.OrdersCount;
                     paymentsSheet.Cell(paymentRow, 3).Value = p.Amount;
                     paymentRow++;
+                }
+
+                var settlementBreakdownSheet = workbook.Worksheets.Add("SettlementBreakdown");
+                settlementBreakdownSheet.Cell(1, 1).Value = "Method";
+                settlementBreakdownSheet.Cell(1, 2).Value = "SettlementsCount";
+                settlementBreakdownSheet.Cell(1, 3).Value = "Amount";
+                var settlementBreakdownRow = 2;
+                foreach (var p in r.SettlementBreakdown)
+                {
+                    settlementBreakdownSheet.Cell(settlementBreakdownRow, 1).Value = p.Method ?? string.Empty;
+                    settlementBreakdownSheet.Cell(settlementBreakdownRow, 2).Value = p.OrdersCount;
+                    settlementBreakdownSheet.Cell(settlementBreakdownRow, 3).Value = p.Amount;
+                    settlementBreakdownRow++;
+                }
+
+                var settlementsSheet = workbook.Worksheets.Add("CreditSettlements");
+                settlementsSheet.Cell(1, 1).Value = "OrderCode";
+                settlementsSheet.Cell(1, 2).Value = "CustomerName";
+                settlementsSheet.Cell(1, 3).Value = "Amount";
+                settlementsSheet.Cell(1, 4).Value = "PaymentMethod";
+                settlementsSheet.Cell(1, 5).Value = "Notes";
+                settlementsSheet.Cell(1, 6).Value = "InsertDate";
+                var settlementRow = 2;
+                foreach (var s in r.CreditSettlements)
+                {
+                    settlementsSheet.Cell(settlementRow, 1).Value = s.OrderCode ?? string.Empty;
+                    settlementsSheet.Cell(settlementRow, 2).Value = s.CustomerName ?? string.Empty;
+                    settlementsSheet.Cell(settlementRow, 3).Value = s.Amount;
+                    settlementsSheet.Cell(settlementRow, 4).Value = s.PaymentMethod ?? string.Empty;
+                    settlementsSheet.Cell(settlementRow, 5).Value = s.Notes ?? string.Empty;
+                    settlementsSheet.Cell(settlementRow, 6).Value = s.InsertDate;
+                    settlementRow++;
                 }
 
                 var topItemsSheet = workbook.Worksheets.Add("TopItems");

@@ -78,6 +78,14 @@
                                 <b-icon icon="cash-stack" class="me-2"></b-icon>
                                 {{ $t('financialOpsReport') || 'العمليات المالية' }}
                             </button>
+                            <button
+                                class="report-tab"
+                                :class="{ 'report-tab-active': activeTab === 'creditSettlements' }"
+                                @click="activeTab = 'creditSettlements'; loadCreditSettlementsReport()"
+                            >
+                                <b-icon icon="wallet2" class="me-2"></b-icon>
+                                {{ $t('creditSettlementsReport') || 'تسديدات آجل' }}
+                            </button>
                             <button 
                                 class="report-tab" 
                                 :class="{ 'report-tab-active': activeTab === 'topItems' }"
@@ -430,7 +438,10 @@
                                         />
                                     </div>
                                 </label>
-                                <label class="reports-filter-field">
+                                <label
+                                    v-if="activeTab !== 'creditSettlements'"
+                                    class="reports-filter-field"
+                                >
                                     <span class="reports-filter-label">{{ $t('brandPlaceholder') || 'البراند' }}</span>
                                     <div class="users-search-container">
                                         <b-icon icon="award" class="search-icon"></b-icon>
@@ -798,6 +809,98 @@
                                         </p>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Credit settlements report -->
+                        <div v-if="activeTab === 'creditSettlements'" class="report-section">
+                            <div class="report-section-intro">
+                                <div class="report-info-banner">
+                                    <b-icon icon="info-circle-fill" class="banner-icon"></b-icon>
+                                    <span>
+                                        {{ $t('creditSettlementsReportHint') || 'المبالغ المحصّلة من فواتير الدفع اللاحق خلال الفترة (جزئي أو كامل)، حسب تاريخ التسديد.' }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="app-overview-grid report-stats-grid">
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--primary report-stat-icon">
+                                        <b-icon icon="list-ol"></b-icon>
+                                    </span>
+                                    <div class="report-stat-content">
+                                        <div class="app-overview-stat-value report-stat-value">
+                                            {{ creditSettlementsReport.count || 0 }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">
+                                            {{ $t('settlementCountLabel') || 'عدد التسديدات' }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="app-overview-stat report-stat-card">
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--success report-stat-icon">
+                                        <b-icon icon="cash-coin"></b-icon>
+                                    </span>
+                                    <div class="report-stat-content">
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(creditSettlementsReport.totalAmount || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">
+                                            {{ $t('creditSettlementsCollected') || 'إجمالي التحصيل' }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div
+                                    v-for="row in creditSettlementsReport.breakdownByMethod || []"
+                                    :key="'cs-m-' + row.method"
+                                    class="app-overview-stat report-stat-card"
+                                >
+                                    <span class="app-overview-stat-icon app-overview-stat-icon--info report-stat-icon">
+                                        <b-icon :icon="getPaymentMethodIcon(row.method)"></b-icon>
+                                    </span>
+                                    <div class="report-stat-content">
+                                        <div class="app-overview-stat-value app-overview-stat-value--text report-stat-value">
+                                            {{ formatPrice(row.amount || 0) }} {{ $t('currency') }}
+                                        </div>
+                                        <div class="app-overview-stat-label report-stat-label">
+                                            {{ getPaymentMethodText(row.method) }}
+                                            <span class="eod-stat-extra">· {{ row.ordersCount || 0 }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="report-table-wrap" style="margin-top: 1.25rem;">
+                                <div v-if="!(creditSettlementsReport.items || []).length" class="reports-empty-state">
+                                    {{ $t('noCreditSettlementsInPeriod') || 'لا توجد تسديدات في هذه الفترة' }}
+                                </div>
+                                <b-table
+                                    v-else
+                                    :items="creditSettlementsReport.items"
+                                    :fields="creditSettlementsTableFields"
+                                    responsive
+                                    hover
+                                    class="users-table reports-data-table"
+                                    thead-class="reports-table-head"
+                                >
+                                    <template #cell(orderCode)="row">
+                                        <span class="report-item-code">{{ row.item.orderCode }}</span>
+                                    </template>
+                                    <template #cell(customerName)="row">
+                                        {{ row.item.customerName || "—" }}
+                                    </template>
+                                    <template #cell(amount)="row">
+                                        <span class="report-item-price">{{ formatPrice(row.item.amount) }} {{ $t('currency') }}</span>
+                                    </template>
+                                    <template #cell(paymentMethod)="row">
+                                        {{ getPaymentMethodText(row.item.paymentMethod) }}
+                                    </template>
+                                    <template #cell(insertDate)="row">
+                                        {{ formatDate(row.item.insertDate) }}
+                                    </template>
+                                    <template #cell(notes)="row">
+                                        {{ row.item.notes || "—" }}
+                                    </template>
+                                </b-table>
                             </div>
                         </div>
 
@@ -1498,6 +1601,18 @@
                                     <span class="bill-info-label">{{ $t('employeeLabel') }}:</span>
                                     <span class="bill-info-value">{{ orderEmployeeName }}</span>
                                 </div>
+                                <div class="bill-info-row" v-if="order && order.customerName">
+                                    <span class="bill-info-label">{{ $t('customerName') || 'اسم الزبون' }}:</span>
+                                    <span class="bill-info-value">{{ order.customerName }}</span>
+                                </div>
+                                <div class="bill-info-row" v-if="order && order.customerPhone">
+                                    <span class="bill-info-label">{{ $t('phoneNumber') || 'رقم الهاتف' }}:</span>
+                                    <span class="bill-info-value">{{ order.customerPhone }}</span>
+                                </div>
+                                <div class="bill-info-row" v-if="order && order.customerAddress">
+                                    <span class="bill-info-label">{{ $t('address') || 'العنوان' }}:</span>
+                                    <span class="bill-info-value">{{ order.customerAddress }}</span>
+                                </div>
                             </div>
 
                             <!-- Divider -->
@@ -1858,6 +1973,13 @@ export default {
                 expensesByCategory: [],
                 period: {},
             },
+            creditSettlementsReport: {
+                count: 0,
+                totalAmount: 0,
+                breakdownByMethod: [],
+                items: [],
+                period: {},
+            },
             expenseCategoriesForReport: [],
             financialOpsSelectedCategories: [],
             topSellingItems: [],
@@ -1946,6 +2068,16 @@ export default {
                 { key: "actions", label: this.$t("actions") || "الإجراءات", class: "text-center" },
             );
             return fields;
+        },
+        creditSettlementsTableFields() {
+            return [
+                { key: "orderCode", label: this.$t("invoice_number") || "الفاتورة", sortable: true },
+                { key: "customerName", label: this.$t("customerName") || "الزبون", sortable: true },
+                { key: "amount", label: this.$t("amount") || "المبلغ", sortable: true },
+                { key: "paymentMethod", label: this.$t("paymentMethod") || "طريقة التحصيل", sortable: true },
+                { key: "insertDate", label: this.$t("date") || "التاريخ", sortable: true },
+                { key: "notes", label: this.$t("notes") || "ملاحظات", sortable: false },
+            ];
         },
         hasActiveFilters() {
             return !!(
@@ -2833,6 +2965,8 @@ export default {
                 this.loadProfitReport();
             } else if (this.activeTab === 'financialOps') {
                 this.loadFinancialOperationsReport();
+            } else if (this.activeTab === 'creditSettlements') {
+                this.loadCreditSettlementsReport();
             } else if (this.activeTab === 'topItems') {
                 this.loadTopSellingItems();
             } else if (this.activeTab === 'productSales') {
@@ -2844,6 +2978,42 @@ export default {
             } else if (this.activeTab === 'byWarehouse') {
                 this.loadSalesByWarehouse();
             }
+        },
+
+        loadCreditSettlementsReport() {
+            this.show = true;
+            const params = new URLSearchParams();
+            if (this.reportFilters.startDate) params.append("startDate", this.reportFilters.startDate);
+            if (this.reportFilters.endDate) params.append("endDate", this.reportFilters.endDate);
+
+            HTTP.get(`Admin/GetCreditSettlementsReport?${params.toString()}`)
+                .then((response) => {
+                    const data = response.data?.data ?? response.data?.Data ?? null;
+                    this.creditSettlementsReport = {
+                        count: data?.count ?? data?.Count ?? 0,
+                        totalAmount: data?.totalAmount ?? data?.TotalAmount ?? 0,
+                        breakdownByMethod: data?.breakdownByMethod ?? data?.BreakdownByMethod ?? [],
+                        items: data?.items ?? data?.Items ?? [],
+                        period: data?.period ?? data?.Period ?? {},
+                    };
+                })
+                .catch((e) => {
+                    console.error("Error loading credit settlements report:", e);
+                    this.creditSettlementsReport = {
+                        count: 0,
+                        totalAmount: 0,
+                        breakdownByMethod: [],
+                        items: [],
+                        period: {},
+                    };
+                    this.$notify.error(
+                        this.$t("loadReportError") || "فشل تحميل التقرير",
+                        { position: "top-right", timeout: 3000 }
+                    );
+                })
+                .finally(() => {
+                    this.show = false;
+                });
         },
 
         openFinancialOpsTab() {

@@ -31,6 +31,9 @@ export function createEmptyInvoiceTab(index = 1, defaults = {}) {
       customerOrderItem: [],
       orderType: "Takeaway",
       notes: "",
+      customerName: "",
+      customerPhone: "",
+      customerAddress: "",
       creditCustomerId: null,
     },
     orderDiscountType: "amount",
@@ -64,6 +67,9 @@ export function snapshotFromPos(vm) {
       customerOrderItem: [],
       orderType: vm.orderForSend?.orderType || "Takeaway",
       notes: vm.orderForSend?.notes || "",
+      customerName: vm.orderForSend?.customerName || "",
+      customerPhone: vm.orderForSend?.customerPhone || "",
+      customerAddress: vm.orderForSend?.customerAddress || "",
       creditCustomerId:
         vm.orderForSend?.creditCustomerId != null
           ? vm.orderForSend.creditCustomerId
@@ -96,6 +102,9 @@ export function applySnapshotToPos(vm, snap, options = {}) {
     customerOrderItem: [],
     orderType: snap.orderForSend?.orderType || "Takeaway",
     notes: snap.orderForSend?.notes || "",
+    customerName: snap.orderForSend?.customerName || "",
+    customerPhone: snap.orderForSend?.customerPhone || "",
+    customerAddress: snap.orderForSend?.customerAddress || "",
     creditCustomerId:
       snap.orderForSend?.creditCustomerId != null
         ? snap.orderForSend.creditCustomerId
@@ -186,6 +195,9 @@ export function savePosInvoiceTabs(userInfo, tabs, activeId) {
           customerOrderItem: [],
           orderType: t.orderForSend?.orderType || "Takeaway",
           notes: t.orderForSend?.notes || "",
+          customerName: t.orderForSend?.customerName || "",
+          customerPhone: t.orderForSend?.customerPhone || "",
+          customerAddress: t.orderForSend?.customerAddress || "",
           creditCustomerId:
             t.orderForSend?.creditCustomerId != null
               ? t.orderForSend.creditCustomerId

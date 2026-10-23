@@ -7,6 +7,9 @@ namespace POS.Models.Dtos
         public EndOfDayTotalsDto Totals { get; set; } = new();
         public EndOfDayTableStatusDto TableStatus { get; set; } = new();
         public List<EndOfDayPaymentDto> PaymentBreakdown { get; set; } = new();
+        /// <summary>تسديدات الدفع اللاحق المحصّلة اليوم، حسب طريقة التحصيل.</summary>
+        public List<EndOfDayPaymentDto> SettlementBreakdown { get; set; } = new();
+        public List<EndOfDaySettlementDto> CreditSettlements { get; set; } = new();
         public List<EndOfDayTableInvoicesDto> InvoicesByTable { get; set; } = new();
         public List<EndOfDayTopItemDto> TopItems { get; set; } = new();
         public List<EndOfDayReturnedItemDto> ReturnedItems { get; set; } = new();
@@ -24,6 +27,22 @@ namespace POS.Models.Dtos
         public decimal Profit { get; set; }
         public decimal ReturnedAmount { get; set; }
         public int ReturnedCount { get; set; }
+        /// <summary>عدد تسديدات الدفع اللاحق المسجّلة اليوم.</summary>
+        public int CreditSettlementsCount { get; set; }
+        /// <summary>مجموع مبالغ تسديدات الدفع اللاحق المحصّلة اليوم.</summary>
+        public decimal CreditSettlementsAmount { get; set; }
+    }
+
+    public class EndOfDaySettlementDto
+    {
+        public int Id { get; set; }
+        public int OrderId { get; set; }
+        public string OrderCode { get; set; } = string.Empty;
+        public string? CustomerName { get; set; }
+        public decimal Amount { get; set; }
+        public string PaymentMethod { get; set; } = "Cash";
+        public string? Notes { get; set; }
+        public DateTime InsertDate { get; set; }
     }
 
     public class EndOfDayTableStatusDto

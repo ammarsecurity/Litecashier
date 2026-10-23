@@ -374,6 +374,10 @@ namespace POS.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
 
+                    b.Property<string>("CustomerAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
                     b.Property<decimal?>("OrderSubTotal")
                         .HasColumnType("decimal(65,30)");
 

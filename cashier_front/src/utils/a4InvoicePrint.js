@@ -85,10 +85,31 @@ export function buildA4InvoicePrintDocument(data = {}) {
     })
     .join("");
 
+  const isCredit =
+    String(data.paymentMethod || "").toLowerCase() === "credit";
+  const creditName = String(data.creditCustomerName || "").trim();
   const creditRow =
-    String(data.paymentMethod || "").toLowerCase() === "credit" && data.creditCustomerName
-      ? `<div class="meta-row"><span>${esc(t("creditAccount") || "حساب آجل")}</span><strong>${esc(data.creditCustomerName)}</strong></div>`
+    isCredit && creditName
+      ? `<div class="meta-row"><span>${esc(t("creditAccount") || "حساب آجل")}</span><strong>${esc(creditName)}</strong></div>`
       : "";
+
+  const customerName = String(data.customerName || "").trim();
+  const customerPhone = String(data.customerPhone || "").trim();
+  const customerAddress = String(data.customerAddress || "").trim();
+  // Avoid duplicating the same name under both "حساب آجل" and "اسم الزبون".
+  const showCustomerName =
+    !!customerName && !(isCredit && creditName && customerName === creditName);
+  const customerRows = [
+    showCustomerName
+      ? `<div class="meta-row"><span>${esc(t("customerName") || "اسم الزبون")}</span><strong>${esc(customerName)}</strong></div>`
+      : "",
+    customerPhone
+      ? `<div class="meta-row"><span>${esc(t("phoneNumber") || "رقم الهاتف")}</span><strong>${esc(customerPhone)}</strong></div>`
+      : "",
+    customerAddress
+      ? `<div class="meta-row"><span>${esc(t("address") || "العنوان")}</span><strong>${esc(customerAddress)}</strong></div>`
+      : "",
+  ].join("");
 
   const discountRow =
     Number(data.discountAmount) > 0
@@ -248,6 +269,7 @@ export function buildA4InvoicePrintDocument(data = {}) {
       <div class="meta-row"><span>${esc(t("paymentMethod") || "طريقة الدفع")}</span><strong>${esc(data.paymentMethodLabel || data.paymentMethod || "---")}</strong></div>
       <div class="meta-row"><span>${esc(t("priceModeLabel") || "نوع السعر")}</span><strong>${esc(data.priceModeLabel || "---")}</strong></div>
       ${creditRow}
+      ${customerRows}
       ${data.warehouseName ? `<div class="meta-row"><span>${esc(t("selectWarehouse") || "المخزن")}</span><strong>${esc(data.warehouseName)}</strong></div>` : ""}
     </section>
 

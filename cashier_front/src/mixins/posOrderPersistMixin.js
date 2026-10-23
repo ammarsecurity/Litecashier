@@ -123,6 +123,9 @@ export default {
 
       this.carditems = [];
       this.orderForSend.notes = "";
+      this.orderForSend.customerName = "";
+      this.orderForSend.customerPhone = "";
+      this.orderForSend.customerAddress = "";
       this.orderForSend.creditCustomerId = null;
       this.orderForSend.clientOrderId = null;
       this.orderForSend.soldAt = null;

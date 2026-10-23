@@ -21,5 +21,10 @@ namespace POS.Models.Dtos
         public decimal? DiscountPercent { get; set; }
         public decimal? OrderSubTotal { get; set; }
         public decimal? OrderTotalAfterDiscount { get; set; }
+
+        public string? CustomerName { get; set; }
+        public string? CustomerPhone { get; set; }
+        public string? CustomerAddress { get; set; }
+        public string? Notes { get; set; }
     }
 }

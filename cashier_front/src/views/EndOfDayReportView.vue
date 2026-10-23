@@ -142,6 +142,20 @@
                   </div>
                 </div>
               </div>
+              <div class="app-overview-stat">
+                <span class="app-overview-stat-icon app-overview-stat-icon--info">
+                  <b-icon icon="wallet2"></b-icon>
+                </span>
+                <div>
+                  <div class="app-overview-stat-value app-overview-stat-value--text">
+                    {{ formatPrice(report.totals.creditSettlementsAmount || 0) }} {{ $t("currency") }}
+                  </div>
+                  <div class="app-overview-stat-label">
+                    {{ $t("creditSettlementsCollected") || "تحصيل تسديدات آجل" }}
+                    <span class="eod-stat-extra">· {{ report.totals.creditSettlementsCount || 0 }}</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="app-section-card" v-if="showTableSections">
@@ -201,6 +215,72 @@
                   </div>
                 </div>
                 <p v-else class="eod-section-empty">{{ $t("noDataForSection") || "لا توجد بيانات" }}</p>
+              </div>
+            </div>
+
+            <div class="app-section-card">
+              <div class="app-section-header">
+                <div class="app-section-title-wrap">
+                  <div class="app-section-icon-wrap eod-icon--payment">
+                    <b-icon icon="wallet2"></b-icon>
+                  </div>
+                  <div>
+                    <h3 class="app-section-title">{{ $t("creditSettlementsSection") || "تسديدات الدفع اللاحق" }}</h3>
+                    <p class="app-section-subtitle">
+                      {{ $t("creditSettlementsSectionHint") || "المبالغ المحصّلة اليوم من فواتير الدفع اللاحق (نقد / بطاقة / تحويل)" }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="app-section-body">
+                <div v-if="(report.settlementBreakdown || []).length" class="eod-payment-grid" style="margin-bottom: 1rem">
+                  <div
+                    v-for="row in report.settlementBreakdown"
+                    :key="'settle-' + row.method"
+                    class="eod-payment-card"
+                    :class="`eod-payment-card--${paymentMethodKey(row.method)}`"
+                  >
+                    <span class="eod-payment-card-icon">
+                      <b-icon :icon="paymentMethodIcon(row.method)"></b-icon>
+                    </span>
+                    <span class="eod-payment-card-method">{{ paymentMethodLabel(row.method) }}</span>
+                    <span class="eod-payment-card-amount">{{ formatPrice(row.amount) }} {{ $t("currency") }}</span>
+                    <span class="eod-payment-card-count">
+                      {{ row.ordersCount || 0 }} {{ $t("settlementCountLabel") || "تسديد" }}
+                    </span>
+                  </div>
+                </div>
+                <div
+                  v-if="(report.creditSettlements || []).length"
+                  class="report-table-container"
+                >
+                  <table class="report-table">
+                    <thead>
+                      <tr>
+                        <th>{{ $t("invoice_number") || "الفاتورة" }}</th>
+                        <th>{{ $t("customerName") || "الزبون" }}</th>
+                        <th>{{ $t("amount") || "المبلغ" }}</th>
+                        <th>{{ $t("paymentMethod") || "طريقة التحصيل" }}</th>
+                        <th>{{ $t("from_date") || "الوقت" }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="row in report.creditSettlements" :key="row.id">
+                        <td><span class="report-item-code">{{ row.orderCode }}</span></td>
+                        <td>{{ row.customerName || "—" }}</td>
+                        <td><span class="report-item-price">{{ formatPrice(row.amount) }} {{ $t("currency") }}</span></td>
+                        <td>{{ paymentMethodLabel(row.paymentMethod) }}</td>
+                        <td>{{ formatDateTime(row.insertDate) }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p
+                  v-if="!(report.settlementBreakdown || []).length && !(report.creditSettlements || []).length"
+                  class="eod-section-empty"
+                >
+                  {{ $t("noCreditSettlementsToday") || "لا توجد تسديدات اليوم" }}
+                </p>
               </div>
             </div>
 

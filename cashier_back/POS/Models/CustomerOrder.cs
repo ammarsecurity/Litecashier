@@ -74,6 +74,9 @@ namespace POS.Models
         [MaxLength(30)]
         public string? CustomerPhone { get; set; }
 
+        [MaxLength(500)]
+        public string? CustomerAddress { get; set; }
+
         [MaxLength(1000)]
         public string? Notes { get; set; }
     }

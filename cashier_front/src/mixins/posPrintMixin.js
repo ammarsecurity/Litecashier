@@ -275,6 +275,12 @@ export default {
             ? t("wholesalePriceMode") || "جملة"
             : t("retailPriceMode") || "مفرد",
           creditCustomerName: this.resolveCreditCustomerName(),
+          customerName:
+            this.order?.customerName || this.order?.CustomerName || "",
+          customerPhone:
+            this.order?.customerPhone || this.order?.CustomerPhone || "",
+          customerAddress:
+            this.order?.customerAddress || this.order?.CustomerAddress || "",
           warehouseName: this.resolveWarehouseNameForPrint(),
           discountAmount: Number(this.order?.discountAmount || 0),
           grandTotal: (() => {
@@ -292,7 +298,7 @@ export default {
             this.reportInvoiceItemCount ??
             items.reduce((s, i) => s + (Number(i.quantity) || 0), 0),
           currency: t("currency") || "",
-          notes: this.order?.notes || "",
+          notes: this.order?.notes || this.order?.Notes || "",
           lines: items.map((item) => {
             const unit =
               typeof this.getSellingPrice === "function"
@@ -365,6 +371,14 @@ export default {
           ? t("wholesalePriceMode") || "جملة"
           : t("retailPriceMode") || "مفرد",
         creditCustomerName: this.resolveCreditCustomerName(),
+        // Walk-in name only (credit account name is already in creditCustomerName).
+        customerName: String(this.orderForSend?.customerName || "").trim(),
+        customerPhone:
+          this.saleCustomerPhoneForPrint ||
+          String(this.orderForSend?.customerPhone || "").trim(),
+        customerAddress:
+          this.saleCustomerAddressForPrint ||
+          String(this.orderForSend?.customerAddress || "").trim(),
         warehouseName: this.resolveWarehouseNameForPrint(),
         discountAmount,
         grandTotal,
