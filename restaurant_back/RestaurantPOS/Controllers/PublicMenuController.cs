@@ -68,19 +68,27 @@ namespace RestaurantPOS.Controllers
                 startDay = endDay = startDate.Value.Date;
             }
             else
-                return false;
+            {
+                startDay = endDay = endDate!.Value.Date;
+            }
 
             var tzId = (_configuration["BusinessSettings:TimeZoneId"] ?? "").Trim();
+            if (string.IsNullOrEmpty(tzId))
+                tzId = "Asia/Baghdad";
+
             TimeZoneInfo tz;
             try
             {
-                tz = !string.IsNullOrEmpty(tzId)
-                    ? TimeZoneInfo.FindSystemTimeZoneById(tzId)
-                    : TimeZoneInfo.Local;
+                tz = TimeZoneInfo.FindSystemTimeZoneById(tzId);
             }
             catch
             {
-                tz = TimeZoneInfo.Local;
+                try { tz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Baghdad"); }
+                catch
+                {
+                    try { tz = TimeZoneInfo.FindSystemTimeZoneById("Arabian Standard Time"); }
+                    catch { tz = TimeZoneInfo.Utc; }
+                }
             }
 
             var localStart = DateTime.SpecifyKind(startDay, DateTimeKind.Unspecified);

@@ -18,11 +18,16 @@ namespace RestaurantPOS.Controllers
     {
         private readonly DbConfig _dbConfig;
         private readonly ILogger<DeliveryDriversController> _logger;
+        private readonly IConfiguration _configuration;
 
-        public DeliveryDriversController(ILogger<DeliveryDriversController> logger, DbConfig dbConfig)
+        public DeliveryDriversController(
+            ILogger<DeliveryDriversController> logger,
+            DbConfig dbConfig,
+            IConfiguration configuration)
         {
             _logger = logger;
             _dbConfig = dbConfig;
+            _configuration = configuration;
         }
 
         // Helper method to get Commercial User ID
@@ -37,6 +42,56 @@ namespace RestaurantPOS.Controllers
             }
             
             return user?.InsertByUserId ?? userId;
+        }
+
+        private TimeZoneInfo ResolveBusinessTimeZone()
+        {
+            var tzId = (_configuration["BusinessSettings:TimeZoneId"] ?? "").Trim();
+            if (string.IsNullOrEmpty(tzId))
+                tzId = "Asia/Baghdad";
+
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(tzId);
+            }
+            catch
+            {
+                foreach (var id in new[] { "Asia/Baghdad", "Arabian Standard Time" })
+                {
+                    try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
+                    catch { /* try next */ }
+                }
+                return TimeZoneInfo.Utc;
+            }
+        }
+
+        private bool TryGetOrderInsertUtcRange(DateTime? startDate, DateTime? endDate, out DateTime fromUtc, out DateTime toUtcExclusive)
+        {
+            fromUtc = default;
+            toUtcExclusive = default;
+            if (!startDate.HasValue && !endDate.HasValue)
+                return false;
+
+            DateTime startDay;
+            DateTime endDay;
+            if (startDate.HasValue && endDate.HasValue)
+            {
+                startDay = startDate.Value.Date;
+                endDay = endDate.Value.Date;
+                if (endDay < startDay)
+                    (startDay, endDay) = (endDay, startDay);
+            }
+            else if (startDate.HasValue)
+                startDay = endDay = startDate.Value.Date;
+            else
+                startDay = endDay = endDate!.Value.Date;
+
+            var tz = ResolveBusinessTimeZone();
+            var localStart = DateTime.SpecifyKind(startDay, DateTimeKind.Unspecified);
+            var localEndExclusive = DateTime.SpecifyKind(endDay.AddDays(1), DateTimeKind.Unspecified);
+            fromUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, tz);
+            toUtcExclusive = TimeZoneInfo.ConvertTimeToUtc(localEndExclusive, tz);
+            return true;
         }
 
         private static decimal ResolveOrderSalesAmount(CustomerOrder order)
@@ -393,14 +448,9 @@ namespace RestaurantPOS.Controllers
                         && !o.IsDeleted 
                         && o.InsertByUserId == commercialUserId);
 
-                if (startDate.HasValue)
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
                 {
-                    ordersQuery = ordersQuery.Where(o => o.InsertDate.Date >= startDate.Value.Date);
-                }
-
-                if (endDate.HasValue)
-                {
-                    ordersQuery = ordersQuery.Where(o => o.InsertDate.Date <= endDate.Value.Date);
+                    ordersQuery = ordersQuery.Where(o => o.InsertDate >= fromUtc && o.InsertDate < toUtcEx);
                 }
 
                 var orders = await ordersQuery.ToListAsync();

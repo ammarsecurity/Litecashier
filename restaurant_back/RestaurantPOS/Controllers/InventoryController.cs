@@ -39,6 +39,56 @@ namespace RestaurantPOS.Controllers
             return user?.InsertByUserId ?? userId;
         }
 
+        private TimeZoneInfo ResolveBusinessTimeZone()
+        {
+            var tzId = (_configuration["BusinessSettings:TimeZoneId"] ?? "").Trim();
+            if (string.IsNullOrEmpty(tzId))
+                tzId = "Asia/Baghdad";
+
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(tzId);
+            }
+            catch
+            {
+                foreach (var id in new[] { "Asia/Baghdad", "Arabian Standard Time" })
+                {
+                    try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
+                    catch { /* try next */ }
+                }
+                return TimeZoneInfo.Utc;
+            }
+        }
+
+        private bool TryGetBusinessUtcRange(DateTime? startDate, DateTime? endDate, out DateTime fromUtc, out DateTime toUtcExclusive)
+        {
+            fromUtc = default;
+            toUtcExclusive = default;
+            if (!startDate.HasValue && !endDate.HasValue)
+                return false;
+
+            DateTime startDay;
+            DateTime endDay;
+            if (startDate.HasValue && endDate.HasValue)
+            {
+                startDay = startDate.Value.Date;
+                endDay = endDate.Value.Date;
+                if (endDay < startDay)
+                    (startDay, endDay) = (endDay, startDay);
+            }
+            else if (startDate.HasValue)
+                startDay = endDay = startDate.Value.Date;
+            else
+                startDay = endDay = endDate!.Value.Date;
+
+            var tz = ResolveBusinessTimeZone();
+            var localStart = DateTime.SpecifyKind(startDay, DateTimeKind.Unspecified);
+            var localEndExclusive = DateTime.SpecifyKind(endDay.AddDays(1), DateTimeKind.Unspecified);
+            fromUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, tz);
+            toUtcExclusive = TimeZoneInfo.ConvertTimeToUtc(localEndExclusive, tz);
+            return true;
+        }
+
         /// <summary>جلب أرصدة المخزن حسب اسم المادة (كتابة حرة، لا علاقة بالأطباق/المشروبات)</summary>
         [HttpGet("GetInventory")]
         public async Task<ActionResult<GlobalResponse<object>>> GetInventory(int pageNumber = 0, int pageSize = 500, string? info = null)
@@ -118,11 +168,9 @@ namespace RestaurantPOS.Controllers
                     (x.Notes != null && x.Notes.Contains($"ReceiptNumber:{rn}")) ||
                     (x.ReceiptNumber != null && x.ReceiptNumber == rn));
             }
-            // نطاق تواريخ شامل ليوم البداية والنهاية (حسب التقويم المحلي للخادم)
-            if (startDate.HasValue)
-                query = query.Where(x => x.InsertDate >= startDate.Value.Date);
-            if (endDate.HasValue)
-                query = query.Where(x => x.InsertDate < endDate.Value.Date.AddDays(1));
+            // نطاق تواريخ حسب يوم العمل (Asia/Baghdad) لأن InsertDate مخزَّن UTC
+            if (TryGetBusinessUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
+                query = query.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
             if (!string.IsNullOrWhiteSpace(receivedByEmployeeName))
             {
                 var recv = receivedByEmployeeName.Trim();

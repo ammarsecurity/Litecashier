@@ -170,6 +170,8 @@ namespace RestaurantPOS.Controllers
             if (!startDate.HasValue && !endDate.HasValue)
                 return false;
 
+            // Date-only query params may bind as UTC midnight; use calendar date only,
+            // then interpret the day in BusinessSettings:TimeZoneId (Asia/Baghdad).
             DateTime startDay;
             DateTime endDay;
 
@@ -185,7 +187,10 @@ namespace RestaurantPOS.Controllers
                 startDay = endDay = startDate.Value.Date;
             }
             else
-                return false;
+            {
+                // endDate only → that single business day
+                startDay = endDay = endDate!.Value.Date;
+            }
 
             var tz = ResolveBusinessTimeZone();
             var localStart = DateTime.SpecifyKind(startDay, DateTimeKind.Unspecified);
@@ -4224,15 +4229,9 @@ namespace RestaurantPOS.Controllers
                 .Where(x => !x.IsDeleted && x.InsertByUserId == commercialUserId)
                 .AsQueryable();
 
-            if (startDate.HasValue && endDate.HasValue)
+            if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
             {
-                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
-                    query = query.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
-            }
-            else if (startDate.HasValue)
-            {
-                if (TryGetOrderInsertUtcRange(startDate, startDate, out var fromUtc, out var toUtcEx))
-                    query = query.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
+                query = query.Where(x => x.InsertDate >= fromUtc && x.InsertDate < toUtcEx);
             }
 
             if (tableId.HasValue)
@@ -5303,32 +5302,32 @@ namespace RestaurantPOS.Controllers
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
             var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
-            var today = DateTime.Today;
+            var today = GetBusinessLocalToday();
+            TryGetOrderInsertUtcRange(today, today, out var dayFrom, out var dayTo);
+            TryGetOrderInsertUtcRange(today.AddDays(-7), today, out var weekFrom, out var weekTo);
+            TryGetOrderInsertUtcRange(today.AddDays(-30), today, out var monthFrom, out var monthTo);
 
             var customerOrdersQuery = _dbConfig.CustomerOrders
                 .Where(x => x.IsDeleted == false && (x.InsertByUserId == userId ||  x.User.InsertByUserId == userId));
 
             var orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user!.InsertByUserId);
 
-
-          
-
             var totalItems = customerOrdersQuery.Count();
 
             var newOrderCount = new
             {
                 total = totalItems,
-                thisDay = customerOrdersQuery.Count(x => x.InsertDate.Date == today),
-                thisWeek = customerOrdersQuery.Count(x => x.InsertDate.Date >= today.AddDays(-7)),
-                thisMonth = customerOrdersQuery.Count(x => x.InsertDate.Date >= today.AddDays(-30))
+                thisDay = customerOrdersQuery.Count(x => x.InsertDate >= dayFrom && x.InsertDate < dayTo),
+                thisWeek = customerOrdersQuery.Count(x => x.InsertDate >= weekFrom && x.InsertDate < weekTo),
+                thisMonth = customerOrdersQuery.Count(x => x.InsertDate >= monthFrom && x.InsertDate < monthTo)
             };
 
             var newItemsOrderCount = new
             {
                 total = orderItemsQuery.Count(),
-                thisDay = orderItemsQuery.Sum(x => x.CustomerOrder!.InsertDate.Date == today ? x.Quantity : 0),
-                thisWeek = orderItemsQuery.Sum(x => x.CustomerOrder!.InsertDate.Date >= today.AddDays(-7) ? x.Quantity : 0),
-                thisMonth = orderItemsQuery.Sum(x => x.CustomerOrder!.InsertDate.Date >= today.AddDays(-30) ? x.Quantity : 0)
+                thisDay = orderItemsQuery.Sum(x => x.CustomerOrder != null && x.CustomerOrder.InsertDate >= dayFrom && x.CustomerOrder.InsertDate < dayTo ? x.Quantity : 0),
+                thisWeek = orderItemsQuery.Sum(x => x.CustomerOrder != null && x.CustomerOrder.InsertDate >= weekFrom && x.CustomerOrder.InsertDate < weekTo ? x.Quantity : 0),
+                thisMonth = orderItemsQuery.Sum(x => x.CustomerOrder != null && x.CustomerOrder.InsertDate >= monthFrom && x.CustomerOrder.InsertDate < monthTo ? x.Quantity : 0)
             };
 
             var newCount = new
@@ -5355,11 +5354,14 @@ namespace RestaurantPOS.Controllers
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
             var users = _dbConfig.Users.Where(x => x.Id == userId).ToList();
 
+            var today = GetBusinessLocalToday();
+            TryGetOrderInsertUtcRange(today, today, out var dayFrom, out var dayTo);
+            TryGetOrderInsertUtcRange(today.AddDays(-7), today, out var weekFrom, out var weekTo);
+            TryGetOrderInsertUtcRange(today.AddDays(-30), today, out var monthFrom, out var monthTo);
+
             var finelList = new List<object>();
             foreach( var user in users)
             {
-                var today = DateTime.Today;
-
                 var customerOrdersQuery = _dbConfig.CustomerOrders
                     .Where(x => x.IsDeleted == false && (x.InsertByUserId == userId || x.User.Id == user.InsertByUserId || x.User.InsertByUserId == userId));
 
@@ -5370,17 +5372,17 @@ namespace RestaurantPOS.Controllers
                 var newOrderCount = new
                 {
                     total = totalItems,
-                    thisDay = customerOrdersQuery.Count(x => x.InsertDate.Date == today),
-                    thisWeek = customerOrdersQuery.Count(x => x.InsertDate.Date >= today.AddDays(-7)),
-                    thisMonth = customerOrdersQuery.Count(x => x.InsertDate.Date >= today.AddDays(-30))
+                    thisDay = customerOrdersQuery.Count(x => x.InsertDate >= dayFrom && x.InsertDate < dayTo),
+                    thisWeek = customerOrdersQuery.Count(x => x.InsertDate >= weekFrom && x.InsertDate < weekTo),
+                    thisMonth = customerOrdersQuery.Count(x => x.InsertDate >= monthFrom && x.InsertDate < monthTo)
                 };
 
                 var newItemsOrderCount = new
                 {
                     total = orderItemsQuery.Count(),
-                    thisDay = orderItemsQuery.Sum(x => x.CustomerOrder!.InsertDate.Date == today ? x.Quantity : 0),
-                    thisWeek = orderItemsQuery.Sum(x => x.CustomerOrder!.InsertDate.Date >= today.AddDays(-7) ? x.Quantity : 0),
-                    thisMonth = orderItemsQuery.Sum(x => x.CustomerOrder!.InsertDate.Date >= today.AddDays(-30) ? x.Quantity : 0)
+                    thisDay = orderItemsQuery.Sum(x => x.CustomerOrder != null && x.CustomerOrder.InsertDate >= dayFrom && x.CustomerOrder.InsertDate < dayTo ? x.Quantity : 0),
+                    thisWeek = orderItemsQuery.Sum(x => x.CustomerOrder != null && x.CustomerOrder.InsertDate >= weekFrom && x.CustomerOrder.InsertDate < weekTo ? x.Quantity : 0),
+                    thisMonth = orderItemsQuery.Sum(x => x.CustomerOrder != null && x.CustomerOrder.InsertDate >= monthFrom && x.CustomerOrder.InsertDate < monthTo ? x.Quantity : 0)
                 };
 
                 var newCount = new
@@ -5390,7 +5392,7 @@ namespace RestaurantPOS.Controllers
                     newItemsOrderCount
                 };
 
-                finelList.Add(newOrderCount);
+                finelList.Add(newCount);
               
             }   
             
@@ -5414,7 +5416,10 @@ namespace RestaurantPOS.Controllers
                 var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
                 var user = _dbConfig.Users.FirstOrDefault(x => x.Id == userId);
 
-                var today = DateTime.Today;
+                var today = GetBusinessLocalToday();
+                TryGetOrderInsertUtcRange(today, today, out var dayFrom, out var dayTo);
+                TryGetOrderInsertUtcRange(today.AddDays(-7), today, out var weekFrom, out var weekTo);
+                TryGetOrderInsertUtcRange(today.AddDays(-30), today, out var monthFrom, out var monthTo);
 
                 // Orders Statistics
                 var customerOrdersQuery = QueryActiveOrdersForCommercial(userId);
@@ -5433,12 +5438,12 @@ namespace RestaurantPOS.Controllers
                     .Where(x => x.IsDeleted == false);
 
                 // Sales Amount — one total per order (avoids counting replaced line items)
-                decimal CalculateSalesAmount(DateTime startDate, DateTime endDate)
+                decimal CalculateSalesAmount(DateTime fromUtc, DateTime toUtcExclusive)
                 {
                     return SumOrdersSalesAmount(
                         customerOrdersQuery.Where(x =>
-                            x.InsertDate.Date >= startDate &&
-                            x.InsertDate.Date <= endDate));
+                            x.InsertDate >= fromUtc &&
+                            x.InsertDate < toUtcExclusive));
                 }
 
                 decimal TotalAmount()
@@ -5451,23 +5456,23 @@ namespace RestaurantPOS.Controllers
                     orders = new
                     {
                         total = customerOrdersQuery.Count(),
-                        today = customerOrdersQuery.Count(x => x.InsertDate.Date == today),
-                        thisWeek = customerOrdersQuery.Count(x => x.InsertDate.Date >= today.AddDays(-7)),
-                        thisMonth = customerOrdersQuery.Count(x => x.InsertDate.Date >= today.AddDays(-30))
+                        today = customerOrdersQuery.Count(x => x.InsertDate >= dayFrom && x.InsertDate < dayTo),
+                        thisWeek = customerOrdersQuery.Count(x => x.InsertDate >= weekFrom && x.InsertDate < weekTo),
+                        thisMonth = customerOrdersQuery.Count(x => x.InsertDate >= monthFrom && x.InsertDate < monthTo)
                     },
                     items = new
                     {
                         total = orderItemsQuery.Count(),
-                        today = orderItemsQuery.Sum(x => x.CustomerOrder!.InsertDate.Date == today ? x.Quantity : 0),
-                        thisWeek = orderItemsQuery.Sum(x => x.CustomerOrder!.InsertDate.Date >= today.AddDays(-7) ? x.Quantity : 0),
-                        thisMonth = orderItemsQuery.Sum(x => x.CustomerOrder!.InsertDate.Date >= today.AddDays(-30) ? x.Quantity : 0)
+                        today = orderItemsQuery.Sum(x => x.CustomerOrder != null && x.CustomerOrder.InsertDate >= dayFrom && x.CustomerOrder.InsertDate < dayTo ? x.Quantity : 0),
+                        thisWeek = orderItemsQuery.Sum(x => x.CustomerOrder != null && x.CustomerOrder.InsertDate >= weekFrom && x.CustomerOrder.InsertDate < weekTo ? x.Quantity : 0),
+                        thisMonth = orderItemsQuery.Sum(x => x.CustomerOrder != null && x.CustomerOrder.InsertDate >= monthFrom && x.CustomerOrder.InsertDate < monthTo ? x.Quantity : 0)
                     },
                     salesAmount = new
                     {
                         total = TotalAmount(),
-                        today = CalculateSalesAmount(today, today),
-                        thisWeek = CalculateSalesAmount(today.AddDays(-7), today),
-                        thisMonth = CalculateSalesAmount(today.AddDays(-30), today)
+                        today = CalculateSalesAmount(dayFrom, dayTo),
+                        thisWeek = CalculateSalesAmount(weekFrom, weekTo),
+                        thisMonth = CalculateSalesAmount(monthFrom, monthTo)
                     },
                     products = new
                     {
@@ -5522,15 +5527,12 @@ namespace RestaurantPOS.Controllers
                     .Include(x => x.Item)
                     .Include(x => x.CustomerOrder);
 
-                if (startDate.HasValue)
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
                 {
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date >= startDate.Value.Date);
-                }
-
-                if (endDate.HasValue)
-                {
-                    endDate = endDate.Value.AddDays(1);
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date < endDate.Value.Date);
+                    orderItemsQuery = orderItemsQuery.Where(x =>
+                        x.CustomerOrder != null &&
+                        x.CustomerOrder.InsertDate >= fromUtc &&
+                        x.CustomerOrder.InsertDate < toUtcEx);
                 }
 
                 var profitData = orderItemsQuery
@@ -5547,6 +5549,17 @@ namespace RestaurantPOS.Controllers
                 var totalProfit = totalSales - totalCost;
                 var profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
 
+                string? periodStart = null;
+                string? periodEnd = null;
+                if (startDate.HasValue || endDate.HasValue)
+                {
+                    var s = (startDate ?? endDate)!.Value.Date;
+                    var e = (endDate ?? startDate)!.Value.Date;
+                    if (e < s) (s, e) = (e, s);
+                    periodStart = s.ToString("yyyy-MM-dd");
+                    periodEnd = e.ToString("yyyy-MM-dd");
+                }
+
                 var report = new
                 {
                     totalSales = totalSales,
@@ -5556,8 +5569,8 @@ namespace RestaurantPOS.Controllers
                     totalItemsSold = profitData.Sum(x => x.Quantity),
                     period = new
                     {
-                        startDate = startDate?.ToString("yyyy-MM-dd"),
-                        endDate = endDate?.AddDays(-1).ToString("yyyy-MM-dd")
+                        startDate = periodStart,
+                        endDate = periodEnd
                     }
                 };
 
@@ -5765,16 +5778,12 @@ namespace RestaurantPOS.Controllers
                     .Include(x => x.Item)
                     .Include(x => x.CustomerOrder);
 
-                if (startDate.HasValue)
+                if (TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx))
                 {
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date >= startDate.Value.Date);
-                }
-
-                DateTime? endDateForExpenses = endDate;
-                if (endDate.HasValue)
-                {
-                    endDateForExpenses = endDate.Value.AddDays(1);
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date < endDateForExpenses.Value.Date);
+                    orderItemsQuery = orderItemsQuery.Where(x =>
+                        x.CustomerOrder != null &&
+                        x.CustomerOrder.InsertDate >= fromUtc &&
+                        x.CustomerOrder.InsertDate < toUtcEx);
                 }
 
                 var salesByCategory = orderItemsQuery
@@ -5801,14 +5810,24 @@ namespace RestaurantPOS.Controllers
                     .GroupBy(t => t.Name!)
                     .ToDictionary(g => g.Key, g => g.First().Id);
 
-                // صرفيات الفئة حسب TagId فقط (نفس الفترة)
+                // صرفيات الفئة حسب TagId فقط (نفس الفترة — Expense.Date تقويم يوم بدون تحويل UTC)
                 var expensesQuery = _dbConfig.Expenses
                     .Where(e => !e.IsDeleted && e.InsertByUserId == commercialUserId && e.TagId != null);
 
-                if (startDate.HasValue)
-                    expensesQuery = expensesQuery.Where(e => e.Date.Date >= startDate.Value.Date);
-                if (endDateForExpenses.HasValue)
-                    expensesQuery = expensesQuery.Where(e => e.Date.Date < endDateForExpenses.Value.Date);
+                DateTime? expenseStart = null;
+                DateTime? expenseEndExclusive = null;
+                if (startDate.HasValue || endDate.HasValue)
+                {
+                    var s = (startDate ?? endDate)!.Value.Date;
+                    var e = (endDate ?? startDate)!.Value.Date;
+                    if (e < s) (s, e) = (e, s);
+                    expenseStart = s;
+                    expenseEndExclusive = e.AddDays(1);
+                }
+                if (expenseStart.HasValue)
+                    expensesQuery = expensesQuery.Where(e => e.Date.Date >= expenseStart.Value);
+                if (expenseEndExclusive.HasValue)
+                    expensesQuery = expensesQuery.Where(e => e.Date.Date < expenseEndExclusive.Value);
 
                 var expensesByTagIdList = expensesQuery
                     .GroupBy(e => e.TagId!.Value)
@@ -5879,16 +5898,19 @@ namespace RestaurantPOS.Controllers
                 }
 
                 var commercialUserId = GetCommercialUserId();
-                DateTime? endExclusive = endDate?.Date.AddDays(1);
+                var hasUtcRange = TryGetOrderInsertUtcRange(startDate, endDate, out var fromUtc, out var toUtcEx);
 
                 IQueryable<CustomerOrderItem> orderItemsQuery = QueryActiveOrderItemsForCommercial(userId, user.InsertByUserId)
                     .Include(x => x.Item)
                     .Include(x => x.CustomerOrder);
 
-                if (startDate.HasValue)
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date >= startDate.Value.Date);
-                if (endExclusive.HasValue)
-                    orderItemsQuery = orderItemsQuery.Where(x => x.CustomerOrder!.InsertDate.Date < endExclusive.Value.Date);
+                if (hasUtcRange)
+                {
+                    orderItemsQuery = orderItemsQuery.Where(x =>
+                        x.CustomerOrder != null &&
+                        x.CustomerOrder.InsertDate >= fromUtc &&
+                        x.CustomerOrder.InsertDate < toUtcEx);
+                }
 
                 var salesRows = orderItemsQuery
                     .Where(x => x.Item != null && !string.IsNullOrEmpty(x.Item.Tags))
@@ -5920,10 +5942,10 @@ namespace RestaurantPOS.Controllers
                     .AsNoTracking()
                     .Where(m => !m.IsDeleted && m.InsertByUserId == commercialUserId);
 
-                if (startDate.HasValue)
-                    stockQuery = stockQuery.Where(m => m.InsertDate.Date >= startDate.Value.Date);
-                if (endExclusive.HasValue)
-                    stockQuery = stockQuery.Where(m => m.InsertDate.Date < endExclusive.Value.Date);
+                if (hasUtcRange)
+                {
+                    stockQuery = stockQuery.Where(m => m.InsertDate >= fromUtc && m.InsertDate < toUtcEx);
+                }
 
                 var withdraws = stockQuery
                     .Where(m => m.MovementType == "Withdraw")
@@ -5944,8 +5966,8 @@ namespace RestaurantPOS.Controllers
                         .Where(m => !m.IsDeleted
                             && m.InsertByUserId == commercialUserId
                             && m.MovementType == "Add");
-                    if (endExclusive.HasValue)
-                        addsQuery = addsQuery.Where(m => m.InsertDate < endExclusive.Value);
+                    if (hasUtcRange)
+                        addsQuery = addsQuery.Where(m => m.InsertDate < toUtcEx);
                     addsPool = addsQuery.ToList()
                         .Where(a => materialNames.Contains(a.MaterialName.Trim(), StringComparer.OrdinalIgnoreCase))
                         .ToList();
