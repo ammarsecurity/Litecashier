@@ -475,6 +475,11 @@
                     required
                     class="users-form-input"
                   />
+                  <UnitPriceCalculator
+                    :key="'add-sell-' + unitPriceCalcKey"
+                    :label="$t('unitPriceCalcSellingTitle') || 'حاسبة سعر البيع'"
+                    @apply="onAddUnitPrice('sellingPrice', $event)"
+                  />
                 </div>
                 <div class="users-form-group">
                   <label class="users-form-label" for="inputDisCountPrice">
@@ -516,6 +521,11 @@
                     :placeholder="$t('purchasingPricePlaceholder')"
                     required
                     class="users-form-input"
+                  />
+                  <UnitPriceCalculator
+                    :key="'add-buy-' + unitPriceCalcKey"
+                    :label="$t('unitPriceCalcPurchasingTitle') || 'حاسبة سعر الشراء'"
+                    @apply="onAddUnitPrice('purchasingPrice', $event)"
                   />
                 </div>
               </div>
@@ -1102,6 +1112,11 @@
                       class="users-form-input"
                       :placeholder="String(editForm.sellingPrice ?? '')"
                     />
+                    <UnitPriceCalculator
+                      :key="'stock-sell-' + unitPriceCalcKey"
+                      :label="$t('unitPriceCalcSellingTitle') || 'حاسبة سعر البيع'"
+                      @apply="onStockEntryUnitPrice('sellingPrice', $event)"
+                    />
                   </div>
                   <div class="users-form-group">
                     <label class="users-form-label">{{ $t("purchasingPricePlaceholder") }}</label>
@@ -1111,6 +1126,11 @@
                       min="0"
                       class="users-form-input"
                       :placeholder="String(editForm.purchasingPrice ?? '')"
+                    />
+                    <UnitPriceCalculator
+                      :key="'stock-buy-' + unitPriceCalcKey"
+                      :label="$t('unitPriceCalcPurchasingTitle') || 'حاسبة سعر الشراء'"
+                      @apply="onStockEntryUnitPrice('purchasingPrice', $event)"
                     />
                     <p v-if="stockEntryWeightedPreview != null" class="item-restock-preview">
                       {{
@@ -1469,6 +1489,7 @@
 <script>
 import AppHeader from "@/components/Layout/AppHeader.vue";
 import ClockVue from "@/components/ClockVue.vue";
+import UnitPriceCalculator from "@/components/UnitPriceCalculator.vue";
 import VueBarcode from "@chenfengyuan/vue-barcode";
 
 import { HTTP } from "../http/api.js";
@@ -1492,6 +1513,7 @@ export default {
   components: {
     AppHeader,
     ClockVue,
+    UnitPriceCalculator,
     "vue-barcode": VueBarcode,
   },
   data() {
@@ -1585,6 +1607,7 @@ export default {
         disCountPrice: "",
         notes: "",
       },
+      unitPriceCalcKey: 0,
     };
   },
 
@@ -1757,6 +1780,22 @@ export default {
     productImageSrc,
     isProductImageFallback,
     onProductImageError,
+    onAddUnitPrice(field, value) {
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 0) return;
+      this.addForm[field] = n;
+    },
+    onStockEntryUnitPrice(field, value) {
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 0) return;
+      this.stockEntryForm[field] = n;
+      if (field === "sellingPrice") {
+        this.stockEntryForm.disCountPrice = n;
+      }
+    },
+    bumpUnitPriceCalcKey() {
+      this.unitPriceCalcKey += 1;
+    },
     refreshPage() {
       this.GetAllItems();
     },
@@ -2083,6 +2122,7 @@ export default {
         disCountPrice: "",
         notes: "",
       };
+      this.bumpUnitPriceCalcKey();
     },
     parseOptionalPrice(value) {
       if (value === null || value === undefined || String(value).trim() === "") {
@@ -2390,6 +2430,7 @@ export default {
           this.resetAddWarehouseRows();
           this.imagePreview = "";
           this.itemPhoto = null;
+          this.bumpUnitPriceCalcKey();
           this.GetAllItems();
           this.$bvModal.hide("modal-addItem");
         })

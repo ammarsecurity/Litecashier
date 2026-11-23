@@ -1,8 +1,9 @@
 ; LiteRestaurant Windows 11 all-in-one installer
 ; Build staging first: powershell -ExecutionPolicy Bypass -File build-installer.ps1
+; Safe for upgrades: keeps DB connection, Images, ProgramData; applies EF migrations only (never wipes MySQL).
 
 #define MyAppName "LiteRestaurant"
-#define MyAppVersion "1.0.4"
+#define MyAppVersion "1.0.5"
 #define MyAppPublisher "LiteRestaurant"
 #define MyAppExeName "LiteRestaurant.exe"
 
@@ -10,6 +11,7 @@
 AppId={{B7E2D4A8-1C5F-4A9E-8D3B-6F0A2C9E5B47}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
@@ -27,6 +29,9 @@ SetupIconFile=Assets\app.ico
 ; Close/replace locked files when updating over a running install
 CloseApplications=force
 RestartApplications=no
+; Same AppId → Inno treats this as an upgrade (keeps uninstall entry + data)
+UsePreviousAppDir=yes
+DisableDirPage=auto
 
 [Languages]
 Name: "arabic"; MessagesFile: "compiler:Languages\Arabic.isl"
@@ -38,11 +43,13 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Dirs]
 Name: "{commonappdata}\LiteRestaurant"; Permissions: users-modify
 Name: "{commonappdata}\LiteRestaurant\Logs"; Permissions: users-modify
+Name: "{app}\RestaurantPOS\wwwroot\Images"; Permissions: users-modify
 
 [Files]
 Source: "staging\LiteRestaurant.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Stop-LiteRestaurant.bat"; DestDir: "{app}"; Flags: ignoreversion
-Source: "staging\RestaurantPOS\*"; DestDir: "{app}\RestaurantPOS"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Never overwrite live DB settings or customer product images on upgrade
+Source: "staging\RestaurantPOS\*"; DestDir: "{app}\RestaurantPOS"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "appsettings.Production.json,wwwroot\Images\*"
 Source: "staging\PrintServer\*"; DestDir: "{app}\PrintServer"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "deps\MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 Source: "deps\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
@@ -58,6 +65,7 @@ Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; S
 Filename: "{tmp}\MicrosoftEdgeWebview2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "Installing WebView2 Runtime..."; Check: NeedsWebView2; Flags: waituntilterminated
 Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name=""LiteRestaurant API"" & netsh advfirewall firewall add rule name=""LiteRestaurant API"" dir=in action=allow protocol=TCP localport=5189"; StatusMsg: "Opening firewall for LiteRestaurant..."; Flags: runhidden
 Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name=""LiteRestaurant PrintServer"" & netsh advfirewall firewall add rule name=""LiteRestaurant PrintServer"" dir=in action=allow protocol=TCP localport=5000"; Flags: runhidden
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name=""LiteRestaurant API"" & netsh advfirewall firewall delete rule name=""LiteRestaurant PrintServer"""; Flags: runhidden
@@ -65,6 +73,12 @@ Filename: "{cmd}"; Parameters: "/c netsh advfirewall firewall delete rule name="
 [Code]
 var
   DbPage: TInputQueryWizardPage;
+
+function IsUpgradeInstall: Boolean;
+begin
+  Result := FileExists(ExpandConstant('{app}\RestaurantPOS\appsettings.Production.json'))
+    or FileExists(ExpandConstant('{app}\LiteRestaurant.exe'));
+end;
 
 function EscapeJson(const S: string): string;
 begin
@@ -150,7 +164,7 @@ procedure InitializeWizard;
 begin
   DbPage := CreateInputQueryPage(wpSelectDir,
     'إعدادات قاعدة البيانات MySQL',
-    'أدخل بيانات الاتصال — النظام ينشئ القاعدة إن لم تكن موجودة أو يحدّثها إن وُجدت',
+    'للتثبيت الجديد فقط — عند التحديث تُحفظ إعدادات القاعدة والبيانات الحالية تلقائياً',
     'تأكد أن خدمة MySQL (مثلاً من XAMPP) تعمل قبل تشغيل LiteRestaurant.');
   DbPage.Add('Host / Server:', False);
   DbPage.Add('Port:', False);
@@ -162,6 +176,13 @@ begin
   DbPage.Values[2] := 'root';
   DbPage.Values[3] := '';
   DbPage.Values[4] := 'restaurant_pos';
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  if (PageID = DbPage.ID) and IsUpgradeInstall then
+    Result := True;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -193,9 +214,16 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ExistingPath: string;
 begin
   if CurStep = ssPostInstall then
-    WriteProductionAppsettings;
+  begin
+    ExistingPath := ExpandConstant('{app}\RestaurantPOS\appsettings.Production.json');
+    { Upgrade: keep existing MySQL connection. Fresh install: write wizard values. }
+    if not FileExists(ExistingPath) then
+      WriteProductionAppsettings;
+  end;
 end;
 
 function NeedsVCRedist: Boolean;
@@ -223,4 +251,5 @@ begin
 end;
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{commonappdata}\LiteRestaurant"
+; Keep machine identity; only remove logs on uninstall. Never touch MySQL/restaurant_pos.
+Type: filesandordirs; Name: "{commonappdata}\LiteRestaurant\Logs"
